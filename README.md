@@ -1,159 +1,89 @@
-# Turborepo starter
+# Grill-Me
 
-This Turborepo starter is maintained by the Turborepo core team.
+Grill-Me is a local-first practice companion for developers. Tell it what you
+just learned, get one focused challenge, work in your normal editor, ask for a
+hint, paste your solution for review, and mark the challenge complete.
 
-## Using this example
+## V1 flow
 
-Run the following command:
+1. Enter an email to create or resume a local profile.
+2. See active and completed exercises on the Exercises home.
+3. Describe what you just learned to generate an exercise.
+4. Work through it in your own editor.
+5. Clarify the brief, use one hint, or paste a solution for review.
+6. Mark it complete and find it in History.
 
-```sh
-npx create-turbo@latest
+Clarifications, hints, and solution reviews stream into the chat as they are
+generated instead of waiting for the full response.
+
+The email is only a local profile selector. There is no authentication.
+
+## Stack
+
+- Bun + Turborepo
+- Next.js 16, Tailwind CSS, TanStack Query
+- Hono on Bun
+- Drizzle ORM + SQLite
+- OpenAI SDK pointed at an OpenAI-compatible endpoint such as OmniRoute
+
+## Setup
+
+Install dependencies:
+
+```bash
+bun install
 ```
 
-## What's inside?
+Copy the backend environment example:
 
-This Turborepo includes the following packages/apps:
-
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+cp apps/backend/.env.example apps/backend/.env
+cp apps/web/.env.local.example apps/web/.env.local
 ```
 
-Without global `turbo`, use your package manager:
+Start OmniRoute locally, add its API key/model to `apps/backend/.env`, then start
+the app:
 
-```sh
-cd my-turborepo
-npx turbo build
-bun exec turbo build
-bun exec turbo build
+```bash
+bun dev
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+- Web: http://localhost:3000
+- API: http://localhost:3001
+- Health check: http://localhost:3001/health
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+`bun dev` starts only the web and backend workspaces. Next.js 16 uses Turbopack by
+default, including its persistent development cache.
 
-```sh
-turbo build --filter=docs
+## Database
+
+The local database is created at `apps/backend/.data/grill-me.sqlite` and is
+ignored by Git. Tracked migrations are applied when the backend starts.
+
+```bash
+bun db:generate
+bun db:migrate
 ```
 
-Without global `turbo`:
+## Quality checks
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+```bash
+bun run lint
+bun run check-types
+bun run build
 ```
 
-### Develop
+## Environment
 
-To develop all apps and packages, run the following command:
+Backend variables:
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+- `LLM_BASE_URL`: OpenAI-compatible base URL
+- `LLM_API_KEY`: API key expected by the model gateway
+- `LLM_MODEL`: model or OmniRoute alias
+- `DATABASE_URL`: SQLite file path
+- `API_PORT`: Hono port
+- `WEB_ORIGIN`: allowed browser origin
 
-```sh
-cd my-turborepo
-turbo dev
-```
+Web variable:
 
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- `NEXT_PUBLIC_API_URL`: browser-visible Hono API URL
