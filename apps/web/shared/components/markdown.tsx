@@ -3,6 +3,7 @@
 import { Check, Copy } from "lucide-react";
 import { isValidElement, useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 function textFromNode(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
@@ -55,6 +56,7 @@ export function Markdown({ children }: { children: string }) {
   return (
     <div className="min-w-0 break-words text-[inherit] leading-[inherit]">
       <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children: content }) => (
             <h1 className="mt-5 mb-2 text-lg leading-6 font-semibold tracking-[-0.02em] first:mt-0">
@@ -74,8 +76,14 @@ export function Markdown({ children }: { children: string }) {
           p: ({ children: content }) => (
             <p className="mb-3 last:mb-0">{content}</p>
           ),
-          ul: ({ children: content }) => (
-            <ul className="mb-3 list-disc space-y-1.5 pl-5 marker:text-muted last:mb-0">
+          ul: ({ children: content, className }) => (
+            <ul
+              className={
+                className?.includes("contains-task-list")
+                  ? "mb-3 grid list-none gap-1.5 pl-0 last:mb-0"
+                  : "mb-3 list-disc space-y-1.5 pl-5 marker:text-muted last:mb-0"
+              }
+            >
               {content}
             </ul>
           ),
@@ -84,9 +92,32 @@ export function Markdown({ children }: { children: string }) {
               {content}
             </ol>
           ),
-          li: ({ children: content }) => <li className="pl-0.5">{content}</li>,
+          li: ({ children: content, className }) => (
+            <li
+              className={
+                className?.includes("task-list-item")
+                  ? "flex items-start gap-2"
+                  : "pl-0.5"
+              }
+            >
+              {content}
+            </li>
+          ),
+          input: ({ type, checked }) =>
+            type === "checkbox" ? (
+              <input
+                type="checkbox"
+                checked={checked}
+                readOnly
+                tabIndex={-1}
+                className="mt-1.5 size-3.5 shrink-0 accent-brand"
+              />
+            ) : null,
           strong: ({ children: content }) => (
             <strong className="font-semibold text-foreground">{content}</strong>
+          ),
+          del: ({ children: content }) => (
+            <del className="text-muted decoration-dim">{content}</del>
           ),
           a: ({ children: content, href }) => (
             <a
@@ -112,6 +143,34 @@ export function Markdown({ children }: { children: string }) {
             <blockquote className="my-4 border-l-2 border-brand/60 pl-3 text-muted [&>p]:mb-0">
               {content}
             </blockquote>
+          ),
+          table: ({ children: content }) => (
+            <div className="my-4 overflow-x-auto rounded-lg border border-line">
+              <table className="w-full border-collapse text-left text-xs leading-5">
+                {content}
+              </table>
+            </div>
+          ),
+          thead: ({ children: content }) => (
+            <thead className="bg-white/[0.04] text-foreground">{content}</thead>
+          ),
+          tbody: ({ children: content }) => (
+            <tbody className="divide-y divide-line">{content}</tbody>
+          ),
+          tr: ({ children: content }) => (
+            <tr className="transition-colors hover:bg-white/[0.025]">
+              {content}
+            </tr>
+          ),
+          th: ({ children: content }) => (
+            <th className="border-r border-line px-3 py-2.5 font-semibold last:border-r-0">
+              {content}
+            </th>
+          ),
+          td: ({ children: content }) => (
+            <td className="border-r border-line px-3 py-2.5 align-top text-slate-300 last:border-r-0">
+              {content}
+            </td>
           ),
           hr: () => <hr className="my-5 border-line" />,
           pre: ({ children: content }) => <CodeBlock>{content}</CodeBlock>,

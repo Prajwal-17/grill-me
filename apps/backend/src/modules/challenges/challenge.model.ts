@@ -16,7 +16,8 @@ export const challengeModel = {
           eq(challenges.status, "active"),
         ),
       )
-      .get();
+      .orderBy(desc(challenges.createdAt))
+      .all();
   },
 
   findHistory(profileId: string) {

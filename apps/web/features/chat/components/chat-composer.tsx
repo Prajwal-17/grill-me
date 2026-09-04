@@ -77,12 +77,7 @@ export function ChatComposer({
           className="block min-h-20 w-full resize-y bg-transparent px-3.5 pt-3 pb-1 text-sm leading-6 outline-none placeholder:text-dim"
         />
 
-        <div className="flex min-h-11 items-center justify-between gap-4 px-3 py-2">
-          <span className="text-[10px] text-dim">
-            {mode === "review"
-              ? "Code is never executed · Enter to send · Ctrl + Enter for a new line"
-              : "Enter to send · Ctrl + Enter for a new line"}
-          </span>
+        <div className="flex min-h-11 items-center justify-end px-3 py-2">
           <button
             type="submit"
             aria-label={

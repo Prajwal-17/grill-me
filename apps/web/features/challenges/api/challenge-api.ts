@@ -2,13 +2,20 @@ import { apiRequest } from "../../../shared/lib/api-client";
 import type { Challenge } from "../../../shared/types/api";
 
 export const challengeKeys = {
-  active: (profileId?: string) => ["active-challenge", profileId] as const,
-  history: (profileId?: string) => ["challenge-history", profileId] as const,
+  active: (profileId?: string) => ["challenges", "active", profileId] as const,
+  history: (profileId?: string) =>
+    ["challenges", "history", profileId] as const,
+  detail: (profileId?: string, challengeId?: string) =>
+    ["challenges", "detail", profileId, challengeId] as const,
   messages: (challengeId?: string) => ["messages", challengeId] as const,
 };
 
-export function getActiveChallenge(profileId: string) {
-  return apiRequest<Challenge | null>("/challenges/active", {}, profileId);
+export function getActiveChallenges(profileId: string) {
+  return apiRequest<Challenge[]>("/challenges/active", {}, profileId);
+}
+
+export function getChallenge(profileId: string, challengeId: string) {
+  return apiRequest<Challenge>(`/challenges/${challengeId}`, {}, profileId);
 }
 
 export function getChallengeHistory(profileId: string) {

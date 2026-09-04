@@ -68,7 +68,11 @@ bun db:migrate
 ## Quality checks
 
 ```bash
+bun run check
 bun run lint
+bun run lint:fix
+bun run format
+bun run format:check
 bun run check-types
 bun run build
 ```

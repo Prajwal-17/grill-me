@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Lightbulb,
   LoaderCircle,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,12 +16,13 @@ import {
   challengeKeys,
   completeChallenge,
   generateChallenge,
-  getActiveChallenge,
+  getActiveChallenges,
+  getChallenge,
 } from "../../challenges/api/challenge-api";
 import { ChallengeCard } from "../../challenges/components/challenge-card";
 import { useProfile } from "../../profile/hooks/use-profile";
 import { AppHeader } from "../../../shared/components/app-header";
-import { Button } from "../../../shared/components/ui/button";
+import { Button, buttonStyles } from "../../../shared/components/ui/button";
 import {
   ErrorState,
   LoadingScreen,
@@ -35,7 +37,13 @@ import { ChatComposer } from "../components/chat-composer";
 import { ChatMessage } from "../components/chat-message";
 import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
 
-export function ChatPage() {
+export function ChatPage({
+  challengeId,
+  createNew = false,
+}: {
+  challengeId?: string;
+  createNew?: boolean;
+}) {
   const profile = useProfile();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -55,10 +63,23 @@ export function ChatPage() {
 
   const activeQuery = useQuery({
     queryKey: challengeKeys.active(profile?.id),
-    queryFn: () => getActiveChallenge(profile!.id),
-    enabled: Boolean(profile),
+    queryFn: () => getActiveChallenges(profile!.id),
+    enabled: Boolean(profile && !challengeId && !createNew),
   });
-  const challenge = activeQuery.data;
+  const detailQuery = useQuery({
+    queryKey: challengeKeys.detail(profile?.id, challengeId),
+    queryFn: () => getChallenge(profile!.id, challengeId!),
+    enabled: Boolean(profile && challengeId && !createNew),
+  });
+  const challenge = createNew
+    ? undefined
+    : challengeId
+      ? detailQuery.data
+      : activeQuery.data?.[0];
+  const challengeLoading =
+    !createNew && (challengeId ? detailQuery.isLoading : activeQuery.isLoading);
+  const challengeError = detailQuery.error ?? activeQuery.error;
+
   const messagesQuery = useQuery({
     queryKey: challengeKeys.messages(challenge?.id),
     queryFn: () => getMessages(profile!.id, challenge!.id),
@@ -76,8 +97,15 @@ export function ChatPage() {
   const generate = useMutation({
     mutationFn: () => generateChallenge(profile!.id, prompt),
     onSuccess: (created) => {
-      queryClient.setQueryData(challengeKeys.active(profile!.id), created);
+      queryClient.setQueryData(
+        challengeKeys.detail(profile!.id, created.id),
+        created,
+      );
+      void queryClient.invalidateQueries({
+        queryKey: challengeKeys.active(profile!.id),
+      });
       setPrompt("");
+      router.replace(`/chat?id=${created.id}`);
     },
   });
 
@@ -118,10 +146,18 @@ export function ChatPage() {
       }),
     onMutate: () => setStreamingReply({ content: "", mode: "hint" }),
     onSuccess: async (updated) => {
-      queryClient.setQueryData(challengeKeys.active(profile!.id), updated);
-      await queryClient.invalidateQueries({
-        queryKey: challengeKeys.messages(challenge!.id),
-      });
+      queryClient.setQueryData(
+        challengeKeys.detail(profile!.id, challenge!.id),
+        updated,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: challengeKeys.active(profile!.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: challengeKeys.messages(challenge!.id),
+        }),
+      ]);
       setStreamingReply(null);
     },
     onError: () => setStreamingReply(null),
@@ -129,26 +165,36 @@ export function ChatPage() {
 
   const complete = useMutation({
     mutationFn: () => completeChallenge(profile!.id, challenge!.id),
-    onSuccess: async () => {
-      queryClient.setQueryData(challengeKeys.active(profile!.id), null);
-      await queryClient.invalidateQueries({
-        queryKey: challengeKeys.history(profile!.id),
-      });
+    onSuccess: async (updated) => {
+      queryClient.setQueryData(
+        challengeKeys.detail(profile!.id, challenge!.id),
+        updated,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: challengeKeys.active(profile!.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: challengeKeys.history(profile!.id),
+        }),
+      ]);
       router.push("/exercises");
     },
   });
 
-  if (profile === undefined || activeQuery.isLoading) return <LoadingScreen />;
+  if (profile === undefined || challengeLoading) return <LoadingScreen />;
   if (!profile) return null;
 
-  if (activeQuery.error) {
+  if (challengeError) {
     return (
       <>
         <AppHeader profile={profile} />
         <ErrorState
           title="Could not load this exercise."
-          message={activeQuery.error.message}
-          onRetry={() => activeQuery.refetch()}
+          message={challengeError.message}
+          onRetry={() =>
+            challengeId ? detailQuery.refetch() : activeQuery.refetch()
+          }
         />
       </>
     );
@@ -194,14 +240,9 @@ export function ChatPage() {
                 className="min-h-36 resize-y rounded-lg border border-line-strong bg-surface px-3.5 py-3 text-sm leading-6 outline-none transition placeholder:text-dim hover:border-slate-500 focus:border-brand focus:ring-2 focus:ring-brand/15"
               />
               <div className="flex items-center justify-between gap-4">
-                <div className="flex min-w-0 items-center gap-3 text-[10px] text-dim">
-                  <span className="shrink-0 font-mono">
-                    {prompt.length}/4000
-                  </span>
-                  <span className="hidden sm:inline">
-                    Enter to send · Ctrl + Enter for a new line
-                  </span>
-                </div>
+                <span className="font-mono text-[10px] text-dim">
+                  {prompt.length}/4000
+                </span>
                 <Button
                   type="submit"
                   variant="primary"
@@ -240,22 +281,27 @@ export function ChatPage() {
             >
               <ArrowLeft size={14} /> Exercises
             </Link>
-            <Button
-              variant="ghost"
-              disabled={busy}
-              onClick={() => {
-                if (window.confirm("Mark this exercise complete?")) {
-                  complete.mutate();
-                }
-              }}
-            >
-              {complete.isPending ? (
-                <LoaderCircle className="animate-spin" size={15} />
-              ) : (
-                <Check size={15} />
-              )}
-              Mark complete
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link href="/chat?new=1" className={buttonStyles("secondary")}>
+                <Plus size={15} /> New exercise
+              </Link>
+              <Button
+                variant="ghost"
+                disabled={busy}
+                onClick={() => {
+                  if (window.confirm("Mark this exercise complete?")) {
+                    complete.mutate();
+                  }
+                }}
+              >
+                {complete.isPending ? (
+                  <LoaderCircle className="animate-spin" size={15} />
+                ) : (
+                  <Check size={15} />
+                )}
+                Mark complete
+              </Button>
+            </div>
           </div>
           <ChallengeCard challenge={challenge} />
         </div>

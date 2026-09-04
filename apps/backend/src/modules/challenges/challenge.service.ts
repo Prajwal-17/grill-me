@@ -26,8 +26,7 @@ export function createChallengeService(dependencies: {
   return {
     getActive(profileId: string) {
       profiles.assertExists(profileId);
-      const challenge = challenges.findActive(profileId);
-      return challenge ? toChallenge(challenge) : null;
+      return challenges.findActive(profileId).map(toChallenge);
     },
 
     getHistory(profileId: string) {
@@ -41,14 +40,6 @@ export function createChallengeService(dependencies: {
 
     async generate(prompt: string, profileId: string) {
       profiles.assertExists(profileId);
-      if (challenges.findActive(profileId)) {
-        throw new AppError(
-          "ACTIVE_CHALLENGE_EXISTS",
-          "Complete your active challenge before starting another.",
-          409,
-        );
-      }
-
       const generated = await llm.generateChallenge(prompt);
       return toChallenge(challenges.create(profileId, generated, prompt));
     },
