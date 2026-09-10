@@ -29,8 +29,8 @@ export function ChatMessage({
         className={cn(
           "min-w-0 text-[15px] leading-7",
           user
-            ? "max-w-[min(92%,42rem)] rounded-xl rounded-tr-sm border border-blue-600 bg-blue-700 px-3.5 py-2.5 text-white"
-            : "w-full max-w-[42rem] py-2 text-slate-300",
+            ? "max-w-[min(92%,42rem)] rounded-2xl rounded-tr-sm border border-brand/35 bg-brand-soft px-4 py-3 text-foreground shadow-sm shadow-black/10"
+            : "w-full max-w-[42rem] py-2 text-muted",
         )}
       >
         {modeLabel && (
@@ -38,8 +38,8 @@ export function ChatMessage({
             className={cn(
               "mb-2 inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium",
               mode === "hint"
-                ? "border-brand/25 text-blue-300"
-                : "border-brand/40 text-blue-200",
+                ? "border-brand/25 text-brand-bright"
+                : "border-brand/40 text-brand-bright",
             )}
           >
             {modeLabel}
@@ -54,7 +54,7 @@ export function ChatMessage({
                 key={`${attachment.filename}-${index}`}
               >
                 <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs text-slate-200 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/60">
-                  <FileCode2 className="text-blue-300" size={14} />
+                  <FileCode2 className="text-brand-bright" size={14} />
                   <span className="truncate">{attachment.filename}</span>
                 </summary>
                 <div className="border-t border-line [&>div]:my-0 [&>div]:rounded-none [&>div]:border-0">

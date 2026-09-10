@@ -11,32 +11,32 @@ export function AppHeader({ profile }: { profile: Profile }) {
   const pathname = usePathname();
   const navClass = (active: boolean) =>
     cn(
-      "inline-flex h-full items-center border-b text-sm transition-colors",
+      "inline-flex h-8 items-center rounded-lg px-2 text-xs font-medium transition-all duration-200 sm:px-3 sm:text-sm",
       active
-        ? "border-brand text-foreground"
-        : "border-transparent text-muted hover:text-foreground",
+        ? "bg-elevated text-foreground shadow-sm shadow-black/20"
+        : "text-muted hover:bg-white/[0.035] hover:text-foreground",
     );
 
   return (
-    <header className="sticky top-0 z-20 grid h-14 grid-cols-[auto_1fr_auto] items-center border-b border-line bg-canvas/95 px-3 backdrop-blur sm:px-5 lg:grid-cols-[1fr_auto_1fr]">
+    <header className="sticky top-0 z-20 grid h-14 grid-cols-[auto_1fr_auto] items-center border-b border-line/80 bg-canvas/80 px-3 shadow-sm shadow-black/10 backdrop-blur-xl sm:px-5 lg:grid-cols-[1fr_auto_1fr]">
       <Link
         href="/exercises"
-        className="inline-flex items-center gap-2 text-sm font-semibold tracking-tight"
+        className="group inline-flex items-center gap-2 text-sm font-semibold tracking-tight"
         aria-label="Grill Me"
       >
         <span
-          className="grid size-6 grid-cols-2 gap-0.5 rounded-md bg-brand p-1"
+          className="grid size-7 grid-cols-2 gap-0.5 rounded-lg border border-brand/60 bg-brand p-1.5 shadow-lg shadow-brand/15 transition-all duration-200 group-hover:-rotate-3 group-hover:scale-105"
           aria-hidden="true"
         >
-          <span className="rounded-[1px] bg-white/95" />
-          <span className="rounded-[1px] bg-white/55" />
-          <span className="rounded-[1px] bg-white/55" />
-          <span className="rounded-[1px] bg-white/95" />
+          <span className="rounded-[1px] bg-slate-950/90" />
+          <span className="rounded-[1px] bg-slate-950/45" />
+          <span className="rounded-[1px] bg-slate-950/45" />
+          <span className="rounded-[1px] bg-slate-950/90" />
         </span>
         <span className="hidden sm:inline">Grill Me</span>
       </Link>
       <nav
-        className="flex h-full justify-center gap-3 sm:gap-6"
+        className="mx-auto flex items-center justify-center rounded-xl border border-line/70 bg-surface/65 p-0.5"
         aria-label="Main navigation"
       >
         <Link
@@ -65,7 +65,7 @@ export function AppHeader({ profile }: { profile: Profile }) {
           href="/chat?new=1"
           className={cn(
             buttonStyles("primary"),
-            "size-9 px-0 sm:w-auto sm:px-3",
+            "size-9 px-0 shadow-none sm:w-auto sm:px-3",
           )}
         >
           <Plus size={15} />{" "}

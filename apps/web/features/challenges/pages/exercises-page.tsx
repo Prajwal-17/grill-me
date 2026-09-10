@@ -59,14 +59,17 @@ export function ExercisesPage() {
   const active = activeQuery.data ?? [];
   const completed = historyQuery.data ?? [];
   const rowClass =
-    "grid min-h-16 grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2.5 transition-colors hover:border-slate-600 hover:bg-elevated";
+    "group grid min-h-[4.5rem] grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-line bg-surface/75 px-3.5 py-3 shadow-sm shadow-black/10 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/35 hover:bg-elevated hover:shadow-lg hover:shadow-black/15";
 
   return (
     <>
       <AppHeader profile={profile} />
-      <main className="mx-auto w-full max-w-5xl px-4 py-9 sm:px-7 sm:py-14">
+      <main className="page-enter mx-auto w-full max-w-5xl px-4 py-9 sm:px-7 sm:py-14">
         <header className="flex flex-col items-start justify-between gap-5 pb-8 sm:flex-row sm:gap-6">
           <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-brand-bright">
+              Practice space
+            </p>
             <h1 className="text-2xl font-semibold tracking-[-0.03em] md:text-[28px]">
               Exercises
             </h1>
@@ -83,7 +86,7 @@ export function ExercisesPage() {
           <section>
             <div className="mb-3 flex items-center gap-2">
               <h2 className="text-sm font-semibold">In progress</h2>
-              <span className="grid size-5 place-items-center rounded bg-elevated text-[10px] text-muted">
+              <span className="grid size-5 place-items-center rounded-full border border-line bg-elevated text-[10px] text-muted">
                 {active.length}
               </span>
             </div>
@@ -94,8 +97,8 @@ export function ExercisesPage() {
                   className={rowClass}
                   key={challenge.id}
                 >
-                  <span className="grid size-7 place-items-center rounded-md bg-brand">
-                    <span className="size-1.5 rounded-full bg-white" />
+                  <span className="grid size-8 place-items-center rounded-lg border border-brand/40 bg-brand/15 shadow-sm shadow-brand/10">
+                    <span className="size-1.5 rounded-full bg-brand-bright shadow-[0_0_10px_var(--color-brand)]" />
                   </span>
                   <span className="min-w-0">
                     <strong className="block truncate text-sm font-medium">
@@ -105,7 +108,10 @@ export function ExercisesPage() {
                       {formatChallengeType(challenge.type)}
                     </small>
                   </span>
-                  <ArrowRight className="text-muted" size={16} />
+                  <ArrowRight
+                    className="text-muted transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-brand-bright"
+                    size={16}
+                  />
                 </Link>
               ))}
             </div>
@@ -115,7 +121,7 @@ export function ExercisesPage() {
         <section className={active.length ? "mt-10" : ""}>
           <div className="mb-3 flex items-center gap-2">
             <h2 className="text-sm font-semibold">Completed</h2>
-            <span className="grid size-5 place-items-center rounded bg-elevated text-[10px] text-muted">
+            <span className="grid size-5 place-items-center rounded-full border border-line bg-elevated text-[10px] text-muted">
               {completed.length}
             </span>
           </div>
@@ -128,7 +134,7 @@ export function ExercisesPage() {
                   className={rowClass}
                   key={challenge.id}
                 >
-                  <span className="grid size-7 place-items-center rounded-md bg-green-500/15 text-green-300">
+                  <span className="grid size-8 place-items-center rounded-lg border border-green-400/10 bg-green-500/10 text-green-300">
                     <Check size={14} />
                   </span>
                   <span className="min-w-0">

@@ -1,6 +1,9 @@
 import { apiRequest } from "../../../shared/lib/api-client";
 import type { Profile, ProfilePreferences } from "../../../shared/types/api";
 
+export const preferencesKey = (profileId?: string) =>
+  ["profile", "preferences", profileId] as const;
+
 export function startProfile(email: string) {
   return apiRequest<Profile>("/profiles/start", {
     method: "POST",

@@ -21,6 +21,8 @@ import {
   prepareChallenge,
 } from "../../challenges/api/challenge-api";
 import { ChallengeCard } from "../../challenges/components/challenge-card";
+import { getPreferences, preferencesKey } from "../../profile/api/profile-api";
+import { PersonalContextCard } from "../../profile/components/personal-context-card";
 import { useProfile } from "../../profile/hooks/use-profile";
 import { AppHeader } from "../../../shared/components/app-header";
 import { Button, buttonStyles } from "../../../shared/components/ui/button";
@@ -73,6 +75,12 @@ export function ChatPage({
   } | null>(null);
   const messagesEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+
+  const preferencesQuery = useQuery({
+    queryKey: preferencesKey(profile?.id),
+    queryFn: () => getPreferences(profile!.id),
+    enabled: Boolean(profile),
+  });
 
   const activeQuery = useQuery({
     queryKey: challengeKeys.active(profile?.id),
@@ -254,157 +262,167 @@ export function ChatPage({
     return (
       <>
         <AppHeader profile={profile} />
-        <main className="mx-auto w-full max-w-3xl px-5 py-[10vh]">
+        <main className="page-enter mx-auto w-full max-w-6xl px-5 py-9 sm:py-12">
           <Link
             href="/exercises"
-            className="mb-8 inline-flex items-center gap-1.5 text-xs text-brand hover:underline"
+            className="mb-7 inline-flex items-center gap-1.5 rounded-lg px-1 py-1 text-xs text-brand-bright transition hover:text-foreground"
           >
             <ArrowLeft size={14} /> Exercises
           </Link>
-          <section>
-            <h1 className="text-2xl font-semibold tracking-[-0.03em]">
-              Create an exercise
-            </h1>
-            <p className="mt-2 text-sm text-muted">
-              Describe what you want to practice. Your saved preferences fill in
-              the rest.
-            </p>
-            <form className="mt-6 grid gap-3" onSubmit={submitGeneration}>
-              <label className="grid max-w-xs gap-2 text-sm font-medium">
-                Format
-                <select
-                  value={format}
+          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+            <section className="surface-panel rounded-2xl p-5 sm:p-7">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-bright">
+                New practice
+              </p>
+              <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
+                Create an exercise
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Describe what you want to practice. Your request takes priority;
+                saved context personalizes everything else.
+              </p>
+              <form className="mt-6 grid gap-3" onSubmit={submitGeneration}>
+                <label className="grid max-w-xs gap-2 text-sm font-medium">
+                  Format
+                  <select
+                    value={format}
+                    disabled={generationBusy}
+                    onChange={(event) => {
+                      setFormat(event.target.value as ChallengeFormat);
+                      setClarificationQuestion(null);
+                      setClarificationAnswer("");
+                    }}
+                    className="h-11 rounded-xl border border-line-strong bg-canvas/70 px-3.5 text-sm font-normal outline-none transition-all duration-200 hover:border-brand/40 focus:border-brand focus:bg-surface focus:ring-4 focus:ring-brand/10"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="exercise">Coding exercise</option>
+                    <option value="question">Tricky question</option>
+                    <option value="architecture">Architecture</option>
+                    <option value="mini-project">Mini-project</option>
+                  </select>
+                </label>
+                <textarea
+                  autoFocus
+                  value={prompt}
                   disabled={generationBusy}
                   onChange={(event) => {
-                    setFormat(event.target.value as ChallengeFormat);
+                    setPrompt(event.target.value);
                     setClarificationQuestion(null);
                     setClarificationAnswer("");
                   }}
-                  className="h-10 rounded-md border border-line-strong bg-surface px-3 text-sm font-normal outline-none transition hover:border-slate-500 focus:border-brand focus:ring-2 focus:ring-brand/15"
-                >
-                  <option value="auto">Auto</option>
-                  <option value="exercise">Coding exercise</option>
-                  <option value="question">Tricky question</option>
-                  <option value="architecture">Architecture</option>
-                  <option value="mini-project">Mini-project</option>
-                </select>
-              </label>
-              <textarea
-                autoFocus
-                value={prompt}
-                disabled={generationBusy}
-                onChange={(event) => {
-                  setPrompt(event.target.value);
-                  setClarificationQuestion(null);
-                  setClarificationAnswer("");
-                }}
-                onKeyDown={(event) => {
-                  if (!shouldSubmitOnEnter(event)) return;
+                  onKeyDown={(event) => {
+                    if (!shouldSubmitOnEnter(event)) return;
 
-                  event.preventDefault();
-                  if (
-                    !generationBusy &&
-                    !clarificationQuestion &&
-                    prompt.trim().length >= 3
-                  ) {
-                    prepare.mutate();
-                  }
-                }}
-                placeholder="e.g. Python strings, lists, and loops"
-                rows={5}
-                maxLength={4_000}
-                className="min-h-36 resize-y rounded-lg border border-line-strong bg-surface px-3.5 py-3 text-sm leading-6 outline-none transition placeholder:text-dim hover:border-slate-500 focus:border-brand focus:ring-2 focus:ring-brand/15"
-              />
-              <div className="flex items-center justify-between gap-4">
-                <span className="font-mono text-[10px] text-dim">
-                  {prompt.length}/4000
-                </span>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  disabled={
-                    generationBusy ||
-                    Boolean(clarificationQuestion) ||
-                    prompt.trim().length < 3
-                  }
-                >
-                  {generationBusy && (
-                    <LoaderCircle className="animate-spin" size={15} />
-                  )}
-                  {prepare.isPending
-                    ? "Checking request…"
-                    : generate.isPending
-                      ? "Creating exercise…"
-                      : clarificationQuestion
-                        ? "Answer below"
-                        : "Continue"}
-                </Button>
-              </div>
-            </form>
-            {generationBusy && (
-              <div className="mt-5 rounded-lg border border-line bg-surface px-4 py-4">
-                <LoadingIndicator
-                  label={
-                    prepare.isPending
-                      ? "Checking whether one detail is needed…"
-                      : "Creating and reviewing your exercise…"
-                  }
-                />
-              </div>
-            )}
-            {clarificationQuestion && !generationBusy && (
-              <form
-                className="mt-5 rounded-xl border border-brand/45 bg-brand-soft/55 p-5"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (clarificationAnswer.trim()) {
-                    generate.mutate(clarificationAnswer.trim());
-                  }
-                }}
-              >
-                <span className="text-xs font-semibold tracking-[0.08em] text-brand uppercase">
-                  One detail
-                </span>
-                <h2 className="mt-2 text-base font-semibold leading-6">
-                  {clarificationQuestion}
-                </h2>
-                <label className="mt-4 grid gap-2 text-sm font-medium">
-                  Your answer
-                  <input
-                    autoFocus
-                    value={clarificationAnswer}
-                    onChange={(event) =>
-                      setClarificationAnswer(event.target.value)
+                    event.preventDefault();
+                    if (
+                      !generationBusy &&
+                      !clarificationQuestion &&
+                      prompt.trim().length >= 3
+                    ) {
+                      prepare.mutate();
                     }
-                    maxLength={2_000}
-                    placeholder="Add the missing context"
-                    className="h-10 rounded-md border border-line-strong bg-canvas px-3 text-sm font-normal outline-none transition placeholder:text-dim hover:border-slate-500 focus:border-brand focus:ring-2 focus:ring-brand/15"
-                  />
-                </label>
-                <div className="mt-4 flex flex-wrap justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => generate.mutate("Use your best judgment.")}
-                  >
-                    Use your best judgment
-                  </Button>
+                  }}
+                  placeholder="e.g. Python strings, lists, and loops"
+                  rows={5}
+                  maxLength={4_000}
+                  className="min-h-40 resize-y rounded-xl border border-line-strong bg-canvas/70 px-4 py-3.5 text-sm leading-6 outline-none transition-all duration-200 placeholder:text-dim hover:border-brand/40 focus:border-brand focus:bg-surface focus:ring-4 focus:ring-brand/10"
+                />
+                <div className="flex items-center justify-between gap-4">
+                  <span className="font-mono text-[10px] text-dim">
+                    {prompt.length}/4000
+                  </span>
                   <Button
                     type="submit"
                     variant="primary"
-                    disabled={!clarificationAnswer.trim()}
+                    disabled={
+                      generationBusy ||
+                      Boolean(clarificationQuestion) ||
+                      prompt.trim().length < 3
+                    }
                   >
-                    Create exercise
+                    {generationBusy && (
+                      <LoaderCircle className="animate-spin" size={15} />
+                    )}
+                    {prepare.isPending
+                      ? "Checking request…"
+                      : generate.isPending
+                        ? "Creating exercise…"
+                        : clarificationQuestion
+                          ? "Answer below"
+                          : "Continue"}
                   </Button>
                 </div>
               </form>
-            )}
-            {generationError && (
-              <p className="mt-2 text-xs text-red-400" role="alert">
-                {generationError.message} Your request is still here.
-              </p>
-            )}
-          </section>
+              {generationBusy && (
+                <div className="mt-5 rounded-xl border border-line bg-canvas/45 px-4 py-4">
+                  <LoadingIndicator
+                    label={
+                      prepare.isPending
+                        ? "Checking whether one detail is needed…"
+                        : "Creating and reviewing your exercise…"
+                    }
+                  />
+                </div>
+              )}
+              {clarificationQuestion && !generationBusy && (
+                <form
+                  className="mt-5 rounded-2xl border border-brand/45 bg-brand-soft/55 p-5 shadow-lg shadow-brand/5"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (clarificationAnswer.trim()) {
+                      generate.mutate(clarificationAnswer.trim());
+                    }
+                  }}
+                >
+                  <span className="text-xs font-semibold tracking-[0.08em] text-brand uppercase">
+                    One detail
+                  </span>
+                  <h2 className="mt-2 text-base font-semibold leading-6">
+                    {clarificationQuestion}
+                  </h2>
+                  <label className="mt-4 grid gap-2 text-sm font-medium">
+                    Your answer
+                    <input
+                      autoFocus
+                      value={clarificationAnswer}
+                      onChange={(event) =>
+                        setClarificationAnswer(event.target.value)
+                      }
+                      maxLength={2_000}
+                      placeholder="Add the missing context"
+                      className="h-11 rounded-xl border border-line-strong bg-canvas px-3.5 text-sm font-normal outline-none transition-all duration-200 placeholder:text-dim hover:border-brand/40 focus:border-brand focus:ring-4 focus:ring-brand/10"
+                    />
+                  </label>
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => generate.mutate("Use your best judgment.")}
+                    >
+                      Use your best judgment
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      disabled={!clarificationAnswer.trim()}
+                    >
+                      Create exercise
+                    </Button>
+                  </div>
+                </form>
+              )}
+              {generationError && (
+                <p className="mt-2 text-xs text-red-400" role="alert">
+                  {generationError.message} Your request is still here.
+                </p>
+              )}
+            </section>
+            <PersonalContextCard
+              preferences={preferencesQuery.data}
+              loading={preferencesQuery.isLoading}
+              error={preferencesQuery.error?.message}
+            />
+          </div>
         </main>
       </>
     );
@@ -416,8 +434,8 @@ export function ChatPage({
   return (
     <>
       <AppHeader profile={profile} />
-      <main className="mx-auto w-full max-w-[1500px] lg:grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,0.95fr)_minmax(390px,1.05fr)]">
-        <div className="border-b border-line bg-surface px-5 py-5 lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-7 lg:pb-14">
+      <main className="page-enter mx-auto w-full max-w-[1500px] lg:grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,0.95fr)_minmax(390px,1.05fr)]">
+        <div className="border-b border-line bg-surface/70 px-5 py-5 backdrop-blur-sm lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-7 lg:pb-14">
           <div className="mb-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <Link
               href="/exercises"
@@ -450,7 +468,7 @@ export function ChatPage({
           <ChallengeCard challenge={challenge} />
         </div>
 
-        <section className="flex min-h-[640px] flex-col bg-surface lg:min-h-0">
+        <section className="flex min-h-[640px] flex-col bg-surface/85 lg:min-h-0">
           <header className="flex flex-col items-start justify-between gap-4 border-b border-line px-5 py-4 sm:flex-row sm:items-center lg:min-h-[78px] lg:px-6">
             <div>
               <h2 className="text-sm font-semibold">Chat</h2>

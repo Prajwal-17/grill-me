@@ -6,11 +6,8 @@ function Checklist({ items }: { items: string[] }) {
   return (
     <ul className="grid gap-2">
       {items.map((item) => (
-        <li
-          className="flex gap-3 text-[15px] leading-7 text-slate-300"
-          key={item}
-        >
-          <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-brand" />
+        <li className="flex gap-3 text-[15px] leading-7 text-muted" key={item}>
+          <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-brand-bright shadow-[0_0_8px_var(--color-brand)]" />
           <span>{item}</span>
         </li>
       ))}
@@ -27,10 +24,10 @@ function Section({
 }) {
   return (
     <section className="border-b border-line py-6 last:border-b-0">
-      <h2 className="mb-3 text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
+      <h2 className="mb-3 text-[11px] font-semibold tracking-[0.12em] text-dim uppercase">
         {label}
       </h2>
-      <div className="text-[15px] leading-7 text-slate-300">{children}</div>
+      <div className="text-[15px] leading-7 text-muted">{children}</div>
     </section>
   );
 }
@@ -39,7 +36,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   return (
     <article className="mx-auto w-full max-w-2xl">
       <header className="border-b border-line pb-7">
-        <span className="mb-2 block text-[11px] font-semibold tracking-[0.08em] text-brand uppercase">
+        <span className="mb-2 block text-[11px] font-semibold tracking-[0.14em] text-brand-bright uppercase">
           {formatChallengeType(challenge.type)}
         </span>
         <h1 className="text-2xl leading-tight font-semibold tracking-[-0.03em] md:text-[28px]">

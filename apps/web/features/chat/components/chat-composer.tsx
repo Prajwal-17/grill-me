@@ -79,17 +79,17 @@ export function ChatComposer({
 
   return (
     <form
-      className="border-t border-line bg-surface px-4 py-4 md:px-6"
+      className="border-t border-line bg-canvas/55 px-4 py-4 backdrop-blur-xl md:px-6"
       onSubmit={submit}
     >
       <div
         className={cn(
-          "mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-line-strong bg-elevated shadow-xl shadow-black/15 transition focus-within:border-brand/70 focus-within:ring-2 focus-within:ring-brand/10",
+          "surface-panel mx-auto w-full max-w-3xl overflow-hidden rounded-2xl transition-all duration-200 focus-within:border-brand/70 focus-within:shadow-2xl focus-within:shadow-brand/5 focus-within:ring-4 focus-within:ring-brand/10",
           mode === "review" && "border-brand/55 focus-within:border-brand/70",
         )}
       >
         {mode === "review" && (
-          <div className="flex items-center justify-between border-b border-brand/20 bg-brand/[0.08] px-3 py-2 text-xs text-blue-200">
+          <div className="flex items-center justify-between border-b border-brand/20 bg-brand/[0.08] px-3 py-2 text-xs text-brand-bright">
             <span className="inline-flex items-center gap-2">
               <ClipboardCheck size={14} /> Reviewing solution
             </span>
@@ -114,7 +114,7 @@ export function ChatComposer({
           <div className="flex flex-wrap gap-2 border-b border-line px-3 py-2.5">
             {attachments.map((attachment, index) => (
               <span
-                className="inline-flex max-w-full items-center gap-2 rounded-md border border-line bg-canvas px-2.5 py-1.5 text-xs text-slate-300"
+                className="inline-flex max-w-full items-center gap-2 rounded-lg border border-line bg-canvas/75 px-2.5 py-1.5 text-xs text-foreground"
                 key={`${attachment.filename}-${index}`}
               >
                 <FileCode2 className="shrink-0 text-brand" size={14} />
@@ -182,7 +182,7 @@ export function ChatComposer({
               mode === "review" ? "Send solution for review" : "Send message"
             }
             disabled={busy || (!message.trim() && attachments.length === 0)}
-            className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand text-white transition-colors hover:bg-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70 disabled:pointer-events-none disabled:opacity-40"
+            className="grid size-8 shrink-0 place-items-center rounded-lg border border-brand bg-brand text-slate-950 shadow-lg shadow-brand/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-brand-bright hover:shadow-brand/30 active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/70 disabled:pointer-events-none disabled:opacity-40 disabled:shadow-none"
           >
             {busy ? (
               <LoaderCircle className="animate-spin" size={17} />
