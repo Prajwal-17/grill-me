@@ -15,6 +15,13 @@
       "when": 1788544864668,
       "tag": "0001_big_lockheed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789015965486,
+      "tag": "0002_wandering_human_cannonball",
+      "breakpoints": true
     }
   ]
 }

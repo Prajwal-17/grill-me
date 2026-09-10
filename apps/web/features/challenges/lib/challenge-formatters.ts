@@ -2,6 +2,7 @@ import type { ChallengeType } from "../../../shared/types/api";
 
 export function formatChallengeType(type: ChallengeType) {
   if (type === "mini-project") return "Mini project";
+  if (type === "question") return "Tricky question";
   return type[0]!.toUpperCase() + type.slice(1);
 }
 

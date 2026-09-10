@@ -8,15 +8,17 @@ hint, paste your solution for review, and mark the challenge complete.
 
 1. Enter an email to create or resume a local profile.
 2. See active and completed exercises on the Exercises home.
-3. Describe what you just learned to generate an exercise.
+3. Describe what you just learned, choose a format, and answer one focused
+   question only when essential context is missing.
 4. Work through it in your own editor.
-5. Clarify the brief, use one hint, or paste a solution for review.
+5. Clarify the brief, use one hint, or paste/attach a solution for review.
 6. Mark it complete and find it in History.
 
 Clarifications, hints, and solution reviews stream into the chat as they are
 generated instead of waiting for the full response.
 
-The email is only a local profile selector. There is no authentication.
+The email is only a local profile selector. There is no authentication. Optional
+profile preferences and an editable About me memory personalize future prompts.
 
 ## Stack
 

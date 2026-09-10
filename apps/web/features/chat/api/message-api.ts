@@ -1,5 +1,9 @@
 import { apiRequest, streamRequest } from "../../../shared/lib/api-client";
-import type { Challenge, ChatMessage } from "../../../shared/types/api";
+import type {
+  Challenge,
+  ChatMessage,
+  MessageAttachment,
+} from "../../../shared/types/api";
 
 export type ComposerMode = "clarify" | "review";
 
@@ -16,11 +20,15 @@ export function sendMessage(
   challengeId: string,
   content: string,
   mode: ComposerMode,
+  attachments: MessageAttachment[],
   onDelta: (delta: string) => void,
 ) {
   return streamRequest<ChatMessage>(
     `/challenges/${challengeId}/messages`,
-    { method: "POST", body: JSON.stringify({ content, mode }) },
+    {
+      method: "POST",
+      body: JSON.stringify({ content, mode, attachments }),
+    },
     profileId,
     onDelta,
   );

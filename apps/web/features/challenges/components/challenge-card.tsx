@@ -6,7 +6,10 @@ function Checklist({ items }: { items: string[] }) {
   return (
     <ul className="grid gap-2">
       {items.map((item) => (
-        <li className="flex gap-3 text-sm leading-6 text-slate-300" key={item}>
+        <li
+          className="flex gap-3 text-[15px] leading-7 text-slate-300"
+          key={item}
+        >
           <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-brand" />
           <span>{item}</span>
         </li>
@@ -27,7 +30,7 @@ function Section({
       <h2 className="mb-3 text-[11px] font-semibold tracking-[0.08em] text-muted uppercase">
         {label}
       </h2>
-      <div className="text-sm leading-6 text-slate-300">{children}</div>
+      <div className="text-[15px] leading-7 text-slate-300">{children}</div>
     </section>
   );
 }
@@ -44,10 +47,16 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
         </h1>
       </header>
 
-      <Section label="Problem">
+      <Section label={challenge.type === "question" ? "Question" : "Problem"}>
         <Markdown>{challenge.problemStatement}</Markdown>
       </Section>
-      <Section label="Expected outcome">
+      <Section
+        label={
+          challenge.type === "question"
+            ? "What a strong answer covers"
+            : "Expected outcome"
+        }
+      >
         <Markdown>{challenge.expectedOutcome}</Markdown>
       </Section>
       <Section label="Constraints">

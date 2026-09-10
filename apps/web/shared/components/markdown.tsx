@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, Copy } from "lucide-react";
-import { isValidElement, useState, type ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { CodeBlock } from "./ui/code-block";
 
 function textFromNode(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
@@ -16,40 +16,13 @@ function textFromNode(node: ReactNode): string {
   return "";
 }
 
-function CodeBlock({ children }: { children?: ReactNode }) {
-  const [copied, setCopied] = useState(false);
+function MarkdownCodeBlock({ children }: { children?: ReactNode }) {
   const code = textFromNode(children).replace(/\n$/, "");
   const language = isValidElement<{ className?: string }>(children)
     ? children.props.className?.replace(/^language-/, "")
     : undefined;
 
-  async function copyCode() {
-    await navigator.clipboard.writeText(code);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1_400);
-  }
-
-  return (
-    <div className="my-4 overflow-hidden rounded-lg border border-line bg-[#0b0d10]">
-      <div className="flex h-9 items-center justify-between border-b border-line px-3">
-        <span className="font-mono text-[10px] text-dim">
-          {language || "code"}
-        </span>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-[10px] text-muted transition-colors hover:bg-white/5 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-          onClick={copyCode}
-          aria-label="Copy code"
-        >
-          {copied ? <Check size={12} /> : <Copy size={12} />}
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-xs leading-6 text-slate-200">
-        <code>{code}</code>
-      </pre>
-    </div>
-  );
+  return <CodeBlock code={code} label={language || "code"} />;
 }
 
 export function Markdown({ children }: { children: string }) {
@@ -173,7 +146,9 @@ export function Markdown({ children }: { children: string }) {
             </td>
           ),
           hr: () => <hr className="my-5 border-line" />,
-          pre: ({ children: content }) => <CodeBlock>{content}</CodeBlock>,
+          pre: ({ children: content }) => (
+            <MarkdownCodeBlock>{content}</MarkdownCodeBlock>
+          ),
         }}
       >
         {children}

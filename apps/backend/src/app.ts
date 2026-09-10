@@ -10,7 +10,10 @@ import { messageModel } from "./modules/messages/message.model";
 import { createMessageRoutes } from "./modules/messages/message.routes";
 import { createMessageService } from "./modules/messages/message.service";
 import { createProfileController } from "./modules/profiles/profile.controller";
-import { profileModel } from "./modules/profiles/profile.model";
+import {
+  profileModel,
+  profilePreferencesModel,
+} from "./modules/profiles/profile.model";
 import { createProfileRoutes } from "./modules/profiles/profile.routes";
 import { createProfileService } from "./modules/profiles/profile.service";
 import { handleError } from "./shared/http/error-handler";
@@ -36,7 +39,10 @@ export function createApp({
     }),
   );
 
-  const profileService = createProfileService(profileModel);
+  const profileService = createProfileService(
+    profileModel,
+    profilePreferencesModel,
+  );
 
   const challengeService = createChallengeService({
     challenges: challengeModel,

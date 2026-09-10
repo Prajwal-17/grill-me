@@ -2,6 +2,15 @@ import { z } from "zod";
 
 export const challengeTypeSchema = z.enum([
   "exercise",
+  "question",
+  "architecture",
+  "mini-project",
+]);
+
+export const challengeFormatSchema = z.enum([
+  "auto",
+  "exercise",
+  "question",
   "architecture",
   "mini-project",
 ]);
@@ -25,8 +34,18 @@ export const challengeSchema = challengeContentSchema.extend({
   completedAt: z.string().nullable(),
 });
 
-export const generateChallengeRequestSchema = z.object({
+export const prepareChallengeRequestSchema = z.object({
   prompt: z.string().trim().min(3).max(4_000),
+  format: challengeFormatSchema.default("auto"),
+});
+
+export const generateChallengeRequestSchema =
+  prepareChallengeRequestSchema.extend({
+    clarificationContext: z.string().trim().max(2_000).nullable().default(null),
+  });
+
+export const challengePreparationSchema = z.object({
+  question: z.string().trim().min(5).max(240).nullable(),
 });
 
 export const challengeParamsSchema = z.object({
@@ -35,3 +54,8 @@ export const challengeParamsSchema = z.object({
 
 export type Challenge = z.infer<typeof challengeSchema>;
 export type ChallengeContent = z.infer<typeof challengeContentSchema>;
+export type ChallengeFormat = z.infer<typeof challengeFormatSchema>;
+export type ChallengePreparation = z.infer<typeof challengePreparationSchema>;
+export type GenerateChallengeInput = z.infer<
+  typeof generateChallengeRequestSchema
+>;

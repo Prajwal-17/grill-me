@@ -11,6 +11,28 @@ export const profiles = sqliteTable("profiles", {
     .$defaultFn(() => new Date()),
 });
 
+export const profilePreferences = sqliteTable("profile_preferences", {
+  profileId: text("profile_id")
+    .primaryKey()
+    .references(() => profiles.id, { onDelete: "cascade" }),
+  experienceLevel: text("experience_level"),
+  languagesStack: text("languages_stack"),
+  learningGoals: text("learning_goals"),
+  preferredDuration: integer("preferred_duration").notNull().default(60),
+  difficulty: text("difficulty", {
+    enum: ["easy", "balanced", "challenging"],
+  })
+    .notNull()
+    .default("balanced"),
+  aboutMe: text("about_me"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
 export const challenges = sqliteTable("challenges", {
   id: text("id").primaryKey(),
   profileId: text("profile_id")
@@ -18,7 +40,7 @@ export const challenges = sqliteTable("challenges", {
     .references(() => profiles.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   type: text("type", {
-    enum: ["exercise", "architecture", "mini-project"],
+    enum: ["exercise", "question", "architecture", "mini-project"],
   }).notNull(),
   problemStatement: text("problem_statement").notNull(),
   expectedOutcome: text("expected_outcome").notNull(),
@@ -49,6 +71,10 @@ export const messages = sqliteTable("messages", {
     enum: ["generate", "clarify", "review", "hint"],
   }).notNull(),
   content: text("content").notNull(),
+  attachments: text("attachments", { mode: "json" })
+    .$type<{ filename: string; text: string }[]>()
+    .notNull()
+    .default([]),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),

@@ -5,6 +5,7 @@ export function createChallengeRoutes(controller: ChallengeController) {
   const routes = new Hono();
   routes.get("/active", controller.active);
   routes.get("/history", controller.history);
+  routes.post("/prepare", controller.prepare);
   routes.post("/generate", controller.generate);
   routes.get("/:id", controller.getById);
   routes.post("/:id/hint", controller.hint);

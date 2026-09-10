@@ -1,9 +1,23 @@
-import type { ProfileRow } from "./profile.model";
-import { profileSchema, type Profile } from "./profile.schema";
+import type { ProfilePreferencesRow, ProfileRow } from "./profile.model";
+import {
+  profilePreferencesSchema,
+  profileSchema,
+  type Profile,
+  type ProfilePreferences,
+} from "./profile.schema";
 
 export function toProfile(row: ProfileRow): Profile {
   return profileSchema.parse({
     ...row,
     createdAt: row.createdAt.toISOString(),
+  });
+}
+
+export function toProfilePreferences(
+  row: ProfilePreferencesRow,
+): ProfilePreferences {
+  return profilePreferencesSchema.parse({
+    ...row,
+    updatedAt: row.updatedAt.toISOString(),
   });
 }

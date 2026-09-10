@@ -18,7 +18,12 @@ export function challengeContext(challenge: Challenge) {
 export function transcript(messages: ChatMessage[]) {
   return messages
     .slice(-20)
-    .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
+    .map((message) => {
+      const files = message.attachments.length
+        ? `\n[Attached files: ${message.attachments.map((file) => file.filename).join(", ")}]`
+        : "";
+      return `${message.role.toUpperCase()}: ${message.content}${files}`;
+    })
     .join("\n\n");
 }
 

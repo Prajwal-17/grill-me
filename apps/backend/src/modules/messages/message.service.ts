@@ -7,7 +7,7 @@ import {
 } from "../challenges/challenge.utils";
 import type { ProfileService } from "../profiles/profile.service";
 import type { MessageModel } from "./message.model";
-import type { ConversationMode } from "./message.schema";
+import type { ConversationMode, MessageAttachment } from "./message.schema";
 import { toMessage } from "./message.utils";
 
 export function createMessageService(dependencies: {
@@ -23,6 +23,17 @@ export function createMessageService(dependencies: {
     return requireChallenge(challenges.findOwned(id, profileId));
   }
 
+  function learnerContext(profileId: string) {
+    return {
+      preferences: profiles.getPreferences(profileId),
+      recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
+        title: row.title,
+        type: row.type,
+        summary: row.problemStatement.slice(0, 500),
+      })),
+    };
+  }
+
   return {
     list(challengeId: string, profileId: string) {
       const challenge = owned(challengeId, profileId);
@@ -35,6 +46,7 @@ export function createMessageService(dependencies: {
         profileId: string;
         content: string;
         mode: ConversationMode;
+        attachments: MessageAttachment[];
       },
       onDelta: (delta: string) => Promise<void>,
     ) {
@@ -51,6 +63,8 @@ export function createMessageService(dependencies: {
         messages: transcript,
         content: input.content,
         mode: input.mode,
+        attachments: input.attachments,
+        learner: learnerContext(input.profileId),
       })) {
         reply += delta;
         await onDelta(delta);
@@ -61,6 +75,7 @@ export function createMessageService(dependencies: {
           challengeId: challenge.id,
           content: input.content,
           mode: input.mode,
+          attachments: input.attachments,
           reply,
         }),
       );

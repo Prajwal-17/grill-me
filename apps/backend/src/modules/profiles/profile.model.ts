@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
 import { db } from "../../shared/database/db";
-import { profiles } from "../../shared/database/schema";
+import { profilePreferences, profiles } from "../../shared/database/schema";
+import type { SavePreferencesInput } from "./profile.schema";
 
 export type ProfileRow = typeof profiles.$inferSelect;
+export type ProfilePreferencesRow = typeof profilePreferences.$inferSelect;
 
 export const profileModel = {
   findByEmail(email: string) {
@@ -22,4 +24,37 @@ export const profileModel = {
   },
 };
 
+export const profilePreferencesModel = {
+  findByProfileId(profileId: string) {
+    return db
+      .select()
+      .from(profilePreferences)
+      .where(eq(profilePreferences.profileId, profileId))
+      .get();
+  },
+
+  createDefaults(profileId: string) {
+    return db
+      .insert(profilePreferences)
+      .values({ profileId })
+      .onConflictDoNothing()
+      .returning()
+      .get();
+  },
+
+  save(profileId: string, input: SavePreferencesInput) {
+    const now = new Date();
+    return db
+      .insert(profilePreferences)
+      .values({ profileId, ...input, createdAt: now, updatedAt: now })
+      .onConflictDoUpdate({
+        target: profilePreferences.profileId,
+        set: { ...input, updatedAt: now },
+      })
+      .returning()
+      .get();
+  },
+};
+
 export type ProfileModel = typeof profileModel;
+export type ProfilePreferencesModel = typeof profilePreferencesModel;

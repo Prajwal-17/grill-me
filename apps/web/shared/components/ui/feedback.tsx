@@ -1,12 +1,26 @@
-import { LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "./button";
 
+export function LoadingIndicator({ label }: { label: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-2.5 text-sm text-muted"
+      role="status"
+    >
+      <span className="flex h-4 items-end gap-0.5" aria-hidden="true">
+        <span className="h-2 w-1 animate-pulse rounded-sm bg-brand" />
+        <span className="h-4 w-1 animate-pulse rounded-sm bg-brand [animation-delay:150ms]" />
+        <span className="h-3 w-1 animate-pulse rounded-sm bg-brand [animation-delay:300ms]" />
+      </span>
+      {label}
+    </span>
+  );
+}
+
 export function LoadingScreen({ label = "Loading..." }: { label?: string }) {
   return (
-    <main className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center gap-2 text-sm text-muted">
-      <LoaderCircle className="animate-spin" size={18} />
-      <span>{label}</span>
+    <main className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center">
+      <LoadingIndicator label={label} />
     </main>
   );
 }

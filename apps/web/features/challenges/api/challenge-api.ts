@@ -1,5 +1,9 @@
 import { apiRequest } from "../../../shared/lib/api-client";
-import type { Challenge } from "../../../shared/types/api";
+import type {
+  Challenge,
+  ChallengeFormat,
+  ChallengePreparation,
+} from "../../../shared/types/api";
 
 export const challengeKeys = {
   active: (profileId?: string) => ["challenges", "active", profileId] as const,
@@ -22,10 +26,29 @@ export function getChallengeHistory(profileId: string) {
   return apiRequest<Challenge[]>("/challenges/history", {}, profileId);
 }
 
-export function generateChallenge(profileId: string, prompt: string) {
+export function prepareChallenge(
+  profileId: string,
+  prompt: string,
+  format: ChallengeFormat,
+) {
+  return apiRequest<ChallengePreparation>(
+    "/challenges/prepare",
+    { method: "POST", body: JSON.stringify({ prompt, format }) },
+    profileId,
+  );
+}
+
+export function generateChallenge(
+  profileId: string,
+  input: {
+    prompt: string;
+    format: ChallengeFormat;
+    clarificationContext: string | null;
+  },
+) {
   return apiRequest<Challenge>(
     "/challenges/generate",
-    { method: "POST", body: JSON.stringify({ prompt }) },
+    { method: "POST", body: JSON.stringify(input) },
     profileId,
   );
 }

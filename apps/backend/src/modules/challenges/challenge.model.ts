@@ -6,6 +6,16 @@ import type { ChallengeContent } from "./challenge.schema";
 export type ChallengeRow = typeof challenges.$inferSelect;
 
 export const challengeModel = {
+  findRecent(profileId: string, limit = 10) {
+    return db
+      .select()
+      .from(challenges)
+      .where(eq(challenges.profileId, profileId))
+      .orderBy(desc(challenges.createdAt))
+      .limit(limit)
+      .all();
+  },
+
   findActive(profileId: string) {
     return db
       .select()

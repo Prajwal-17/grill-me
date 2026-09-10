@@ -18,6 +18,7 @@ import {
   generateChallenge,
   getActiveChallenges,
   getChallenge,
+  prepareChallenge,
 } from "../../challenges/api/challenge-api";
 import { ChallengeCard } from "../../challenges/components/challenge-card";
 import { useProfile } from "../../profile/hooks/use-profile";
@@ -25,8 +26,13 @@ import { AppHeader } from "../../../shared/components/app-header";
 import { Button, buttonStyles } from "../../../shared/components/ui/button";
 import {
   ErrorState,
+  LoadingIndicator,
   LoadingScreen,
 } from "../../../shared/components/ui/feedback";
+import type {
+  ChallengeFormat,
+  MessageAttachment,
+} from "../../../shared/types/api";
 import {
   getHint,
   getMessages,
@@ -48,11 +54,18 @@ export function ChatPage({
   const router = useRouter();
   const queryClient = useQueryClient();
   const [prompt, setPrompt] = useState("");
+  const [format, setFormat] = useState<ChallengeFormat>("auto");
+  const [clarificationQuestion, setClarificationQuestion] = useState<
+    string | null
+  >(null);
+  const [clarificationAnswer, setClarificationAnswer] = useState("");
   const [message, setMessage] = useState("");
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [mode, setMode] = useState<ComposerMode>("clarify");
   const [pendingMessage, setPendingMessage] = useState<{
     content: string;
     mode: ComposerMode;
+    attachments: MessageAttachment[];
   } | null>(null);
   const [streamingReply, setStreamingReply] = useState<{
     content: string;
@@ -95,7 +108,12 @@ export function ChatPage({
   }, [messagesQuery.data, streamingReply]);
 
   const generate = useMutation({
-    mutationFn: () => generateChallenge(profile!.id, prompt),
+    mutationFn: (clarificationContext: string | null) =>
+      generateChallenge(profile!.id, {
+        prompt,
+        format,
+        clarificationContext,
+      }),
     onSuccess: (created) => {
       queryClient.setQueryData(
         challengeKeys.detail(profile!.id, created.id),
@@ -105,20 +123,41 @@ export function ChatPage({
         queryKey: challengeKeys.active(profile!.id),
       });
       setPrompt("");
+      setClarificationQuestion(null);
+      setClarificationAnswer("");
       router.replace(`/chat?id=${created.id}`);
+    },
+  });
+
+  const prepare = useMutation({
+    mutationFn: () => prepareChallenge(profile!.id, prompt, format),
+    onSuccess: (result) => {
+      if (result.question) {
+        setClarificationQuestion(result.question);
+        setClarificationAnswer("");
+        return;
+      }
+      generate.mutate(null);
     },
   });
 
   const send = useMutation({
     mutationFn: () =>
-      sendMessage(profile!.id, challenge!.id, message, mode, (delta) => {
-        setStreamingReply((current) => ({
-          mode: current?.mode ?? mode,
-          content: (current?.content ?? "") + delta,
-        }));
-      }),
+      sendMessage(
+        profile!.id,
+        challenge!.id,
+        message,
+        mode,
+        attachments,
+        (delta) => {
+          setStreamingReply((current) => ({
+            mode: current?.mode ?? mode,
+            content: (current?.content ?? "") + delta,
+          }));
+        },
+      ),
     onMutate: () => {
-      setPendingMessage({ content: message, mode });
+      setPendingMessage({ content: message, mode, attachments });
       setStreamingReply({ content: "", mode });
     },
     onSuccess: async () => {
@@ -126,6 +165,7 @@ export function ChatPage({
         queryKey: challengeKeys.messages(challenge!.id),
       });
       setMessage("");
+      setAttachments([]);
       setMode("clarify");
       setPendingMessage(null);
       setStreamingReply(null);
@@ -203,8 +243,13 @@ export function ChatPage({
   if (!challenge) {
     function submitGeneration(event: FormEvent) {
       event.preventDefault();
-      if (prompt.trim()) generate.mutate();
+      if (prompt.trim() && !prepare.isPending && !generate.isPending) {
+        prepare.mutate();
+      }
     }
+
+    const generationError = prepare.error ?? generate.error;
+    const generationBusy = prepare.isPending || generate.isPending;
 
     return (
       <>
@@ -220,18 +265,49 @@ export function ChatPage({
             <h1 className="text-2xl font-semibold tracking-[-0.03em]">
               Create an exercise
             </h1>
-            <p className="mt-2 text-sm text-muted">What did you learn?</p>
+            <p className="mt-2 text-sm text-muted">
+              Describe what you want to practice. Your saved preferences fill in
+              the rest.
+            </p>
             <form className="mt-6 grid gap-3" onSubmit={submitGeneration}>
+              <label className="grid max-w-xs gap-2 text-sm font-medium">
+                Format
+                <select
+                  value={format}
+                  disabled={generationBusy}
+                  onChange={(event) => {
+                    setFormat(event.target.value as ChallengeFormat);
+                    setClarificationQuestion(null);
+                    setClarificationAnswer("");
+                  }}
+                  className="h-10 rounded-md border border-line-strong bg-surface px-3 text-sm font-normal outline-none transition hover:border-slate-500 focus:border-brand focus:ring-2 focus:ring-brand/15"
+                >
+                  <option value="auto">Auto</option>
+                  <option value="exercise">Coding exercise</option>
+                  <option value="question">Tricky question</option>
+                  <option value="architecture">Architecture</option>
+                  <option value="mini-project">Mini-project</option>
+                </select>
+              </label>
               <textarea
                 autoFocus
                 value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
+                disabled={generationBusy}
+                onChange={(event) => {
+                  setPrompt(event.target.value);
+                  setClarificationQuestion(null);
+                  setClarificationAnswer("");
+                }}
                 onKeyDown={(event) => {
                   if (!shouldSubmitOnEnter(event)) return;
 
                   event.preventDefault();
-                  if (!generate.isPending && prompt.trim().length >= 3) {
-                    generate.mutate();
+                  if (
+                    !generationBusy &&
+                    !clarificationQuestion &&
+                    prompt.trim().length >= 3
+                  ) {
+                    prepare.mutate();
                   }
                 }}
                 placeholder="e.g. Python strings, lists, and loops"
@@ -246,18 +322,86 @@ export function ChatPage({
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={generate.isPending || prompt.trim().length < 3}
+                  disabled={
+                    generationBusy ||
+                    Boolean(clarificationQuestion) ||
+                    prompt.trim().length < 3
+                  }
                 >
-                  {generate.isPending && (
+                  {generationBusy && (
                     <LoaderCircle className="animate-spin" size={15} />
                   )}
-                  {generate.isPending ? "Generating..." : "Generate exercise"}
+                  {prepare.isPending
+                    ? "Checking request…"
+                    : generate.isPending
+                      ? "Creating exercise…"
+                      : clarificationQuestion
+                        ? "Answer below"
+                        : "Continue"}
                 </Button>
               </div>
             </form>
-            {generate.error && (
+            {generationBusy && (
+              <div className="mt-5 rounded-lg border border-line bg-surface px-4 py-4">
+                <LoadingIndicator
+                  label={
+                    prepare.isPending
+                      ? "Checking whether one detail is needed…"
+                      : "Creating and reviewing your exercise…"
+                  }
+                />
+              </div>
+            )}
+            {clarificationQuestion && !generationBusy && (
+              <form
+                className="mt-5 rounded-xl border border-brand/45 bg-brand-soft/55 p-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (clarificationAnswer.trim()) {
+                    generate.mutate(clarificationAnswer.trim());
+                  }
+                }}
+              >
+                <span className="text-xs font-semibold tracking-[0.08em] text-brand uppercase">
+                  One detail
+                </span>
+                <h2 className="mt-2 text-base font-semibold leading-6">
+                  {clarificationQuestion}
+                </h2>
+                <label className="mt-4 grid gap-2 text-sm font-medium">
+                  Your answer
+                  <input
+                    autoFocus
+                    value={clarificationAnswer}
+                    onChange={(event) =>
+                      setClarificationAnswer(event.target.value)
+                    }
+                    maxLength={2_000}
+                    placeholder="Add the missing context"
+                    className="h-10 rounded-md border border-line-strong bg-canvas px-3 text-sm font-normal outline-none transition placeholder:text-dim hover:border-slate-500 focus:border-brand focus:ring-2 focus:ring-brand/15"
+                  />
+                </label>
+                <div className="mt-4 flex flex-wrap justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => generate.mutate("Use your best judgment.")}
+                  >
+                    Use your best judgment
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={!clarificationAnswer.trim()}
+                  >
+                    Create exercise
+                  </Button>
+                </div>
+              </form>
+            )}
+            {generationError && (
               <p className="mt-2 text-xs text-red-400" role="alert">
-                {generate.error.message}
+                {generationError.message} Your request is still here.
               </p>
             )}
           </section>
@@ -274,7 +418,7 @@ export function ChatPage({
       <AppHeader profile={profile} />
       <main className="mx-auto w-full max-w-[1500px] lg:grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,0.95fr)_minmax(390px,1.05fr)]">
         <div className="border-b border-line bg-surface px-5 py-5 lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-7 lg:pb-14">
-          <div className="mb-9 flex items-center justify-between gap-4">
+          <div className="mb-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
             <Link
               href="/exercises"
               className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline"
@@ -373,6 +517,7 @@ export function ChatPage({
                   role={item.role}
                   mode={item.mode}
                   content={item.content}
+                  attachments={item.attachments}
                 />
               ))}
               {pendingMessage && (
@@ -380,6 +525,7 @@ export function ChatPage({
                   role="user"
                   mode={pendingMessage.mode}
                   content={pendingMessage.content}
+                  attachments={pendingMessage.attachments}
                 />
               )}
               {streamingReply && (
@@ -397,11 +543,13 @@ export function ChatPage({
           <ChatComposer
             mode={mode}
             message={message}
+            attachments={attachments}
             busy={send.isPending}
             error={operationError?.message}
             textareaRef={composer}
             onModeChange={setMode}
             onMessageChange={setMessage}
+            onAttachmentsChange={setAttachments}
             onSubmit={() => send.mutate()}
           />
         </section>

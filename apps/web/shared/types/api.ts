@@ -4,7 +4,22 @@ export type Profile = {
   createdAt: string;
 };
 
-export type ChallengeType = "exercise" | "architecture" | "mini-project";
+export type Difficulty = "easy" | "balanced" | "challenging";
+
+export type ProfilePreferences = {
+  profileId: string;
+  experienceLevel: string | null;
+  languagesStack: string | null;
+  learningGoals: string | null;
+  preferredDuration: 30 | 60 | 90;
+  difficulty: Difficulty;
+  aboutMe: string | null;
+  updatedAt: string;
+};
+
+export type ChallengeType =
+  "exercise" | "question" | "architecture" | "mini-project";
+export type ChallengeFormat = "auto" | ChallengeType;
 export type ChallengeStatus = "active" | "completed";
 
 export type Challenge = {
@@ -25,13 +40,23 @@ export type Challenge = {
 
 export type MessageMode = "generate" | "clarify" | "review" | "hint";
 
+export type MessageAttachment = {
+  filename: string;
+  text: string;
+};
+
 export type ChatMessage = {
   id: string;
   challengeId: string;
   role: "user" | "assistant";
   mode: MessageMode;
   content: string;
+  attachments: MessageAttachment[];
   createdAt: string;
+};
+
+export type ChallengePreparation = {
+  question: string | null;
 };
 
 export type ApiError = {

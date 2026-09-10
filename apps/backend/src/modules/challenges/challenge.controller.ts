@@ -7,6 +7,7 @@ import type { ChallengeService } from "./challenge.service";
 import {
   challengeParamsSchema,
   generateChallengeRequestSchema,
+  prepareChallengeRequestSchema,
 } from "./challenge.schema";
 
 function profileId(c: Context) {
@@ -34,15 +35,20 @@ export function createChallengeController(service: ChallengeService) {
     getById: (c: Context) =>
       c.json({ data: service.getById(challengeId(c), profileId(c)) }),
 
+    prepare: async (c: Context) => {
+      const input = parseInput(
+        prepareChallengeRequestSchema,
+        await readJson(c.req.raw),
+      );
+      return c.json({ data: await service.prepare(input, profileId(c)) });
+    },
+
     generate: async (c: Context) => {
       const input = parseInput(
         generateChallengeRequestSchema,
         await readJson(c.req.raw),
       );
-      return c.json(
-        { data: await service.generate(input.prompt, profileId(c)) },
-        201,
-      );
+      return c.json({ data: await service.generate(input, profileId(c)) }, 201);
     },
 
     complete: (c: Context) =>

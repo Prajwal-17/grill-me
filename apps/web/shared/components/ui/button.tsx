@@ -12,8 +12,8 @@ const variants: Record<ButtonVariant, string> = {
     "border-line bg-elevated text-foreground hover:border-slate-500 hover:bg-slate-800",
   ghost:
     "border-transparent bg-transparent text-muted hover:bg-elevated hover:text-foreground",
-  hint: "border-amber/35 bg-transparent text-amber hover:bg-amber/10",
-  review: "border-violet/45 bg-violet/10 text-violet hover:bg-violet/15",
+  hint: "border-brand/30 bg-transparent text-blue-300 hover:bg-brand/10",
+  review: "border-brand/45 bg-brand/10 text-blue-200 hover:bg-brand/15",
 };
 
 export function buttonStyles(variant: ButtonVariant = "secondary") {

@@ -143,6 +143,7 @@ export function HistoryPage() {
                     role={message.role}
                     mode={message.mode}
                     content={message.content}
+                    attachments={message.attachments}
                   />
                 ))}
             </section>
