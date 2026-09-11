@@ -7,6 +7,7 @@ import {
   challengePreparationSchema,
 } from "../challenges/challenge.schema";
 import type { ModelGateway } from "./model-gateway";
+import { normalizePreparationOutput } from "./preparation-output";
 import { modelUnavailable, parseJson } from "./model.utils";
 import {
   clarificationPrompt,
@@ -118,6 +119,7 @@ export function createOpenAIModel(
     name: string;
     schema: Record<string, unknown>;
     validator: z.ZodType<T>;
+    normalize?: (value: unknown) => unknown;
   }): Promise<T> {
     const response = await runRequest(() =>
       client().responses.create({
@@ -189,12 +191,14 @@ export function createOpenAIModel(
         true,
       );
     }
-    const validated = input.validator.safeParse(parsed);
+    const validated = input.validator.safeParse(
+      input.normalize ? input.normalize(parsed) : parsed,
+    );
     if (!validated.success) {
       const fields = [
         ...new Set(
           validated.error.issues.map((issue) =>
-            String(issue.path[0] ?? "response"),
+            String(issue.path[0] ?? "output"),
           ),
         ),
       ].join(", ");
@@ -257,6 +261,7 @@ export function createOpenAIModel(
         name: "challenge_preparation",
         schema: preparationJsonSchema,
         validator: challengePreparationSchema,
+        normalize: normalizePreparationOutput,
       });
     },
 

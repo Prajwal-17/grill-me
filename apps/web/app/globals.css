@@ -217,7 +217,7 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--foreground) 5%, transparent);
   }
   .workspace {
-    height: calc(100dvh - 56px);
+    height: 100%;
   }
   .form-section {
     display: grid;
@@ -233,9 +233,6 @@
   }
 }
 @media (min-width: 768px) {
-  .workspace {
-    height: calc(100dvh - 18px);
-  }
   .form-section {
     grid-template-columns: 150px minmax(0, 1fr);
   }

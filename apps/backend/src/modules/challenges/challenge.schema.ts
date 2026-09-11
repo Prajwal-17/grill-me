@@ -63,6 +63,7 @@ export const challengePreparationSchema = z
           new Set(value.options.map((option) => option.toLowerCase())).size ===
             value.options.length,
     {
+      path: ["options"],
       message:
         "A clarification needs 2–3 distinct choices; no question needs no choices.",
     },

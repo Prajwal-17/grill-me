@@ -64,7 +64,7 @@ export function preparationPrompt(
   return {
     instructions:
       CORE_INSTRUCTIONS +
-      "\n\nDecide whether one clarification question is essential to create a useful challenge. Use saved preferences and focus for ordinary gaps. Do not ask for a known fact, or ask merely because the request is broad. Ask only when the missing answer materially changes the task or its assessment. If essential, return one short question and 2–3 distinct, meaningful answer choices. The interface also offers a custom answer and a skip action; do not include those in your choices. Otherwise return question: null and options: [].",
+      '\n\nDecide whether one clarification question is essential to create a useful challenge. Use saved preferences and focus for ordinary gaps. Do not ask for a known fact, or ask merely because the request is broad. Ask only when the missing answer materially changes the task or its assessment. If essential, return one short question and 2–3 distinct, meaningful answer choices. The interface also offers a custom answer and a skip action; do not include those in your choices. Otherwise return exactly {"question":null,"options":[]}. Never use an empty string for question. A question must be 5–240 characters; each choice must be 1–160 characters. Example when clarification matters: {"question":"Which runtime should the exercise target?","options":["Node.js","Browser"]}.',
     input: requestContext(input),
   };
 }

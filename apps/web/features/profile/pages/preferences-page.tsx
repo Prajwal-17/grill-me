@@ -2,7 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { AppShell } from "../../../shared/components/app-header";
+import { AppShell } from "../../../shared/components/layout/app-shell";
 import { Button } from "../../../shared/components/ui/button";
 import {
   ErrorState,
@@ -71,7 +71,7 @@ export function PreferencesPage() {
       ) : (
         <main className="page max-w-[850px]">
           <form onSubmit={submit}>
-            <header className="sticky top-14 z-10 -mx-1 flex items-center justify-between gap-4 border-b border-line bg-surface px-1 pb-6 pt-1 md:top-0">
+            <header className="sticky top-0 z-10 -mx-1 flex items-center justify-between gap-4 border-b border-line bg-surface px-1 pb-6 pt-1 md:top-0">
               <h1 className="page-title">Preferences</h1>
               <Button type="submit" variant="primary" disabled={save.isPending}>
                 {save.isPending ? (

@@ -1,26 +1,16 @@
 "use client";
 // Prompt and toolbar layout adapted from Beautiful UI.
-import {
-  AlertCircle,
-  ArrowUp,
-  FileCode2,
-  LoaderCircle,
-  Paperclip,
-  X,
-} from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AlertCircle, ArrowUp, LoaderCircle, Paperclip } from "lucide-react";
+import { AttachmentChips } from "./attachment-chips";
+import { useComposerAttachments } from "../hooks/use-composer-attachments";
 import { PromptTextarea } from "../../../shared/components/ai/prompt-textarea";
 import { PromptSurface } from "../../../shared/components/ai/prompt-surface";
 import { Button } from "../../../shared/components/ui/button";
 import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
-import { useRef, useState, type FormEvent, type RefObject } from "react";
+import { type FormEvent, type RefObject } from "react";
 import type { MessageAttachment } from "../../../shared/types/api";
 import type { ComposerMode } from "../api/message-api";
-import {
-  attachmentBytes,
-  MAX_ATTACHMENTS,
-  readAttachments,
-} from "../lib/attachment-utils";
+import { attachmentBytes, MAX_ATTACHMENTS } from "../lib/attachment-utils";
 import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
 export function ChatComposer({
   mode,
@@ -51,30 +41,16 @@ export function ChatComposer({
   onAttachmentsChange: (attachments: MessageAttachment[]) => void;
   onSubmit: () => void;
 }) {
-  const fileInput = useRef<HTMLInputElement>(null);
-  const [fileError, setFileError] = useState<string>();
-  const [reading, setReading] = useState(false);
-  const disabled = busy || reading;
+  const { fileInput, fileError, reading, disabled, addFiles } =
+    useComposerAttachments({
+      busy,
+      attachments,
+      onAttachmentsChange,
+      onModeChange,
+    });
   function submit(event?: FormEvent) {
     event?.preventDefault();
     if ((message.trim() || attachments.length) && !disabled) onSubmit();
-  }
-  async function addFiles(files: FileList | null) {
-    if (!files?.length || disabled) return;
-    setFileError(undefined);
-    setReading(true);
-    try {
-      const next = await readAttachments(Array.from(files), attachments);
-      onAttachmentsChange(next);
-      onModeChange("review");
-    } catch (error) {
-      setFileError(
-        error instanceof Error ? error.message : "Could not read that file.",
-      );
-    } finally {
-      setReading(false);
-      if (fileInput.current) fileInput.current.value = "";
-    }
   }
   return (
     <form
@@ -82,40 +58,11 @@ export function ChatComposer({
       onSubmit={submit}
     >
       <PromptSurface>
-        {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 px-3 pt-3">
-            <AnimatePresence initial={false}>
-              {attachments.map((file, index) => (
-                <motion.span
-                  layout
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  key={file.filename + index}
-                  className="inline-flex max-w-full items-center gap-2 rounded border border-line bg-canvas py-1 pl-2 pr-1 text-xs"
-                >
-                  <FileCode2 size={13} />
-                  <span className="max-w-40 truncate">{file.filename}</span>
-                  <button
-                    type="button"
-                    aria-label={"Remove " + file.filename}
-                    disabled={disabled}
-                    className="rounded p-1 hover:bg-elevated disabled:opacity-40"
-                    onClick={() =>
-                      onAttachmentsChange(
-                        attachments.filter(
-                          (_, itemIndex) => itemIndex !== index,
-                        ),
-                      )
-                    }
-                  >
-                    <X size={13} />
-                  </button>
-                </motion.span>
-              ))}
-            </AnimatePresence>
-          </div>
-        )}
+        <AttachmentChips
+          attachments={attachments}
+          disabled={disabled}
+          onAttachmentsChange={onAttachmentsChange}
+        />
         <PromptTextarea
           ref={textareaRef}
           aria-label={mode === "review" ? "Your solution" : "Your question"}

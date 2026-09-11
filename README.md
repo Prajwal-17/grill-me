@@ -117,3 +117,7 @@ Web variable:
 - `NEXT_PUBLIC_API_URL`: browser-visible Hono API URL
 
 Structured generation includes the JSON contract in both model instructions and the API schema. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
+
+Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. Each exercise tab has its own component. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
+
+For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. If preparation fails, Generate without clarification lets you proceed explicitly using your request and saved context.

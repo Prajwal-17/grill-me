@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useProfile } from "../../profile/hooks/use-profile";
-import { AppShell } from "../../../shared/components/app-header";
+import { AppShell } from "../../../shared/components/layout/app-shell";
 import { buttonStyles } from "../../../shared/components/ui/button";
 import {
   ErrorState,
