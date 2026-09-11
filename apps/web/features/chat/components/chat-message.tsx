@@ -7,7 +7,7 @@ import { Markdown } from "../../../shared/components/markdown";
 import { CodeBlock } from "../../../shared/components/ui/code-block";
 import { Button } from "../../../shared/components/ui/button";
 import { BrandMark } from "../../../shared/components/brand";
-import { StreamingStatus } from "../../../shared/components/ai/streaming-status";
+import { StreamingText } from "../../../shared/components/ai/streaming-text";
 import { cn } from "../../../shared/lib/cn";
 export function ChatMessage({
   role,
@@ -66,7 +66,21 @@ export function ChatMessage({
           user && "rounded-xl rounded-tr-sm bg-canvas px-4 py-3",
         )}
       >
-        {content && <Markdown>{content}</Markdown>}
+        {user ? (
+          content && <Markdown>{content}</Markdown>
+        ) : (
+          <StreamingText
+            content={content}
+            streaming={streaming}
+            waitingLabel={
+              mode === "review"
+                ? "Reviewing solution…"
+                : mode === "hint"
+                  ? "Preparing a hint…"
+                  : "Thinking…"
+            }
+          />
+        )}
         {attachments.length > 0 && (
           <div className={cn("grid gap-2", content && "mt-3")}>
             {attachments.map((file, index) => (
@@ -85,27 +99,9 @@ export function ChatMessage({
             ))}
           </div>
         )}
-        {streaming && !content && (
-          <StreamingStatus
-            label={
-              mode === "review"
-                ? "Reviewing solution…"
-                : mode === "hint"
-                  ? "Preparing a hint…"
-                  : "Thinking…"
-            }
-          />
-        )}
-        {streaming && content && (
-          <span
-            role="status"
-            aria-label="Response streaming"
-            className="ml-1 inline-block size-1.5 animate-pulse rounded-full bg-foreground align-middle"
-          />
-        )}
       </div>
       {!user && !streaming && content && (
-        <div className="mt-2 flex items-center gap-2">
+        <div className="stream-actions mt-2 flex items-center gap-2">
           <Button
             size="icon-sm"
             variant="ghost"

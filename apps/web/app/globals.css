@@ -352,3 +352,34 @@
     color: #f19d96;
   }
 }
+
+@keyframes stream-word-enter {
+  from {
+    opacity: 0.35;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes stream-cursor-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@layer components {
+  .stream-word {
+    animation: stream-word-enter 240ms ease-out both;
+  }
+  .stream-cursor {
+    animation: stream-cursor-pulse 1s ease-in-out infinite;
+  }
+  .stream-actions {
+    animation: stream-word-enter 200ms ease-out both;
+  }
+}
