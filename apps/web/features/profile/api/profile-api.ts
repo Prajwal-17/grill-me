@@ -17,7 +17,10 @@ export function getPreferences(profileId: string) {
 
 export function savePreferences(
   profileId: string,
-  preferences: Omit<ProfilePreferences, "profileId" | "updatedAt">,
+  preferences: Omit<
+    ProfilePreferences,
+    "profileId" | "updatedAt" | "legacyPreferences"
+  >,
 ) {
   return apiRequest<ProfilePreferences>(
     "/profiles/preferences",

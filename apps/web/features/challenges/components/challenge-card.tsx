@@ -1,57 +1,39 @@
+import type { ReactNode } from "react";
 import type { Challenge } from "../../../shared/types/api";
 import { Markdown } from "../../../shared/components/markdown";
 import { formatChallengeType } from "../lib/challenge-formatters";
-
 function Checklist({ items }: { items: string[] }) {
   return (
-    <ul className="grid gap-2">
-      {items.map((item) => (
-        <li className="flex gap-3 text-[15px] leading-7 text-muted" key={item}>
-          <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-brand-bright shadow-[0_0_8px_var(--color-brand)]" />
-          <span>{item}</span>
-        </li>
+    <ul className="list-disc space-y-2 pl-5 marker:text-muted">
+      {items.map((item, index) => (
+        <li key={index}>{item}</li>
       ))}
     </ul>
   );
 }
-
-function Section({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section className="border-b border-line py-6 last:border-b-0">
-      <h2 className="mb-3 text-[11px] font-semibold tracking-[0.12em] text-dim uppercase">
-        {label}
-      </h2>
-      <div className="text-[15px] leading-7 text-muted">{children}</div>
+    <section className="mt-7">
+      <h2 className="mb-3 text-sm font-semibold">{label}</h2>
+      <div className="reading">{children}</div>
     </section>
   );
 }
-
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
   return (
-    <article className="mx-auto w-full max-w-2xl">
-      <header className="border-b border-line pb-7">
-        <span className="mb-2 block text-[11px] font-semibold tracking-[0.14em] text-brand-bright uppercase">
+    <article className="mx-auto w-full min-w-0 max-w-[68ch]">
+      <header className="border-b border-line pb-6">
+        <p className="mb-3 text-xs text-muted">
           {formatChallengeType(challenge.type)}
-        </span>
-        <h1 className="text-2xl leading-tight font-semibold tracking-[-0.03em] md:text-[28px]">
-          {challenge.title}
-        </h1>
+        </p>
+        <h1 className="page-title leading-tight">{challenge.title}</h1>
       </header>
-
-      <Section label={challenge.type === "question" ? "Question" : "Problem"}>
+      <Section label={challenge.type === "question" ? "Question" : "The task"}>
         <Markdown>{challenge.problemStatement}</Markdown>
       </Section>
       <Section
         label={
-          challenge.type === "question"
-            ? "What a strong answer covers"
-            : "Expected outcome"
+          challenge.type === "question" ? "Your answer" : "Expected outcome"
         }
       >
         <Markdown>{challenge.expectedOutcome}</Markdown>
@@ -61,7 +43,9 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
       </Section>
       {challenge.starterCode && (
         <Section label="Starter code">
-          <Markdown>{`\`\`\`\n${challenge.starterCode}\n\`\`\``}</Markdown>
+          <Markdown>
+            {"\x60\x60\x60\n" + challenge.starterCode + "\n\x60\x60\x60"}
+          </Markdown>
         </Section>
       )}
       <Section label="Completion criteria">

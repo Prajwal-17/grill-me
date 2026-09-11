@@ -1,3 +1,4 @@
+import type { GuidedPreferences, LegacyPreference } from "@repo/preferences";
 export type Profile = {
   id: string;
   email: string;
@@ -6,15 +7,13 @@ export type Profile = {
 
 export type Difficulty = "easy" | "balanced" | "challenging";
 
-export type ProfilePreferences = {
+export type ProfilePreferences = GuidedPreferences & {
   profileId: string;
-  experienceLevel: string | null;
-  languagesStack: string | null;
-  learningGoals: string | null;
   preferredDuration: 30 | 60 | 90;
   difficulty: Difficulty;
   aboutMe: string | null;
   updatedAt: string;
+  legacyPreferences: LegacyPreference[];
 };
 
 export type ChallengeType =
@@ -57,6 +56,7 @@ export type ChatMessage = {
 
 export type ChallengePreparation = {
   question: string | null;
+  options: string[];
 };
 
 export type ApiError = {
@@ -66,3 +66,5 @@ export type ApiError = {
     retryable: boolean;
   };
 };
+
+export type ClarificationContext = { question: string; answer: string };

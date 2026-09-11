@@ -16,7 +16,8 @@
     "drizzle-orm": "^0.44.0",
     "hono": "^4.0.0",
     "openai": "^5.0.0",
-    "zod": "^4.0.0"
+    "zod": "^4.0.0",
+    "@repo/preferences": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",

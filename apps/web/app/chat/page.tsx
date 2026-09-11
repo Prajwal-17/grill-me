@@ -13,6 +13,10 @@ export default async function Page({ searchParams }: ChatRouteProps) {
   const createNewValue = Array.isArray(query.new) ? query.new[0] : query.new;
 
   return (
-    <ChatPage challengeId={challengeId} createNew={createNewValue === "1"} />
+    <ChatPage
+      key={challengeId ?? createNewValue ?? "latest"}
+      challengeId={challengeId}
+      createNew={createNewValue === "1"}
+    />
   );
 }

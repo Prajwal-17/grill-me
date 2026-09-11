@@ -1,3 +1,4 @@
+import type { GuidedPreferences } from "@repo/preferences";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const profiles = sqliteTable("profiles", {
@@ -15,6 +16,9 @@ export const profilePreferences = sqliteTable("profile_preferences", {
   profileId: text("profile_id")
     .primaryKey()
     .references(() => profiles.id, { onDelete: "cascade" }),
+  guidedPreferences: text("guided_preferences", {
+    mode: "json",
+  }).$type<GuidedPreferences>(),
   experienceLevel: text("experience_level"),
   languagesStack: text("languages_stack"),
   learningGoals: text("learning_goals"),

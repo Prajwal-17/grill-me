@@ -71,9 +71,8 @@ export function createChallengeService(dependencies: {
         ...input,
         learner: learnerContext(profileId),
       };
-      const draft = await llm.generateChallenge(modelInput);
-      const revised = await llm.critiqueChallenge({ ...modelInput, draft });
-      const finalChallenge = challengeContentSchema.safeParse(revised);
+      const generated = await llm.generateChallenge(modelInput);
+      const finalChallenge = challengeContentSchema.safeParse(generated);
       if (
         !finalChallenge.success ||
         (input.format !== "auto" && finalChallenge.data.type !== input.format)

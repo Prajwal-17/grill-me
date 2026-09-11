@@ -97,7 +97,7 @@ export function Markdown({ children }: { children: string }) {
               href={href}
               target="_blank"
               rel="noreferrer"
-              className="font-medium text-brand underline decoration-brand/35 underline-offset-2 transition-colors hover:text-blue-300 hover:decoration-current"
+              className="font-medium text-brand underline decoration-brand/35 underline-offset-2 transition-colors hover:text-foreground hover:decoration-current"
             >
               {content}
             </a>
@@ -106,7 +106,7 @@ export function Markdown({ children }: { children: string }) {
             <code
               className={
                 className ||
-                "rounded bg-white/[0.07] px-1.5 py-0.5 font-mono text-[0.88em] text-blue-100"
+                "rounded bg-elevated px-1.5 py-0.5 font-mono text-[0.88em] text-foreground"
               }
             >
               {content}
@@ -125,15 +125,13 @@ export function Markdown({ children }: { children: string }) {
             </div>
           ),
           thead: ({ children: content }) => (
-            <thead className="bg-white/[0.04] text-foreground">{content}</thead>
+            <thead className="bg-elevated text-foreground">{content}</thead>
           ),
           tbody: ({ children: content }) => (
             <tbody className="divide-y divide-line">{content}</tbody>
           ),
           tr: ({ children: content }) => (
-            <tr className="transition-colors hover:bg-white/[0.025]">
-              {content}
-            </tr>
+            <tr className="transition-colors hover:bg-elevated">{content}</tr>
           ),
           th: ({ children: content }) => (
             <th className="border-r border-line px-3 py-2.5 font-semibold last:border-r-0">
@@ -141,7 +139,7 @@ export function Markdown({ children }: { children: string }) {
             </th>
           ),
           td: ({ children: content }) => (
-            <td className="border-r border-line px-3 py-2.5 align-top text-slate-300 last:border-r-0">
+            <td className="border-r border-line px-3 py-2.5 align-top text-foreground last:border-r-0">
               {content}
             </td>
           ),

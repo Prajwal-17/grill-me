@@ -3,6 +3,7 @@ import type {
   Challenge,
   ChallengeFormat,
   ChallengePreparation,
+  ClarificationContext,
 } from "../../../shared/types/api";
 
 export const challengeKeys = {
@@ -43,7 +44,7 @@ export function generateChallenge(
   input: {
     prompt: string;
     format: ChallengeFormat;
-    clarificationContext: string | null;
+    clarificationContext: ClarificationContext | null;
   },
 ) {
   return apiRequest<Challenge>(

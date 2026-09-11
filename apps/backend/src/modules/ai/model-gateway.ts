@@ -1,6 +1,7 @@
 import type {
   Challenge,
   ChallengeContent,
+  ClarificationContext,
   ChallengeFormat,
   ChallengePreparation,
 } from "../challenges/challenge.schema";
@@ -24,7 +25,7 @@ export type LearnerContext = {
 export type ChallengeModelInput = {
   prompt: string;
   format: ChallengeFormat;
-  clarificationContext: string | null;
+  clarificationContext: ClarificationContext | null;
   learner: LearnerContext;
 };
 
@@ -33,9 +34,6 @@ export interface ModelGateway {
     input: Omit<ChallengeModelInput, "clarificationContext">,
   ): Promise<ChallengePreparation>;
   generateChallenge(input: ChallengeModelInput): Promise<ChallengeContent>;
-  critiqueChallenge(
-    input: ChallengeModelInput & { draft: ChallengeContent },
-  ): Promise<ChallengeContent>;
   respond(input: {
     challenge: Challenge;
     messages: ChatMessage[];

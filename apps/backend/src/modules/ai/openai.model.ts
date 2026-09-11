@@ -10,7 +10,6 @@ import type { ModelGateway } from "./model-gateway";
 import { modelUnavailable, parseJson } from "./model.utils";
 import {
   clarificationPrompt,
-  critiquePrompt,
   generationPrompt,
   hintPrompt,
   preparationPrompt,
@@ -56,9 +55,15 @@ const challengeJsonSchema = {
 const preparationJsonSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["question"],
+  required: ["question", "options"],
   properties: {
     question: { type: ["string", "null"] },
+    options: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 0,
+      maxItems: 3,
+    },
   },
 } as const;
 
@@ -114,49 +119,31 @@ export function createOpenAIModel(
     schema: Record<string, unknown>;
     validator: z.ZodType<T>;
   }): Promise<T> {
-    async function attempt(repairReason?: string) {
-      const response = await runRequest(() =>
-        client().responses.create({
-          model,
-          store: false,
-          instructions: repairReason
-            ? `${input.prompt.instructions}\n\nYour previous response was malformed. Return only output that exactly matches the required JSON schema.`
-            : input.prompt.instructions,
-          input: repairReason
-            ? `${input.prompt.input}\n\nVALIDATION ISSUE\n${repairReason}`
-            : input.prompt.input,
-          text: {
-            format: {
-              type: "json_schema",
-              name: input.name,
-              strict: true,
-              schema: input.schema,
-            },
+    const response = await runRequest(() =>
+      client().responses.create({
+        model,
+        store: false,
+        instructions: input.prompt.instructions,
+        input: input.prompt.input,
+        text: {
+          format: {
+            type: "json_schema",
+            name: input.name,
+            strict: true,
+            schema: input.schema,
           },
-        }),
-      );
-
-      return input.validator.parse(parseJson(response.output_text));
-    }
-
+        },
+      }),
+    );
     try {
-      return await attempt();
-    } catch (firstError) {
-      if (firstError instanceof AppError) throw firstError;
-
-      try {
-        const reason =
-          firstError instanceof Error ? firstError.message : "Invalid JSON";
-        return await attempt(reason);
-      } catch (error) {
-        if (error instanceof AppError) throw error;
-        throw new AppError(
-          "MODEL_OUTPUT_INVALID",
-          "The model did not return a valid response. Try again.",
-          502,
-          true,
-        );
-      }
+      return input.validator.parse(parseJson(response.output_text));
+    } catch {
+      throw new AppError(
+        "MODEL_OUTPUT_INVALID",
+        "The model returned an invalid response. Try again.",
+        502,
+        true,
+      );
     }
   }
 
@@ -180,7 +167,11 @@ export function createOpenAIModel(
         if (event.type === "response.output_text.delta") {
           receivedText = true;
           yield event.delta;
-        } else if (event.type === "error") {
+        } else if (
+          event.type === "error" ||
+          event.type === "response.failed" ||
+          event.type === "response.incomplete"
+        ) {
           throw new Error("The model stream failed.");
         }
       }
@@ -211,16 +202,7 @@ export function createOpenAIModel(
     generateChallenge(input) {
       return requestStructured({
         prompt: generationPrompt(input),
-        name: "engineering_challenge_draft",
-        schema: challengeJsonSchema,
-        validator: challengeValidator(input.format),
-      });
-    },
-
-    critiqueChallenge(input) {
-      return requestStructured({
-        prompt: critiquePrompt(input),
-        name: "engineering_challenge_final",
+        name: "engineering_challenge",
         schema: challengeJsonSchema,
         validator: challengeValidator(input.format),
       });

@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+import { migrateLegacyPreferences } from "@repo/preferences";
 import { Database as BunDatabase } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
@@ -20,5 +22,14 @@ export const db = drizzle({ client: sqlite, schema });
 export function migrateDatabase() {
   migrate(db, {
     migrationsFolder: resolve(import.meta.dir, "../../../drizzle"),
+  });
+  db.transaction((tx) => {
+    for (const row of tx.select().from(schema.profilePreferences).all()) {
+      if (row.guidedPreferences === null)
+        tx.update(schema.profilePreferences)
+          .set({ guidedPreferences: migrateLegacyPreferences(row).guided })
+          .where(eq(schema.profilePreferences.profileId, row.profileId))
+          .run();
+    }
   });
 }

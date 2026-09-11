@@ -18,7 +18,18 @@ Clarifications, hints, and solution reviews stream into the chat as they are
 generated instead of waiting for the full response.
 
 The email is only a local profile selector. There is no authentication. Optional
-profile preferences and an editable About me memory personalize future prompts.
+guided profile preferences and optional Additional context personalize future prompts.
+Experience, languages, stack, goals, and current focus use a shared option catalog.
+Existing free-text preferences are retained under Previous preferences.
+
+The interface supports light, dark, and system appearance, saved in this browser.
+IBM Plex fonts are hosted locally. All code stays in your external editor; the app
+accepts pasted solutions and text/source-file attachments for review.
+
+Challenge creation checks whether one multiple-choice clarification is essential,
+then makes one generation request with format-specific instructions and your
+context. There is no draft revision pass or automatic malformed-output repair.
+Invalid responses return a retryable error without saving a partial exercise.
 
 ## Stack
 

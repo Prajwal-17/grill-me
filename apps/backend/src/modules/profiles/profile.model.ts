@@ -44,12 +44,20 @@ export const profilePreferencesModel = {
 
   save(profileId: string, input: SavePreferencesInput) {
     const now = new Date();
+    const { preferredDuration, difficulty, aboutMe, ...guidedPreferences } =
+      input;
+    const values = {
+      preferredDuration,
+      difficulty,
+      aboutMe,
+      guidedPreferences,
+    };
     return db
       .insert(profilePreferences)
-      .values({ profileId, ...input, createdAt: now, updatedAt: now })
+      .values({ profileId, ...values, createdAt: now, updatedAt: now })
       .onConflictDoUpdate({
         target: profilePreferences.profileId,
-        set: { ...input, updatedAt: now },
+        set: { ...values, updatedAt: now },
       })
       .returning()
       .get();

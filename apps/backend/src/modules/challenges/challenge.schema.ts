@@ -39,14 +39,34 @@ export const prepareChallengeRequestSchema = z.object({
   format: challengeFormatSchema.default("auto"),
 });
 
+export const clarificationContextSchema = z.object({
+  question: z.string().trim().min(5).max(240),
+  answer: z.string().trim().min(1).max(2000),
+});
+export type ClarificationContext = z.infer<typeof clarificationContextSchema>;
+
 export const generateChallengeRequestSchema =
   prepareChallengeRequestSchema.extend({
-    clarificationContext: z.string().trim().max(2_000).nullable().default(null),
+    clarificationContext: clarificationContextSchema.nullable().default(null),
   });
 
-export const challengePreparationSchema = z.object({
-  question: z.string().trim().min(5).max(240).nullable(),
-});
+export const challengePreparationSchema = z
+  .object({
+    question: z.string().trim().min(5).max(240).nullable(),
+    options: z.array(z.string().trim().min(1).max(160)).max(3),
+  })
+  .refine(
+    (value) =>
+      value.question === null
+        ? value.options.length === 0
+        : value.options.length >= 2 &&
+          new Set(value.options.map((option) => option.toLowerCase())).size ===
+            value.options.length,
+    {
+      message:
+        "A clarification needs 2–3 distinct choices; no question needs no choices.",
+    },
+  );
 
 export const challengeParamsSchema = z.object({
   id: z.string().uuid(),

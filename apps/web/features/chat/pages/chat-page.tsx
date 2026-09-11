@@ -1,5 +1,4 @@
 "use client";
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -7,34 +6,26 @@ import {
   ClipboardCheck,
   Lightbulb,
   LoaderCircle,
-  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   challengeKeys,
   completeChallenge,
-  generateChallenge,
   getActiveChallenges,
   getChallenge,
-  prepareChallenge,
 } from "../../challenges/api/challenge-api";
 import { ChallengeCard } from "../../challenges/components/challenge-card";
-import { getPreferences, preferencesKey } from "../../profile/api/profile-api";
-import { PersonalContextCard } from "../../profile/components/personal-context-card";
 import { useProfile } from "../../profile/hooks/use-profile";
-import { AppHeader } from "../../../shared/components/app-header";
-import { Button, buttonStyles } from "../../../shared/components/ui/button";
+import { AppShell } from "../../../shared/components/app-header";
+import { Button } from "../../../shared/components/ui/button";
 import {
   ErrorState,
-  LoadingIndicator,
   LoadingScreen,
 } from "../../../shared/components/ui/feedback";
-import type {
-  ChallengeFormat,
-  MessageAttachment,
-} from "../../../shared/types/api";
+import { cn } from "../../../shared/lib/cn";
+import type { MessageAttachment } from "../../../shared/types/api";
 import {
   getHint,
   getMessages,
@@ -43,8 +34,7 @@ import {
 } from "../api/message-api";
 import { ChatComposer } from "../components/chat-composer";
 import { ChatMessage } from "../components/chat-message";
-import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
-
+import { CreateExercise } from "../components/create-exercise";
 export function ChatPage({
   challengeId,
   createNew = false,
@@ -54,40 +44,29 @@ export function ChatPage({
 }) {
   const profile = useProfile();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [prompt, setPrompt] = useState("");
-  const [format, setFormat] = useState<ChallengeFormat>("auto");
-  const [clarificationQuestion, setClarificationQuestion] = useState<
-    string | null
-  >(null);
-  const [clarificationAnswer, setClarificationAnswer] = useState("");
+  const queries = useQueryClient();
+  const [tab, setTab] = useState<"brief" | "discussion">("brief");
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [mode, setMode] = useState<ComposerMode>("clarify");
-  const [pendingMessage, setPendingMessage] = useState<{
+  const [pending, setPending] = useState<{
     content: string;
     mode: ComposerMode;
     attachments: MessageAttachment[];
   } | null>(null);
-  const [streamingReply, setStreamingReply] = useState<{
+  const [reply, setReply] = useState<{
     content: string;
     mode: ComposerMode | "hint";
   } | null>(null);
-  const messagesEnd = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
-
-  const preferencesQuery = useQuery({
-    queryKey: preferencesKey(profile?.id),
-    queryFn: () => getPreferences(profile!.id),
-    enabled: Boolean(profile),
-  });
-
-  const activeQuery = useQuery({
+  const scroll = useRef<HTMLDivElement>(null);
+  const follow = useRef(true);
+  const active = useQuery({
     queryKey: challengeKeys.active(profile?.id),
     queryFn: () => getActiveChallenges(profile!.id),
     enabled: Boolean(profile && !challengeId && !createNew),
   });
-  const detailQuery = useQuery({
+  const detail = useQuery({
     queryKey: challengeKeys.detail(profile?.id, challengeId),
     queryFn: () => getChallenge(profile!.id, challengeId!),
     enabled: Boolean(profile && challengeId && !createNew),
@@ -95,60 +74,19 @@ export function ChatPage({
   const challenge = createNew
     ? undefined
     : challengeId
-      ? detailQuery.data
-      : activeQuery.data?.[0];
-  const challengeLoading =
-    !createNew && (challengeId ? detailQuery.isLoading : activeQuery.isLoading);
-  const challengeError = detailQuery.error ?? activeQuery.error;
-
-  const messagesQuery = useQuery({
+      ? detail.data
+      : active.data?.[0];
+  const loading =
+    !createNew && (challengeId ? detail.isLoading : active.isLoading);
+  const messages = useQuery({
     queryKey: challengeKeys.messages(challenge?.id),
     queryFn: () => getMessages(profile!.id, challenge!.id),
     enabled: Boolean(profile && challenge),
   });
-  const visibleMessages =
-    messagesQuery.data?.filter((item) => item.mode !== "generate") ?? [];
-
   useEffect(() => {
-    messagesEnd.current?.scrollIntoView({
-      behavior: streamingReply ? "auto" : "smooth",
-    });
-  }, [messagesQuery.data, streamingReply]);
-
-  const generate = useMutation({
-    mutationFn: (clarificationContext: string | null) =>
-      generateChallenge(profile!.id, {
-        prompt,
-        format,
-        clarificationContext,
-      }),
-    onSuccess: (created) => {
-      queryClient.setQueryData(
-        challengeKeys.detail(profile!.id, created.id),
-        created,
-      );
-      void queryClient.invalidateQueries({
-        queryKey: challengeKeys.active(profile!.id),
-      });
-      setPrompt("");
-      setClarificationQuestion(null);
-      setClarificationAnswer("");
-      router.replace(`/chat?id=${created.id}`);
-    },
-  });
-
-  const prepare = useMutation({
-    mutationFn: () => prepareChallenge(profile!.id, prompt, format),
-    onSuccess: (result) => {
-      if (result.question) {
-        setClarificationQuestion(result.question);
-        setClarificationAnswer("");
-        return;
-      }
-      generate.mutate(null);
-    },
-  });
-
+    if (follow.current && scroll.current)
+      scroll.current.scrollTop = scroll.current.scrollHeight;
+  }, [messages.data, reply, pending, tab]);
   const send = useMutation({
     mutationFn: () =>
       sendMessage(
@@ -157,421 +95,269 @@ export function ChatPage({
         message,
         mode,
         attachments,
-        (delta) => {
-          setStreamingReply((current) => ({
-            mode: current?.mode ?? mode,
+        (delta) =>
+          setReply((current) => ({
+            mode,
             content: (current?.content ?? "") + delta,
-          }));
-        },
+          })),
       ),
     onMutate: () => {
-      setPendingMessage({ content: message, mode, attachments });
-      setStreamingReply({ content: "", mode });
+      follow.current = true;
+      setPending({ content: message, mode, attachments });
+      setReply({ content: "", mode });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
+      await queries.invalidateQueries({
         queryKey: challengeKeys.messages(challenge!.id),
       });
       setMessage("");
       setAttachments([]);
       setMode("clarify");
-      setPendingMessage(null);
-      setStreamingReply(null);
+      setPending(null);
+      setReply(null);
     },
     onError: () => {
-      setPendingMessage(null);
-      setStreamingReply(null);
+      setPending(null);
+      setReply(null);
     },
   });
-
   const hint = useMutation({
     mutationFn: () =>
-      getHint(profile!.id, challenge!.id, (delta) => {
-        setStreamingReply((current) => ({
+      getHint(profile!.id, challenge!.id, (delta) =>
+        setReply((current) => ({
           mode: "hint",
           content: (current?.content ?? "") + delta,
-        }));
-      }),
-    onMutate: () => setStreamingReply({ content: "", mode: "hint" }),
+        })),
+      ),
+    onMutate: () => {
+      follow.current = true;
+      setReply({ content: "", mode: "hint" });
+    },
     onSuccess: async (updated) => {
-      queryClient.setQueryData(
+      queries.setQueryData(
         challengeKeys.detail(profile!.id, challenge!.id),
         updated,
       );
       await Promise.all([
-        queryClient.invalidateQueries({
+        queries.invalidateQueries({
           queryKey: challengeKeys.active(profile!.id),
         }),
-        queryClient.invalidateQueries({
+        queries.invalidateQueries({
           queryKey: challengeKeys.messages(challenge!.id),
         }),
       ]);
-      setStreamingReply(null);
+      setReply(null);
     },
-    onError: () => setStreamingReply(null),
+    onError: () => setReply(null),
   });
-
   const complete = useMutation({
     mutationFn: () => completeChallenge(profile!.id, challenge!.id),
     onSuccess: async (updated) => {
-      queryClient.setQueryData(
+      queries.setQueryData(
         challengeKeys.detail(profile!.id, challenge!.id),
         updated,
       );
       await Promise.all([
-        queryClient.invalidateQueries({
+        queries.invalidateQueries({
           queryKey: challengeKeys.active(profile!.id),
         }),
-        queryClient.invalidateQueries({
+        queries.invalidateQueries({
           queryKey: challengeKeys.history(profile!.id),
         }),
       ]);
-      router.push("/exercises");
+      router.push("/history?id=" + updated.id);
     },
   });
-
-  if (profile === undefined || challengeLoading) return <LoadingScreen />;
+  if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
-
-  if (challengeError) {
-    return (
-      <>
-        <AppHeader profile={profile} />
-        <ErrorState
-          title="Could not load this exercise."
-          message={challengeError.message}
-          onRetry={() =>
-            challengeId ? detailQuery.refetch() : activeQuery.refetch()
-          }
-        />
-      </>
-    );
-  }
-
-  if (!challenge) {
-    function submitGeneration(event: FormEvent) {
-      event.preventDefault();
-      if (prompt.trim() && !prepare.isPending && !generate.isPending) {
-        prepare.mutate();
-      }
-    }
-
-    const generationError = prepare.error ?? generate.error;
-    const generationBusy = prepare.isPending || generate.isPending;
-
-    return (
-      <>
-        <AppHeader profile={profile} />
-        <main className="page-enter mx-auto w-full max-w-6xl px-5 py-9 sm:py-12">
-          <Link
-            href="/exercises"
-            className="mb-7 inline-flex items-center gap-1.5 rounded-lg px-1 py-1 text-xs text-brand-bright transition hover:text-foreground"
-          >
-            <ArrowLeft size={14} /> Exercises
-          </Link>
-          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <section className="surface-panel rounded-2xl p-5 sm:p-7">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-bright">
-                New practice
-              </p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
-                Create an exercise
-              </h1>
-              <p className="mt-2 text-sm leading-6 text-muted">
-                Describe what you want to practice. Your request takes priority;
-                saved context personalizes everything else.
-              </p>
-              <form className="mt-6 grid gap-3" onSubmit={submitGeneration}>
-                <label className="grid max-w-xs gap-2 text-sm font-medium">
-                  Format
-                  <select
-                    value={format}
-                    disabled={generationBusy}
-                    onChange={(event) => {
-                      setFormat(event.target.value as ChallengeFormat);
-                      setClarificationQuestion(null);
-                      setClarificationAnswer("");
-                    }}
-                    className="h-11 rounded-xl border border-line-strong bg-canvas/70 px-3.5 text-sm font-normal outline-none transition-all duration-200 hover:border-brand/40 focus:border-brand focus:bg-surface focus:ring-4 focus:ring-brand/10"
-                  >
-                    <option value="auto">Auto</option>
-                    <option value="exercise">Coding exercise</option>
-                    <option value="question">Tricky question</option>
-                    <option value="architecture">Architecture</option>
-                    <option value="mini-project">Mini-project</option>
-                  </select>
-                </label>
-                <textarea
-                  autoFocus
-                  value={prompt}
-                  disabled={generationBusy}
-                  onChange={(event) => {
-                    setPrompt(event.target.value);
-                    setClarificationQuestion(null);
-                    setClarificationAnswer("");
-                  }}
-                  onKeyDown={(event) => {
-                    if (!shouldSubmitOnEnter(event)) return;
-
-                    event.preventDefault();
-                    if (
-                      !generationBusy &&
-                      !clarificationQuestion &&
-                      prompt.trim().length >= 3
-                    ) {
-                      prepare.mutate();
-                    }
-                  }}
-                  placeholder="e.g. Python strings, lists, and loops"
-                  rows={5}
-                  maxLength={4_000}
-                  className="min-h-40 resize-y rounded-xl border border-line-strong bg-canvas/70 px-4 py-3.5 text-sm leading-6 outline-none transition-all duration-200 placeholder:text-dim hover:border-brand/40 focus:border-brand focus:bg-surface focus:ring-4 focus:ring-brand/10"
-                />
-                <div className="flex items-center justify-between gap-4">
-                  <span className="font-mono text-[10px] text-dim">
-                    {prompt.length}/4000
-                  </span>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={
-                      generationBusy ||
-                      Boolean(clarificationQuestion) ||
-                      prompt.trim().length < 3
-                    }
-                  >
-                    {generationBusy && (
-                      <LoaderCircle className="animate-spin" size={15} />
-                    )}
-                    {prepare.isPending
-                      ? "Checking request…"
-                      : generate.isPending
-                        ? "Creating exercise…"
-                        : clarificationQuestion
-                          ? "Answer below"
-                          : "Continue"}
-                  </Button>
-                </div>
-              </form>
-              {generationBusy && (
-                <div className="mt-5 rounded-xl border border-line bg-canvas/45 px-4 py-4">
-                  <LoadingIndicator
-                    label={
-                      prepare.isPending
-                        ? "Checking whether one detail is needed…"
-                        : "Creating and reviewing your exercise…"
-                    }
-                  />
-                </div>
-              )}
-              {clarificationQuestion && !generationBusy && (
-                <form
-                  className="mt-5 rounded-2xl border border-brand/45 bg-brand-soft/55 p-5 shadow-lg shadow-brand/5"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (clarificationAnswer.trim()) {
-                      generate.mutate(clarificationAnswer.trim());
-                    }
-                  }}
-                >
-                  <span className="text-xs font-semibold tracking-[0.08em] text-brand uppercase">
-                    One detail
-                  </span>
-                  <h2 className="mt-2 text-base font-semibold leading-6">
-                    {clarificationQuestion}
-                  </h2>
-                  <label className="mt-4 grid gap-2 text-sm font-medium">
-                    Your answer
-                    <input
-                      autoFocus
-                      value={clarificationAnswer}
-                      onChange={(event) =>
-                        setClarificationAnswer(event.target.value)
-                      }
-                      maxLength={2_000}
-                      placeholder="Add the missing context"
-                      className="h-11 rounded-xl border border-line-strong bg-canvas px-3.5 text-sm font-normal outline-none transition-all duration-200 placeholder:text-dim hover:border-brand/40 focus:border-brand focus:ring-4 focus:ring-brand/10"
-                    />
-                  </label>
-                  <div className="mt-4 flex flex-wrap justify-end gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => generate.mutate("Use your best judgment.")}
-                    >
-                      Use your best judgment
-                    </Button>
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      disabled={!clarificationAnswer.trim()}
-                    >
-                      Create exercise
-                    </Button>
-                  </div>
-                </form>
-              )}
-              {generationError && (
-                <p className="mt-2 text-xs text-red-400" role="alert">
-                  {generationError.message} Your request is still here.
-                </p>
-              )}
-            </section>
-            <PersonalContextCard
-              preferences={preferencesQuery.data}
-              loading={preferencesQuery.isLoading}
-              error={preferencesQuery.error?.message}
-            />
-          </div>
-        </main>
-      </>
-    );
-  }
-
+  const error = detail.error ?? active.error;
   const busy = send.isPending || hint.isPending || complete.isPending;
+  const finished = challenge?.status === "completed";
   const operationError = send.error ?? hint.error ?? complete.error;
-
+  const visible =
+    messages.data?.filter((item) => item.mode !== "generate") ?? [];
   return (
-    <>
-      <AppHeader profile={profile} />
-      <main className="page-enter mx-auto w-full max-w-[1500px] lg:grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,0.95fr)_minmax(390px,1.05fr)]">
-        <div className="border-b border-line bg-surface/70 px-5 py-5 backdrop-blur-sm lg:overflow-y-auto lg:border-r lg:border-b-0 lg:px-7 lg:pb-14">
-          <div className="mb-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <AppShell profile={profile}>
+      {loading ? (
+        <LoadingScreen />
+      ) : error ? (
+        <ErrorState
+          title="Could not load this exercise"
+          message={error.message}
+          onRetry={() => (challengeId ? detail.refetch() : active.refetch())}
+        />
+      ) : !challenge ? (
+        <CreateExercise profile={profile} />
+      ) : (
+        <main className="flex h-[calc(100dvh-56px)] flex-col md:h-dvh">
+          <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-line px-5 md:px-7">
             <Link
               href="/exercises"
-              className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline"
+              className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"
             >
-              <ArrowLeft size={14} /> Exercises
+              <ArrowLeft size={15} />
+              Exercises
             </Link>
-            <div className="flex items-center gap-2">
-              <Link href="/chat?new=1" className={buttonStyles("secondary")}>
-                <Plus size={15} /> New exercise
-              </Link>
+            {finished ? (
+              <span className="flex items-center gap-2 text-sm">
+                <Check size={15} />
+                Completed
+              </span>
+            ) : (
               <Button
-                variant="ghost"
                 disabled={busy}
                 onClick={() => {
-                  if (window.confirm("Mark this exercise complete?")) {
+                  if (window.confirm("Mark this exercise complete?"))
                     complete.mutate();
-                  }
                 }}
               >
                 {complete.isPending ? (
-                  <LoaderCircle className="animate-spin" size={15} />
+                  <LoaderCircle size={15} className="animate-spin" />
                 ) : (
                   <Check size={15} />
                 )}
                 Mark complete
               </Button>
-            </div>
-          </div>
-          <ChallengeCard challenge={challenge} />
-        </div>
-
-        <section className="flex min-h-[640px] flex-col bg-surface/85 lg:min-h-0">
-          <header className="flex flex-col items-start justify-between gap-4 border-b border-line px-5 py-4 sm:flex-row sm:items-center lg:min-h-[78px] lg:px-6">
-            <div>
-              <h2 className="text-sm font-semibold">Chat</h2>
-              <p className="mt-0.5 text-xs text-muted">
-                Ask about the exercise or review your solution.
-              </p>
-            </div>
-            <div className="flex w-full gap-2 sm:w-auto">
-              <Button
-                variant="hint"
-                className="flex-1 sm:flex-none"
-                disabled={busy || Boolean(challenge.hint)}
-                onClick={() => hint.mutate()}
-              >
-                {hint.isPending ? (
-                  <LoaderCircle className="animate-spin" size={15} />
-                ) : (
-                  <Lightbulb size={15} />
+            )}
+          </header>
+          <div
+            className="flex border-b border-line lg:hidden"
+            role="tablist"
+            aria-label="Exercise view"
+          >
+            {(["brief", "discussion"] as const).map((value) => (
+              <button
+                type="button"
+                key={value}
+                role="tab"
+                id={"tab-" + value}
+                aria-controls={"panel-" + value}
+                aria-selected={tab === value}
+                tabIndex={tab === value ? 0 : -1}
+                className={cn(
+                  "flex-1 border-b-2 py-3 text-sm capitalize",
+                  tab === value
+                    ? "border-foreground"
+                    : "border-transparent text-muted",
                 )}
-                {challenge.hint ? "Hint used" : "Get a hint"}
-              </Button>
-              <Button
-                variant={mode === "review" ? "review" : "secondary"}
-                className="flex-1 sm:flex-none"
-                disabled={busy}
-                onClick={() => {
-                  setMode("review");
-                  window.setTimeout(() => composer.current?.focus(), 0);
+                onClick={() => setTab(value)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    const next = value === "brief" ? "discussion" : "brief";
+                    setTab(next);
+                    document.getElementById("tab-" + next)?.focus();
+                  }
                 }}
               >
-                <ClipboardCheck size={15} /> Review solution
-              </Button>
-            </div>
-          </header>
-
-          <div
-            className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6"
-            aria-live="polite"
-          >
-            <div className="mx-auto min-h-full w-full max-w-3xl">
-              {messagesQuery.isLoading && (
-                <div className="flex min-h-40 items-center justify-center gap-2 text-xs text-muted">
-                  <LoaderCircle className="animate-spin" size={18} /> Loading
-                  conversation...
-                </div>
+                {value === "brief" ? "Brief" : "Discussion"}
+              </button>
+            ))}
+          </div>
+          <div className="min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(350px,0.9fr)]">
+            <section
+              id="panel-brief"
+              aria-label="Exercise brief"
+              className={cn(
+                "h-full overflow-y-auto px-5 py-7 lg:block lg:border-r lg:border-line lg:px-8",
+                tab !== "brief" && "hidden",
               )}
-              {!messagesQuery.isLoading &&
-                visibleMessages.length === 0 &&
-                !pendingMessage &&
-                !streamingReply && (
-                  <div className="flex min-h-56 flex-col items-center justify-center text-center text-xs text-muted">
-                    <strong className="text-sm font-medium text-slate-300">
-                      No messages yet
-                    </strong>
-                    <span className="mt-1">
-                      Ask a question when you need clarification.
-                    </span>
+            >
+              <ChallengeCard challenge={challenge} />
+            </section>
+            <section
+              id="panel-discussion"
+              aria-label="Discussion"
+              className={cn(
+                "h-full min-h-0 flex-col bg-surface lg:flex",
+                tab === "discussion" ? "flex" : "hidden",
+              )}
+            >
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
+                <h2 className="text-sm font-semibold">Discussion</h2>
+                {!finished && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="ghost"
+                      disabled={busy || Boolean(challenge.hint)}
+                      onClick={() => hint.mutate()}
+                    >
+                      <Lightbulb size={15} />
+                      {challenge.hint ? "Hint used" : "Get a hint"}
+                    </Button>
+                    <Button
+                      variant={mode === "review" ? "review" : "secondary"}
+                      disabled={busy}
+                      onClick={() => {
+                        setMode("review");
+                        composer.current?.focus();
+                      }}
+                    >
+                      <ClipboardCheck size={15} />
+                      Review solution
+                    </Button>
                   </div>
                 )}
-
-              {visibleMessages.map((item) => (
-                <ChatMessage
-                  key={item.id}
-                  role={item.role}
-                  mode={item.mode}
-                  content={item.content}
-                  attachments={item.attachments}
-                />
-              ))}
-              {pendingMessage && (
-                <ChatMessage
-                  role="user"
-                  mode={pendingMessage.mode}
-                  content={pendingMessage.content}
-                  attachments={pendingMessage.attachments}
+              </header>
+              <div
+                ref={scroll}
+                className="min-h-0 flex-1 overflow-y-auto px-5 py-4"
+                onScroll={() => {
+                  const node = scroll.current;
+                  if (node)
+                    follow.current =
+                      node.scrollHeight - node.scrollTop - node.clientHeight <
+                      100;
+                }}
+              >
+                {messages.isLoading && (
+                  <p className="text-sm text-muted">Loading discussion…</p>
+                )}
+                {messages.error && (
+                  <p role="alert" className="text-sm">
+                    {messages.error.message}{" "}
+                    <button
+                      className="underline"
+                      onClick={() => void messages.refetch()}
+                    >
+                      Try again
+                    </button>
+                  </p>
+                )}
+                {!messages.isLoading &&
+                  !messages.error &&
+                  !visible.length &&
+                  !pending &&
+                  !reply && (
+                    <p className="py-12 text-center text-sm text-muted">
+                      Ask a question or submit your solution.
+                    </p>
+                  )}
+                {visible.map((item) => (
+                  <ChatMessage key={item.id} {...item} />
+                ))}
+                {pending && <ChatMessage role="user" {...pending} />}
+                {reply && <ChatMessage role="assistant" {...reply} streaming />}
+              </div>
+              {!finished && (
+                <ChatComposer
+                  mode={mode}
+                  message={message}
+                  attachments={attachments}
+                  busy={busy}
+                  error={operationError?.message}
+                  textareaRef={composer}
+                  onModeChange={setMode}
+                  onMessageChange={setMessage}
+                  onAttachmentsChange={setAttachments}
+                  onSubmit={() => {
+                    if (!busy) send.mutate();
+                  }}
                 />
               )}
-              {streamingReply && (
-                <ChatMessage
-                  role="assistant"
-                  mode={streamingReply.mode}
-                  content={streamingReply.content}
-                  streaming
-                />
-              )}
-              <div ref={messagesEnd} />
-            </div>
+            </section>
           </div>
-
-          <ChatComposer
-            mode={mode}
-            message={message}
-            attachments={attachments}
-            busy={send.isPending}
-            error={operationError?.message}
-            textareaRef={composer}
-            onModeChange={setMode}
-            onMessageChange={setMessage}
-            onAttachmentsChange={setAttachments}
-            onSubmit={() => send.mutate()}
-          />
-        </section>
-      </main>
-    </>
+        </main>
+      )}
+    </AppShell>
   );
 }

@@ -1,137 +1,172 @@
+import { useState } from "react";
+import {
+  EMPTY_GUIDED,
+  EXPERIENCE,
+  LANGUAGES,
+  STACK,
+  GOALS,
+  FOCUS,
+} from "@repo/preferences";
 import type { Difficulty, ProfilePreferences } from "../../../shared/types/api";
-
+import { MultiSelect } from "../../../shared/components/ui/multi-select";
 export type PreferenceValues = Omit<
   ProfilePreferences,
-  "profileId" | "updatedAt"
+  "profileId" | "updatedAt" | "legacyPreferences"
 >;
-
 export const DEFAULT_PREFERENCES: PreferenceValues = {
-  experienceLevel: null,
-  languagesStack: null,
-  learningGoals: null,
+  ...EMPTY_GUIDED,
   preferredDuration: 60,
   difficulty: "balanced",
   aboutMe: null,
 };
-
 export function preferenceValues(
   preferences: ProfilePreferences,
 ): PreferenceValues {
   const {
-    profileId: _profileId,
-    updatedAt: _updatedAt,
+    profileId: _id,
+    updatedAt: _date,
+    legacyPreferences: _legacy,
     ...values
   } = preferences;
   return values;
 }
-
-const fieldClass =
-  "w-full rounded-xl border border-line-strong bg-canvas/70 px-3.5 text-sm text-foreground shadow-inner shadow-black/10 outline-none transition-all duration-200 placeholder:text-dim hover:border-brand/40 focus:border-brand focus:bg-surface focus:ring-4 focus:ring-brand/10";
-
 export function PreferencesFields({
   values,
   onChange,
-  compact = false,
 }: {
   values: PreferenceValues;
   onChange: <K extends keyof PreferenceValues>(
     key: K,
     value: PreferenceValues[K],
   ) => void;
-  compact?: boolean;
 }) {
+  const [notesOpen, setNotesOpen] = useState(Boolean(values.aboutMe));
   return (
-    <div className={compact ? "grid gap-5" : "grid gap-7"}>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium">
-          Experience level
-          <input
+    <div className="grid gap-7">
+      <section className="grid gap-5">
+        <h2 className="section-heading">Background</h2>
+        <label className="field-label max-w-xs">
+          Experience
+          <select
+            className="field font-normal"
             value={values.experienceLevel ?? ""}
             onChange={(event) =>
-              onChange("experienceLevel", event.target.value || null)
-            }
-            placeholder="e.g. Mid-level developer"
-            maxLength={120}
-            className={`${fieldClass} h-11 font-normal`}
-          />
-        </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Languages and stack
-          <input
-            value={values.languagesStack ?? ""}
-            onChange={(event) =>
-              onChange("languagesStack", event.target.value || null)
-            }
-            placeholder="e.g. TypeScript, React, Postgres"
-            maxLength={500}
-            className={`${fieldClass} h-11 font-normal`}
-          />
-        </label>
-      </div>
-
-      <label className="grid gap-2 text-sm font-medium">
-        Learning goals
-        <textarea
-          value={values.learningGoals ?? ""}
-          onChange={(event) =>
-            onChange("learningGoals", event.target.value || null)
-          }
-          placeholder="What do you want to get better at?"
-          rows={compact ? 2 : 3}
-          maxLength={1_000}
-          className={`${fieldClass} resize-y py-3 font-normal leading-6`}
-        />
-      </label>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium">
-          Preferred duration
-          <select
-            value={values.preferredDuration}
-            onChange={(event) =>
               onChange(
-                "preferredDuration",
-                Number(event.target.value) as 30 | 60 | 90,
+                "experienceLevel",
+                (event.target.value ||
+                  null) as PreferenceValues["experienceLevel"],
               )
             }
-            className={`${fieldClass} h-11 font-normal`}
           >
-            <option value={30}>30 minutes</option>
-            <option value={60}>60 minutes</option>
-            <option value={90}>90 minutes</option>
+            <option value="">Not set</option>
+            {EXPERIENCE.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </label>
-        <label className="grid gap-2 text-sm font-medium">
-          Difficulty
-          <select
-            value={values.difficulty}
-            onChange={(event) =>
-              onChange("difficulty", event.target.value as Difficulty)
-            }
-            className={`${fieldClass} h-11 font-normal`}
-          >
-            <option value="easy">Easy</option>
-            <option value="balanced">Balanced</option>
-            <option value="challenging">Challenging</option>
-          </select>
-        </label>
-      </div>
-
-      <label className="grid gap-2 text-sm font-medium">
-        About me
-        <span className="font-normal leading-5 text-muted">
-          Background, strengths, weak spots, and learning context Grill Me
-          should remember.
-        </span>
+        <div className="grid items-start gap-5 sm:grid-cols-2">
+          <MultiSelect
+            label="Languages"
+            options={LANGUAGES}
+            value={values.languages}
+            onChange={(next) => onChange("languages", next)}
+          />
+          <MultiSelect
+            label="Stack"
+            options={STACK}
+            value={values.stack}
+            onChange={(next) => onChange("stack", next)}
+          />
+        </div>
+      </section>
+      <section className="grid gap-5 border-t border-line pt-6">
+        <h2 className="section-heading">Practice</h2>
+        <div className="grid items-start gap-5 sm:grid-cols-2">
+          <MultiSelect
+            label="Learning goals"
+            options={GOALS}
+            value={values.learningGoals}
+            onChange={(next) => onChange("learningGoals", next)}
+          />
+          <label className="field-label">
+            Current focus
+            <select
+              className="field font-normal"
+              value={values.currentFocus ?? ""}
+              onChange={(event) =>
+                onChange(
+                  "currentFocus",
+                  (event.target.value ||
+                    null) as PreferenceValues["currentFocus"],
+                )
+              }
+            >
+              <option value="">Let my request decide</option>
+              {FOCUS.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="grid grid-cols-2 gap-5">
+          <label className="field-label">
+            Duration
+            <select
+              className="field font-normal"
+              value={values.preferredDuration}
+              onChange={(event) =>
+                onChange(
+                  "preferredDuration",
+                  Number(event.target.value) as 30 | 60 | 90,
+                )
+              }
+            >
+              {[30, 60, 90].map((value) => (
+                <option key={value} value={value}>
+                  {value} minutes
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-label">
+            Difficulty
+            <select
+              className="field font-normal"
+              value={values.difficulty}
+              onChange={(event) =>
+                onChange("difficulty", event.target.value as Difficulty)
+              }
+            >
+              <option value="easy">Easy</option>
+              <option value="balanced">Balanced</option>
+              <option value="challenging">Challenging</option>
+            </select>
+          </label>
+        </div>
+      </section>
+      <details
+        open={notesOpen}
+        onToggle={(event) => setNotesOpen(event.currentTarget.open)}
+        className="border-t border-line pt-5"
+      >
+        <summary className="text-sm font-medium">
+          Additional context{" "}
+          <span className="ml-2 font-normal text-muted">Optional</span>
+        </summary>
         <textarea
+          aria-label="Additional context"
           value={values.aboutMe ?? ""}
           onChange={(event) => onChange("aboutMe", event.target.value || null)}
-          placeholder="e.g. I grasp syntax quickly, but I want more practice turning vague requirements into testable steps."
-          rows={compact ? 4 : 7}
-          maxLength={4_000}
-          className={`${fieldClass} resize-y py-3 font-normal leading-6`}
+          maxLength={4000}
+          rows={3}
+          placeholder="Anything else your exercises should take into account"
+          className="field mt-4 resize-y font-normal leading-6"
         />
-      </label>
+      </details>
     </div>
   );
 }

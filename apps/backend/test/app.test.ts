@@ -21,19 +21,13 @@ const { createApp } = await import("../src/app");
 const { migrateDatabase } = await import("../src/shared/database/db");
 migrateDatabase();
 
-const draft: ChallengeContent = {
-  title: "Draft title",
+const generated: ChallengeContent = {
+  title: "Group words by first letter",
   type: "exercise",
   problemStatement: "Build a function that groups words by their first letter.",
   expectedOutcome: "A function with deterministic, observable return values.",
   constraints: ["Do not use external packages."],
   starterCode: null,
-  completionCriteria: ["Handles empty input and repeated first letters."],
-};
-
-const revised: ChallengeContent = {
-  ...draft,
-  title: "Revised, testable title",
   completionCriteria: [
     "Returns an empty object for empty input.",
     "Groups repeated first letters without dropping words.",
@@ -41,12 +35,11 @@ const revised: ChallengeContent = {
 };
 
 class FakeModel implements ModelGateway {
-  preparation: ChallengePreparation = { question: null };
-  final = revised;
-  critiqueError: Error | null = null;
+  preparation: ChallengePreparation = { question: null, options: [] };
+  final = generated;
+  generationError: Error | null = null;
   prepareInputs: Omit<ChallengeModelInput, "clarificationContext">[] = [];
   generationInputs: ChallengeModelInput[] = [];
-  critiqueInputs: (ChallengeModelInput & { draft: ChallengeContent })[] = [];
   responseInputs: {
     challenge: Challenge;
     messages: ChatMessage[];
@@ -65,14 +58,7 @@ class FakeModel implements ModelGateway {
 
   async generateChallenge(input: ChallengeModelInput) {
     this.generationInputs.push(input);
-    return draft;
-  }
-
-  async critiqueChallenge(
-    input: ChallengeModelInput & { draft: ChallengeContent },
-  ) {
-    this.critiqueInputs.push(input);
-    if (this.critiqueError) throw this.critiqueError;
+    if (this.generationError) throw this.generationError;
     return this.final;
   }
 
@@ -174,9 +160,10 @@ describe("profile preferences", () => {
       "/profiles/preferences",
       first.id,
       {
-        experienceLevel: "Senior frontend developer",
-        languagesStack: "TypeScript and React",
-        learningGoals: "Systems reasoning",
+        experienceLevel: "senior",
+        languages: ["typescript"],
+        stack: ["react"],
+        learningGoals: ["system-design"],
         preferredDuration: 90,
         difficulty: "challenging",
         aboutMe: "I prefer concrete examples.",
@@ -212,15 +199,18 @@ describe("challenge quality pipeline", () => {
       `prepare-${crypto.randomUUID()}@test.dev`,
     );
     await request(app, "/profiles/preferences", profile.id, {
-      experienceLevel: "Beginner",
-      languagesStack: "Python",
-      learningGoals: null,
+      experienceLevel: "beginner",
+      languages: ["python"],
+      learningGoals: [],
       preferredDuration: 30,
       difficulty: "easy",
       aboutMe: "I learn from examples.",
     });
 
-    model.preparation = { question: "Which runtime should the task target?" };
+    model.preparation = {
+      question: "Which runtime should the task target?",
+      options: ["Node.js", "Bun"],
+    };
     const needsAnswer = await request(app, "/challenges/prepare", profile.id, {
       prompt: "Give me an async exercise",
       format: "auto",
@@ -229,7 +219,7 @@ describe("challenge quality pipeline", () => {
       (await json<{ data: ChallengePreparation }>(needsAnswer)).data,
     ).toEqual(model.preparation);
 
-    model.preparation = { question: null };
+    model.preparation = { question: null, options: [] };
     const ready = await request(app, "/challenges/prepare", profile.id, {
       prompt: "Give me a Python list exercise",
       format: "exercise",
@@ -238,13 +228,13 @@ describe("challenge quality pipeline", () => {
       (await json<{ data: ChallengePreparation }>(ready)).data.question,
     ).toBeNull();
     expect(model.prepareInputs.at(-1)?.learner.preferences).toMatchObject({
-      languagesStack: "Python",
+      languages: ["python"],
       preferredDuration: 30,
       aboutMe: "I learn from examples.",
     });
   });
 
-  test("saves the critique replacement and includes recent challenges", async () => {
+  test("saves the generated challenge and includes recent challenges", async () => {
     const model = new FakeModel();
     const app = createApp({ llm: model });
     const profile = await startProfile(
@@ -253,22 +243,24 @@ describe("challenge quality pipeline", () => {
     );
 
     const challenge = await createChallenge(app, profile.id, {
-      clarificationContext: "Use your best judgment.",
+      clarificationContext: {
+        question: "Which runtime should the task target?",
+        answer: "Use your best judgment.",
+      },
     });
-    expect(challenge.title).toBe(revised.title);
-    expect(challenge.completionCriteria).toEqual(revised.completionCriteria);
-    expect(model.critiqueInputs).toHaveLength(1);
-    expect(model.critiqueInputs[0]?.draft.title).toBe(draft.title);
+    expect(challenge.title).toBe(generated.title);
+    expect(challenge.completionCriteria).toEqual(generated.completionCriteria);
+    expect(model.generationInputs).toHaveLength(1);
 
     await createChallenge(app, profile.id, { prompt: "A different request" });
     expect(
       model.generationInputs.at(-1)?.learner.recentChallenges[0]?.title,
-    ).toBe(revised.title);
+    ).toBe(generated.title);
   });
 
-  test("saves nothing when the revision pass fails", async () => {
+  test("saves nothing when the generation fails", async () => {
     const model = new FakeModel();
-    model.critiqueError = new AppError(
+    model.generationError = new AppError(
       "MODEL_UNAVAILABLE",
       "The model service is unavailable. Try again.",
       503,
