@@ -27,7 +27,7 @@ export function migrateDatabase() {
     for (const row of tx.select().from(schema.profilePreferences).all()) {
       if (row.guidedPreferences === null)
         tx.update(schema.profilePreferences)
-          .set({ guidedPreferences: migrateLegacyPreferences(row).guided })
+          .set({ guidedPreferences: migrateLegacyPreferences(row) })
           .where(eq(schema.profilePreferences.profileId, row.profileId))
           .run();
     }

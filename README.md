@@ -23,7 +23,7 @@ switching tabs.
 The email is only a local profile selector. There is no authentication. Optional
 guided profile preferences and optional Additional context personalize future prompts.
 Experience, languages, stack, goals, and current focus use a shared option catalog.
-Existing free-text preferences are retained under Previous preferences.
+Recognized older preference values migrate into the guided selectors.
 
 The interface supports light and dark appearance, saved in this browser.
 Dark is the default; previous System selections migrate to Dark.

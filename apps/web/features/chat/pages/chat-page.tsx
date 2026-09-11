@@ -335,11 +335,11 @@ export function ChatPage({
             onValueChange={(v) => setTab(v as WorkspaceTab)}
             className="min-h-0 flex-1 gap-0"
           >
-            <div className="shrink-0 overflow-x-auto border-b border-line px-3 md:px-7">
+            <div className="shrink-0 overflow-x-auto overflow-y-hidden border-b border-line px-3 md:px-7">
               <TabsList
                 variant="line"
                 aria-label="Exercise workspace"
-                className="min-h-12 min-w-full justify-start gap-0 md:min-w-0"
+                className="min-h-12 min-w-full justify-start gap-0 p-0 md:min-w-0"
               >
                 {[
                   { id: "statement", label: "Statement", icon: FileText },

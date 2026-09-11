@@ -55,9 +55,6 @@ export const savePreferencesRequestSchema = guidedPreferencesSchema.extend({
 export const profilePreferencesSchema = savePreferencesRequestSchema.extend({
   profileId: profileIdSchema,
   updatedAt: z.string(),
-  legacyPreferences: z
-    .array(z.object({ label: z.string(), value: z.string() }))
-    .default([]),
 });
 export type Profile = z.infer<typeof profileSchema>;
 export type ProfilePreferences = z.infer<typeof profilePreferencesSchema>;

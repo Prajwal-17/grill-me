@@ -93,23 +93,6 @@ export function PreferencesPage() {
                 disabled={save.isPending}
               />
             </fieldset>
-            {preferences.data?.legacyPreferences.length ? (
-              <details className="mt-5 border-t border-line pt-5">
-                <summary className="text-sm text-muted">
-                  Previous preferences
-                </summary>
-                <dl className="mt-4 grid gap-3 text-sm">
-                  {preferences.data.legacyPreferences.map((item) => (
-                    <div key={item.label}>
-                      <dt className="font-medium">{item.label}</dt>
-                      <dd className="mt-1 whitespace-pre-wrap text-muted">
-                        {item.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </details>
-            ) : null}
             <div className="mt-5 min-h-6" aria-live="polite">
               {saved && (
                 <p className="feedback">

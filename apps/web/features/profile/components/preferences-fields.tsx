@@ -15,7 +15,7 @@ import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
 import { Textarea } from "../../../shared/components/ui/textarea";
 export type PreferenceValues = Omit<
   ProfilePreferences,
-  "profileId" | "updatedAt" | "legacyPreferences"
+  "profileId" | "updatedAt"
 >;
 export const DEFAULT_PREFERENCES: PreferenceValues = {
   ...EMPTY_GUIDED,
@@ -26,12 +26,7 @@ export const DEFAULT_PREFERENCES: PreferenceValues = {
 export function preferenceValues(
   preferences: ProfilePreferences,
 ): PreferenceValues {
-  const {
-    profileId: _id,
-    updatedAt: _date,
-    legacyPreferences: _legacy,
-    ...values
-  } = preferences;
+  const { profileId: _id, updatedAt: _date, ...values } = preferences;
   return values;
 }
 export function PreferencesFields({
@@ -176,7 +171,7 @@ export function PreferencesFields({
                 maxLength={4000}
                 rows={3}
                 placeholder="Anything else your exercises should take into account"
-                className="mt-4 min-h-24 resize-y leading-6"
+                className="mt-4 min-h-24 resize-none leading-6"
               />
             </motion.div>
           )}

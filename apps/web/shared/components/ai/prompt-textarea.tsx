@@ -1,20 +1,41 @@
 "use client";
 // Auto-sizing input adapted from Beautiful UI's PromptBar. See LICENSE.
-import { useLayoutEffect, useRef, type ComponentProps } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useImperativeHandle,
+  type ComponentProps,
+} from "react";
 import { cn } from "../../lib/cn";
 
 export function PromptTextarea({
   value,
   className,
+  ref: forwardedRef,
+  minHeight = 76,
   ...props
-}: ComponentProps<"textarea">) {
+}: ComponentProps<"textarea"> & { minHeight?: number }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(forwardedRef, () => ref.current!, []);
   useLayoutEffect(() => {
     const input = ref.current;
     if (!input) return;
-    input.style.height = "auto";
-    input.style.height = Math.min(220, Math.max(76, input.scrollHeight)) + "px";
-  }, [value]);
+    const resize = () => {
+      if (!input.clientWidth) return;
+      input.style.height = "auto";
+      input.style.height =
+        Math.min(240, Math.max(minHeight, input.scrollHeight + 2)) + "px";
+    };
+    resize();
+    let width = input.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (input.clientWidth === width) return;
+      width = input.clientWidth;
+      resize();
+    });
+    observer.observe(input);
+    return () => observer.disconnect();
+  }, [value, minHeight]);
   return (
     <textarea
       {...props}

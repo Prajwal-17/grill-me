@@ -132,7 +132,6 @@ export const EMPTY_GUIDED: GuidedPreferences = {
   learningGoals: [],
   currentFocus: null,
 };
-export type LegacyPreference = { label: string; value: string };
 export function optionIds<T extends Option>(
   options: readonly T[],
 ): [T["id"], ...T["id"][]] {
@@ -169,13 +168,9 @@ export function migrateLegacyPreferences(input: {
     stack: [],
     learningGoals: [],
   };
-  const legacy: LegacyPreference[] = [];
   guided.experienceLevel = input.experienceLevel
     ? (match(EXPERIENCE, input.experienceLevel) ?? null)
     : null;
-  if (input.experienceLevel && !guided.experienceLevel)
-    legacy.push({ label: "Experience", value: input.experienceLevel });
-  const unmatched: string[] = [];
   for (const item of (input.languagesStack ?? "")
     .split(/[,;\n]|\s+and\s+/i)
     .map((part) => part.trim())
@@ -186,11 +181,8 @@ export function migrateLegacyPreferences(input: {
       if (!guided.languages.includes(language)) guided.languages.push(language);
     } else if (stack) {
       if (!guided.stack.includes(stack)) guided.stack.push(stack);
-    } else unmatched.push(item);
+    }
   }
-  if (unmatched.length)
-    legacy.push({ label: "Languages and stack", value: unmatched.join(", ") });
-  const unknownGoals: string[] = [];
   for (const item of (input.learningGoals ?? "")
     .split(/[,;\n]/)
     .map((part) => part.trim())
@@ -198,9 +190,7 @@ export function migrateLegacyPreferences(input: {
     const goal = match(GOALS, item);
     if (goal) {
       if (!guided.learningGoals.includes(goal)) guided.learningGoals.push(goal);
-    } else unknownGoals.push(item);
+    }
   }
-  if (unknownGoals.length)
-    legacy.push({ label: "Learning goals", value: unknownGoals.join(", ") });
-  return { guided, legacy };
+  return guided;
 }

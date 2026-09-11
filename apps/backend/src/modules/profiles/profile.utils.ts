@@ -17,12 +17,11 @@ export function toProfilePreferences(
 ): ProfilePreferences {
   const migrated = migrateLegacyPreferences(row);
   return profilePreferencesSchema.parse({
-    ...(row.guidedPreferences ?? migrated.guided),
+    ...(row.guidedPreferences ?? migrated),
     profileId: row.profileId,
     preferredDuration: row.preferredDuration,
     difficulty: row.difficulty,
     aboutMe: row.aboutMe,
-    legacyPreferences: migrated.legacy,
     updatedAt: row.updatedAt.toISOString(),
   });
 }

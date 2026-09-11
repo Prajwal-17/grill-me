@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { PromptTextarea } from "../../../shared/components/ai/prompt-textarea";
 import { PromptSurface } from "../../../shared/components/ai/prompt-surface";
 import { Button } from "../../../shared/components/ui/button";
 import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
@@ -115,7 +116,7 @@ export function ChatComposer({
             </AnimatePresence>
           </div>
         )}
-        <textarea
+        <PromptTextarea
           ref={textareaRef}
           aria-label={mode === "review" ? "Your solution" : "Your question"}
           disabled={disabled}
@@ -132,9 +133,9 @@ export function ChatComposer({
               ? "Paste your solution or attach files…"
               : "Ask about this exercise…"
           }
-          rows={large ? 9 : 3}
+          minHeight={large ? 96 : 64}
           maxLength={40000}
-          className="block min-h-20 max-h-60 w-full resize-y bg-transparent px-3 pt-3 text-base md:text-sm leading-6 outline-none placeholder:text-muted disabled:opacity-60"
+          className="block w-full resize-none bg-transparent px-3 pt-3 text-base md:text-sm leading-6 outline-none placeholder:text-muted disabled:opacity-60"
         />
         <div className="flex items-center justify-between gap-2 p-2">
           <div className="flex min-w-0 items-center gap-2">

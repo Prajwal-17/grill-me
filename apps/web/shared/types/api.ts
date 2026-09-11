@@ -1,4 +1,4 @@
-import type { GuidedPreferences, LegacyPreference } from "@repo/preferences";
+import type { GuidedPreferences } from "@repo/preferences";
 export type Profile = {
   id: string;
   email: string;
@@ -13,7 +13,6 @@ export type ProfilePreferences = GuidedPreferences & {
   difficulty: Difficulty;
   aboutMe: string | null;
   updatedAt: string;
-  legacyPreferences: LegacyPreference[];
 };
 
 export type ChallengeType =
