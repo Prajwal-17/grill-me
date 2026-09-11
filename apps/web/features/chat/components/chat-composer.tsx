@@ -78,7 +78,7 @@ export function ChatComposer({
           placeholder={
             mode === "review"
               ? "Paste your solution or attach files…"
-              : "Ask about this exercise…"
+              : "Ask about this build…"
           }
           minHeight={large ? 96 : 64}
           maxLength={40000}

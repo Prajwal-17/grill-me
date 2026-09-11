@@ -1,31 +1,4 @@
 import { AppError } from "../../shared/errors/app-error";
-import type { Challenge } from "../challenges/challenge.schema";
-import type { ChatMessage } from "../messages/message.schema";
-
-export function challengeContext(challenge: Challenge) {
-  return JSON.stringify({
-    title: challenge.title,
-    type: challenge.type,
-    problemStatement: challenge.problemStatement,
-    expectedOutcome: challenge.expectedOutcome,
-    constraints: challenge.constraints,
-    starterCode: challenge.starterCode,
-    completionCriteria: challenge.completionCriteria,
-    hint: challenge.hint,
-  });
-}
-
-export function transcript(messages: ChatMessage[]) {
-  return messages
-    .slice(-20)
-    .map((message) => {
-      const files = message.attachments.length
-        ? `\n[Attached files: ${message.attachments.map((file) => file.filename).join(", ")}]`
-        : "";
-      return `${message.role.toUpperCase()}: ${message.content}${files}`;
-    })
-    .join("\n\n");
-}
 
 export function parseJson(text: string) {
   const clean = text

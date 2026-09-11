@@ -1,20 +1,20 @@
 # Grill-Me
 
-Grill-Me is a local-first practice companion for developers. Tell it what you
-just learned, get one focused challenge, work in your normal editor, ask for a
-hint, paste your solution for review, and mark the challenge complete.
+Grill-Me is a local-first practice companion for developers. Describe what you
+want to build, choose its scope and difficulty, work in your normal editor, ask
+for a hint, paste your solution for review, and mark the build complete.
 
 ## V1 flow
 
 1. Enter an email to create or resume a local profile.
-2. See active and completed exercises on the Exercises home.
-3. Describe what you just learned, choose a format, and answer one focused
+2. Describe what you want to implement on Home; find active work under Builds.
+3. Choose Focused, Feature, or System scope and Easy, Medium, or Hard difficulty, then answer one
    question only when essential context is missing.
 4. Work through it in your own editor.
 5. Clarify the brief, use one hint, or paste/attach a solution for review.
 6. Mark it complete and find it in History.
 
-The challenge workspace opens on the full-width Statement tab. Solution accepts
+The build workspace opens on the full-width Statement tab. Solution accepts
 pasted work and attachments, Review shows streamed feedback, Reports summarizes
 saved practice activity, and Chat is reserved for optional clarification. Hints
 have their own tab, with a shortcut in the header. Solution and chat drafts stay
@@ -31,14 +31,21 @@ Recognized older preference values migrate into the guided selectors.
 The interface supports light and dark appearance, saved in this browser.
 Dark is the default; previous System selections migrate to Dark.
 The sidebar hides completely and remembers its state. Ctrl+B toggles it (or the mobile drawer); a top reopen button remains available. History supports
-search, format filters, and linked brief/discussion views.
+search, scope filters, and linked brief/discussion views.
 IBM Plex fonts are hosted locally. All code stays in your external editor; the app
 accepts pasted solutions and text/source-file attachments for review.
 
-Challenge creation checks whether one multiple-choice clarification is essential,
-then makes one generation request with format-specific instructions and your
+Build creation checks whether one multiple-choice clarification is essential,
+then makes one generation request with scope and difficulty policies and your
 context. There is no draft revision pass or automatic malformed-output repair.
-Invalid responses return a retryable error without saving a partial exercise.
+Invalid responses return a retryable error without saving a partial build.
+
+Each fresh composer starts at Focused + Medium. Scope and difficulty are never
+saved as preferences. The service locks them to the validated request and stores
+an AI-estimated duration range alongside the statement. System builds contain
+3–7 ordered implementation milestones in one workspace. Older records retain
+their original content and type labels; unknown metadata is left empty.
+All human-authored model prompts live under `apps/backend/src/modules/ai/prompts/`.
 
 ## Stack
 
@@ -46,6 +53,7 @@ Invalid responses return a retryable error without saving a partial exercise.
 - Next.js 16, Tailwind CSS, shadcn/ui (Radix), TanStack Query
 - Motion for interactions, respecting reduced-motion preferences
 - AI interface patterns adapted from [Beautiful UI](https://www.beautifului.dev/)
+- Empty-composer suggestions adapted from [Magic UI Typing Animation](https://magicui.design/docs/components/typing-animation)
 - Hono on Bun
 - Drizzle ORM + SQLite
 - OpenAI SDK pointed at an OpenAI-compatible endpoint such as OmniRoute
@@ -118,6 +126,6 @@ Web variable:
 
 Structured generation includes the JSON contract in both model instructions and the API schema. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
 
-Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. Each exercise tab has its own component. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
+Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. Each workspace tab has its own component. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
 
-For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. If preparation fails, Generate without clarification lets you proceed explicitly using your request and saved context.
+For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. If preparation fails, Create without clarification lets you proceed explicitly using your request and saved context.

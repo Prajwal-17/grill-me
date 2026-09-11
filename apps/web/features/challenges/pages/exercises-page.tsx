@@ -2,13 +2,14 @@
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
+  Blocks,
+  BookOpen,
   Check,
-  Plus,
   Code2,
   MessageSquare,
   Network,
-  Blocks,
-  BookOpen,
+  Plus,
+  Target,
 } from "lucide-react";
 import Link from "next/link";
 import { useProfile } from "../../profile/hooks/use-profile";
@@ -23,12 +24,19 @@ import {
   getActiveChallenges,
   getChallengeHistory,
 } from "../api/challenge-api";
-import { formatChallengeType, formatDate } from "../lib/challenge-formatters";
+import { formatDate } from "../lib/challenge-formatters";
 import type { Challenge } from "../../../shared/types/api";
-function ExerciseRow({ challenge }: { challenge: Challenge }) {
+import { ChallengeMetadata } from "../components/challenge-metadata";
+
+function BuildRow({ challenge }: { challenge: Challenge }) {
   const completed = challenge.status === "completed";
-  const Icon =
-    challenge.type === "question"
+  const Icon = challenge.scope
+    ? challenge.scope === "system"
+      ? Network
+      : challenge.scope === "feature"
+        ? Blocks
+        : Target
+    : challenge.type === "question"
       ? MessageSquare
       : challenge.type === "architecture"
         ? Network
@@ -49,10 +57,14 @@ function ExerciseRow({ challenge }: { challenge: Challenge }) {
         <h3 className="truncate text-sm font-medium sm:text-base">
           {challenge.title}
         </h3>
-        <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-          <span>{formatChallengeType(challenge.type)}</span>
-          {completed && <span>{formatDate(challenge.completedAt)}</span>}
-        </p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <ChallengeMetadata challenge={challenge} compact />
+          {completed && (
+            <span className="text-xs text-muted">
+              {formatDate(challenge.completedAt)}
+            </span>
+          )}
+        </div>
       </div>
       <span className="hidden items-center gap-1.5 rounded-md bg-canvas px-2 py-1 text-xs text-muted sm:flex">
         {completed ? (
@@ -69,6 +81,7 @@ function ExerciseRow({ challenge }: { challenge: Challenge }) {
     </Link>
   );
 }
+
 export function ExercisesPage() {
   const profile = useProfile();
   const active = useQuery({
@@ -90,7 +103,7 @@ export function ExercisesPage() {
         <LoadingScreen />
       ) : error ? (
         <ErrorState
-          title="Could not load exercises"
+          title="Could not load builds"
           message={error.message}
           onRetry={() => {
             void active.refetch();
@@ -100,10 +113,10 @@ export function ExercisesPage() {
       ) : (
         <main className="page max-w-[1100px]">
           <header className="mb-10 flex items-center justify-between gap-4">
-            <h1 className="page-title">Exercises</h1>
-            <Link className={buttonStyles("primary")} href="/chat?new=1">
+            <h1 className="page-title">Builds</h1>
+            <Link className={buttonStyles("primary")} href="/">
               <Plus size={16} />
-              New exercise
+              New build
             </Link>
           </header>
           <section>
@@ -115,22 +128,17 @@ export function ExercisesPage() {
             </h2>
             {active.data?.length ? (
               <div className="overflow-hidden rounded-xl border border-line">
-                {active.data.map((c) => (
-                  <ExerciseRow key={c.id} challenge={c} />
+                {active.data.map((challenge) => (
+                  <BuildRow key={challenge.id} challenge={challenge} />
                 ))}
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-line px-6 py-10">
                 <BookOpen size={22} className="mb-4 text-muted" />
-                <h3 className="text-base font-medium">
-                  Start your next exercise
-                </h3>
-                <Link
-                  href="/chat?new=1"
-                  className={buttonStyles("secondary") + " mt-5"}
-                >
+                <h3 className="text-base font-medium">Start your next build</h3>
+                <Link href="/" className={buttonStyles("secondary") + " mt-5"}>
                   <Plus size={15} />
-                  Create an exercise
+                  Create build
                 </Link>
               </div>
             )}
@@ -149,13 +157,13 @@ export function ExercisesPage() {
             </header>
             {history.data?.length ? (
               <div className="overflow-hidden rounded-xl border border-line">
-                {history.data.slice(0, 4).map((c) => (
-                  <ExerciseRow key={c.id} challenge={c} />
+                {history.data.slice(0, 4).map((challenge) => (
+                  <BuildRow key={challenge.id} challenge={challenge} />
                 ))}
               </div>
             ) : (
               <p className="rounded-lg border border-line px-5 py-5 text-sm text-muted">
-                Completed exercises will appear here.
+                Completed builds will appear here.
               </p>
             )}
           </section>

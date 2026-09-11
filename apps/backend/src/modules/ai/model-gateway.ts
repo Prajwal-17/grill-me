@@ -1,9 +1,10 @@
 import type {
+  BuildDifficulty,
+  BuildScope,
   Challenge,
-  ChallengeContent,
   ClarificationContext,
-  ChallengeFormat,
   ChallengePreparation,
+  GeneratedBuildContent,
 } from "../challenges/challenge.schema";
 import type {
   ChatMessage,
@@ -17,23 +18,25 @@ export type LearnerContext = {
   preferences: ProfilePreferences;
   recentChallenges: {
     title: string;
-    type: Challenge["type"];
+    scope: Challenge["scope"];
+    legacyType: Challenge["type"];
     summary: string;
   }[];
 };
 
-export type ChallengeModelInput = {
+export type BuildModelInput = {
   prompt: string;
-  format: ChallengeFormat;
+  scope: BuildScope;
+  difficulty: BuildDifficulty;
   clarificationContext: ClarificationContext | null;
   learner: LearnerContext;
 };
 
 export interface ModelGateway {
-  prepareChallenge(
-    input: Omit<ChallengeModelInput, "clarificationContext">,
+  prepareBuild(
+    input: Omit<BuildModelInput, "clarificationContext">,
   ): Promise<ChallengePreparation>;
-  generateChallenge(input: ChallengeModelInput): Promise<ChallengeContent>;
+  generateBuild(input: BuildModelInput): Promise<GeneratedBuildContent>;
   respond(input: {
     challenge: Challenge;
     messages: ChatMessage[];

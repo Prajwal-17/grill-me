@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   History,
+  House,
   Plus,
   Settings2,
   PanelLeftClose,
@@ -19,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../../lib/cn";
 import type { Profile } from "../../types/api";
 import { AccountMenu } from "./account-menu";
+
 function NavItem({
   label,
   children,
@@ -39,6 +41,7 @@ function NavItem({
     </Tooltip>
   );
 }
+
 export function Navigation({
   profile,
   collapsed = false,
@@ -62,6 +65,7 @@ export function Navigation({
       restoreToggleFocus.current = false;
     }
   }, [collapsed]);
+
   return (
     <div
       className={cn(
@@ -89,17 +93,15 @@ export function Navigation({
           </NavItem>
         ) : (
           <Link
-            href="/exercises"
+            href="/"
             onClick={close}
             aria-label="Grill Me home"
             className="flex shrink-0 items-center gap-2.5 rounded-lg"
           >
             <BrandMark />
-            {!collapsed && (
-              <span className="text-[17px] font-semibold tracking-tight">
-                Grill Me
-              </span>
-            )}
+            <span className="text-[17px] font-semibold tracking-tight">
+              Grill Me
+            </span>
           </Link>
         )}
         {!collapsed && !close && (
@@ -116,22 +118,28 @@ export function Navigation({
           </Button>
         )}
       </div>
-      <NavItem label="New exercise" collapsed={collapsed}>
+      <NavItem label="New build" collapsed={collapsed}>
         <Link
-          href="/chat?new=1"
+          href="/"
           onClick={close}
-          aria-label="New exercise"
+          aria-label="New build"
           className={cn(buttonStyles("primary"), "mb-5", collapsed && "px-0")}
         >
           <Plus size={16} />
-          {!collapsed && "New exercise"}
+          {!collapsed && "New build"}
         </Link>
       </NavItem>
       <nav aria-label="Main navigation" className="grid gap-1">
         {[
           {
+            href: "/",
+            label: "Home",
+            icon: House,
+            active: pathname === "/",
+          },
+          {
             href: "/exercises",
-            label: "Exercises",
+            label: "Builds",
             icon: BookOpen,
             active: pathname === "/exercises" || pathname === "/chat",
           },

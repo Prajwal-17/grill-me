@@ -17,7 +17,7 @@ export function WorkspaceTabs({
     <div className="shrink-0 overflow-x-auto overflow-y-hidden border-b border-line px-3 md:px-7">
       <TabsList
         variant="line"
-        aria-label="Exercise workspace"
+        aria-label="Build workspace"
         className="min-h-10 min-w-full justify-start gap-0 p-0 md:min-w-0"
       >
         {[

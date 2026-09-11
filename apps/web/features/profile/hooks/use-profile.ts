@@ -1,15 +1,22 @@
 "use client";
 
-import type { Profile } from "../../../shared/types/api";
 import { useRouter } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
-import { PROFILE_STORAGE_KEY } from "../lib/profile-storage";
+import {
+  PROFILE_STORAGE_EVENT,
+  PROFILE_STORAGE_KEY,
+  parseStoredProfile,
+} from "../lib/profile-storage";
 
 const HYDRATING = "__grill_me_hydrating__";
 
 function subscribe(callback: () => void) {
   window.addEventListener("storage", callback);
-  return () => window.removeEventListener("storage", callback);
+  window.addEventListener(PROFILE_STORAGE_EVENT, callback);
+  return () => {
+    window.removeEventListener("storage", callback);
+    window.removeEventListener(PROFILE_STORAGE_EVENT, callback);
+  };
 }
 
 export function useProfile() {
@@ -20,16 +27,12 @@ export function useProfile() {
     () => HYDRATING,
   );
 
+  const hydrating = stored === HYDRATING;
+  const profile = parseStoredProfile(stored);
   useEffect(() => {
-    if (stored === null) router.replace("/");
-  }, [router, stored]);
+    if (!hydrating && !profile && window.location.pathname !== "/")
+      router.replace("/");
+  }, [router, hydrating, profile]);
 
-  if (stored === HYDRATING) return undefined;
-  if (!stored) return null;
-
-  try {
-    return JSON.parse(stored) as Profile;
-  } catch {
-    return null;
-  }
+  return hydrating ? undefined : profile;
 }

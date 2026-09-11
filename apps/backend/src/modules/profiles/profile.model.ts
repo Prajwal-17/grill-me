@@ -44,11 +44,8 @@ export const profilePreferencesModel = {
 
   save(profileId: string, input: SavePreferencesInput) {
     const now = new Date();
-    const { preferredDuration, difficulty, aboutMe, ...guidedPreferences } =
-      input;
+    const { aboutMe, ...guidedPreferences } = input;
     const values = {
-      preferredDuration,
-      difficulty,
       aboutMe,
       guidedPreferences,
     };

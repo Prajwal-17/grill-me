@@ -28,7 +28,8 @@ export function createMessageService(dependencies: {
       preferences: profiles.getPreferences(profileId),
       recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
         title: row.title,
-        type: row.type,
+        scope: row.scope,
+        legacyType: row.type,
         summary: row.problemStatement.slice(0, 500),
       })),
     };

@@ -5,19 +5,16 @@ import {
   LoadingScreen,
 } from "../../../shared/components/ui/feedback";
 import { useProfile } from "../../profile/hooks/use-profile";
-import { CreateExercise } from "../components/create-exercise";
 import { ExerciseWorkspace } from "../components/exercise-workspace";
 import { useExerciseWorkspace } from "../hooks/use-exercise-workspace";
 
-export function ChatPage({
-  challengeId,
-  createNew = false,
-}: {
-  challengeId?: string;
-  createNew?: boolean;
-}) {
+export function ChatPage({ challengeId }: { challengeId: string }) {
   const profile = useProfile();
-  const state = useExerciseWorkspace({ profile, challengeId, createNew });
+  const state = useExerciseWorkspace({
+    profile,
+    challengeId,
+    createNew: false,
+  });
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
   return (
@@ -26,15 +23,13 @@ export function ChatPage({
         <LoadingScreen />
       ) : state.error ? (
         <ErrorState
-          title="Could not load this exercise"
+          title="Could not load this build"
           message={state.error.message}
           onRetry={state.retry}
         />
       ) : state.challenge ? (
         <ExerciseWorkspace state={{ ...state, challenge: state.challenge }} />
-      ) : (
-        <CreateExercise profile={profile} />
-      )}
+      ) : null}
     </AppShell>
   );
 }

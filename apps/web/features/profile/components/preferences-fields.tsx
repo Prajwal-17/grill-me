@@ -9,26 +9,27 @@ import {
   GOALS,
   FOCUS,
 } from "@repo/preferences";
-import type { Difficulty, ProfilePreferences } from "../../../shared/types/api";
+import type { ProfilePreferences } from "../../../shared/types/api";
 import { MultiSelect } from "../../../shared/components/ui/multi-select";
 import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
 import { Textarea } from "../../../shared/components/ui/textarea";
+
 export type PreferenceValues = Omit<
   ProfilePreferences,
   "profileId" | "updatedAt"
 >;
 export const DEFAULT_PREFERENCES: PreferenceValues = {
   ...EMPTY_GUIDED,
-  preferredDuration: 60,
-  difficulty: "balanced",
   aboutMe: null,
 };
+
 export function preferenceValues(
   preferences: ProfilePreferences,
 ): PreferenceValues {
   const { profileId: _id, updatedAt: _date, ...values } = preferences;
   return values;
 }
+
 export function PreferencesFields({
   values,
   onChange,
@@ -79,7 +80,7 @@ export function PreferencesFields({
         </div>
       </section>
       <section className="form-section">
-        <h2 className="section-heading">Practice</h2>
+        <h2 className="section-heading">Direction</h2>
         <div className="grid gap-5">
           <MultiSelect
             label="Learning goals"
@@ -102,37 +103,6 @@ export function PreferencesFields({
                 )
               }
             />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <span className="text-sm font-medium">Duration</span>
-              <ChoiceSelect
-                label="Duration"
-                disabled={disabled}
-                value={String(values.preferredDuration)}
-                options={[30, 60, 90].map((n) => ({
-                  id: String(n),
-                  label: n + " minutes",
-                }))}
-                onChange={(v) =>
-                  onChange("preferredDuration", Number(v) as 30 | 60 | 90)
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <span className="text-sm font-medium">Difficulty</span>
-              <ChoiceSelect
-                label="Difficulty"
-                disabled={disabled}
-                value={values.difficulty}
-                options={[
-                  { id: "easy", label: "Easy" },
-                  { id: "balanced", label: "Balanced" },
-                  { id: "challenging", label: "Challenging" },
-                ]}
-                onChange={(v) => onChange("difficulty", v as Difficulty)}
-              />
-            </div>
           </div>
         </div>
       </section>
@@ -170,7 +140,7 @@ export function PreferencesFields({
                 onChange={(e) => onChange("aboutMe", e.target.value || null)}
                 maxLength={4000}
                 rows={3}
-                placeholder="Anything else your exercises should take into account"
+                placeholder="Anything else your builds should take into account"
                 className="mt-4 min-h-24 resize-none leading-6"
               />
             </motion.div>

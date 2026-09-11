@@ -1,26 +1,19 @@
 "use client";
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { BrandMark } from "../../../shared/components/brand";
 import { Input } from "../../../shared/components/ui/input";
 import { Button } from "../../../shared/components/ui/button";
 import { ThemeSelect } from "../../../shared/components/theme-provider";
 import { startProfile } from "../api/profile-api";
-import { getStoredProfile, storeProfile } from "../lib/profile-storage";
+import { storeProfile } from "../lib/profile-storage";
+
 export function ProfileGatePage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
-  useEffect(() => {
-    if (getStoredProfile()) router.replace("/exercises");
-  }, [router]);
   const start = useMutation({
     mutationFn: () => startProfile(email),
-    onSuccess: (profile) => {
-      storeProfile(profile);
-      router.push("/exercises");
-    },
+    onSuccess: storeProfile,
   });
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -38,7 +31,7 @@ export function ProfileGatePage() {
         </div>
       </div>
       <section className="mx-auto my-auto w-full max-w-[400px] rounded-2xl border border-line bg-surface p-7 shadow-xs sm:p-8">
-        <h1 className="page-title">Ready to practice?</h1>
+        <h1 className="page-title">Ready to build?</h1>
         <form onSubmit={submit} className="mt-8 grid gap-4">
           <label className="field-label" htmlFor="email">
             Email

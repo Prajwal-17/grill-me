@@ -19,8 +19,6 @@ export function toProfilePreferences(
   return profilePreferencesSchema.parse({
     ...(row.guidedPreferences ?? migrated),
     profileId: row.profileId,
-    preferredDuration: row.preferredDuration,
-    difficulty: row.difficulty,
     aboutMe: row.aboutMe,
     updatedAt: row.updatedAt.toISOString(),
   });

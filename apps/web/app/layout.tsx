@@ -22,7 +22,7 @@ const mono = localFont({
 });
 export const metadata: Metadata = {
   title: "Grill Me",
-  description: "Engineering practice, made for what you want to learn.",
+  description: "Implementation builds, shaped around what you want to make.",
 };
 export default function RootLayout({
   children,

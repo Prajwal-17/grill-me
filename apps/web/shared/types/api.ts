@@ -5,19 +5,21 @@ export type Profile = {
   createdAt: string;
 };
 
-export type Difficulty = "easy" | "balanced" | "challenging";
-
 export type ProfilePreferences = GuidedPreferences & {
   profileId: string;
-  preferredDuration: 30 | 60 | 90;
-  difficulty: Difficulty;
   aboutMe: string | null;
   updatedAt: string;
 };
 
+export type BuildScope = "focused" | "feature" | "system";
+export type BuildDifficulty = "easy" | "medium" | "hard";
+export type DurationEstimate = {
+  minMinutes: number;
+  maxMinutes: number;
+};
+
 export type ChallengeType =
-  "exercise" | "question" | "architecture" | "mini-project";
-export type ChallengeFormat = "auto" | ChallengeType;
+  "implementation" | "exercise" | "question" | "architecture" | "mini-project";
 export type ChallengeStatus = "active" | "completed";
 
 export type Challenge = {
@@ -25,6 +27,10 @@ export type Challenge = {
   profileId: string;
   title: string;
   type: ChallengeType;
+  scope: BuildScope | null;
+  difficulty: BuildDifficulty | null;
+  durationEstimate: DurationEstimate | null;
+  implementationMilestones: string[] | null;
   problemStatement: string;
   expectedOutcome: string;
   constraints: string[];
@@ -67,3 +73,10 @@ export type ApiError = {
 };
 
 export type ClarificationContext = { question: string; answer: string };
+
+export type GenerateBuildRequest = {
+  prompt: string;
+  scope: BuildScope;
+  difficulty: BuildDifficulty;
+  clarificationContext: ClarificationContext | null;
+};

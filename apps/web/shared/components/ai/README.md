@@ -9,3 +9,9 @@ Adapted from [Beautiful UI](https://www.beautifului.dev/) (MIT; see LICENSE):
 Registry sources: https://www.beautifului.dev/r/prompt-bar.json, https://www.beautifului.dev/r/chat-composer.json, https://www.beautifului.dev/r/approval-card.json, https://www.beautifului.dev/r/streaming-text.json, https://www.beautifului.dev/r/glide-menu.json.
 
 Adaptations use Grill Me's neutral Tailwind tokens with semantic error and completion colors, shadcn controls, and Motion. Demo replies, timed simulated output, unrelated tools, and decorative actions are omitted. All content and status come from the existing API.
+
+## Magic UI typing animation
+
+The empty-composer typing state machine is adapted from [Magic UI's Typing Animation](https://magicui.design/docs/components/typing-animation) (MIT; see LICENSE). Grill Me pauses it by unmounting on focus or input, restarts only for an empty unfocused composer, hides it from assistive technology, and shows a static suggestion when reduced motion is requested.
+
+Registry source: https://github.com/magicuidesign/magicui/blob/main/apps/www/registry/magicui/typing-animation.tsx

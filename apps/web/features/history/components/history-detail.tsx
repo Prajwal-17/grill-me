@@ -97,7 +97,7 @@ export function HistoryDetail({
               <div className="rounded-xl border border-dashed border-line p-8">
                 <MessageSquare size={20} className="mb-3 text-muted" />
                 <p className="text-sm text-muted">
-                  No discussion was saved for this exercise.
+                  No discussion was saved for this build.
                 </p>
               </div>
             )}

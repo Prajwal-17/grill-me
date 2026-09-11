@@ -16,7 +16,6 @@ export const profileSchema = z.object({
   email: z.email(),
   createdAt: z.string(),
 });
-export const difficultySchema = z.enum(["easy", "balanced", "challenging"]);
 function unique<T>(values: T[]) {
   return [...new Set(values)];
 }
@@ -40,10 +39,6 @@ export const guidedPreferencesSchema = z.object({
   currentFocus: z.enum(optionIds(FOCUS)).nullable().default(null),
 });
 export const savePreferencesRequestSchema = guidedPreferencesSchema.extend({
-  preferredDuration: z
-    .union([z.literal(30), z.literal(60), z.literal(90)])
-    .default(60),
-  difficulty: difficultySchema.default("balanced"),
   aboutMe: z
     .string()
     .trim()

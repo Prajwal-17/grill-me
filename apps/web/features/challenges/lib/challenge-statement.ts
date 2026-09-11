@@ -1,12 +1,24 @@
 import type { Challenge } from "../../../shared/types/api";
+import { buildMetadata } from "./challenge-formatters";
+
 export function statementBody(challenge: Challenge) {
   const list = (items: string[]) =>
     items.map((item) => "- " + item.replace(/\n/g, "\n  ")).join("\n");
   const sections = [
-    `## ${challenge.type === "question" ? "Question" : "The task"}\n\n${challenge.problemStatement}`,
-    `## ${challenge.type === "question" ? "Your answer" : "Expected outcome"}\n\n${challenge.expectedOutcome}`,
-    `## Constraints\n\n${list(challenge.constraints)}`,
+    `## ${!challenge.scope && challenge.type === "question" ? "Question" : "The build"}\n\n${challenge.problemStatement}`,
+    `## ${!challenge.scope && challenge.type === "question" ? "Your answer" : "Expected outcome"}\n\n${challenge.expectedOutcome}`,
+    `## ${challenge.scope ? "Constraints and exclusions" : "Constraints"}\n\n${list(challenge.constraints)}`,
   ];
+  if (challenge.implementationMilestones?.length) {
+    sections.push(
+      `## Implementation milestones\n\n${challenge.implementationMilestones
+        .map(
+          (milestone, index) =>
+            `${index + 1}. ${milestone.replace(/\n/g, "\n   ")}`,
+        )
+        .join("\n")}`,
+    );
+  }
   if (challenge.starterCode) {
     const longest = Math.max(
       2,
@@ -25,6 +37,10 @@ export function statementBody(challenge: Challenge) {
   );
   return sections.join("\n\n");
 }
+
 export function statementMarkdown(challenge: Challenge) {
-  return `# ${challenge.title}\n\n${statementBody(challenge)}`;
+  const metadata = buildMetadata(challenge)
+    .map(({ label, value }) => `${label}: ${value}`)
+    .join("\n");
+  return `# ${challenge.title}\n\n${metadata}\n\n${statementBody(challenge)}`;
 }

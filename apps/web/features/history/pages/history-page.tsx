@@ -17,10 +17,11 @@ import {
 import { buttonStyles } from "../../../shared/components/ui/button";
 import { HistoryDetail } from "../components/history-detail";
 import { HistoryList } from "../components/history-list";
+
 export function HistoryPage() {
   const profile = useProfile();
   const [search, setSearch] = useState("");
-  const [format, setFormat] = useState("all");
+  const [scope, setScope] = useState("all");
   const selectedId = useSearchParams().get("id");
   const history = useQuery({
     queryKey: challengeKeys.history(profile?.id),
@@ -51,9 +52,9 @@ export function HistoryPage() {
           />
         ) : (
           <main className="page">
-            <h1 className="page-title">Exercise not found</h1>
+            <h1 className="page-title">Build not found</h1>
             <p className="mt-3 text-sm text-muted">
-              This exercise is not in your completed history.
+              This build is not in your completed history.
             </p>
             <Link
               href="/history"
@@ -69,8 +70,8 @@ export function HistoryPage() {
           challenges={history.data ?? []}
           search={search}
           setSearch={setSearch}
-          format={format}
-          setFormat={setFormat}
+          scope={scope}
+          setScope={setScope}
         />
       )}
     </AppShell>

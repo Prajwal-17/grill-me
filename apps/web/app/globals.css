@@ -383,3 +383,19 @@
     animation: stream-word-enter 200ms ease-out both;
   }
 }
+
+@keyframes typing-cursor {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}
+@layer components {
+  .typing-cursor {
+    animation: typing-cursor 800ms steps(1, end) infinite;
+  }
+}

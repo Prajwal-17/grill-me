@@ -46,7 +46,7 @@ export function ApprovalCard({
       exit={{ opacity: 0, y: -4 }}
       aria-labelledby={id}
       aria-busy={busy}
-      className="mt-6 w-full max-w-md overflow-hidden rounded-2xl border border-line bg-surface shadow-xs"
+      className="mb-3 w-full overflow-hidden rounded-lg border border-line bg-surface"
       onSubmit={(event) => {
         event.preventDefault();
         submission.submit(answer);
@@ -154,7 +154,7 @@ export function ApprovalCard({
             className="rounded-full px-3"
             disabled={!answer.trim() || busy}
           >
-            {busy ? "Creating…" : "Create exercise"}
+            {busy ? "Creating…" : "Create build"}
             <Kbd className="bg-canvas/15 text-canvas">
               <CornerDownLeft size={12} />
             </Kbd>
@@ -163,7 +163,7 @@ export function ApprovalCard({
       </fieldset>
       {busy && (
         <div className="border-t border-line px-5 py-3">
-          <StreamingStatus label="Creating exercise…" />
+          <StreamingStatus label="Creating build…" />
         </div>
       )}
     </motion.form>

@@ -12,6 +12,7 @@ import {
 } from "../ui/sheet";
 import type { Profile } from "../../types/api";
 import { Navigation } from "./navigation";
+
 export function MobileNavigation({
   profile,
   open,
@@ -23,10 +24,7 @@ export function MobileNavigation({
 }) {
   return (
     <header className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-line bg-canvas px-4 md:hidden">
-      <Link
-        href="/exercises"
-        className="flex items-center gap-2 text-sm font-semibold"
-      >
+      <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
         <BrandMark className="size-7" />
         Grill Me
       </Link>

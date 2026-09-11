@@ -26,7 +26,7 @@ export function WorkspaceHeader({
         className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"
       >
         <ArrowLeft size={15} />
-        <span>Exercises</span>
+        <span>Builds</span>
       </Link>
       <div className="flex items-center gap-2">
         {finished ? (
@@ -39,21 +39,21 @@ export function WorkspaceHeader({
             <AlertDialogTrigger asChild>
               <Button disabled={busy} size="sm">
                 <Check size={14} />
-                Mark complete
+                Complete this build
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Complete this exercise?</AlertDialogTitle>
+                <AlertDialogTitle>Complete this build?</AlertDialogTitle>
                 <AlertDialogDescription>
                   Your statement, submissions, and feedback will be saved in
                   History. You won’t be able to submit more work.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Keep practicing</AlertDialogCancel>
+                <AlertDialogCancel>Keep building</AlertDialogCancel>
                 <AlertDialogAction onClick={() => complete.mutate()}>
-                  Mark complete
+                  Complete this build
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

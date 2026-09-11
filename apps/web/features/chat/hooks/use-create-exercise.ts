@@ -1,5 +1,5 @@
 "use client";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import {
@@ -7,18 +7,20 @@ import {
   generateChallenge,
   prepareChallenge,
 } from "../../challenges/api/challenge-api";
-import { getPreferences, preferencesKey } from "../../profile/api/profile-api";
 import type {
-  ChallengeFormat,
+  BuildDifficulty,
+  BuildScope,
   ChallengePreparation,
   ClarificationContext,
   Profile,
 } from "../../../shared/types/api";
-export function useCreateExercise(profile: Profile) {
+
+export function useCreateBuild(profile: Profile) {
   const router = useRouter();
   const queries = useQueryClient();
   const [prompt, setPrompt] = useState("");
-  const [format, setFormat] = useState<ChallengeFormat>("auto");
+  const [scope, setScope] = useState<BuildScope>("focused");
+  const [difficulty, setDifficulty] = useState<BuildDifficulty>("medium");
   const [clarification, setClarification] =
     useState<ChallengePreparation | null>(null);
   const [choice, setChoice] = useState("");
@@ -27,15 +29,12 @@ export function useCreateExercise(profile: Profile) {
   const [lastAnswer, setLastAnswer] = useState<ClarificationContext | null>(
     null,
   );
-  const preferences = useQuery({
-    queryKey: preferencesKey(profile.id),
-    queryFn: () => getPreferences(profile.id),
-  });
   const generate = useMutation({
     mutationFn: (context: ClarificationContext | null) =>
       generateChallenge(profile.id, {
         prompt,
-        format,
+        scope,
+        difficulty,
         clarificationContext: context,
       }),
     onSuccess: (created) => {
@@ -50,7 +49,8 @@ export function useCreateExercise(profile: Profile) {
     },
   });
   const prepare = useMutation({
-    mutationFn: () => prepareChallenge(profile.id, prompt, format),
+    mutationFn: () =>
+      prepareChallenge(profile.id, { prompt, scope, difficulty }),
     onSuccess: (result) => {
       if (result.question) setClarification(result);
       else {
@@ -95,15 +95,16 @@ export function useCreateExercise(profile: Profile) {
   return {
     prompt,
     setPrompt,
-    format,
-    setFormat,
+    scope,
+    setScope,
+    difficulty,
+    setDifficulty,
     clarification,
     choice,
     setChoice,
     custom,
     setCustom,
     ready,
-    preferences,
     generate,
     prepare,
     busy,

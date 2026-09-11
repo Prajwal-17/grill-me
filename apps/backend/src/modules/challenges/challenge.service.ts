@@ -4,10 +4,12 @@ import type { MessageModel } from "../messages/message.model";
 import { toMessage } from "../messages/message.utils";
 import type { ProfileService } from "../profiles/profile.service";
 import type { ChallengeModel } from "./challenge.model";
-import { challengeContentSchema } from "./challenge.schema";
-import type {
-  ChallengeFormat,
-  GenerateChallengeInput,
+import {
+  challengeContentSchema,
+  generatedBuildSchemaForScope,
+  type BuildDifficulty,
+  type BuildScope,
+  type GenerateChallengeInput,
 } from "./challenge.schema";
 import {
   requireActiveChallenge,
@@ -33,7 +35,8 @@ export function createChallengeService(dependencies: {
       preferences: profiles.getPreferences(profileId),
       recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
         title: row.title,
-        type: row.type,
+        scope: row.scope,
+        legacyType: row.type,
         summary: row.problemStatement.slice(0, 500),
       })),
     };
@@ -55,11 +58,15 @@ export function createChallengeService(dependencies: {
     },
 
     async prepare(
-      input: { prompt: string; format: ChallengeFormat },
+      input: {
+        prompt: string;
+        scope: BuildScope;
+        difficulty: BuildDifficulty;
+      },
       profileId: string,
     ) {
       profiles.assertExists(profileId);
-      return llm.prepareChallenge({
+      return llm.prepareBuild({
         ...input,
         learner: learnerContext(profileId),
       });
@@ -71,21 +78,26 @@ export function createChallengeService(dependencies: {
         ...input,
         learner: learnerContext(profileId),
       };
-      const generated = await llm.generateChallenge(modelInput);
-      const finalChallenge = challengeContentSchema.safeParse(generated);
-      if (
-        !finalChallenge.success ||
-        (input.format !== "auto" && finalChallenge.data.type !== input.format)
-      ) {
+      const generated = await llm.generateBuild(modelInput);
+      const validated = generatedBuildSchemaForScope(input.scope).safeParse(
+        generated,
+      );
+      if (!validated.success) {
         throw new AppError(
           "MODEL_OUTPUT_INVALID",
-          "The model did not return a valid challenge. Try again.",
+          "The model did not return a valid build. Try again.",
           502,
           true,
         );
       }
+      const finalBuild = challengeContentSchema.parse({
+        ...validated.data,
+        type: "implementation",
+        scope: input.scope,
+        difficulty: input.difficulty,
+      });
       return toChallenge(
-        challenges.create(profileId, finalChallenge.data, input.prompt),
+        challenges.create(profileId, finalBuild, input.prompt),
       );
     },
 
@@ -107,7 +119,7 @@ export function createChallengeService(dependencies: {
       if (row.hint) {
         throw new AppError(
           "HINT_ALREADY_USED",
-          "You already used the hint for this challenge.",
+          "You already used the hint for this build.",
           409,
         );
       }

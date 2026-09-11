@@ -2,88 +2,27 @@ import OpenAI from "openai";
 import type { z } from "zod";
 import { AppError } from "../../shared/errors/app-error";
 import {
-  challengeContentSchema,
-  type ChallengeFormat,
   challengePreparationSchema,
+  generatedBuildSchemaForScope,
 } from "../challenges/challenge.schema";
 import type { ModelGateway } from "./model-gateway";
 import { normalizePreparationOutput } from "./preparation-output";
 import { modelUnavailable, parseJson } from "./model.utils";
 import {
+  buildJsonSchema,
   clarificationPrompt,
   generationPrompt,
   hintPrompt,
+  preparationJsonSchema,
   preparationPrompt,
   reviewPrompt,
-} from "./prompt-helpers";
-
-const challengeJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: [
-    "title",
-    "type",
-    "problemStatement",
-    "expectedOutcome",
-    "constraints",
-    "starterCode",
-    "completionCriteria",
-  ],
-  properties: {
-    title: { type: "string", minLength: 3, maxLength: 120 },
-    type: {
-      type: "string",
-      enum: ["exercise", "question", "architecture", "mini-project"],
-    },
-    problemStatement: { type: "string", minLength: 20 },
-    expectedOutcome: { type: "string", minLength: 10 },
-    constraints: {
-      type: "array",
-      minItems: 1,
-      maxItems: 8,
-      items: { type: "string", minLength: 1 },
-    },
-    starterCode: { type: ["string", "null"] },
-    completionCriteria: {
-      type: "array",
-      minItems: 1,
-      maxItems: 8,
-      items: { type: "string", minLength: 1 },
-    },
-  },
-} as const;
-
-const preparationJsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["question", "options"],
-  properties: {
-    question: { type: ["string", "null"], minLength: 5, maxLength: 240 },
-    options: {
-      type: "array",
-      items: { type: "string", minLength: 1, maxLength: 160 },
-      minItems: 0,
-      maxItems: 3,
-    },
-  },
-} as const;
+  structuredOutputInstruction,
+} from "./prompts";
 
 type StructuredPrompt = {
   instructions: string;
   input: string;
 };
-
-function challengeValidator(format: ChallengeFormat) {
-  return challengeContentSchema.superRefine((challenge, context) => {
-    if (format !== "auto" && challenge.type !== format) {
-      context.addIssue({
-        code: "custom",
-        message: `Challenge type must be ${format}.`,
-        path: ["type"],
-      });
-    }
-  });
-}
 
 export function createOpenAIModel(
   options: { client?: OpenAI } = {},
@@ -97,7 +36,7 @@ export function createOpenAIModel(
     if (!apiKey) {
       throw new AppError(
         "MODEL_NOT_CONFIGURED",
-        "Add LLM_API_KEY to apps/backend/.env before generating a challenge.",
+        "Add LLM_API_KEY to apps/backend/.env before generating a build.",
         503,
         false,
       );
@@ -117,6 +56,7 @@ export function createOpenAIModel(
   async function requestStructured<T>(input: {
     prompt: StructuredPrompt;
     name: string;
+    stage: "preparation" | "generation";
     schema: Record<string, unknown>;
     validator: z.ZodType<T>;
     normalize?: (value: unknown) => unknown;
@@ -127,8 +67,8 @@ export function createOpenAIModel(
         store: false,
         instructions:
           input.prompt.instructions +
-          "\nReturn exactly one JSON object matching this schema, without commentary or markdown. For preparation, use question:null and options:[] when clarification is unnecessary; otherwise provide 2–3 distinct options.\n" +
-          JSON.stringify(input.schema),
+          "\n" +
+          structuredOutputInstruction(input.stage, input.schema),
         input: input.prompt.input,
         text: {
           format: {
@@ -140,8 +80,7 @@ export function createOpenAIModel(
         },
       }),
     );
-    const stage =
-      input.name === "challenge_preparation" ? "clarification" : "challenge";
+    const stage = input.stage === "preparation" ? "clarification" : "build";
     if (response.status === "incomplete") {
       throw new AppError(
         "MODEL_OUTPUT_INCOMPLETE",
@@ -255,31 +194,24 @@ export function createOpenAIModel(
   }
 
   return {
-    prepareChallenge(input) {
+    prepareBuild(input) {
       return requestStructured({
         prompt: preparationPrompt(input),
-        name: "challenge_preparation",
+        name: "build_preparation",
+        stage: "preparation",
         schema: preparationJsonSchema,
         validator: challengePreparationSchema,
         normalize: normalizePreparationOutput,
       });
     },
 
-    generateChallenge(input) {
+    generateBuild(input) {
       return requestStructured({
         prompt: generationPrompt(input),
-        name: "engineering_challenge",
-        schema:
-          input.format === "auto"
-            ? challengeJsonSchema
-            : {
-                ...challengeJsonSchema,
-                properties: {
-                  ...challengeJsonSchema.properties,
-                  type: { type: "string", enum: [input.format] },
-                },
-              },
-        validator: challengeValidator(input.format),
+        name: "engineering_build",
+        stage: "generation",
+        schema: buildJsonSchema(input.scope),
+        validator: generatedBuildSchemaForScope(input.scope),
       });
     },
 

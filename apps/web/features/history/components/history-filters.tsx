@@ -1,16 +1,17 @@
 import { Search, X } from "lucide-react";
 import { Input } from "../../../shared/components/ui/input";
 import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
+
 export function HistoryFilters({
   search,
   setSearch,
-  format,
-  setFormat,
+  scope,
+  setScope,
 }: {
   search: string;
   setSearch: (value: string) => void;
-  format: string;
-  setFormat: (value: string) => void;
+  scope: string;
+  setScope: (value: string) => void;
 }) {
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row">
@@ -21,9 +22,9 @@ export function HistoryFilters({
         />
         <Input
           aria-label="Search history"
-          placeholder="Search exercises…"
+          placeholder="Search builds…"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(event) => setSearch(event.target.value)}
           className="h-10 pl-9 pr-9"
         />
         {search && (
@@ -37,15 +38,15 @@ export function HistoryFilters({
         )}
       </div>
       <ChoiceSelect
-        label="Filter history by format"
-        value={format}
-        onChange={setFormat}
+        label="Filter history by scope"
+        value={scope}
+        onChange={setScope}
         options={[
-          { id: "all", label: "All formats" },
-          { id: "exercise", label: "Coding exercise" },
-          { id: "question", label: "Tricky question" },
-          { id: "architecture", label: "Architecture" },
-          { id: "mini-project", label: "Mini-project" },
+          { id: "all", label: "All scopes" },
+          { id: "focused", label: "Focused" },
+          { id: "feature", label: "Feature" },
+          { id: "system", label: "System" },
+          { id: "legacy", label: "Older builds" },
         ]}
         className="h-10 w-full bg-surface sm:w-48"
       />

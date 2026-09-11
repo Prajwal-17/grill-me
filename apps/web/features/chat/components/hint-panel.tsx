@@ -44,7 +44,7 @@ export function HintPanel({
         ) : (
           <p className="text-sm text-muted">
             {finished
-              ? "No hint was requested for this exercise."
+              ? "No hint was requested for this build."
               : "Request a hint when you need a nudge."}
           </p>
         )}

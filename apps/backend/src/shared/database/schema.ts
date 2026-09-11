@@ -22,12 +22,6 @@ export const profilePreferences = sqliteTable("profile_preferences", {
   experienceLevel: text("experience_level"),
   languagesStack: text("languages_stack"),
   learningGoals: text("learning_goals"),
-  preferredDuration: integer("preferred_duration").notNull().default(60),
-  difficulty: text("difficulty", {
-    enum: ["easy", "balanced", "challenging"],
-  })
-    .notNull()
-    .default("balanced"),
   aboutMe: text("about_me"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
@@ -44,8 +38,25 @@ export const challenges = sqliteTable("challenges", {
     .references(() => profiles.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
   type: text("type", {
-    enum: ["exercise", "question", "architecture", "mini-project"],
+    enum: [
+      "implementation",
+      "exercise",
+      "question",
+      "architecture",
+      "mini-project",
+    ],
   }).notNull(),
+  scope: text("scope", {
+    enum: ["focused", "feature", "system"],
+  }),
+  difficulty: text("difficulty", {
+    enum: ["easy", "medium", "hard"],
+  }),
+  durationMinMinutes: integer("duration_min_minutes"),
+  durationMaxMinutes: integer("duration_max_minutes"),
+  implementationMilestones: text("implementation_milestones", {
+    mode: "json",
+  }).$type<string[]>(),
   problemStatement: text("problem_statement").notNull(),
   expectedOutcome: text("expected_outcome").notNull(),
   constraints: text("constraints", { mode: "json" })

@@ -62,7 +62,18 @@ export const challengeModel = {
         .values({
           id,
           profileId,
-          ...content,
+          title: content.title,
+          type: content.type,
+          scope: content.scope,
+          difficulty: content.difficulty,
+          durationMinMinutes: content.durationEstimate.minMinutes,
+          durationMaxMinutes: content.durationEstimate.maxMinutes,
+          implementationMilestones: content.implementationMilestones,
+          problemStatement: content.problemStatement,
+          expectedOutcome: content.expectedOutcome,
+          constraints: content.constraints,
+          starterCode: content.starterCode,
+          completionCriteria: content.completionCriteria,
           createdAt: now,
         })
         .returning()
@@ -84,7 +95,7 @@ export const challengeModel = {
             role: "assistant",
             mode: "generate",
             content:
-              "Your challenge is ready: **" +
+              "Your build is ready: **" +
               content.title +
               "**. Ask me anything about the requirements when you get stuck.",
             createdAt: new Date(now.getTime() + 1),

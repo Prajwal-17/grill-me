@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type {
-  ChallengeModelInput,
+  BuildModelInput,
   LearnerContext,
   ModelGateway,
 } from "../src/modules/ai/model-gateway";
 import type {
   Challenge,
-  ChallengeContent,
+  GeneratedBuildContent,
   ChallengePreparation,
 } from "../src/modules/challenges/challenge.schema";
 import type {
@@ -21,9 +21,10 @@ const { createApp } = await import("../src/app");
 const { migrateDatabase } = await import("../src/shared/database/db");
 migrateDatabase();
 
-const generated: ChallengeContent = {
+const generated: GeneratedBuildContent = {
   title: "Group words by first letter",
-  type: "exercise",
+  durationEstimate: { minMinutes: 35, maxMinutes: 50 },
+  implementationMilestones: [],
   problemStatement: "Build a function that groups words by their first letter.",
   expectedOutcome: "A function with deterministic, observable return values.",
   constraints: ["Do not use external packages."],
@@ -38,8 +39,8 @@ class FakeModel implements ModelGateway {
   preparation: ChallengePreparation = { question: null, options: [] };
   final = generated;
   generationError: Error | null = null;
-  prepareInputs: Omit<ChallengeModelInput, "clarificationContext">[] = [];
-  generationInputs: ChallengeModelInput[] = [];
+  prepareInputs: Omit<BuildModelInput, "clarificationContext">[] = [];
+  generationInputs: BuildModelInput[] = [];
   responseInputs: {
     challenge: Challenge;
     messages: ChatMessage[];
@@ -49,14 +50,12 @@ class FakeModel implements ModelGateway {
     learner: LearnerContext;
   }[] = [];
 
-  async prepareChallenge(
-    input: Omit<ChallengeModelInput, "clarificationContext">,
-  ) {
+  async prepareBuild(input: Omit<BuildModelInput, "clarificationContext">) {
     this.prepareInputs.push(input);
     return this.preparation;
   }
 
-  async generateChallenge(input: ChallengeModelInput) {
+  async generateBuild(input: BuildModelInput) {
     this.generationInputs.push(input);
     if (this.generationError) throw this.generationError;
     return this.final;
@@ -114,8 +113,9 @@ async function createChallenge(
   input: Record<string, unknown> = {},
 ) {
   const response = await request(app, "/challenges/generate", profileId, {
-    prompt: "Practice grouping strings in TypeScript",
-    format: "exercise",
+    prompt: "Build string grouping in TypeScript",
+    scope: "focused",
+    difficulty: "medium",
     clarificationContext: null,
     ...input,
   });
@@ -124,7 +124,7 @@ async function createChallenge(
 }
 
 describe("profile preferences", () => {
-  test("creates defaults and keeps preferences isolated by profile", async () => {
+  test("keeps technical context isolated and omits generation settings", async () => {
     const app = createApp({ llm: new FakeModel() });
     const first = await startProfile(
       app,
@@ -141,19 +141,11 @@ describe("profile preferences", () => {
       first.id,
     );
     const defaults = (
-      await json<{
-        data: {
-          preferredDuration: number;
-          difficulty: string;
-          aboutMe: string | null;
-        };
-      }>(defaultsResponse)
+      await json<{ data: Record<string, unknown> }>(defaultsResponse)
     ).data;
-    expect(defaults).toMatchObject({
-      preferredDuration: 60,
-      difficulty: "balanced",
-      aboutMe: null,
-    });
+    expect(defaults).toMatchObject({ aboutMe: null });
+    expect(defaults).not.toHaveProperty("preferredDuration");
+    expect(defaults).not.toHaveProperty("difficulty");
 
     const savedResponse = await request(
       app,
@@ -164,8 +156,7 @@ describe("profile preferences", () => {
         languages: ["typescript"],
         stack: ["react"],
         learningGoals: ["system-design"],
-        preferredDuration: 90,
-        difficulty: "challenging",
+        currentFocus: "testing",
         aboutMe: "I prefer concrete examples.",
       },
     );
@@ -182,15 +173,16 @@ describe("profile preferences", () => {
       second.id,
     );
     expect(
-      (await json<{ data: { difficulty: string } }>(firstPreferences)).data,
-    ).toMatchObject({ difficulty: "challenging" });
+      (await json<{ data: { aboutMe: string | null } }>(firstPreferences)).data,
+    ).toMatchObject({ aboutMe: "I prefer concrete examples." });
     expect(
-      (await json<{ data: { difficulty: string } }>(secondPreferences)).data,
-    ).toMatchObject({ difficulty: "balanced" });
+      (await json<{ data: { aboutMe: string | null } }>(secondPreferences))
+        .data,
+    ).toMatchObject({ aboutMe: null });
   });
 });
 
-describe("challenge quality pipeline", () => {
+describe("build quality pipeline", () => {
   test("supports both clarification paths and passes personal context", async () => {
     const model = new FakeModel();
     const app = createApp({ llm: model });
@@ -202,8 +194,6 @@ describe("challenge quality pipeline", () => {
       experienceLevel: "beginner",
       languages: ["python"],
       learningGoals: [],
-      preferredDuration: 30,
-      difficulty: "easy",
       aboutMe: "I learn from examples.",
     });
 
@@ -212,8 +202,9 @@ describe("challenge quality pipeline", () => {
       options: ["Node.js", "Bun"],
     };
     const needsAnswer = await request(app, "/challenges/prepare", profile.id, {
-      prompt: "Give me an async exercise",
-      format: "auto",
+      prompt: "Give me an async build",
+      scope: "feature",
+      difficulty: "medium",
     });
     expect(
       (await json<{ data: ChallengePreparation }>(needsAnswer)).data,
@@ -221,15 +212,15 @@ describe("challenge quality pipeline", () => {
 
     model.preparation = { question: null, options: [] };
     const ready = await request(app, "/challenges/prepare", profile.id, {
-      prompt: "Give me a Python list exercise",
-      format: "exercise",
+      prompt: "Give me a Python list build",
+      scope: "focused",
+      difficulty: "easy",
     });
     expect(
       (await json<{ data: ChallengePreparation }>(ready)).data.question,
     ).toBeNull();
     expect(model.prepareInputs.at(-1)?.learner.preferences).toMatchObject({
       languages: ["python"],
-      preferredDuration: 30,
       aboutMe: "I learn from examples.",
     });
   });
@@ -250,7 +241,49 @@ describe("challenge quality pipeline", () => {
     });
     expect(challenge.title).toBe(generated.title);
     expect(challenge.completionCriteria).toEqual(generated.completionCriteria);
+    expect(challenge.scope).toBe("focused");
+    expect(challenge.type).toBe("implementation");
+    expect(challenge.difficulty).toBe("medium");
+    expect(challenge.durationEstimate).toEqual(generated.durationEstimate);
+    expect(challenge.implementationMilestones).toEqual([]);
     expect(model.generationInputs).toHaveLength(1);
+
+    for (const difficulty of ["easy", "medium", "hard"] as const) {
+      const attemptedOverride = {
+        ...generated,
+        difficulty: "easy",
+        scope: "system",
+      };
+      model.final = attemptedOverride;
+      const build = await createChallenge(app, profile.id, { difficulty });
+      expect(build.difficulty).toBe(difficulty);
+      expect(build.scope).toBe("focused");
+    }
+    model.final = {
+      ...generated,
+      durationEstimate: { minMinutes: 240, maxMinutes: 480 },
+      implementationMilestones: [
+        "Implement ingestion.",
+        "Implement retries.",
+        "Verify failure recovery.",
+      ],
+    };
+    const system = await createChallenge(app, profile.id, {
+      scope: "system",
+      difficulty: "hard",
+    });
+    const persisted = await request(
+      app,
+      `/challenges/${system.id}`,
+      profile.id,
+    );
+    expect((await json<{ data: Challenge }>(persisted)).data).toMatchObject({
+      scope: "system",
+      difficulty: "hard",
+      durationEstimate: { minMinutes: 240, maxMinutes: 480 },
+      implementationMilestones: model.final.implementationMilestones,
+    });
+    model.final = generated;
 
     await createChallenge(app, profile.id, { prompt: "A different request" });
     expect(
@@ -276,11 +309,59 @@ describe("challenge quality pipeline", () => {
     expect((await json<{ data: Challenge[] }>(before)).data).toHaveLength(0);
 
     const failed = await request(app, "/challenges/generate", profile.id, {
-      prompt: "Practice maps and sets",
-      format: "exercise",
+      prompt: "Build with maps and sets",
+      scope: "focused",
+      difficulty: "hard",
       clarificationContext: null,
     });
     expect(failed.status).toBe(503);
+
+    model.generationError = null;
+    for (const output of [
+      { ...generated, durationEstimate: { minMinutes: 0, maxMinutes: 30 } },
+      { ...generated, durationEstimate: { minMinutes: 40, maxMinutes: 30 } },
+      { ...generated, durationEstimate: { minMinutes: 2.5, maxMinutes: 30 } },
+      { ...generated, problemStatement: "x".repeat(1601) },
+      {
+        ...generated,
+        implementationMilestones: ["Not allowed for focused builds"],
+      },
+    ]) {
+      model.final = output;
+      const invalid = await request(app, "/challenges/generate", profile.id, {
+        prompt: "Build grouping",
+        scope: "focused",
+        difficulty: "medium",
+      });
+      expect(invalid.status).toBe(502);
+      expect(
+        (await json<{ error: { retryable: boolean } }>(invalid)).error
+          .retryable,
+      ).toBe(true);
+    }
+    model.final = generated;
+    const missingMilestones = await request(
+      app,
+      "/challenges/generate",
+      profile.id,
+      {
+        prompt: "Build a pipeline",
+        scope: "system",
+        difficulty: "hard",
+      },
+    );
+    expect(missingMilestones.status).toBe(502);
+    const invalidDifficulty = await request(
+      app,
+      "/challenges/generate",
+      profile.id,
+      {
+        prompt: "Build grouping",
+        scope: "focused",
+        difficulty: "balanced",
+      },
+    );
+    expect(invalidDifficulty.status).toBe(400);
 
     const after = await request(app, "/challenges/active", profile.id);
     expect((await json<{ data: Challenge[] }>(after)).data).toHaveLength(0);
