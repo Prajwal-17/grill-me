@@ -22,7 +22,7 @@ export const buttonVariants = cva(
         hint: "border border-line bg-surface text-foreground hover:bg-elevated",
         review: "border border-foreground/25 bg-elevated text-foreground",
         destructive:
-          "border border-foreground bg-foreground text-canvas hover:opacity-85",
+          "border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20",
         link: "text-foreground underline-offset-4 hover:underline",
       },
       size: {

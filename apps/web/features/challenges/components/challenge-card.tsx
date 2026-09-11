@@ -1,4 +1,5 @@
 import { Code2, MessageSquare, Network, Blocks } from "lucide-react";
+import { cn } from "../../../shared/lib/cn";
 import type { ReactNode } from "react";
 import type { Challenge } from "../../../shared/types/api";
 import { Markdown } from "../../../shared/components/markdown";
@@ -20,7 +21,13 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
     </section>
   );
 }
-export function ChallengeCard({ challenge }: { challenge: Challenge }) {
+export function ChallengeCard({
+  challenge,
+  className,
+}: {
+  challenge: Challenge;
+  className?: string;
+}) {
   const Icon =
     challenge.type === "question"
       ? MessageSquare
@@ -30,7 +37,7 @@ export function ChallengeCard({ challenge }: { challenge: Challenge }) {
           ? Blocks
           : Code2;
   return (
-    <article className="mx-auto w-full min-w-0 max-w-[68ch]">
+    <article className={cn("mx-auto w-full min-w-0 max-w-[68ch]", className)}>
       <header className="border-b border-line pb-6">
         <p className="mb-4 inline-flex items-center gap-2 rounded-md bg-canvas px-2 py-1 text-xs text-muted">
           <Icon size={13} />

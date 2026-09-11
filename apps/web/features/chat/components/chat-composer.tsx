@@ -23,6 +23,9 @@ import {
 import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
 export function ChatComposer({
   mode,
+  fixedMode = false,
+  allowAttachments = true,
+  large = false,
   message,
   attachments,
   busy,
@@ -34,6 +37,9 @@ export function ChatComposer({
   onSubmit,
 }: {
   mode: ComposerMode;
+  fixedMode?: boolean;
+  allowAttachments?: boolean;
+  large?: boolean;
   message: string;
   attachments: MessageAttachment[];
   busy: boolean;
@@ -70,7 +76,10 @@ export function ChatComposer({
     }
   }
   return (
-    <form className="shrink-0 p-3 pt-2 md:p-4 md:pt-2" onSubmit={submit}>
+    <form
+      className={large ? "shrink-0" : "shrink-0 p-3 pt-2 md:p-4 md:pt-2"}
+      onSubmit={submit}
+    >
       <PromptSurface>
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 px-3 pt-3">
@@ -123,7 +132,7 @@ export function ChatComposer({
               ? "Paste your solution or attach files…"
               : "Ask about this exercise…"
           }
-          rows={3}
+          rows={large ? 9 : 3}
           maxLength={40000}
           className="block min-h-20 max-h-60 w-full resize-y bg-transparent px-3 pt-3 text-base md:text-sm leading-6 outline-none placeholder:text-muted disabled:opacity-60"
         />
@@ -138,26 +147,30 @@ export function ChatComposer({
               accept=".txt,.md,.js,.jsx,.mjs,.ts,.tsx,.json,.css,.scss,.html,.py,.rb,.php,.java,.kt,.kts,.go,.rs,.c,.cc,.cpp,.h,.hpp,.cs,.swift,.scala,.sh,.bash,.ps1,.sql,.yaml,.yml,.toml,.xml,.vue,.svelte,.dart,.lua,.ex,.exs,.fs,.fsx,.hs,.clj,.r,.pl,.sol,.zig,.asm,.proto,.graphql,.csv,.ini,.cfg,.conf,.properties"
               onChange={(event) => void addFiles(event.target.files)}
             />
-            <button
-              type="button"
-              className="inline-flex min-h-9 items-center gap-1.5 rounded px-2 text-xs text-muted hover:bg-elevated disabled:opacity-40"
-              disabled={disabled || attachments.length >= MAX_ATTACHMENTS}
-              onClick={() => fileInput.current?.click()}
-            >
-              <Paperclip size={15} />
-              {reading ? "Reading…" : "Attach"}
-            </button>
-            <ChoiceSelect
-              label="Message mode"
-              value={mode}
-              disabled={disabled || attachments.length > 0}
-              options={[
-                { id: "clarify", label: "Ask a question" },
-                { id: "review", label: "Review solution" },
-              ]}
-              onChange={(value) => onModeChange(value as ComposerMode)}
-              className="h-8 max-w-[160px] border-0 bg-canvas px-2 text-xs shadow-none"
-            />
+            {allowAttachments && (
+              <button
+                type="button"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded px-2 text-xs text-muted hover:bg-elevated disabled:opacity-40"
+                disabled={disabled || attachments.length >= MAX_ATTACHMENTS}
+                onClick={() => fileInput.current?.click()}
+              >
+                <Paperclip size={15} />
+                {reading ? "Reading…" : "Attach"}
+              </button>
+            )}
+            {!fixedMode && (
+              <ChoiceSelect
+                label="Message mode"
+                value={mode}
+                disabled={disabled || attachments.length > 0}
+                options={[
+                  { id: "clarify", label: "Ask a question" },
+                  { id: "review", label: "Review solution" },
+                ]}
+                onChange={(value) => onModeChange(value as ComposerMode)}
+                className="h-8 max-w-[160px] border-0 bg-canvas px-2 text-xs shadow-none"
+              />
+            )}
             {attachments.length > 0 && (
               <span className="hidden truncate text-xs text-muted xl:block">
                 {attachments.length}/5 ·{" "}
@@ -167,7 +180,7 @@ export function ChatComposer({
           </div>
           <Button
             type="submit"
-            size="icon"
+            size={large ? "default" : "icon"}
             variant="primary"
             aria-label={
               mode === "review" ? "Send solution for review" : "Send message"
@@ -175,6 +188,7 @@ export function ChatComposer({
             disabled={disabled || (!message.trim() && !attachments.length)}
             className="rounded-lg"
           >
+            {large && (busy ? "Reviewing…" : "Submit for review")}
             {busy ? (
               <LoaderCircle size={17} className="animate-spin" />
             ) : (

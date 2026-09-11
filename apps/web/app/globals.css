@@ -15,7 +15,9 @@
   --color-muted-foreground: var(--muted);
   --color-accent: var(--elevated);
   --color-accent-foreground: var(--foreground);
-  --color-destructive: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-border: var(--line);
   --color-input: var(--line);
   --color-ring: var(--line-strong);
@@ -35,6 +37,9 @@
 }
 :root {
   color-scheme: light;
+  --destructive: #b42318;
+  --success: #18794e;
+  --warning: #946200;
   --canvas: #f7f7f7;
   --surface: #ffffff;
   --foreground: #202020;
@@ -45,6 +50,9 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
+  --destructive: #ff8c85;
+  --success: #6ed6a1;
+  --warning: #e8c16a;
   --canvas: #171717;
   --surface: #222222;
   --foreground: #f2f2f2;
@@ -237,5 +245,14 @@
   [data-slot="input"] {
     min-height: 44px;
     font-size: 16px;
+  }
+}
+
+@layer components {
+  .feedback[role="alert"] {
+    color: var(--destructive);
+  }
+  .feedback[role="status"] {
+    color: var(--success);
   }
 }

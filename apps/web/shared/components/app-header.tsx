@@ -263,7 +263,22 @@ export function AppShell({
   profile: Profile;
   children: ReactNode;
 }) {
-  const { collapsed } = useSidebar();
+  const { collapsed, toggle } = useSidebar();
+  const previousCollapsed = useRef(collapsed);
+  useEffect(() => {
+    if (previousCollapsed.current === collapsed) return;
+    previousCollapsed.current = collapsed;
+    const frame = requestAnimationFrame(() =>
+      document
+        .querySelector<HTMLButtonElement>(
+          collapsed
+            ? '[aria-label="Open sidebar"]'
+            : '[aria-label="Collapse sidebar"]',
+        )
+        ?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [collapsed]);
   const reduced = useReducedMotion();
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -274,11 +289,27 @@ export function AppShell({
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (
+        event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === "b"
+      ) {
+        event.preventDefault();
+        if (matchMedia("(min-width: 768px)").matches) toggle();
+        else setOpen((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, [toggle]);
   return (
     <div className="flex min-h-dvh">
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 64 : 232 }}
+        animate={{ width: collapsed ? 0 : 232 }}
         transition={
           reduced
             ? { duration: 0 }
@@ -286,10 +317,34 @@ export function AppShell({
         }
         className="sticky top-0 hidden h-dvh shrink-0 overflow-x-clip md:block"
         aria-label="Sidebar"
+        inert={collapsed}
+        aria-hidden={collapsed}
       >
-        <Navigation profile={profile} collapsed={collapsed} />
+        <div className="h-full w-[232px]">
+          <Navigation profile={profile} />
+        </div>
       </motion.aside>
-      <div className="min-w-0 flex-1 md:py-2 md:pr-2">
+      <div
+        className={cn(
+          "min-w-0 flex-1 md:py-2 md:pr-2",
+          collapsed && "md:pl-2 md:[&_.workspace]:h-[calc(100dvh-58px)]",
+        )}
+      >
+        {collapsed && (
+          <div className="hidden h-10 items-center px-2 pb-2 md:flex">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggle}
+              aria-label="Open sidebar"
+              aria-keyshortcuts="Control+b"
+            >
+              <PanelLeftOpen size={17} />{" "}
+              <span className="text-xs">Sidebar</span>
+              <kbd className="ml-2 text-xs text-muted">Ctrl B</kbd>
+            </Button>
+          </div>
+        )}
         <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-canvas px-4 md:hidden">
           <Link
             href="/exercises"

@@ -57,10 +57,10 @@ const preparationJsonSchema = {
   additionalProperties: false,
   required: ["question", "options"],
   properties: {
-    question: { type: ["string", "null"] },
+    question: { type: ["string", "null"], minLength: 5, maxLength: 240 },
     options: {
       type: "array",
-      items: { type: "string" },
+      items: { type: "string", minLength: 1, maxLength: 160 },
       minItems: 0,
       maxItems: 3,
     },
@@ -123,7 +123,10 @@ export function createOpenAIModel(
       client().responses.create({
         model,
         store: false,
-        instructions: input.prompt.instructions,
+        instructions:
+          input.prompt.instructions +
+          "\nReturn exactly one JSON object matching this schema, without commentary or markdown. For preparation, use question:null and options:[] when clarification is unnecessary; otherwise provide 2–3 distinct options.\n" +
+          JSON.stringify(input.schema),
         input: input.prompt.input,
         text: {
           format: {
@@ -135,16 +138,74 @@ export function createOpenAIModel(
         },
       }),
     );
-    try {
-      return input.validator.parse(parseJson(response.output_text));
-    } catch {
+    const stage =
+      input.name === "challenge_preparation" ? "clarification" : "challenge";
+    if (response.status === "incomplete") {
       throw new AppError(
-        "MODEL_OUTPUT_INVALID",
-        "The model returned an invalid response. Try again.",
+        "MODEL_OUTPUT_INCOMPLETE",
+        `The model stopped before finishing the ${stage}. Retry or increase the output limit in your provider configuration.`,
         502,
         true,
       );
     }
+    if (response.status === "failed") {
+      throw new AppError(
+        "MODEL_UNAVAILABLE",
+        "The model provider failed to complete the request. Try again.",
+        502,
+        true,
+      );
+    }
+    if (
+      response.output?.some(
+        (item) =>
+          item.type === "message" &&
+          item.content.some((part) => part.type === "refusal"),
+      )
+    ) {
+      throw new AppError(
+        "MODEL_REFUSAL",
+        "The model declined this request. Adjust your request and try again.",
+        502,
+        true,
+      );
+    }
+    if (!response.output_text?.trim()) {
+      throw new AppError(
+        "EMPTY_MODEL_RESPONSE",
+        `The provider returned no ${stage} text. Retry or check your combo's Responses API support.`,
+        502,
+        true,
+      );
+    }
+    let parsed: unknown;
+    try {
+      parsed = parseJson(response.output_text);
+    } catch {
+      throw new AppError(
+        "MODEL_OUTPUT_INVALID",
+        `The model did not return a single valid JSON ${stage}. Retry or use a combo provider that supports structured output.`,
+        502,
+        true,
+      );
+    }
+    const validated = input.validator.safeParse(parsed);
+    if (!validated.success) {
+      const fields = [
+        ...new Set(
+          validated.error.issues.map((issue) =>
+            String(issue.path[0] ?? "response"),
+          ),
+        ),
+      ].join(", ");
+      throw new AppError(
+        "MODEL_OUTPUT_INVALID",
+        `The ${stage} response has invalid fields: ${fields}. Try again.`,
+        502,
+        true,
+      );
+    }
+    return validated.data;
   }
 
   async function* textStream(input: StructuredPrompt): AsyncGenerator<string> {
@@ -203,7 +264,16 @@ export function createOpenAIModel(
       return requestStructured({
         prompt: generationPrompt(input),
         name: "engineering_challenge",
-        schema: challengeJsonSchema,
+        schema:
+          input.format === "auto"
+            ? challengeJsonSchema
+            : {
+                ...challengeJsonSchema,
+                properties: {
+                  ...challengeJsonSchema.properties,
+                  type: { type: "string", enum: [input.format] },
+                },
+              },
         validator: challengeValidator(input.format),
       });
     },

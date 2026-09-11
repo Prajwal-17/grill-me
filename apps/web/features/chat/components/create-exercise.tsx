@@ -19,6 +19,7 @@ import type {
 } from "../../../shared/types/api";
 import { AnimatePresence } from "motion/react";
 import { ClarificationCard } from "../../../shared/components/ai/clarification-card";
+import { PromptTextarea } from "../../../shared/components/ai/prompt-textarea";
 import { PromptSurface } from "../../../shared/components/ai/prompt-surface";
 import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
 import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
@@ -92,7 +93,7 @@ export function CreateExercise({ profile }: { profile: Profile }) {
     generate.mutate(context);
   }
   return (
-    <main className="page max-w-[820px] md:pt-24">
+    <main className="page max-w-[800px] md:pt-16">
       <h1 className="page-title">New exercise</h1>
       <form className="mt-8" onSubmit={submit}>
         <label
@@ -102,15 +103,15 @@ export function CreateExercise({ profile }: { profile: Profile }) {
           What do you want to practice?
         </label>
         <PromptSurface>
-          <textarea
+          <PromptTextarea
             id="exercise-request"
             autoFocus
             disabled={busy}
             value={prompt}
             maxLength={4000}
-            rows={5}
             placeholder="Python iterators, generators, and when to use each…"
-            className="block min-h-40 w-full resize-y bg-transparent px-5 py-4 text-base leading-7 outline-none placeholder:text-muted/80 disabled:opacity-60"
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? "generation-error" : undefined}
             onChange={(event) => {
               setPrompt(event.target.value);
               reset();
@@ -122,7 +123,7 @@ export function CreateExercise({ profile }: { profile: Profile }) {
               }
             }}
           />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-3 pb-3 pt-1">
             <ChoiceSelect
               label="Format"
               value={format}
@@ -188,7 +189,8 @@ export function CreateExercise({ profile }: { profile: Profile }) {
       {error && (
         <p
           role="alert"
-          className="feedback mt-5 rounded-lg border border-line bg-canvas p-3"
+          id="generation-error"
+          className="feedback mt-5 rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-destructive"
         >
           <AlertCircle size={17} className="mt-0.5 shrink-0" />
           {error.message}

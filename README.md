@@ -14,8 +14,11 @@ hint, paste your solution for review, and mark the challenge complete.
 5. Clarify the brief, use one hint, or paste/attach a solution for review.
 6. Mark it complete and find it in History.
 
-Clarifications, hints, and solution reviews stream into the chat as they are
-generated instead of waiting for the full response.
+The challenge workspace opens on the full-width Statement tab. Solution accepts
+pasted work and attachments, Review shows streamed feedback, Reports summarizes
+saved practice activity, and Chat is reserved for optional clarification. Hints
+are available from the statement. Solution and chat drafts stay separate when
+switching tabs.
 
 The email is only a local profile selector. There is no authentication. Optional
 guided profile preferences and optional Additional context personalize future prompts.
@@ -24,7 +27,7 @@ Existing free-text preferences are retained under Previous preferences.
 
 The interface supports light and dark appearance, saved in this browser.
 Dark is the default; previous System selections migrate to Dark.
-The sidebar collapses to an icon rail and remembers its state. History supports
+The sidebar hides completely and remembers its state. Ctrl+B toggles it (or the mobile drawer); a top reopen button remains available. History supports
 search, format filters, and linked brief/discussion views.
 IBM Plex fonts are hosted locally. All code stays in your external editor; the app
 accepts pasted solutions and text/source-file attachments for review.
@@ -109,3 +112,5 @@ Backend variables:
 Web variable:
 
 - `NEXT_PUBLIC_API_URL`: browser-visible Hono API URL
+
+Structured generation includes the JSON contract in both model instructions and the API schema. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
