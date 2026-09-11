@@ -3,6 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { BrandMark } from "../../../shared/components/brand";
+import { Input } from "../../../shared/components/ui/input";
 import { Button } from "../../../shared/components/ui/button";
 import { ThemeSelect } from "../../../shared/components/theme-provider";
 import { startProfile } from "../api/profile-api";
@@ -25,22 +27,25 @@ export function ProfileGatePage() {
     if (email.trim()) start.mutate();
   }
   return (
-    <main className="flex min-h-dvh flex-col px-6">
+    <main className="flex min-h-dvh flex-col gap-12 px-5 pb-16">
       <div className="flex items-center justify-between py-6">
-        <span className="text-lg font-semibold tracking-tight">Grill Me.</span>
-        <div className="w-44">
+        <span className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+          <BrandMark />
+          Grill Me
+        </span>
+        <div className="w-48">
           <ThemeSelect />
         </div>
       </div>
-      <section className="mx-auto my-auto w-full max-w-sm pb-20">
+      <section className="mx-auto my-auto w-full max-w-[400px] rounded-2xl border border-line bg-surface p-7 shadow-xs sm:p-8">
         <h1 className="page-title">Ready to practice?</h1>
         <form onSubmit={submit} className="mt-8 grid gap-4">
           <label className="field-label" htmlFor="email">
             Email
-            <input
+            <Input
               id="email"
               name="email"
-              className="field"
+              className="h-11"
               type="email"
               autoComplete="email"
               required

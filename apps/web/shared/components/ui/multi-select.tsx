@@ -1,152 +1,135 @@
 "use client";
-import { Check, ChevronDown, Search, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
+import { useId, useState } from "react";
 import type { Option } from "@repo/preferences";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "./command";
+import { Button } from "./button";
+import { cn } from "../../lib/cn";
 export function MultiSelect<T extends string>({
   label,
   options,
   value,
   onChange,
+  disabled = false,
 }: {
   label: string;
   options: readonly (Option & { id: T })[];
   value: T[];
   onChange: (value: T[]) => void;
+  disabled?: boolean;
 }) {
   const id = useId();
-  const details = useRef<HTMLDetailsElement>(null);
-  const search = useRef<HTMLInputElement>(null);
-  const [query, setQuery] = useState("");
-  useEffect(() => {
-    function outside(event: PointerEvent) {
-      if (details.current && !details.current.contains(event.target as Node))
-        details.current.open = false;
-    }
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, []);
-  const filtered = options.filter((option) =>
-    [option.label, option.group, ...(option.aliases ?? [])]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
-  const groups = [...new Set(filtered.map((option) => option.group ?? ""))];
-  const selected = options.filter((option) => value.includes(option.id));
+  const [open, setOpen] = useState(false);
+  const selected = options.filter((o) => value.includes(o.id));
+  const groups = [...new Set(options.map((o) => o.group ?? ""))];
   return (
     <div className="min-w-0">
       <span id={id} className="mb-2 block text-sm font-medium">
         {label}
       </span>
-      <details
-        ref={details}
-        className="relative"
-        onToggle={() => {
-          if (details.current?.open) search.current?.focus();
-          else setQuery("");
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.stopPropagation();
-            if (details.current) {
-              details.current.open = false;
-              details.current.querySelector("summary")?.focus();
-            }
-          }
-        }}
-      >
-        <summary
-          aria-labelledby={id}
-          className="field flex list-none items-center justify-between gap-2 font-normal marker:hidden [&::-webkit-details-marker]:hidden"
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            role="combobox"
+            aria-expanded={open}
+            aria-labelledby={id}
+            disabled={disabled}
+            className="w-full justify-between font-normal"
+          >
+            <span className={cn("truncate", !value.length && "text-muted")}>
+              {selected.length
+                ? selected.length + " selected"
+                : "Select " + label.toLowerCase()}
+            </span>
+            <ChevronsUpDown size={14} className="text-muted" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="w-[var(--radix-popover-trigger-width)] min-w-60 p-0"
+          align="start"
+          sideOffset={6}
         >
-          <span className={selected.length ? "truncate" : "text-muted"}>
-            {selected.length ? selected.length + " selected" : "Select…"}
-          </span>
-          <ChevronDown size={14} className="shrink-0 text-muted" />
-        </summary>
-        <div className="absolute top-full z-30 mt-1 w-full min-w-56 overflow-hidden rounded-md border border-line-strong bg-surface shadow-md">
-          <div className="flex items-center gap-2 border-b border-line px-3">
-            <Search size={15} className="text-muted" />
-            <input
-              ref={search}
+          <Command>
+            <CommandInput
+              placeholder={"Search " + label.toLowerCase() + "…"}
               aria-label={"Search " + label.toLowerCase()}
-              className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none"
-              placeholder="Search…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
             />
-          </div>
-          <div className="max-h-60 overflow-y-auto p-1.5">
-            {groups.map((group) => (
-              <fieldset key={group} className="mb-1">
-                {group && (
-                  <legend className="px-2 py-2 text-xs text-muted">
-                    {group}
-                  </legend>
-                )}
-                {filtered
-                  .filter((option) => (option.group ?? "") === group)
-                  .map((option) => (
-                    <label
-                      key={option.id}
-                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm hover:bg-elevated"
-                    >
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-foreground"
-                        checked={value.includes(option.id)}
-                        onChange={() =>
+            <CommandList className="max-h-64">
+              <CommandEmpty>No matching options.</CommandEmpty>
+              {groups.map((group) => (
+                <CommandGroup key={group} heading={group || undefined}>
+                  {options
+                    .filter((o) => (o.group ?? "") === group)
+                    .map((o) => (
+                      <CommandItem
+                        key={o.id}
+                        value={o.label}
+                        keywords={[o.id, ...(o.aliases ?? []), o.group ?? ""]}
+                        onSelect={() =>
                           onChange(
-                            value.includes(option.id)
-                              ? value.filter((item) => item !== option.id)
-                              : [...value, option.id],
+                            value.includes(o.id)
+                              ? value.filter((v) => v !== o.id)
+                              : [...value, o.id],
                           )
                         }
-                      />
-                      {option.label}
-                    </label>
-                  ))}
-              </fieldset>
-            ))}
-            {!filtered.length && (
-              <p className="px-2 py-3 text-sm text-muted">
-                No matching options
-              </p>
-            )}
+                        className="gap-2.5 py-2.5"
+                      >
+                        <span
+                          className={cn(
+                            "grid size-4 shrink-0 place-items-center rounded border",
+                            value.includes(o.id)
+                              ? "border-foreground bg-foreground text-canvas"
+                              : "border-line-strong",
+                          )}
+                        >
+                          {value.includes(o.id) && (
+                            <Check size={11} className="text-canvas" />
+                          )}
+                        </span>
+                        {o.label}
+                        <span className="sr-only">
+                          {value.includes(o.id) ? "Selected" : "Not selected"}
+                        </span>
+                      </CommandItem>
+                    ))}
+                </CommandGroup>
+              ))}
+            </CommandList>
+          </Command>
+          <div className="flex items-center justify-between border-t border-line p-2">
+            <span className="px-1 text-xs text-muted">
+              {value.length} selected
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+              Done
+            </Button>
           </div>
-          <button
-            type="button"
-            className="flex w-full items-center justify-center gap-2 border-t border-line p-2.5 text-xs hover:bg-elevated"
-            onClick={() => {
-              if (details.current) {
-                details.current.open = false;
-                details.current.querySelector("summary")?.focus();
-              }
-            }}
-          >
-            <Check size={13} />
-            Done
-          </button>
-        </div>
-      </details>
+        </PopoverContent>
+      </Popover>
       {selected.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {selected.map((option) => (
+          {selected.map((o) => (
             <span
-              key={option.id}
-              className="inline-flex max-w-full items-center gap-1 rounded border border-line bg-surface py-0.5 pl-2 pr-1 text-xs"
+              key={o.id}
+              className="inline-flex min-w-0 items-center gap-1 rounded-md bg-canvas py-0.5 pl-2 text-xs text-foreground"
             >
-              <span className="truncate">{option.label}</span>
+              <span className="truncate">{o.label}</span>
               <button
                 type="button"
-                aria-label={"Remove " + option.label}
-                className="rounded p-1 text-muted hover:bg-elevated hover:text-foreground"
-                onClick={() =>
-                  onChange(value.filter((item) => item !== option.id))
-                }
+                disabled={disabled}
+                aria-label={"Remove " + o.label}
+                className="rounded-r-md p-1.5 text-muted hover:text-foreground disabled:opacity-40"
+                onClick={() => onChange(value.filter((v) => v !== o.id))}
               >
-                <X size={12} />
+                <X size={11} />
               </button>
             </span>
           ))}

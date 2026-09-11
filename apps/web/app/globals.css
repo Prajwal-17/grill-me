@@ -1,6 +1,24 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {
+  --color-background: var(--surface);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--foreground);
+  --color-primary-foreground: var(--canvas);
+  --color-secondary: var(--elevated);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--elevated);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--foreground);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--line-strong);
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-elevated: var(--elevated);
@@ -69,19 +87,19 @@
     width: 100%;
     max-width: 1100px;
     margin-inline: auto;
-    padding: 36px 32px 64px;
+    padding: 44px 40px 64px;
   }
   .page-title {
     font-size: 26px;
     line-height: 1.2;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.025em;
     font-weight: 600;
   }
   .field {
     width: 100%;
     min-height: 38px;
-    border: 1px solid var(--line-strong);
-    border-radius: 6px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
     background: var(--surface);
     padding: 8px 10px;
     font-size: 14px;
@@ -127,7 +145,7 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    border-radius: 6px;
+    border-radius: 8px;
     padding: 9px 10px;
     font-size: 14px;
     color: var(--muted);
@@ -160,5 +178,64 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  input,
+  textarea {
+    caret-color: var(--foreground);
+  }
+}
+@layer components {
+  .prompt-surface {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow:
+      0 2px 8px rgb(0 0 0 / 0.035),
+      0 1px 2px rgb(0 0 0 / 0.025);
+    transition:
+      border-color 150ms,
+      box-shadow 150ms;
+  }
+  .prompt-surface:focus-within {
+    border-color: var(--line-strong);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--foreground) 5%, transparent);
+  }
+  .workspace {
+    height: calc(100dvh - 56px);
+  }
+  .form-section {
+    display: grid;
+    gap: 24px;
+    padding-block: 28px;
+    border-bottom: 1px solid var(--line);
+  }
+  .archive-row {
+    transition: background-color 120ms;
+  }
+  .archive-row:hover {
+    background: var(--canvas);
+  }
+}
+@media (min-width: 768px) {
+  .workspace {
+    height: calc(100dvh - 18px);
+  }
+  .form-section {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+}
+@media (max-width: 767px) {
+  [data-slot="select-trigger"],
+  [data-slot="input"] {
+    min-height: 44px;
+    font-size: 16px;
   }
 }

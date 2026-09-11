@@ -1,11 +1,10 @@
+import { Suspense } from "react";
 import { HistoryPage } from "../../features/history/pages/history-page";
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ id?: string | string[] }>;
-}) {
-  const query = await searchParams;
+import { LoadingScreen } from "../../shared/components/ui/feedback";
+export default function Page() {
   return (
-    <HistoryPage initialId={Array.isArray(query.id) ? query.id[0] : query.id} />
+    <Suspense fallback={<LoadingScreen />}>
+      <HistoryPage />
+    </Suspense>
   );
 }

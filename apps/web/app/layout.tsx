@@ -5,6 +5,7 @@ import {
   ThemeProvider,
   themeScript,
 } from "../shared/components/theme-provider";
+import { UIProvider } from "../shared/components/ui/ui-provider";
 import "./globals.css";
 const sans = localFont({
   src: "./fonts/IBMPlexSans-Latin.woff2",
@@ -39,7 +40,9 @@ export default function RootLayout({
         }
       >
         <ThemeProvider>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <UIProvider>{children}</UIProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

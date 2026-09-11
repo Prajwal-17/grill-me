@@ -23,6 +23,8 @@ Experience, languages, stack, goals, and current focus use a shared option catal
 Existing free-text preferences are retained under Previous preferences.
 
 The interface supports light, dark, and system appearance, saved in this browser.
+The sidebar collapses to an icon rail and remembers its state. History supports
+search, format filters, and linked brief/discussion views.
 IBM Plex fonts are hosted locally. All code stays in your external editor; the app
 accepts pasted solutions and text/source-file attachments for review.
 
@@ -34,7 +36,9 @@ Invalid responses return a retryable error without saving a partial exercise.
 ## Stack
 
 - Bun + Turborepo
-- Next.js 16, Tailwind CSS, TanStack Query
+- Next.js 16, Tailwind CSS, shadcn/ui (Radix), TanStack Query
+- Motion for interactions, respecting reduced-motion preferences
+- AI interface patterns adapted from [Beautiful UI](https://www.beautifului.dev/)
 - Hono on Bun
 - Drizzle ORM + SQLite
 - OpenAI SDK pointed at an OpenAI-compatible endpoint such as OmniRoute

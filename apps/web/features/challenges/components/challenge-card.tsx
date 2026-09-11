@@ -1,3 +1,4 @@
+import { Code2, MessageSquare, Network, Blocks } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Challenge } from "../../../shared/types/api";
 import { Markdown } from "../../../shared/components/markdown";
@@ -14,16 +15,25 @@ function Checklist({ items }: { items: string[] }) {
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
     <section className="mt-7">
-      <h2 className="mb-3 text-sm font-semibold">{label}</h2>
+      <h2 className="mb-3 text-sm font-medium text-muted">{label}</h2>
       <div className="reading">{children}</div>
     </section>
   );
 }
 export function ChallengeCard({ challenge }: { challenge: Challenge }) {
+  const Icon =
+    challenge.type === "question"
+      ? MessageSquare
+      : challenge.type === "architecture"
+        ? Network
+        : challenge.type === "mini-project"
+          ? Blocks
+          : Code2;
   return (
     <article className="mx-auto w-full min-w-0 max-w-[68ch]">
       <header className="border-b border-line pb-6">
-        <p className="mb-3 text-xs text-muted">
+        <p className="mb-4 inline-flex items-center gap-2 rounded-md bg-canvas px-2 py-1 text-xs text-muted">
+          <Icon size={13} />
           {formatChallengeType(challenge.type)}
         </p>
         <h1 className="page-title leading-tight">{challenge.title}</h1>

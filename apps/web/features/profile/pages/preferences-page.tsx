@@ -1,6 +1,6 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, Check } from "lucide-react";
+import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { AppShell } from "../../../shared/components/app-header";
 import { Button } from "../../../shared/components/ui/button";
@@ -71,14 +71,27 @@ export function PreferencesPage() {
       ) : (
         <main className="page max-w-[850px]">
           <form onSubmit={submit}>
-            <header className="mb-8 flex items-center justify-between gap-4">
+            <header className="sticky top-14 z-10 -mx-1 flex items-center justify-between gap-4 border-b border-line bg-surface px-1 pb-6 pt-1 md:top-0">
               <h1 className="page-title">Preferences</h1>
               <Button type="submit" variant="primary" disabled={save.isPending}>
-                {save.isPending ? "Saving…" : "Save preferences"}
+                {save.isPending ? (
+                  <LoaderCircle size={15} className="animate-spin" />
+                ) : saved ? (
+                  <Check size={15} />
+                ) : null}
+                {save.isPending
+                  ? "Saving…"
+                  : saved
+                    ? "Saved"
+                    : "Save preferences"}
               </Button>
             </header>
             <fieldset disabled={save.isPending}>
-              <PreferencesFields values={form} onChange={update} />
+              <PreferencesFields
+                values={form}
+                onChange={update}
+                disabled={save.isPending}
+              />
             </fieldset>
             {preferences.data?.legacyPreferences.length ? (
               <details className="mt-5 border-t border-line pt-5">

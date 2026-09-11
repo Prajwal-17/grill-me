@@ -1,6 +1,6 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, LoaderCircle } from "lucide-react";
+import { AlertCircle, ArrowUp, LoaderCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import {
@@ -17,6 +17,10 @@ import type {
   ClarificationContext,
   Profile,
 } from "../../../shared/types/api";
+import { AnimatePresence } from "motion/react";
+import { ClarificationCard } from "../../../shared/components/ai/clarification-card";
+import { PromptSurface } from "../../../shared/components/ai/prompt-surface";
+import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
 import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
 export function CreateExercise({ profile }: { profile: Profile }) {
   const router = useRouter();
@@ -88,37 +92,25 @@ export function CreateExercise({ profile }: { profile: Profile }) {
     generate.mutate(context);
   }
   return (
-    <main className="page max-w-[850px]">
+    <main className="page max-w-[820px] md:pt-24">
       <h1 className="page-title">New exercise</h1>
       <form className="mt-8" onSubmit={submit}>
-        <label className="field-label mb-5 max-w-xs">
-          Format
-          <select
-            value={format}
-            disabled={busy}
-            className="field font-normal"
-            onChange={(event) => {
-              setFormat(event.target.value as ChallengeFormat);
-              reset();
-            }}
-          >
-            <option value="auto">Choose for me</option>
-            <option value="exercise">Coding exercise</option>
-            <option value="question">Tricky question</option>
-            <option value="architecture">Architecture</option>
-            <option value="mini-project">Mini-project</option>
-          </select>
-        </label>
-        <label className="field-label">
+        <label
+          htmlFor="exercise-request"
+          className="mb-3 block text-sm font-medium"
+        >
           What do you want to practice?
+        </label>
+        <PromptSurface>
           <textarea
+            id="exercise-request"
             autoFocus
             disabled={busy}
             value={prompt}
             maxLength={4000}
             rows={5}
             placeholder="Python iterators, generators, and when to use each…"
-            className="field resize-y py-3 font-normal leading-7"
+            className="block min-h-40 w-full resize-y bg-transparent px-5 py-4 text-base leading-7 outline-none placeholder:text-muted/80 disabled:opacity-60"
             onChange={(event) => {
               setPrompt(event.target.value);
               reset();
@@ -130,105 +122,74 @@ export function CreateExercise({ profile }: { profile: Profile }) {
               }
             }}
           />
-        </label>
-        <div className="mt-4 flex items-center justify-between gap-4">
-          <span className="text-xs text-muted">{prompt.length}/4000</span>
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={
-              busy ||
-              Boolean(clarification?.question) ||
-              prompt.trim().length < 3
-            }
-          >
-            {busy && <LoaderCircle size={16} className="animate-spin" />}
-            {prepare.isPending
-              ? "Checking request…"
-              : generate.isPending || generate.isSuccess
-                ? "Creating exercise…"
-                : generate.error && ready
-                  ? "Try again"
-                  : "Create exercise"}
-          </Button>
-        </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 p-3">
+            <ChoiceSelect
+              label="Format"
+              value={format}
+              disabled={busy}
+              options={[
+                { id: "auto", label: "Choose for me" },
+                { id: "exercise", label: "Coding exercise" },
+                { id: "question", label: "Tricky question" },
+                { id: "architecture", label: "Architecture" },
+                { id: "mini-project", label: "Mini-project" },
+              ]}
+              onChange={(value) => {
+                setFormat(value as ChallengeFormat);
+                reset();
+              }}
+              className="w-auto max-w-full border-transparent bg-canvas shadow-none"
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={
+                busy ||
+                Boolean(clarification?.question) ||
+                prompt.trim().length < 3
+              }
+            >
+              {busy ? (
+                <LoaderCircle size={15} className="animate-spin" />
+              ) : (
+                <ArrowUp size={15} />
+              )}
+              {prepare.isPending
+                ? "Checking request…"
+                : generate.isPending || generate.isSuccess
+                  ? "Creating…"
+                  : generate.error && ready
+                    ? "Try again"
+                    : "Create exercise"}
+            </Button>
+          </div>
+        </PromptSurface>
+        {prompt.length > 3600 && (
+          <p className="mt-2 text-right text-xs text-muted">
+            {prompt.length}/4000
+          </p>
+        )}
       </form>
-      {clarification?.question && (
-        <form
-          className="mt-7 rounded-md border border-line-strong bg-surface p-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            answer(choice === "custom" ? custom : choice);
-          }}
-        >
-          <fieldset disabled={busy}>
-            <legend className="mb-4 text-base font-medium">
-              {clarification.question}
-            </legend>
-            <div className="grid gap-2">
-              {clarification.options.map((option) => (
-                <label
-                  key={option}
-                  className="flex cursor-pointer items-center gap-3 rounded border border-line p-3 text-sm has-checked:border-foreground"
-                >
-                  <input
-                    type="radio"
-                    name="clarification"
-                    value={option}
-                    checked={choice === option}
-                    onChange={() => setChoice(option)}
-                    className="accent-foreground"
-                  />
-                  {option}
-                </label>
-              ))}
-              <label className="flex items-center gap-3 rounded border border-line p-3 text-sm has-checked:border-foreground">
-                <input
-                  type="radio"
-                  name="clarification"
-                  value="custom"
-                  checked={choice === "custom"}
-                  onChange={() => setChoice("custom")}
-                  className="accent-foreground"
-                />
-                Write an answer
-              </label>
-            </div>
-            {choice === "custom" && (
-              <input
-                autoFocus
-                className="field mt-3"
-                aria-label="Your answer"
-                value={custom}
-                maxLength={2000}
-                onChange={(event) => setCustom(event.target.value)}
-                placeholder="Your answer"
-              />
-            )}
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => answer("Use your best judgment.")}
-              >
-                Use your best judgment
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={!choice || (choice === "custom" && !custom.trim())}
-              >
-                {generate.isPending && (
-                  <LoaderCircle size={15} className="animate-spin" />
-                )}
-                Create exercise
-              </Button>
-            </div>
-          </fieldset>
-        </form>
-      )}
+      <AnimatePresence>
+        {clarification?.question && (
+          <ClarificationCard
+            key={clarification.question}
+            question={clarification.question}
+            options={clarification.options}
+            choice={choice}
+            custom={custom}
+            busy={busy}
+            onChoice={setChoice}
+            onCustom={setCustom}
+            onAnswer={answer}
+          />
+        )}
+      </AnimatePresence>
       {error && (
-        <p role="alert" className="feedback mt-5">
+        <p
+          role="alert"
+          className="feedback mt-5 rounded-lg border border-line bg-canvas p-3"
+        >
           <AlertCircle size={17} className="mt-0.5 shrink-0" />
           {error.message}
         </p>

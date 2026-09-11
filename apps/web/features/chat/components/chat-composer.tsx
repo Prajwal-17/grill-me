@@ -1,3 +1,5 @@
+"use client";
+// Prompt and toolbar layout adapted from Beautiful UI.
 import {
   AlertCircle,
   ArrowUp,
@@ -6,6 +8,10 @@ import {
   Paperclip,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
+import { PromptSurface } from "../../../shared/components/ai/prompt-surface";
+import { Button } from "../../../shared/components/ui/button";
+import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
 import { useRef, useState, type FormEvent, type RefObject } from "react";
 import type { MessageAttachment } from "../../../shared/types/api";
 import type { ComposerMode } from "../api/message-api";
@@ -64,51 +70,40 @@ export function ChatComposer({
     }
   }
   return (
-    <form className="shrink-0 border-t border-line p-4" onSubmit={submit}>
-      <div className="overflow-hidden rounded-lg border border-line-strong bg-surface focus-within:border-foreground">
-        {mode === "review" && (
-          <div className="flex items-center justify-between border-b border-line px-3 py-2 text-xs">
-            <span>Solution review</span>
-            <button
-              type="button"
-              aria-label="Exit solution review mode"
-              className="rounded p-1 text-muted hover:bg-elevated disabled:opacity-40"
-              disabled={disabled || attachments.length > 0}
-              title={
-                attachments.length
-                  ? "Remove attachments to leave review mode"
-                  : undefined
-              }
-              onClick={() => onModeChange("clarify")}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
+    <form className="shrink-0 p-3 pt-2 md:p-4 md:pt-2" onSubmit={submit}>
+      <PromptSurface>
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 px-3 pt-3">
-            {attachments.map((file, index) => (
-              <span
-                key={file.filename + index}
-                className="inline-flex max-w-full items-center gap-2 rounded border border-line bg-canvas py-1 pl-2 pr-1 text-xs"
-              >
-                <FileCode2 size={13} />
-                <span className="max-w-40 truncate">{file.filename}</span>
-                <button
-                  type="button"
-                  aria-label={"Remove " + file.filename}
-                  disabled={disabled}
-                  className="rounded p-1 hover:bg-elevated disabled:opacity-40"
-                  onClick={() =>
-                    onAttachmentsChange(
-                      attachments.filter((_, itemIndex) => itemIndex !== index),
-                    )
-                  }
+            <AnimatePresence initial={false}>
+              {attachments.map((file, index) => (
+                <motion.span
+                  layout
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  key={file.filename + index}
+                  className="inline-flex max-w-full items-center gap-2 rounded border border-line bg-canvas py-1 pl-2 pr-1 text-xs"
                 >
-                  <X size={13} />
-                </button>
-              </span>
-            ))}
+                  <FileCode2 size={13} />
+                  <span className="max-w-40 truncate">{file.filename}</span>
+                  <button
+                    type="button"
+                    aria-label={"Remove " + file.filename}
+                    disabled={disabled}
+                    className="rounded p-1 hover:bg-elevated disabled:opacity-40"
+                    onClick={() =>
+                      onAttachmentsChange(
+                        attachments.filter(
+                          (_, itemIndex) => itemIndex !== index,
+                        ),
+                      )
+                    }
+                  >
+                    <X size={13} />
+                  </button>
+                </motion.span>
+              ))}
+            </AnimatePresence>
           </div>
         )}
         <textarea
@@ -130,9 +125,9 @@ export function ChatComposer({
           }
           rows={3}
           maxLength={40000}
-          className="block min-h-20 max-h-60 w-full resize-y bg-transparent px-3 pt-3 text-sm leading-6 outline-none placeholder:text-muted disabled:opacity-60"
+          className="block min-h-20 max-h-60 w-full resize-y bg-transparent px-3 pt-3 text-base md:text-sm leading-6 outline-none placeholder:text-muted disabled:opacity-60"
         />
-        <div className="flex items-center justify-between gap-3 p-2">
+        <div className="flex items-center justify-between gap-2 p-2">
           <div className="flex min-w-0 items-center gap-2">
             <input
               ref={fileInput}
@@ -152,29 +147,42 @@ export function ChatComposer({
               <Paperclip size={15} />
               {reading ? "Reading…" : "Attach"}
             </button>
+            <ChoiceSelect
+              label="Message mode"
+              value={mode}
+              disabled={disabled || attachments.length > 0}
+              options={[
+                { id: "clarify", label: "Ask a question" },
+                { id: "review", label: "Review solution" },
+              ]}
+              onChange={(value) => onModeChange(value as ComposerMode)}
+              className="h-8 max-w-[160px] border-0 bg-canvas px-2 text-xs shadow-none"
+            />
             {attachments.length > 0 && (
-              <span className="truncate text-xs text-muted">
+              <span className="hidden truncate text-xs text-muted xl:block">
                 {attachments.length}/5 ·{" "}
                 {Math.ceil(attachmentBytes(attachments) / 1024)} KB
               </span>
             )}
           </div>
-          <button
+          <Button
             type="submit"
+            size="icon"
+            variant="primary"
             aria-label={
               mode === "review" ? "Send solution for review" : "Send message"
             }
             disabled={disabled || (!message.trim() && !attachments.length)}
-            className="grid size-9 shrink-0 place-items-center rounded-md bg-foreground text-canvas disabled:opacity-35"
+            className="rounded-lg"
           >
             {busy ? (
               <LoaderCircle size={17} className="animate-spin" />
             ) : (
               <ArrowUp size={17} />
             )}
-          </button>
+          </Button>
         </div>
-      </div>
+      </PromptSurface>
       {(fileError || error) && (
         <p role="alert" className="feedback mt-2">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />

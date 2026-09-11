@@ -2,10 +2,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  ArrowDown,
+  MessageSquare,
   Check,
   ClipboardCheck,
   Lightbulb,
-  LoaderCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,7 +25,23 @@ import {
   ErrorState,
   LoadingScreen,
 } from "../../../shared/components/ui/feedback";
-import { cn } from "../../../shared/lib/cn";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "../../../shared/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "../../../shared/components/ui/alert-dialog";
 import type { MessageAttachment } from "../../../shared/types/api";
 import {
   getHint,
@@ -46,6 +63,7 @@ export function ChatPage({
   const router = useRouter();
   const queries = useQueryClient();
   const [tab, setTab] = useState<"brief" | "discussion">("brief");
+  const [showLatest, setShowLatest] = useState(false);
   const [message, setMessage] = useState("");
   const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
   const [mode, setMode] = useState<ComposerMode>("clarify");
@@ -189,7 +207,7 @@ export function ChatPage({
       ) : !challenge ? (
         <CreateExercise profile={profile} />
       ) : (
-        <main className="flex h-[calc(100dvh-56px)] flex-col md:h-dvh">
+        <main className="workspace flex min-h-0 flex-col">
           <header className="flex min-h-16 shrink-0 items-center justify-between gap-4 border-b border-line px-5 md:px-7">
             <Link
               href="/exercises"
@@ -204,158 +222,188 @@ export function ChatPage({
                 Completed
               </span>
             ) : (
-              <Button
-                disabled={busy}
-                onClick={() => {
-                  if (window.confirm("Mark this exercise complete?"))
-                    complete.mutate();
-                }}
-              >
-                {complete.isPending ? (
-                  <LoaderCircle size={15} className="animate-spin" />
-                ) : (
-                  <Check size={15} />
-                )}
-                Mark complete
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button disabled={busy} size="sm">
+                    <Check size={14} />
+                    Mark complete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Complete this exercise?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Its brief and discussion will be saved in History. The
+                      discussion becomes read-only.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep practicing</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => complete.mutate()}>
+                      Mark complete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </header>
-          <div
-            className="flex border-b border-line lg:hidden"
-            role="tablist"
-            aria-label="Exercise view"
+          <Tabs
+            value={tab}
+            onValueChange={(value) => setTab(value as "brief" | "discussion")}
+            className="min-h-0 flex-1 gap-0"
           >
-            {(["brief", "discussion"] as const).map((value) => (
-              <button
-                type="button"
-                key={value}
-                role="tab"
-                id={"tab-" + value}
-                aria-controls={"panel-" + value}
-                aria-selected={tab === value}
-                tabIndex={tab === value ? 0 : -1}
-                className={cn(
-                  "flex-1 border-b-2 py-3 text-sm capitalize",
-                  tab === value
-                    ? "border-foreground"
-                    : "border-transparent text-muted",
-                )}
-                onClick={() => setTab(value)}
-                onKeyDown={(event) => {
-                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                    const next = value === "brief" ? "discussion" : "brief";
-                    setTab(next);
-                    document.getElementById("tab-" + next)?.focus();
-                  }
-                }}
+            <TabsList
+              variant="line"
+              aria-label="Exercise view"
+              className="h-12 w-full shrink-0 border-b border-line px-4 lg:hidden"
+            >
+              <TabsTrigger value="brief">Brief</TabsTrigger>
+              <TabsTrigger value="discussion">Discussion</TabsTrigger>
+            </TabsList>
+            <div className="min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(350px,0.9fr)]">
+              <TabsContent
+                forceMount
+                value="brief"
+                aria-label="Exercise brief"
+                className="m-0 h-full overflow-y-auto px-5 py-7 data-[state=inactive]:hidden lg:block lg:border-r lg:border-line lg:px-9 lg:py-9 lg:data-[state=inactive]:block"
               >
-                {value === "brief" ? "Brief" : "Discussion"}
-              </button>
-            ))}
-          </div>
-          <div className="min-h-0 flex-1 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(350px,0.9fr)]">
-            <section
-              id="panel-brief"
-              aria-label="Exercise brief"
-              className={cn(
-                "h-full overflow-y-auto px-5 py-7 lg:block lg:border-r lg:border-line lg:px-8",
-                tab !== "brief" && "hidden",
-              )}
-            >
-              <ChallengeCard challenge={challenge} />
-            </section>
-            <section
-              id="panel-discussion"
-              aria-label="Discussion"
-              className={cn(
-                "h-full min-h-0 flex-col bg-surface lg:flex",
-                tab === "discussion" ? "flex" : "hidden",
-              )}
-            >
-              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
-                <h2 className="text-sm font-semibold">Discussion</h2>
-                {!finished && (
-                  <div className="flex gap-2">
+                <ChallengeCard challenge={challenge} />
+              </TabsContent>
+              <TabsContent
+                forceMount
+                value="discussion"
+                aria-label="Discussion"
+                className="m-0 flex h-full min-h-0 flex-col bg-canvas/30 data-[state=inactive]:hidden lg:flex lg:data-[state=inactive]:flex"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
+                  <h2 className="text-xs font-medium text-muted">Discussion</h2>
+                  {!finished && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={busy || Boolean(challenge.hint)}
+                        onClick={() => hint.mutate()}
+                      >
+                        <Lightbulb size={15} />
+                        {challenge.hint ? "Hint used" : "Get a hint"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={mode === "review" ? "review" : "secondary"}
+                        disabled={busy}
+                        onClick={() => {
+                          setMode("review");
+                          composer.current?.focus();
+                        }}
+                      >
+                        <ClipboardCheck size={15} />
+                        Review solution
+                      </Button>
+                    </div>
+                  )}
+                </header>
+                <div className="relative flex min-h-0 flex-1 flex-col">
+                  <div
+                    ref={scroll}
+                    className="min-h-0 flex-1 overflow-y-auto px-5 py-4"
+                    onScroll={() => {
+                      const node = scroll.current;
+                      if (node) {
+                        follow.current =
+                          node.scrollHeight -
+                            node.scrollTop -
+                            node.clientHeight <
+                          100;
+                        setShowLatest(!follow.current);
+                      }
+                    }}
+                  >
+                    {messages.isLoading && (
+                      <p className="text-sm text-muted">Loading discussion…</p>
+                    )}
+                    {messages.error && (
+                      <p role="alert" className="text-sm">
+                        {messages.error.message}{" "}
+                        <button
+                          className="underline"
+                          onClick={() => void messages.refetch()}
+                        >
+                          Try again
+                        </button>
+                      </p>
+                    )}
+                    {!messages.isLoading &&
+                      !messages.error &&
+                      !visible.length &&
+                      !pending &&
+                      !reply && (
+                        <div className="py-12">
+                          <MessageSquare
+                            size={20}
+                            strokeWidth={1.5}
+                            className="mb-3 text-muted"
+                          />
+                          <p className="text-sm font-medium">
+                            Work through it here
+                          </p>
+                          <p className="mt-1 max-w-64 text-sm leading-6 text-muted">
+                            Ask a question, get a hint, or submit your solution
+                            for review.
+                          </p>
+                        </div>
+                      )}
+                    {visible.map((item) => (
+                      <ChatMessage key={item.id} {...item} />
+                    ))}
+                    {pending && <ChatMessage role="user" {...pending} />}
+                    {reply && (
+                      <ChatMessage role="assistant" {...reply} streaming />
+                    )}
+                  </div>
+                  {showLatest && (
                     <Button
-                      variant="ghost"
-                      disabled={busy || Boolean(challenge.hint)}
-                      onClick={() => hint.mutate()}
-                    >
-                      <Lightbulb size={15} />
-                      {challenge.hint ? "Hint used" : "Get a hint"}
-                    </Button>
-                    <Button
-                      variant={mode === "review" ? "review" : "secondary"}
-                      disabled={busy}
+                      size="sm"
+                      className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full shadow-sm"
                       onClick={() => {
-                        setMode("review");
-                        composer.current?.focus();
+                        follow.current = true;
+                        scroll.current?.scrollTo({
+                          top: scroll.current.scrollHeight,
+                          behavior: window.matchMedia(
+                            "(prefers-reduced-motion: reduce)",
+                          ).matches
+                            ? "auto"
+                            : "smooth",
+                        });
                       }}
                     >
-                      <ClipboardCheck size={15} />
-                      Review solution
+                      <ArrowDown size={13} />
+                      Latest messages
                     </Button>
-                  </div>
-                )}
-              </header>
-              <div
-                ref={scroll}
-                className="min-h-0 flex-1 overflow-y-auto px-5 py-4"
-                onScroll={() => {
-                  const node = scroll.current;
-                  if (node)
-                    follow.current =
-                      node.scrollHeight - node.scrollTop - node.clientHeight <
-                      100;
-                }}
-              >
-                {messages.isLoading && (
-                  <p className="text-sm text-muted">Loading discussion…</p>
-                )}
-                {messages.error && (
-                  <p role="alert" className="text-sm">
-                    {messages.error.message}{" "}
-                    <button
-                      className="underline"
-                      onClick={() => void messages.refetch()}
-                    >
-                      Try again
-                    </button>
-                  </p>
-                )}
-                {!messages.isLoading &&
-                  !messages.error &&
-                  !visible.length &&
-                  !pending &&
-                  !reply && (
-                    <p className="py-12 text-center text-sm text-muted">
-                      Ask a question or submit your solution.
-                    </p>
                   )}
-                {visible.map((item) => (
-                  <ChatMessage key={item.id} {...item} />
-                ))}
-                {pending && <ChatMessage role="user" {...pending} />}
-                {reply && <ChatMessage role="assistant" {...reply} streaming />}
-              </div>
-              {!finished && (
-                <ChatComposer
-                  mode={mode}
-                  message={message}
-                  attachments={attachments}
-                  busy={busy}
-                  error={operationError?.message}
-                  textareaRef={composer}
-                  onModeChange={setMode}
-                  onMessageChange={setMessage}
-                  onAttachmentsChange={setAttachments}
-                  onSubmit={() => {
-                    if (!busy) send.mutate();
-                  }}
-                />
-              )}
-            </section>
-          </div>
+                </div>
+                {!finished && (
+                  <ChatComposer
+                    mode={mode}
+                    message={message}
+                    attachments={attachments}
+                    busy={busy}
+                    error={operationError?.message}
+                    textareaRef={composer}
+                    onModeChange={setMode}
+                    onMessageChange={(value) => {
+                      setMessage(value);
+                      send.reset();
+                    }}
+                    onAttachmentsChange={setAttachments}
+                    onSubmit={() => {
+                      if (!busy) send.mutate();
+                    }}
+                  />
+                )}
+              </TabsContent>
+            </div>
+          </Tabs>
         </main>
       )}
     </AppShell>

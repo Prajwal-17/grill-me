@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { ChevronDown } from "lucide-react";
 import {
   EMPTY_GUIDED,
   EXPERIENCE,
@@ -9,6 +11,8 @@ import {
 } from "@repo/preferences";
 import type { Difficulty, ProfilePreferences } from "../../../shared/types/api";
 import { MultiSelect } from "../../../shared/components/ui/multi-select";
+import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
+import { Textarea } from "../../../shared/components/ui/textarea";
 export type PreferenceValues = Omit<
   ProfilePreferences,
   "profileId" | "updatedAt" | "legacyPreferences"
@@ -33,140 +37,151 @@ export function preferenceValues(
 export function PreferencesFields({
   values,
   onChange,
+  disabled = false,
 }: {
   values: PreferenceValues;
   onChange: <K extends keyof PreferenceValues>(
     key: K,
     value: PreferenceValues[K],
   ) => void;
+  disabled?: boolean;
 }) {
   const [notesOpen, setNotesOpen] = useState(Boolean(values.aboutMe));
   return (
-    <div className="grid gap-7">
-      <section className="grid gap-5">
+    <div>
+      <section className="form-section">
         <h2 className="section-heading">Background</h2>
-        <label className="field-label max-w-xs">
-          Experience
-          <select
-            className="field font-normal"
-            value={values.experienceLevel ?? ""}
-            onChange={(event) =>
-              onChange(
-                "experienceLevel",
-                (event.target.value ||
-                  null) as PreferenceValues["experienceLevel"],
-              )
-            }
-          >
-            <option value="">Not set</option>
-            {EXPERIENCE.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="grid items-start gap-5 sm:grid-cols-2">
+        <div className="grid gap-5">
+          <div className="grid gap-2">
+            <span className="text-sm font-medium">Experience</span>
+            <ChoiceSelect
+              label="Experience"
+              disabled={disabled}
+              value={values.experienceLevel ?? ""}
+              options={[{ id: "", label: "Not set" }, ...EXPERIENCE]}
+              onChange={(v) =>
+                onChange(
+                  "experienceLevel",
+                  (v || null) as PreferenceValues["experienceLevel"],
+                )
+              }
+            />
+          </div>
           <MultiSelect
             label="Languages"
             options={LANGUAGES}
             value={values.languages}
-            onChange={(next) => onChange("languages", next)}
+            disabled={disabled}
+            onChange={(v) => onChange("languages", v)}
           />
           <MultiSelect
             label="Stack"
             options={STACK}
             value={values.stack}
-            onChange={(next) => onChange("stack", next)}
+            disabled={disabled}
+            onChange={(v) => onChange("stack", v)}
           />
         </div>
       </section>
-      <section className="grid gap-5 border-t border-line pt-6">
+      <section className="form-section">
         <h2 className="section-heading">Practice</h2>
-        <div className="grid items-start gap-5 sm:grid-cols-2">
+        <div className="grid gap-5">
           <MultiSelect
             label="Learning goals"
             options={GOALS}
             value={values.learningGoals}
-            onChange={(next) => onChange("learningGoals", next)}
+            disabled={disabled}
+            onChange={(v) => onChange("learningGoals", v)}
           />
-          <label className="field-label">
-            Current focus
-            <select
-              className="field font-normal"
+          <div className="grid gap-2">
+            <span className="text-sm font-medium">Current focus</span>
+            <ChoiceSelect
+              label="Current focus"
+              disabled={disabled}
               value={values.currentFocus ?? ""}
-              onChange={(event) =>
+              options={[{ id: "", label: "Let my request decide" }, ...FOCUS]}
+              onChange={(v) =>
                 onChange(
                   "currentFocus",
-                  (event.target.value ||
-                    null) as PreferenceValues["currentFocus"],
+                  (v || null) as PreferenceValues["currentFocus"],
                 )
               }
-            >
-              <option value="">Let my request decide</option>
-              {FOCUS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="grid grid-cols-2 gap-5">
-          <label className="field-label">
-            Duration
-            <select
-              className="field font-normal"
-              value={values.preferredDuration}
-              onChange={(event) =>
-                onChange(
-                  "preferredDuration",
-                  Number(event.target.value) as 30 | 60 | 90,
-                )
-              }
-            >
-              {[30, 60, 90].map((value) => (
-                <option key={value} value={value}>
-                  {value} minutes
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field-label">
-            Difficulty
-            <select
-              className="field font-normal"
-              value={values.difficulty}
-              onChange={(event) =>
-                onChange("difficulty", event.target.value as Difficulty)
-              }
-            >
-              <option value="easy">Easy</option>
-              <option value="balanced">Balanced</option>
-              <option value="challenging">Challenging</option>
-            </select>
-          </label>
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">Duration</span>
+              <ChoiceSelect
+                label="Duration"
+                disabled={disabled}
+                value={String(values.preferredDuration)}
+                options={[30, 60, 90].map((n) => ({
+                  id: String(n),
+                  label: n + " minutes",
+                }))}
+                onChange={(v) =>
+                  onChange("preferredDuration", Number(v) as 30 | 60 | 90)
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <span className="text-sm font-medium">Difficulty</span>
+              <ChoiceSelect
+                label="Difficulty"
+                disabled={disabled}
+                value={values.difficulty}
+                options={[
+                  { id: "easy", label: "Easy" },
+                  { id: "balanced", label: "Balanced" },
+                  { id: "challenging", label: "Challenging" },
+                ]}
+                onChange={(v) => onChange("difficulty", v as Difficulty)}
+              />
+            </div>
+          </div>
         </div>
       </section>
-      <details
-        open={notesOpen}
-        onToggle={(event) => setNotesOpen(event.currentTarget.open)}
-        className="border-t border-line pt-5"
-      >
-        <summary className="text-sm font-medium">
-          Additional context{" "}
-          <span className="ml-2 font-normal text-muted">Optional</span>
-        </summary>
-        <textarea
-          aria-label="Additional context"
-          value={values.aboutMe ?? ""}
-          onChange={(event) => onChange("aboutMe", event.target.value || null)}
-          maxLength={4000}
-          rows={3}
-          placeholder="Anything else your exercises should take into account"
-          className="field mt-4 resize-y font-normal leading-6"
-        />
-      </details>
+      <section className="py-6">
+        <button
+          type="button"
+          aria-expanded={notesOpen}
+          aria-controls="personal-notes"
+          className="flex w-full items-center justify-between text-sm font-medium"
+          onClick={() => setNotesOpen((v) => !v)}
+        >
+          <span>
+            Additional context{" "}
+            <span className="ml-2 text-xs font-normal text-muted">
+              Optional
+            </span>
+          </span>
+          <motion.span animate={{ rotate: notesOpen ? 180 : 0 }}>
+            <ChevronDown size={15} />
+          </motion.span>
+        </button>
+        <AnimatePresence initial={false}>
+          {notesOpen && (
+            <motion.div
+              id="personal-notes"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <Textarea
+                aria-label="Additional context"
+                disabled={disabled}
+                value={values.aboutMe ?? ""}
+                onChange={(e) => onChange("aboutMe", e.target.value || null)}
+                maxLength={4000}
+                rows={3}
+                placeholder="Anything else your exercises should take into account"
+                className="mt-4 min-h-24 resize-y leading-6"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
     </div>
   );
 }

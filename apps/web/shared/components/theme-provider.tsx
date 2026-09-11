@@ -6,6 +6,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { Monitor, Moon, Sun } from "lucide-react";
+import { Button } from "./ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 type Theme = "system" | "light" | "dark";
 const KEY = "grill-me-theme";
 const ThemeContext = createContext<{
@@ -58,21 +67,46 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     </ThemeContext.Provider>
   );
 }
-export function ThemeSelect() {
+export function ThemeSelect({ compact = false }: { compact?: boolean }) {
   const { theme, setTheme } = useContext(ThemeContext);
+  const Icon = theme === "system" ? Monitor : theme === "dark" ? Moon : Sun;
   return (
-    <label className="flex items-center justify-between gap-3 text-xs text-muted">
-      Appearance
-      <select
-        aria-label="Appearance"
-        className="rounded border border-line bg-surface px-2 py-1.5 text-xs text-foreground"
-        value={theme}
-        onChange={(event) => setTheme(event.target.value as Theme)}
-      >
-        <option value="system">System</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-    </label>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          aria-label="Appearance"
+          title="Appearance"
+          className={compact ? "w-full px-0" : "w-full justify-start px-3"}
+        >
+          <Icon size={16} />
+          {!compact && (
+            <>
+              <span>Appearance</span>
+              <span className="ml-auto text-xs capitalize text-muted">
+                {theme}
+              </span>
+            </>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side={compact ? "right" : "top"} align="start">
+        <DropdownMenuRadioGroup
+          value={theme}
+          onValueChange={(value) => setTheme(value as Theme)}
+        >
+          {[
+            { id: "system", label: "System", icon: Monitor },
+            { id: "light", label: "Light", icon: Sun },
+            { id: "dark", label: "Dark", icon: Moon },
+          ].map(({ id, label, icon: ItemIcon }) => (
+            <DropdownMenuRadioItem key={id} value={id}>
+              <ItemIcon size={14} />
+              {label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
