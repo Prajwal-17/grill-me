@@ -6,6 +6,7 @@ import {
   themeScript,
 } from "../shared/components/theme-provider";
 import { UIProvider } from "../shared/components/ui/ui-provider";
+import "katex/dist/katex.min.css";
 import "./globals.css";
 const sans = localFont({
   src: "./fonts/IBMPlexSans-Latin.woff2",

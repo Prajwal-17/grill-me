@@ -1,7 +1,10 @@
 "use client";
-
-import { Check, Copy } from "lucide-react";
-import { useState } from "react";
+import hljs from "highlight.js/lib/common";
+import { WrapText } from "lucide-react";
+import { useMemo, useState } from "react";
+import { cn } from "../../lib/cn";
+import { Button } from "./button";
+import { CopyButton } from "./copy-button";
 
 export function CodeBlock({
   code,
@@ -10,53 +13,91 @@ export function CodeBlock({
   code: string;
   label?: string;
 }) {
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
-  const lines = code.replace(/\n$/, "").split("\n");
-
-  async function copyCode() {
+  const [wrapped, setWrapped] = useState(false);
+  const highlighted = useMemo(() => {
+    const language = label.trim().toLowerCase();
+    const explicit = language !== "code" && language !== "";
+    // Keep very large blocks responsive and preserve unsupported formats as text.
+    if (code.length > 50000 || (explicit && !hljs.getLanguage(language)))
+      return {
+        value: null,
+        language: explicit ? label : "Plain text",
+        detected: false,
+      };
     try {
-      await navigator.clipboard.writeText(code);
-      setCopyError(false);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1_400);
+      const result = explicit
+        ? hljs.highlight(code, { language, ignoreIllegals: true })
+        : hljs.highlightAuto(code, [
+            "javascript",
+            "typescript",
+            "python",
+            "sql",
+            "json",
+            "bash",
+            "xml",
+            "css",
+            "go",
+            "java",
+            "rust",
+            "cpp",
+            "csharp",
+            "ruby",
+            "yaml",
+          ]);
+      return {
+        value: result.value,
+        language: result.language || "Plain text",
+        detected: !explicit && Boolean(result.language),
+      };
     } catch {
-      setCopyError(true);
+      return { value: null, language: label, detected: false };
     }
-  }
-
+  }, [code, label]);
   return (
-    <div className="my-4 overflow-hidden rounded-lg border border-line bg-canvas text-left">
-      <div className="flex h-10 items-center justify-between border-b border-line px-3">
-        <span className="truncate font-mono text-xs text-muted">{label}</span>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted transition-colors hover:bg-elevated hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/60"
-          onClick={copyCode}
-          aria-label={`Copy ${label}`}
+    <div className="code-block my-5 min-w-0 overflow-hidden rounded-lg border border-line bg-canvas text-left">
+      <div className="flex min-h-9 items-center justify-between gap-2 border-b border-line px-3 py-1">
+        <span
+          className="min-w-0 truncate text-xs text-muted"
+          title={
+            highlighted.detected ? "Automatically detected language" : undefined
+          }
         >
-          {copied ? <Check size={13} /> : <Copy size={13} />}
-          {copied ? "Copied" : "Copy"}
-        </button>
+          {highlighted.language}
+        </span>
+        <div className="flex shrink-0 items-center gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-label="Wrap code"
+            aria-pressed={wrapped}
+            onClick={() => setWrapped((value) => !value)}
+            className={wrapped ? "bg-elevated text-foreground" : undefined}
+          >
+            <WrapText size={14} />
+            <span>Wrap</span>
+          </Button>
+          <CopyButton
+            text={code}
+            ariaLabel={`Copy ${highlighted.language} code`}
+          />
+        </div>
       </div>
-      {copyError && (
-        <p role="alert" className="px-3 py-2 text-xs">
-          Clipboard unavailable. Select and copy the code.
-        </p>
-      )}
-      <div className="overflow-x-auto py-3 font-mono text-xs leading-6 text-foreground">
-        {lines.map((line, index) => (
-          <div className="grid min-w-max grid-cols-[3rem_1fr] px-3" key={index}>
-            <span
-              className="select-none pr-4 text-right text-dim"
-              aria-hidden="true"
-            >
-              {index + 1}
-            </span>
-            <code className="whitespace-pre pr-4">{line || " "}</code>
-          </div>
-        ))}
-      </div>
+      <pre
+        tabIndex={0}
+        aria-label={`${highlighted.language} code`}
+        className={cn(
+          "m-0 overflow-x-auto p-4 font-mono text-[13px] leading-6",
+          wrapped
+            ? "whitespace-pre-wrap [overflow-wrap:anywhere]"
+            : "whitespace-pre",
+        )}
+      >
+        {highlighted.value === null ? (
+          <code>{code}</code>
+        ) : (
+          <code dangerouslySetInnerHTML={{ __html: highlighted.value }} />
+        )}
+      </pre>
     </div>
   );
 }

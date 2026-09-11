@@ -256,3 +256,102 @@
     color: var(--success);
   }
 }
+
+@layer components {
+  .markdown :is(h1, h2, h3, h4, h5, h6) {
+    scroll-margin-top: 24px;
+  }
+  .markdown h2 {
+    margin-top: 28px;
+    margin-bottom: 12px;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  .markdown h3 {
+    margin-top: 24px;
+    margin-bottom: 10px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .markdown img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  .markdown .katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-block: 4px;
+  }
+  .markdown .footnotes {
+    margin-top: 28px;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    font-size: 14px;
+  }
+  .markdown .task-list-item {
+    display: list-item;
+    list-style: none;
+  }
+  .markdown .task-list-item > input {
+    margin-right: 8px;
+  }
+  .code-block .hljs-comment,
+  .code-block .hljs-quote {
+    color: var(--muted);
+    font-style: italic;
+  }
+  .code-block .hljs-keyword,
+  .code-block .hljs-selector-tag,
+  .code-block .hljs-literal {
+    color: #9c36b5;
+  }
+  .code-block .hljs-string,
+  .code-block .hljs-regexp,
+  .code-block .hljs-addition {
+    color: #18794e;
+  }
+  .code-block .hljs-number,
+  .code-block .hljs-attribute,
+  .code-block .hljs-symbol {
+    color: #9a5400;
+  }
+  .code-block .hljs-title,
+  .code-block .hljs-built_in,
+  .code-block .hljs-type {
+    color: #075fbd;
+  }
+  .code-block .hljs-attr,
+  .code-block .hljs-tag,
+  .code-block .hljs-name,
+  .code-block .hljs-deletion {
+    color: #b42318;
+  }
+  :root[data-theme="dark"] .code-block .hljs-keyword,
+  :root[data-theme="dark"] .code-block .hljs-selector-tag,
+  :root[data-theme="dark"] .code-block .hljs-literal {
+    color: #d6a3ee;
+  }
+  :root[data-theme="dark"] .code-block .hljs-string,
+  :root[data-theme="dark"] .code-block .hljs-regexp,
+  :root[data-theme="dark"] .code-block .hljs-addition {
+    color: #91d5ab;
+  }
+  :root[data-theme="dark"] .code-block .hljs-number,
+  :root[data-theme="dark"] .code-block .hljs-attribute,
+  :root[data-theme="dark"] .code-block .hljs-symbol {
+    color: #e5bd82;
+  }
+  :root[data-theme="dark"] .code-block .hljs-title,
+  :root[data-theme="dark"] .code-block .hljs-built_in,
+  :root[data-theme="dark"] .code-block .hljs-type {
+    color: #8fc3ee;
+  }
+  :root[data-theme="dark"] .code-block .hljs-attr,
+  :root[data-theme="dark"] .code-block .hljs-tag,
+  :root[data-theme="dark"] .code-block .hljs-name,
+  :root[data-theme="dark"] .code-block .hljs-deletion {
+    color: #f19d96;
+  }
+}

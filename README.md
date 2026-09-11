@@ -17,8 +17,11 @@ hint, paste your solution for review, and mark the challenge complete.
 The challenge workspace opens on the full-width Statement tab. Solution accepts
 pasted work and attachments, Review shows streamed feedback, Reports summarizes
 saved practice activity, and Chat is reserved for optional clarification. Hints
-are available from the statement. Solution and chat drafts stay separate when
-switching tabs.
+have their own tab, with a shortcut in the header. Solution and chat drafts stay
+separate when switching tabs. The statement includes a responsive table of contents
+and a copy action. Markdown supports tables, task lists, footnotes, and math. Code
+blocks support syntax highlighting, language detection, copying, and optional wrapping.
+Language detection is heuristic; explicitly labeled supported code fences take precedence.
 
 The email is only a local profile selector. There is no authentication. Optional
 guided profile preferences and optional Additional context personalize future prompts.

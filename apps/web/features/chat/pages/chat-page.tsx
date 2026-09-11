@@ -1,30 +1,33 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
-  ArrowDown,
-  Check,
-  ClipboardCheck,
-  Lightbulb,
   AlertCircle,
-  ChevronDown,
-  FileText,
-  MessageSquare,
+  ArrowDown,
+  ArrowLeft,
   BarChart3,
+  Check,
+  ChevronDown,
+  ClipboardCheck,
+  FileText,
+  Lightbulb,
+  MessageSquare,
   Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import {
-  challengeKeys,
-  completeChallenge,
-  getActiveChallenges,
-  getChallenge,
-} from "../../challenges/api/challenge-api";
-import { ChallengeCard } from "../../challenges/components/challenge-card";
-import { formatDate } from "../../challenges/lib/challenge-formatters";
-import { useProfile } from "../../profile/hooks/use-profile";
 import { AppShell } from "../../../shared/components/app-header";
+import { Markdown } from "../../../shared/components/markdown";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../../../shared/components/ui/alert-dialog";
 import { Button } from "../../../shared/components/ui/button";
 import {
   ErrorState,
@@ -32,23 +35,20 @@ import {
 } from "../../../shared/components/ui/feedback";
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "../../../shared/components/ui/tabs";
-import {
-  AlertDialog,
-  AlertDialogTrigger,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from "../../../shared/components/ui/alert-dialog";
-import { Markdown } from "../../../shared/components/markdown";
 import type { Challenge, MessageAttachment } from "../../../shared/types/api";
+import {
+  challengeKeys,
+  completeChallenge,
+  getActiveChallenges,
+  getChallenge,
+} from "../../challenges/api/challenge-api";
+import { StatementReader } from "../../challenges/components/statement-reader";
+import { formatDate } from "../../challenges/lib/challenge-formatters";
+import { useProfile } from "../../profile/hooks/use-profile";
 import {
   getHint,
   getMessages,
@@ -60,7 +60,8 @@ import { ChatMessage } from "../components/chat-message";
 import { CreateExercise } from "../components/create-exercise";
 import { ExerciseReport } from "../components/exercise-report";
 
-type WorkspaceTab = "statement" | "solution" | "review" | "reports" | "chat";
+type WorkspaceTab =
+  "statement" | "solution" | "review" | "reports" | "chat" | "hints";
 type Submission = {
   content: string;
   mode: ComposerMode;
@@ -86,7 +87,6 @@ export function ChatPage({
   } | null>(null);
   const [completedChallenge, setCompletedChallenge] =
     useState<Challenge | null>(null);
-  const [hintOpen, setHintOpen] = useState(false);
   const [showLatest, setShowLatest] = useState(false);
   const solutionComposer = useRef<HTMLTextAreaElement>(null);
   const chatComposer = useRef<HTMLTextAreaElement>(null);
@@ -165,7 +165,7 @@ export function ChatPage({
         })),
       ),
     onMutate: () => {
-      setHintOpen(true);
+      setTab("hints");
       setReply({ content: "", mode: "hint" });
     },
     onSuccess: async (updated) => {
@@ -248,7 +248,7 @@ export function ChatPage({
         <CreateExercise profile={profile} />
       ) : (
         <main className="workspace flex min-h-0 flex-col">
-          <header className="flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-line px-4 md:px-7">
+          <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-line px-4 md:px-7">
             <Link
               href="/exercises"
               className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"
@@ -257,26 +257,6 @@ export function ChatPage({
               <span>Exercises</span>
             </Link>
             <div className="flex items-center gap-2">
-              {(!finished || challenge.hint) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => {
-                    setTab("statement");
-                    setHintOpen(true);
-                    requestAnimationFrame(() =>
-                      document
-                        .querySelector('[data-state="active"][role="tabpanel"]')
-                        ?.scrollTo({ top: 0 }),
-                    );
-                    if (!challenge.hint) hint.mutate();
-                  }}
-                >
-                  <Lightbulb size={14} />
-                  {challenge.hint ? "View hint" : "Get a hint"}
-                </Button>
-              )}
               {finished ? (
                 <span className="flex items-center gap-2 text-xs text-muted">
                   <Check size={14} />
@@ -339,11 +319,12 @@ export function ChatPage({
               <TabsList
                 variant="line"
                 aria-label="Exercise workspace"
-                className="min-h-12 min-w-full justify-start gap-0 p-0 md:min-w-0"
+                className="min-h-10 min-w-full justify-start gap-0 p-0 md:min-w-0"
               >
                 {[
                   { id: "statement", label: "Statement", icon: FileText },
                   { id: "solution", label: "Solution", icon: Upload },
+                  { id: "hints", label: "Hints", icon: Lightbulb },
                   { id: "review", label: "Review", icon: ClipboardCheck },
                   { id: "reports", label: "Reports", icon: BarChart3 },
                   { id: "chat", label: "Chat", icon: MessageSquare },
@@ -351,7 +332,7 @@ export function ChatPage({
                   <TabsTrigger
                     key={id}
                     value={id}
-                    className="min-h-11 flex-none px-3 text-xs sm:px-4 sm:text-sm"
+                    className="min-h-10 flex-none px-3 text-xs sm:px-4 sm:text-sm"
                   >
                     <Icon size={15} className="hidden sm:block" />
                     {label}
@@ -374,56 +355,50 @@ export function ChatPage({
             </div>
             <TabsContent
               value="statement"
-              className="min-h-0 overflow-y-auto px-5 py-8 md:px-10 md:py-10"
+              className="min-h-0 overflow-y-auto px-5 py-5 md:px-8"
+            >
+              <StatementReader challenge={challenge} />
+              {!finished && (
+                <div className="mx-auto mt-8 max-w-[1100px] border-t border-line pt-4">
+                  <Button onClick={() => setTab("solution")}>
+                    <Upload size={15} />
+                    Submit your solution
+                  </Button>
+                </div>
+              )}
+            </TabsContent>
+            <TabsContent
+              value="hints"
+              className="min-h-0 overflow-y-auto px-5 py-6 md:px-8"
             >
               <div className="mx-auto max-w-[76ch]">
-                {hintOpen && (
-                  <div className="mb-6 rounded-xl border border-line bg-canvas/60 p-5">
-                    <div className="mb-3 flex items-center justify-between">
-                      <h2 className="flex items-center gap-2 text-sm font-medium">
-                        <Lightbulb size={15} />
-                        Hint
-                      </h2>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setHintOpen(false)}
-                      >
-                        Hide
-                      </Button>
-                    </div>
-                    {hint.error ? (
-                      <p role="alert" className="feedback">
-                        <AlertCircle size={16} />
-                        {hint.error.message}
-                        <button
-                          className="underline"
-                          onClick={() => hint.mutate()}
-                        >
-                          Try again
-                        </button>
-                      </p>
-                    ) : challenge.hint ? (
-                      <div className="reading">
-                        <Markdown>{challenge.hint}</Markdown>
-                      </div>
-                    ) : reply?.mode === "hint" ? (
-                      <ChatMessage role="assistant" {...reply} streaming />
-                    ) : null}
-                  </div>
-                )}
-                <ChallengeCard challenge={challenge} className="max-w-none" />
-                <section className="mt-8 border-t border-line pt-5">
-                  {!finished && (
-                    <Button
-                      variant="primary"
-                      onClick={() => setTab("solution")}
-                    >
-                      <Upload size={15} />
-                      Submit your solution
+                <div className="mb-6 flex items-center justify-between gap-3">
+                  <h1 className="page-title">Hints</h1>
+                  {!challenge.hint && !finished && (
+                    <Button onClick={() => hint.mutate()} disabled={busy}>
+                      <Lightbulb size={15} />
+                      {hint.isPending ? "Getting hint…" : "Get a hint"}
                     </Button>
                   )}
-                </section>
+                </div>
+                {hint.error ? (
+                  <p role="alert" className="feedback">
+                    <AlertCircle size={16} />
+                    {hint.error.message}
+                  </p>
+                ) : challenge.hint ? (
+                  <div className="reading">
+                    <Markdown>{challenge.hint}</Markdown>
+                  </div>
+                ) : reply?.mode === "hint" ? (
+                  <ChatMessage role="assistant" {...reply} streaming />
+                ) : (
+                  <p className="text-sm text-muted">
+                    {finished
+                      ? "No hint was requested for this exercise."
+                      : "Request a hint when you need a nudge."}
+                  </p>
+                )}
               </div>
             </TabsContent>
             <TabsContent
