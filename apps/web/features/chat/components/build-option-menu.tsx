@@ -35,17 +35,17 @@ export function BuildOptionMenu<T extends string>({
           type="button"
           disabled={disabled}
           aria-label={label}
-          className="inline-flex h-9 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-foreground disabled:opacity-50"
+          className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-line px-2.5 text-sm font-normal outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-foreground data-[state=open]:bg-elevated disabled:opacity-50"
         >
           {selected?.label}
-          <ChevronUp size={14} className="text-muted" />
+          <ChevronUp size={12} className="shrink-0 text-muted" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         side="top"
         align="start"
         sideOffset={8}
-        className="w-[min(320px,calc(100vw-32px))] p-1.5"
+        className="w-[min(260px,calc(100vw-32px))] p-1.5"
       >
         <DropdownMenuRadioGroup
           value={value}

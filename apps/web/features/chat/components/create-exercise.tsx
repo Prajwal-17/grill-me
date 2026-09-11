@@ -1,6 +1,5 @@
 "use client";
 import { AlertCircle, ArrowUp, LoaderCircle } from "lucide-react";
-import { AnimatePresence } from "motion/react";
 import { useRef, useState } from "react";
 import { Button } from "../../../shared/components/ui/button";
 import type {
@@ -24,27 +23,26 @@ const EXAMPLES = [
 ] as const;
 
 const SUGGESTIONS = [
-  "Build a streaming CSV parser that handles malformed rows",
-  "Implement a cache with stale-while-revalidate behavior",
-  "Add an accessible drag-and-drop list with keyboard controls",
+  "Can you give me a build to practice React?",
+  "What can I build to get better at Go?",
+  "Can you give me a TypeScript challenge?",
 ] as const;
 
 const SCOPES = [
   {
     id: "focused",
     label: "Focused",
-    description:
-      "One clear piece. Best when you’re getting hands-on with something new.",
+    description: "One small task.",
   },
   {
     id: "feature",
     label: "Feature",
-    description: "Several parts working together as one complete feature.",
+    description: "One complete feature.",
   },
   {
     id: "system",
     label: "System",
-    description: "A larger pipeline or service with real-world constraints.",
+    description: "Several features working together.",
   },
 ] as const;
 
@@ -52,17 +50,17 @@ const DIFFICULTIES = [
   {
     id: "easy",
     label: "Easy",
-    description: "Clear requirements and fewer edge cases.",
+    description: "Simple logic.",
   },
   {
     id: "medium",
     label: "Medium",
-    description: "More moving parts and decisions to make.",
+    description: "More logic and error handling.",
   },
   {
     id: "hard",
     label: "Hard",
-    description: "Failures, limits, and trade-offs are part of the build.",
+    description: "Complex logic and edge cases.",
   },
 ] as const;
 
@@ -95,55 +93,47 @@ export function GenerationHome({ profile }: { profile: Profile }) {
   function fillExample(example: string) {
     setPrompt(example);
     reset();
-    textarea.current?.focus();
+    requestAnimationFrame(() =>
+      textarea.current?.focus({ preventScroll: true }),
+    );
   }
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-[820px] flex-col px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-10 sm:px-8 md:px-10 md:pb-10 md:pt-[12vh]">
-      <section aria-labelledby="generation-heading">
+    <main className="mx-auto flex h-full min-h-0 w-full max-w-[820px] flex-col gap-6 overflow-hidden px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-6 sm:px-8 md:px-10 md:pb-10 md:pt-[min(8vh,80px)]">
+      <section
+        aria-labelledby="generation-heading"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
         <h1
           id="generation-heading"
           className="text-balance text-[clamp(2rem,4vw,2.5rem)] font-semibold leading-[1.12] tracking-[-0.035em]"
         >
           Stop consuming. Start building.
         </h1>
-        <div
-          className="mt-8 grid gap-x-8 sm:grid-cols-2"
-          aria-label="Example builds"
-        >
-          {EXAMPLES.map((example) => (
-            <button
-              key={example}
-              type="button"
-              disabled={busy}
-              onClick={() => fillExample(example)}
-              className="group border-b border-line py-3 text-left text-sm leading-5 text-muted outline-none transition-colors hover:text-foreground focus-visible:border-foreground disabled:opacity-50"
-            >
-              {example}
-            </button>
-          ))}
-        </div>
+        {!clarification?.question && (
+          <div
+            className="mt-8 grid gap-x-8 sm:grid-cols-2"
+            aria-label="Example builds"
+          >
+            {EXAMPLES.map((example) => (
+              <button
+                key={example}
+                type="button"
+                disabled={busy}
+                onClick={() => fillExample(example)}
+                className="group border-b border-line py-3 text-left text-sm leading-5 text-muted outline-none transition-colors hover:text-foreground focus-visible:border-foreground disabled:opacity-50"
+              >
+                {example}
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       <section
         aria-label="Create a build"
-        className="mt-auto pt-14 md:pt-[12vh]"
+        className="mt-auto flex min-h-0 max-h-full shrink-0 flex-col"
       >
-        <AnimatePresence>
-          {clarification?.question && (
-            <ClarificationCard
-              key={clarification.question}
-              question={clarification.question}
-              options={clarification.options}
-              choice={choice}
-              custom={custom}
-              busy={busy}
-              onChoice={setChoice}
-              onCustom={setCustom}
-              onAnswer={answer}
-            />
-          )}
-        </AnimatePresence>
         {error && (
           <p
             role="alert"
@@ -159,92 +149,114 @@ export function GenerationHome({ profile }: { profile: Profile }) {
             Create without clarification
           </Button>
         )}
-        <form onSubmit={submit}>
-          <PromptSurface>
-            <div className="relative">
-              {!prompt && !focused && <TypingSuggestion words={SUGGESTIONS} />}
-              <PromptTextarea
-                ref={textarea}
-                id="build-request"
-                aria-label="Describe what you want to build"
-                disabled={busy}
-                value={prompt}
-                maxLength={4000}
-                placeholder=""
-                minHeight={112}
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? "generation-error" : undefined}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                onChange={(event) => {
-                  setPrompt(event.target.value);
-                  reset();
-                }}
-                onKeyDown={(event) => {
-                  if (shouldSubmitOnEnter(event)) {
-                    event.preventDefault();
-                    submit();
-                  }
-                }}
-              />
-            </div>
-            <div className="flex min-w-0 items-center justify-between gap-2 border-t border-line/70 px-2.5 py-2">
-              <div className="flex min-w-0 items-center">
-                <BuildOptionMenu
-                  label="Build scope"
-                  value={scope}
-                  options={SCOPES}
+        <PromptSurface className="flex min-h-0 flex-col">
+          {clarification?.question ? (
+            <ClarificationCard
+              key={clarification.question}
+              question={clarification.question}
+              options={clarification.options}
+              choice={choice}
+              custom={custom}
+              busy={busy}
+              onChoice={setChoice}
+              onCustom={setCustom}
+              onAnswer={answer}
+              onEdit={() => {
+                reset();
+                requestAnimationFrame(() =>
+                  textarea.current?.focus({ preventScroll: true }),
+                );
+              }}
+            />
+          ) : (
+            <form onSubmit={submit}>
+              <div className="relative">
+                {!prompt && !focused && (
+                  <TypingSuggestion words={SUGGESTIONS} />
+                )}
+                <PromptTextarea
+                  ref={textarea}
+                  id="build-request"
+                  aria-label="Describe what you want to build"
                   disabled={busy}
-                  onChange={(value: BuildScope) => {
-                    setScope(value);
+                  value={prompt}
+                  maxLength={4000}
+                  placeholder=""
+                  minHeight={112}
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? "generation-error" : undefined}
+                  onFocus={() => setFocused(true)}
+                  onBlur={() => setFocused(false)}
+                  onChange={(event) => {
+                    setPrompt(event.target.value);
                     reset();
                   }}
-                />
-                <BuildOptionMenu
-                  label="Build difficulty"
-                  value={difficulty}
-                  options={DIFFICULTIES}
-                  disabled={busy}
-                  onChange={(value: BuildDifficulty) => {
-                    setDifficulty(value);
-                    reset();
+                  onKeyDown={(event) => {
+                    if (shouldSubmitOnEnter(event)) {
+                      event.preventDefault();
+                      submit();
+                    }
                   }}
                 />
               </div>
-              <Button
-                type="submit"
-                variant="primary"
-                size="icon"
-                aria-label={
-                  prepare.isPending
-                    ? "Checking request"
-                    : generate.isPending || generate.isSuccess
-                      ? "Creating build"
-                      : generate.error && ready
-                        ? "Try creating build again"
-                        : "Create build"
-                }
-                disabled={
-                  busy ||
-                  Boolean(clarification?.question) ||
-                  prompt.trim().length < 3
-                }
-                className="size-9 shrink-0 rounded-full"
-              >
-                {busy ? (
-                  <LoaderCircle size={16} className="animate-spin" />
-                ) : (
-                  <ArrowUp size={16} />
-                )}
-              </Button>
-            </div>
-          </PromptSurface>
-          {prompt.length > 3600 && (
-            <p className="mt-2 text-right text-xs text-muted">
-              {prompt.length}/4000
-            </p>
+              <div className="flex min-w-0 items-center justify-between gap-2 border-t border-line/70 px-2.5 py-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <BuildOptionMenu
+                    label="Build scope"
+                    value={scope}
+                    options={SCOPES}
+                    disabled={busy}
+                    onChange={(value: BuildScope) => {
+                      setScope(value);
+                      reset();
+                    }}
+                  />
+                  <BuildOptionMenu
+                    label="Build difficulty"
+                    value={difficulty}
+                    options={DIFFICULTIES}
+                    disabled={busy}
+                    onChange={(value: BuildDifficulty) => {
+                      setDifficulty(value);
+                      reset();
+                    }}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="icon"
+                  aria-label={
+                    prepare.isPending
+                      ? "Checking request"
+                      : generate.isPending || generate.isSuccess
+                        ? "Creating build"
+                        : generate.error && ready
+                          ? "Try creating build again"
+                          : "Create build"
+                  }
+                  disabled={
+                    busy ||
+                    Boolean(clarification?.question) ||
+                    prompt.trim().length < 3
+                  }
+                  className="size-9 shrink-0 rounded-full"
+                >
+                  {busy ? (
+                    <LoaderCircle size={16} className="animate-spin" />
+                  ) : (
+                    <ArrowUp size={16} />
+                  )}
+                </Button>
+              </div>
+            </form>
           )}
-        </form>
+        </PromptSurface>
+        {prompt.length > 3600 && (
+          <p className="mt-2 text-right text-xs text-muted">
+            {prompt.length}/4000
+          </p>
+        )}
       </section>
     </main>
   );
