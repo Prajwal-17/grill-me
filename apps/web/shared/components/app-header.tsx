@@ -101,19 +101,33 @@ function Navigation({
           collapsed ? "justify-center" : "gap-2.5 px-2",
         )}
       >
-        <Link
-          href="/exercises"
-          onClick={close}
-          aria-label="Grill Me home"
-          className="flex shrink-0 items-center gap-2.5 rounded-lg"
-        >
-          <BrandMark />
-          {!collapsed && (
-            <span className="text-[17px] font-semibold tracking-tight">
-              Grill Me
-            </span>
-          )}
-        </Link>
+        {collapsed ? (
+          <NavItem collapsed label="Expand sidebar">
+            <Button
+              variant="ghost"
+              size="icon"
+              ref={toggleButton}
+              onClick={toggleWithFocus}
+              aria-label="Expand sidebar"
+            >
+              <PanelLeftOpen size={17} />
+            </Button>
+          </NavItem>
+        ) : (
+          <Link
+            href="/exercises"
+            onClick={close}
+            aria-label="Grill Me home"
+            className="flex shrink-0 items-center gap-2.5 rounded-lg"
+          >
+            <BrandMark />
+            {!collapsed && (
+              <span className="text-[17px] font-semibold tracking-tight">
+                Grill Me
+              </span>
+            )}
+          </Link>
+        )}
         {!collapsed && !close && (
           <Button
             size="icon-sm"
@@ -187,20 +201,6 @@ function Navigation({
           </NavItem>
         ))}
       </nav>
-      {collapsed && (
-        <NavItem collapsed label="Expand sidebar">
-          <Button
-            className="mt-5"
-            variant="ghost"
-            size="icon"
-            ref={toggleButton}
-            onClick={toggleWithFocus}
-            aria-label="Expand sidebar"
-          >
-            <PanelLeftOpen size={17} />
-          </Button>
-        </NavItem>
-      )}
       <div className="mt-auto grid gap-2 pt-8">
         <ThemeSelect compact={collapsed} />
         <DropdownMenu>

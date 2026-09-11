@@ -22,7 +22,8 @@ guided profile preferences and optional Additional context personalize future pr
 Experience, languages, stack, goals, and current focus use a shared option catalog.
 Existing free-text preferences are retained under Previous preferences.
 
-The interface supports light, dark, and system appearance, saved in this browser.
+The interface supports light and dark appearance, saved in this browser.
+Dark is the default; previous System selections migrate to Dark.
 The sidebar collapses to an icon rail and remembers its state. History supports
 search, format filters, and linked brief/discussion views.
 IBM Plex fonts are hosted locally. All code stays in your external editor; the app

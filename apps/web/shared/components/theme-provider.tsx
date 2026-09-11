@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { Button } from "./ui/button";
 import {
   DropdownMenu,
@@ -15,35 +15,32 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-type Theme = "system" | "light" | "dark";
+type Theme = "light" | "dark";
 const KEY = "grill-me-theme";
 const ThemeContext = createContext<{
   theme: Theme;
   setTheme: (value: Theme) => void;
-}>({ theme: "system", setTheme: () => {} });
+}>({ theme: "dark", setTheme: () => {} });
 export const themeScript =
-  "(function(){try{var t=localStorage.getItem('grill-me-theme')||'system';document.documentElement.dataset.theme=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light'}catch(e){document.documentElement.dataset.theme=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}})()";
+  "(function(){var t='dark';try{t=localStorage.getItem('grill-me-theme')==='light'?'light':'dark';localStorage.setItem('grill-me-theme',t)}catch(e){}document.documentElement.dataset.theme=t})()";
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, updateTheme] = useState<Theme>("system");
+  const [theme, updateTheme] = useState<Theme>("dark");
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
     function sync() {
-      let saved: Theme = "system";
+      let saved: Theme = "dark";
       try {
         const value = localStorage.getItem(KEY);
-        if (value === "dark" || value === "light") saved = value;
+        if (value === "light") saved = "light";
+        if (value !== saved) localStorage.setItem(KEY, saved);
       } catch {
         /* Storage can be unavailable. */
       }
       updateTheme(saved);
-      document.documentElement.dataset.theme =
-        saved === "system" ? (media.matches ? "dark" : "light") : saved;
+      document.documentElement.dataset.theme = saved;
     }
     sync();
-    media.addEventListener("change", sync);
     window.addEventListener("storage", sync);
     return () => {
-      media.removeEventListener("change", sync);
       window.removeEventListener("storage", sync);
     };
   }, []);
@@ -54,12 +51,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } catch {
       /* The current page still changes theme. */
     }
-    document.documentElement.dataset.theme =
-      value === "system"
-        ? matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light"
-        : value;
+    document.documentElement.dataset.theme = value;
   }
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
@@ -69,7 +61,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 }
 export function ThemeSelect({ compact = false }: { compact?: boolean }) {
   const { theme, setTheme } = useContext(ThemeContext);
-  const Icon = theme === "system" ? Monitor : theme === "dark" ? Moon : Sun;
+  const Icon = theme === "dark" ? Moon : Sun;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -96,7 +88,6 @@ export function ThemeSelect({ compact = false }: { compact?: boolean }) {
           onValueChange={(value) => setTheme(value as Theme)}
         >
           {[
-            { id: "system", label: "System", icon: Monitor },
             { id: "light", label: "Light", icon: Sun },
             { id: "dark", label: "Dark", icon: Moon },
           ].map(({ id, label, icon: ItemIcon }) => (
