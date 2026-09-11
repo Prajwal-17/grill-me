@@ -22,6 +22,7 @@ import {
 } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Kbd, KbdGroup } from "./ui/kbd";
 import { Button, buttonStyles } from "./ui/button";
 import { ThemeSelect } from "./theme-provider";
 import { clearProfile } from "../../features/profile/lib/profile-storage";
@@ -93,7 +94,10 @@ function Navigation({
   }, [collapsed]);
   return (
     <div
-      className={cn("flex h-full flex-col py-4", collapsed ? "px-2.5" : "px-3")}
+      className={cn(
+        "flex h-full min-w-0 flex-col py-4",
+        collapsed ? "px-2.5" : "px-3",
+      )}
     >
       <div
         className={cn(
@@ -201,14 +205,14 @@ function Navigation({
           </NavItem>
         ))}
       </nav>
-      <div className="mt-auto grid gap-2 pt-8">
+      <div className="mt-auto grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 pt-8">
         <ThemeSelect compact={collapsed} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               className={cn(
-                "h-12 w-full justify-start px-2 text-foreground",
+                "h-12 min-w-0 w-full justify-start px-2 text-foreground",
                 collapsed && "justify-center px-0",
               )}
               aria-label="Account"
@@ -218,7 +222,10 @@ function Navigation({
               </span>
               {!collapsed && (
                 <>
-                  <span className="min-w-0 truncate text-xs text-muted">
+                  <span
+                    className="min-w-0 flex-1 truncate text-left text-xs text-muted"
+                    title={profile.email}
+                  >
                     {profile.email}
                   </span>
                   <ChevronDown
@@ -341,7 +348,11 @@ export function AppShell({
             >
               <PanelLeftOpen size={17} />{" "}
               <span className="text-xs">Sidebar</span>
-              <kbd className="ml-2 text-xs text-muted">Ctrl B</kbd>
+              <KbdGroup className="ml-2" aria-label="Control plus B">
+                <Kbd>Ctrl</Kbd>
+                <span aria-hidden="true">+</span>
+                <Kbd>B</Kbd>
+              </KbdGroup>
             </Button>
           </div>
         )}
