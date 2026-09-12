@@ -15,6 +15,7 @@ import type { ProfilePreferences } from "../profiles/profile.schema";
 export type ConversationMode = "clarify" | "review";
 
 export type LearnerContext = {
+  profileId: string;
   preferences: ProfilePreferences;
   recentChallenges: {
     title: string;

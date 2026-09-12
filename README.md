@@ -47,6 +47,31 @@ an AI-estimated duration range alongside the statement. System builds contain
 their original content and type labels; unknown metadata is left empty.
 All human-authored model prompts live under `apps/backend/src/modules/ai/prompts/`.
 
+## AI request logs
+
+Logs records each new AI operation: request checks, build generation, chat,
+solution reviews, and hints. The paginated `/logs` page provides status and
+operation filters plus request/model search. Each `/logs/:id` detail page shows
+the complete instructions, input, response text, raw provider response, stream
+events, and errors, with copy actions. Requested and returned models are shown
+separately, alongside duration, time to first token, and provider-reported token
+usage and cost. Unreported values are left empty, not estimated.
+
+Logging begins before the provider call and ends after output validation or
+stream completion. Invalid JSON, failed validation, provider errors, incomplete
+streams, and cancelled consumers keep their received payloads. After a backend
+restart, unfinished records are marked interrupted. A log-storage failure warns
+on the backend console without changing the model result. Each log represents
+one application AI call; provider routing and internal retries are only visible
+when the provider includes that information in its response.
+
+Log payloads stay in the local SQLite database, scoped to the active profile.
+Transport credentials and known configured API keys are redacted. Full prompts,
+personal context, attached code, and responses can still contain private data:
+this local profile selector is not authentication, so do not expose the API or
+database publicly. Logs have no automatic expiry and will grow with usage.
+Existing calls cannot be reconstructed; only new calls are logged.
+
 ## Stack
 
 - Bun + Turborepo

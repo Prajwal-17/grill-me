@@ -14,12 +14,17 @@ import type {
   MessageAttachment,
 } from "../src/modules/messages/message.schema";
 import { AppError } from "../src/shared/errors/app-error";
+import OpenAI from "openai";
+import type { LogRow } from "../src/modules/logs/log.model";
 
 process.env.DATABASE_URL = ":memory:";
 
 const { createApp } = await import("../src/app");
 const { migrateDatabase } = await import("../src/shared/database/db");
 migrateDatabase();
+const { createOpenAIModel } = await import("../src/modules/ai/openai.model");
+const { logModel } = await import("../src/modules/logs/log.model");
+const { startAiLog } = await import("../src/modules/logs/ai-log-recorder");
 
 const generated: GeneratedBuildContent = {
   title: "Group words by first letter",
@@ -465,5 +470,367 @@ describe("solution attachments", () => {
     });
     expect(notOwned.status).toBe(200);
     expect(await notOwned.text()).toContain("CHALLENGE_NOT_FOUND");
+  });
+});
+
+function loggedModel(
+  respond: (body: Record<string, unknown>) => Response | Promise<Response>,
+) {
+  return createOpenAIModel({
+    client: new OpenAI({
+      apiKey: "test-log-secret",
+      baseURL: "https://model.test/v1?api_key=test-log-secret",
+      maxRetries: 0,
+      fetch: async (input, init) =>
+        respond(
+          (await new Request(input, init).json()) as Record<string, unknown>,
+        ),
+    }),
+  });
+}
+function modelResponse(text: string, extra: Record<string, unknown> = {}) {
+  return {
+    id: "resp-test",
+    object: "response",
+    status: "completed",
+    model: "provider/actual-model",
+    output: [
+      {
+        type: "message",
+        role: "assistant",
+        content: [{ type: "output_text", text, annotations: [] }],
+      },
+    ],
+    usage: {
+      input_tokens: 100,
+      output_tokens: 25,
+      total_tokens: 125,
+      input_tokens_details: { cached_tokens: 20 },
+      output_tokens_details: { reasoning_tokens: 5 },
+      cost: 0.0025,
+    },
+    ...extra,
+  };
+}
+function eventResponse(events: Record<string, unknown>[]) {
+  return new Response(
+    events
+      .map(
+        (event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+      )
+      .join(""),
+    { headers: { "Content-Type": "text/event-stream" } },
+  );
+}
+async function profileLogs(app: TestApp, id: string, query = "") {
+  const response = await request(app, `/logs${query}`, id);
+  expect(response.status).toBe(200);
+  return (
+    await json<{
+      data: {
+        items: LogRow[];
+        total: number;
+        page: number;
+        totalPages: number;
+      };
+    }>(response)
+  ).data;
+}
+
+describe("AI request logs", () => {
+  test("records full structured payloads, returned model, usage and redacts credentials", async () => {
+    const app = createApp({
+      llm: loggedModel(() =>
+        Response.json(
+          modelResponse(JSON.stringify(generated), {
+            debug: { api_key: "hidden-key", note: "test-log-secret" },
+          }),
+        ),
+      ),
+    });
+    const owner = await startProfile(
+      app,
+      `logs-${crypto.randomUUID()}@test.dev`,
+    );
+    await createChallenge(app, owner.id);
+    const list = await profileLogs(app, owner.id);
+    expect(list.total).toBe(1);
+    expect(list.items[0]).toMatchObject({
+      status: "success",
+      operation: "generation",
+      actualModel: "provider/actual-model",
+      totalTokens: 125,
+      cachedTokens: 20,
+      reasoningTokens: 5,
+      costUsd: 0.0025,
+      endpoint: "https://model.test/v1",
+    });
+    expect(list.items[0]).not.toHaveProperty("requestBody");
+    expect(list.items[0]).not.toHaveProperty("responseBody");
+    expect(list.items[0]).not.toHaveProperty("responseText");
+    const response = await request(app, `/logs/${list.items[0]!.id}`, owner.id);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const log = (await json<{ data: LogRow }>(response)).data;
+    expect(log.responseText).toBe(JSON.stringify(generated));
+    expect(log.requestBody.instructions).toContain(
+      "rigorous implementation evaluator",
+    );
+    expect(log.requestBody.input).toContain(
+      "Build string grouping in TypeScript",
+    );
+    expect(log.responseBody?.debug).toEqual({
+      api_key: "[REDACTED]",
+      note: "[REDACTED]",
+    });
+    expect(JSON.stringify(log)).not.toContain("test-log-secret");
+    expect(log.durationMs).toBeGreaterThanOrEqual(0);
+    expect(log.firstTokenMs).toBeNull();
+    expect(log.completedAt).not.toBeNull();
+  });
+
+  test("logs malformed output and provider errors without saving failed builds", async () => {
+    let calls = 0;
+    const app = createApp({
+      llm: loggedModel(() => {
+        calls++;
+        return calls === 1
+          ? Response.json(modelResponse("not JSON"))
+          : Response.json(
+              {
+                error: {
+                  code: "rate_limit",
+                  message: "Capacity exceeded: test-log-secret",
+                },
+              },
+              { status: 429, headers: { "x-request-id": "http-error-id" } },
+            );
+      }),
+    });
+    const owner = await startProfile(
+      app,
+      `log-errors-${crypto.randomUUID()}@test.dev`,
+    );
+    for (let i = 0; i < 2; i++) {
+      const response = await request(app, "/challenges/generate", owner.id, {
+        prompt: "Build a function",
+        scope: "focused",
+        difficulty: "medium",
+      });
+      expect(response.status).toBeGreaterThanOrEqual(500);
+    }
+    expect(calls).toBe(2);
+    const list = await profileLogs(app, owner.id, "?status=error");
+    expect(list.total).toBe(2);
+    const logs = list.items.map((row) => logModel.findOwned(row.id, owner.id)!);
+    expect(
+      logs.some(
+        (row) =>
+          row.responseText === "not JSON" &&
+          row.error?.code === "MODEL_OUTPUT_INVALID",
+      ),
+    ).toBe(true);
+    const rate = logs.find((row) => row.error?.status === 429)!;
+    expect(rate.error?.providerError).toMatchObject({
+      code: "rate_limit",
+      message: "Capacity exceeded: [REDACTED]",
+    });
+    expect(rate.providerRequestId).toBe("http-error-id");
+    expect(
+      (
+        await json<{ data: unknown[] }>(
+          await request(app, "/challenges/active", owner.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+  });
+
+  test("retains full stream events, partial failures, cancellation and all conversation operations", async () => {
+    let mode: "success" | "failed" | "incomplete" = "success";
+    const llm = loggedModel(() =>
+      eventResponse([
+        {
+          type: "response.created",
+          response: {
+            id: "resp-stream",
+            model: "provider/stream-model",
+            status: "in_progress",
+          },
+        },
+        { type: "response.output_text.delta", delta: "First part. " },
+        ...(mode === "failed"
+          ? [
+              {
+                type: "error",
+                code: "provider_failure",
+                message: "Stream broke",
+              },
+            ]
+          : mode === "incomplete"
+            ? []
+            : [
+                { type: "response.output_text.delta", delta: "Second part." },
+                {
+                  type: "response.completed",
+                  response: modelResponse("First part. Second part."),
+                },
+              ]),
+      ]),
+    );
+    const fake = new FakeModel();
+    const app = createApp({ llm: fake });
+    const owner = await startProfile(
+      app,
+      `stream-logs-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id);
+    const learner: LearnerContext = {
+      profileId: owner.id,
+      preferences: fake.generationInputs[0]!.learner.preferences,
+      recentChallenges: [],
+    };
+    for (const operation of ["review", "clarify", "hint"] as const) {
+      const stream =
+        operation === "hint"
+          ? llm.generateHint({ challenge, messages: [], learner })
+          : llm.respond({
+              challenge,
+              messages: [],
+              learner,
+              content: "My solution",
+              mode: operation,
+              attachments: [
+                { filename: "answer.ts", text: "const answer = 42;" },
+              ],
+            });
+      let text = "";
+      for await (const delta of stream) text += delta;
+      expect(text).toBe("First part. Second part.");
+    }
+    mode = "failed";
+    let partial = "";
+    try {
+      for await (const delta of llm.generateHint({
+        challenge,
+        messages: [],
+        learner,
+      }))
+        partial += delta;
+    } catch {
+      /* expected provider failure */
+    }
+    expect(partial).toBe("First part. ");
+    mode = "incomplete";
+    try {
+      for await (const _delta of llm.generateHint({
+        challenge,
+        messages: [],
+        learner,
+      })) {
+        /* consume */
+      }
+    } catch {
+      /* expected incomplete response */
+    }
+    mode = "success";
+    const iterator = llm
+      .generateHint({ challenge, messages: [], learner })
+      [Symbol.asyncIterator]();
+    await iterator.next();
+    await iterator.return?.();
+    const rows = (await profileLogs(app, owner.id)).items.map((row) =>
+      logModel.findOwned(row.id, owner.id)!,
+    );
+    expect(rows).toHaveLength(6);
+    expect(rows.filter((row) => row.status === "success")).toHaveLength(3);
+    expect(
+      rows.find((row) => row.operation === "review")?.requestBody.input,
+    ).toContain("const answer = 42;");
+    const success = rows.find((row) => row.status === "success")!;
+    expect(success.streamEvents).toHaveLength(4);
+    expect(success.responseText).toBe("First part. Second part.");
+    expect(success.firstTokenMs).toBeGreaterThanOrEqual(0);
+    expect(success.totalTokens).toBe(125);
+    expect(
+      rows.find((row) => row.error?.code === "MODEL_STREAM_FAILED")
+        ?.responseText,
+    ).toBe("First part. ");
+    expect(
+      rows.find((row) => row.error?.code === "MODEL_STREAM_INCOMPLETE")?.status,
+    ).toBe("error");
+    expect(rows.find((row) => row.status === "cancelled")?.responseText).toBe(
+      "First part. ",
+    );
+  });
+
+  test("paginates and filters on the server, isolates profiles, and preserves unfinished requests", async () => {
+    const app = createApp({ llm: new FakeModel() });
+    const owner = await startProfile(
+      app,
+      `paged-logs-${crypto.randomUUID()}@test.dev`,
+    );
+    const other = await startProfile(
+      app,
+      `other-logs-${crypto.randomUUID()}@test.dev`,
+    );
+    for (let i = 0; i < 31; i++)
+      logModel.start({
+        id: crypto.randomUUID(),
+        profileId: owner.id,
+        operation: i % 2 ? "hint" : "generation",
+        status: i % 2 ? "error" : "success",
+        requestedModel: "test-model",
+        endpoint: "https://model.test/v1",
+        streamed: false,
+        preview: `Request number ${i}`,
+        requestBody: { input: "full request" },
+        responseText: "full response",
+        startedAt: new Date(1000 + i),
+      });
+    const first = await profileLogs(app, owner.id);
+    const second = await profileLogs(app, owner.id, "?page=2");
+    expect(first.items).toHaveLength(25);
+    expect(second.items).toHaveLength(6);
+    expect(first.totalPages).toBe(2);
+    expect(
+      new Set([...first.items, ...second.items].map((row) => row.id)).size,
+    ).toBe(31);
+    expect(first.items[0]?.preview).toBe("Request number 30");
+    expect((await profileLogs(app, owner.id, "?page=999")).page).toBe(2);
+    expect(
+      (await profileLogs(app, owner.id, "?status=error&operation=hint")).total,
+    ).toBe(15);
+    expect(
+      (await profileLogs(app, owner.id, "?search=number%2028")).total,
+    ).toBe(1);
+    expect((await profileLogs(app, other.id)).total).toBe(0);
+    expect(
+      (await request(app, `/logs/${first.items[0]!.id}`, other.id)).status,
+    ).toBe(404);
+    expect((await app.request("/logs")).status).toBe(401);
+    for (const query of [
+      "page=0",
+      "page=oops",
+      "status=unknown",
+      "operation=unknown",
+    ])
+      expect((await request(app, `/logs?${query}`, owner.id)).status).toBe(400);
+    const recorder = startAiLog(
+      {
+        profileId: owner.id,
+        operation: "preparation",
+        preview: "Pending request",
+      },
+      { model: "test-model" },
+      "https://model.test/v1",
+    );
+    expect((await profileLogs(app, owner.id, "?status=running")).total).toBe(1);
+    logModel.markInterrupted();
+    expect((await profileLogs(app, owner.id, "?status=running")).total).toBe(0);
+    const cancelled = (await profileLogs(app, owner.id, "?status=cancelled"))
+      .items[0]!;
+    expect(logModel.findOwned(cancelled.id, owner.id)?.error?.code).toBe(
+      "PROCESS_INTERRUPTED",
+    );
+    recorder.finish("cancelled");
   });
 });

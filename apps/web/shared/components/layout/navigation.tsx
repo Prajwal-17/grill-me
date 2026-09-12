@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import {
   BookOpen,
   History,
+  ScrollText,
   House,
   Plus,
   Settings2,
@@ -148,6 +149,12 @@ export function Navigation({
             label: "History",
             icon: History,
             active: pathname === "/history",
+          },
+          {
+            href: "/logs",
+            label: "Logs",
+            icon: ScrollText,
+            active: pathname === "/logs" || pathname.startsWith("/logs/"),
           },
           {
             href: "/preferences",

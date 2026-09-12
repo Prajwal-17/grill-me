@@ -25,6 +25,7 @@ export function createMessageService(dependencies: {
 
   function learnerContext(profileId: string) {
     return {
+      profileId,
       preferences: profiles.getPreferences(profileId),
       recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
         title: row.title,

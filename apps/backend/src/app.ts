@@ -17,6 +17,7 @@ import {
 import { createProfileRoutes } from "./modules/profiles/profile.routes";
 import { createProfileService } from "./modules/profiles/profile.service";
 import { handleError } from "./shared/http/error-handler";
+import { createLogRoutes } from "./modules/logs/log.routes";
 
 type AppDependencies = {
   llm: ModelGateway;
@@ -58,6 +59,7 @@ export function createApp({
   });
 
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
+  app.route("/logs", createLogRoutes(profileService));
   app.route(
     "/profiles",
     createProfileRoutes(createProfileController(profileService)),

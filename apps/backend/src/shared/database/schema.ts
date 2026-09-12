@@ -1,5 +1,11 @@
 import type { GuidedPreferences } from "@repo/preferences";
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  index,
+  integer,
+  real,
+  sqliteTable,
+  text,
+} from "drizzle-orm/sqlite-core";
 
 export const profiles = sqliteTable("profiles", {
   id: text("id").primaryKey(),
@@ -94,3 +100,59 @@ export const messages = sqliteTable("messages", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const aiLogs = sqliteTable(
+  "ai_logs",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    challengeId: text("challenge_id").references(() => challenges.id, {
+      onDelete: "set null",
+    }),
+    operation: text("operation", {
+      enum: ["preparation", "generation", "clarify", "review", "hint"],
+    }).notNull(),
+    status: text("status", {
+      enum: ["running", "success", "error", "cancelled"],
+    }).notNull(),
+    requestedModel: text("requested_model").notNull(),
+    actualModel: text("actual_model"),
+    endpoint: text("endpoint").notNull(),
+    providerRequestId: text("provider_request_id"),
+    streamed: integer("streamed", { mode: "boolean" }).notNull(),
+    preview: text("preview").notNull(),
+    startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    durationMs: integer("duration_ms"),
+    firstTokenMs: integer("first_token_ms"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    totalTokens: integer("total_tokens"),
+    cachedTokens: integer("cached_tokens"),
+    reasoningTokens: integer("reasoning_tokens"),
+    costUsd: real("cost_usd"),
+    requestBody: text("request_body", { mode: "json" })
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    responseBody: text("response_body", { mode: "json" }).$type<
+      Record<string, unknown>
+    >(),
+    responseText: text("response_text").notNull().default(""),
+    streamEvents: text("stream_events", { mode: "json" }).$type<unknown[]>(),
+    error: text("error", { mode: "json" }).$type<Record<string, unknown>>(),
+  },
+  (table) => [
+    index("ai_logs_profile_started_idx").on(
+      table.profileId,
+      table.startedAt,
+      table.id,
+    ),
+    index("ai_logs_profile_status_idx").on(
+      table.profileId,
+      table.status,
+      table.startedAt,
+    ),
+  ],
+);

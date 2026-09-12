@@ -1,8 +1,10 @@
 import { createApp } from "./app";
 import { createOpenAIModel } from "./modules/ai/openai.model";
 import { migrateDatabase } from "./shared/database/db";
+import { logModel } from "./modules/logs/log.model";
 
 migrateDatabase();
+logModel.markInterrupted();
 
 const app = createApp({
   llm: createOpenAIModel(),
