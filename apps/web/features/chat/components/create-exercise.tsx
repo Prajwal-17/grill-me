@@ -1,5 +1,13 @@
 "use client";
-import { AlertCircle, ArrowUp, LoaderCircle } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUp,
+  Component as ComponentIcon,
+  Flame,
+  LoaderCircle,
+  Network,
+  Target,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { Button } from "../../../shared/components/ui/button";
 import type {
@@ -15,6 +23,11 @@ import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
 import { useCreateBuild } from "../hooks/use-create-exercise";
 import { BuildOptionMenu } from "./build-option-menu";
 import { GrillHeat } from "./grill-heat";
+import {
+  EasyDifficultyIcon,
+  HardDifficultyIcon,
+  MediumDifficultyIcon,
+} from "./difficulty-icons";
 
 const EXAMPLES = [
   "Build a React command palette with keyboard navigation",
@@ -34,16 +47,19 @@ const SCOPES = [
     id: "focused",
     label: "Focused",
     description: "One small task.",
+    icon: Target,
   },
   {
     id: "feature",
     label: "Feature",
     description: "One complete feature.",
+    icon: ComponentIcon,
   },
   {
     id: "system",
     label: "System",
     description: "Several features working together.",
+    icon: Network,
   },
 ] as const;
 
@@ -52,21 +68,25 @@ const DIFFICULTIES = [
     id: "easy",
     label: "Easy",
     description: "Simple logic.",
+    icon: EasyDifficultyIcon,
   },
   {
     id: "medium",
     label: "Medium",
     description: "More logic and error handling.",
+    icon: MediumDifficultyIcon,
   },
   {
     id: "hard",
     label: "Hard",
     description: "Complex logic and edge cases.",
+    icon: HardDifficultyIcon,
   },
   {
     id: "grill",
     label: "Grill",
     description: "Maximum difficulty.",
+    icon: Flame,
     accent: "grill",
   },
 ] as const;
@@ -211,8 +231,8 @@ export function GenerationHome({ profile }: { profile: Profile }) {
                   }}
                 />
               </div>
-              <div className="flex min-w-0 items-center justify-between gap-2 border-t border-line/70 px-2.5 py-2">
-                <div className="flex min-w-0 items-center gap-2">
+              <div className="flex min-w-0 items-center justify-between gap-1.5 border-t border-line/70 px-2 py-2 sm:gap-2 sm:px-2.5">
+                <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   <BuildOptionMenu
                     label="Build scope"
                     value={scope}

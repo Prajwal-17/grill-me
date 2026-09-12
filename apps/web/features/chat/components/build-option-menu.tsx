@@ -1,5 +1,5 @@
 "use client";
-import { ChevronUp, Flame } from "lucide-react";
+import { ChevronUp, type LucideIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ type BuildOption<T extends string> = {
   id: T;
   label: string;
   description: string;
+  icon: LucideIcon;
   accent?: "grill";
 };
 
@@ -29,6 +30,7 @@ export function BuildOptionMenu<T extends string>({
   onChange: (value: T) => void;
 }) {
   const selected = options.find((option) => option.id === value);
+  const SelectedIcon = selected?.icon;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -37,39 +39,49 @@ export function BuildOptionMenu<T extends string>({
           disabled={disabled}
           aria-label={label}
           data-grill-option={selected?.accent === "grill" || undefined}
-          className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-line px-2.5 text-sm font-normal outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-foreground data-[state=open]:bg-elevated disabled:opacity-50"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line px-2 text-sm font-normal outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-foreground data-[state=open]:bg-elevated disabled:opacity-50 sm:px-2.5"
         >
-          {selected?.accent === "grill" && (
-            <Flame size={14} aria-hidden="true" />
+          {SelectedIcon && (
+            <SelectedIcon
+              className="size-3.5 shrink-0 opacity-80"
+              aria-hidden="true"
+              focusable="false"
+            />
           )}
           {selected?.label}
-          <ChevronUp size={12} className="shrink-0 text-muted" />
+          <ChevronUp
+            className="size-2.5 shrink-0 text-muted sm:size-3"
+            aria-hidden="true"
+            focusable="false"
+          />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         side="top"
         align="start"
         sideOffset={8}
+        collisionPadding={16}
         className="w-[min(260px,calc(100vw-32px))] p-1.5"
       >
         <DropdownMenuRadioGroup
           value={value}
           onValueChange={(next) => onChange(next as T)}
         >
-          {options.map((option) => (
+          {options.map(({ icon: Icon, ...option }) => (
             <DropdownMenuRadioItem
               key={option.id}
               value={option.id}
+              indicatorPosition="right"
               data-grill-option={option.accent === "grill" || undefined}
-              className="items-start rounded-md py-2.5 pl-8"
+              className="items-start gap-2.5 rounded-md py-2.5 pl-3"
             >
-              <span className="grid gap-0.5">
-                <span className="inline-flex items-center gap-1.5 font-medium">
-                  {option.label}
-                  {option.accent === "grill" && (
-                    <Flame size={14} aria-hidden="true" />
-                  )}
-                </span>
+              <Icon
+                className="mt-0.5 size-4 shrink-0 opacity-80"
+                aria-hidden="true"
+                focusable="false"
+              />
+              <span className="grid min-w-0 gap-0.5">
+                <span className="font-medium">{option.label}</span>
                 <span className="text-xs leading-4 text-muted">
                   {option.description}
                 </span>
