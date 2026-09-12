@@ -16,6 +16,7 @@ import type {
 import { AppError } from "../src/shared/errors/app-error";
 import OpenAI from "openai";
 import type { LogRow } from "../src/modules/logs/log.model";
+import { generationPrompt } from "../src/modules/ai/prompts";
 
 process.env.DATABASE_URL = ":memory:";
 
@@ -219,11 +220,12 @@ describe("build quality pipeline", () => {
     const ready = await request(app, "/challenges/prepare", profile.id, {
       prompt: "Give me a Python list build",
       scope: "focused",
-      difficulty: "easy",
+      difficulty: "grill",
     });
     expect(
       (await json<{ data: ChallengePreparation }>(ready)).data.question,
     ).toBeNull();
+    expect(model.prepareInputs.at(-1)?.difficulty).toBe("grill");
     expect(model.prepareInputs.at(-1)?.learner.preferences).toMatchObject({
       languages: ["python"],
       aboutMe: "I learn from examples.",
@@ -253,7 +255,7 @@ describe("build quality pipeline", () => {
     expect(challenge.implementationMilestones).toEqual([]);
     expect(model.generationInputs).toHaveLength(1);
 
-    for (const difficulty of ["easy", "medium", "hard"] as const) {
+    for (const difficulty of ["easy", "medium", "hard", "grill"] as const) {
       const attemptedOverride = {
         ...generated,
         difficulty: "easy",
@@ -263,6 +265,23 @@ describe("build quality pipeline", () => {
       const build = await createChallenge(app, profile.id, { difficulty });
       expect(build.difficulty).toBe(difficulty);
       expect(build.scope).toBe("focused");
+      const policy = generationPrompt(model.generationInputs.at(-1)!);
+      expect(JSON.parse(policy.input).selectedDifficulty).toBe(difficulty);
+      if (difficulty === "grill") {
+        expect(policy.instructions).toContain("strictly harder than Hard");
+        expect(policy.instructions).toContain("at least two relevant sources");
+        expect(policy.instructions).toContain(
+          "deterministic adversarial tests",
+        );
+        expect(policy.instructions).toContain(
+          "all constraints mutually achievable",
+        );
+        expect(policy.instructions).toContain(
+          "Do not increase the chosen scope",
+        );
+      } else {
+        expect(policy.instructions).not.toContain("GRILL DIFFICULTY");
+      }
     }
     model.final = {
       ...generated,
@@ -273,21 +292,23 @@ describe("build quality pipeline", () => {
         "Verify failure recovery.",
       ],
     };
-    const system = await createChallenge(app, profile.id, {
-      scope: "system",
-      difficulty: "hard",
-    });
-    const persisted = await request(
-      app,
-      `/challenges/${system.id}`,
-      profile.id,
-    );
-    expect((await json<{ data: Challenge }>(persisted)).data).toMatchObject({
-      scope: "system",
-      difficulty: "hard",
-      durationEstimate: { minMinutes: 240, maxMinutes: 480 },
-      implementationMilestones: model.final.implementationMilestones,
-    });
+    for (const scope of ["feature", "system"] as const) {
+      const build = await createChallenge(app, profile.id, {
+        scope,
+        difficulty: "grill",
+      });
+      const persisted = await request(
+        app,
+        `/challenges/${build.id}`,
+        profile.id,
+      );
+      expect((await json<{ data: Challenge }>(persisted)).data).toMatchObject({
+        scope,
+        difficulty: "grill",
+        durationEstimate: { minMinutes: 240, maxMinutes: 480 },
+        implementationMilestones: model.final.implementationMilestones,
+      });
+    }
     model.final = generated;
 
     await createChallenge(app, profile.id, { prompt: "A different request" });
@@ -336,7 +357,7 @@ describe("build quality pipeline", () => {
       const invalid = await request(app, "/challenges/generate", profile.id, {
         prompt: "Build grouping",
         scope: "focused",
-        difficulty: "medium",
+        difficulty: "grill",
       });
       expect(invalid.status).toBe(502);
       expect(
@@ -552,7 +573,7 @@ describe("AI request logs", () => {
       app,
       `logs-${crypto.randomUUID()}@test.dev`,
     );
-    await createChallenge(app, owner.id);
+    await createChallenge(app, owner.id, { difficulty: "grill" });
     const list = await profileLogs(app, owner.id);
     expect(list.total).toBe(1);
     expect(list.items[0]).toMatchObject({
@@ -574,6 +595,10 @@ describe("AI request logs", () => {
     expect(log.responseText).toBe(JSON.stringify(generated));
     expect(log.requestBody.instructions).toContain(
       "rigorous implementation evaluator",
+    );
+    expect(log.requestBody.instructions).toContain("GRILL DIFFICULTY");
+    expect(JSON.parse(String(log.requestBody.input)).selectedDifficulty).toBe(
+      "grill",
     );
     expect(log.requestBody.input).toContain(
       "Build string grouping in TypeScript",

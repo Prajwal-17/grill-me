@@ -8,7 +8,7 @@ for a hint, paste your solution for review, and mark the build complete.
 
 1. Enter an email to create or resume a local profile.
 2. Describe what you want to implement on Home; find active work under Builds.
-3. Choose Focused, Feature, or System scope and Easy, Medium, or Hard difficulty, then answer one
+3. Choose Focused, Feature, or System scope and Easy, Medium, Hard, or Grill difficulty, then answer one
    question only when essential context is missing.
 4. Work through it in your own editor.
 5. Clarify the brief, use one hint, or paste/attach a solution for review.
@@ -46,6 +46,12 @@ an AI-estimated duration range alongside the statement. System builds contain
 3–7 ordered implementation milestones in one workspace. Older records retain
 their original content and type labels; unknown metadata is left empty.
 All human-authored model prompts live under `apps/backend/src/modules/ai/prompts/`.
+
+Grill is the highest difficulty: interacting constraints, failure cases, and
+adversarial tests within the chosen scope. It does not switch the provider model
+or its reasoning-effort setting. Its composer has an animated ember border and
+sparks that intensify during generation. The supplied pixel-art grill is the
+shared logo and SVG browser icon. Both animations respect reduced motion.
 
 ## AI request logs
 

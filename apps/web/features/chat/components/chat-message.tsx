@@ -57,7 +57,7 @@ export function ChatMessage({
       <div
         className={cn("mb-2.5 flex items-center gap-2", user && "justify-end")}
       >
-        {!user && <BrandMark className="size-5 rounded-[5px] [&_svg]:size-3" />}
+        {!user && <BrandMark className="size-7" />}
         <p className="text-xs font-medium text-muted">{label}</p>
       </div>
       <div

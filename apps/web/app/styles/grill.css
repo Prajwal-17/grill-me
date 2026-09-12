@@ -1,0 +1,208 @@
+/* The supplied pixel grill's coals are the only accent in maximum difficulty. */
+@property --grill-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+:root {
+  --grill-accent: #a63a19;
+  --grill-ember: #e75b37;
+  --grill-hot: #ffcb86;
+  --grill-action: #c94320;
+  --grill-action-ink: #ffffff;
+}
+
+:root[data-theme="dark"] {
+  --grill-accent: #ffb478;
+  --grill-action: #ffab63;
+  --grill-action-ink: #2b1811;
+}
+
+.prompt-surface[data-grill] {
+  position: relative;
+  isolation: isolate;
+  border-color: color-mix(in srgb, var(--grill-ember) 60%, var(--line));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--grill-ember) 8%, transparent),
+    0 5px 28px color-mix(in srgb, var(--grill-ember) 12%, transparent);
+}
+
+.prompt-surface[data-grill]:focus-within {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--grill-ember) 13%, transparent),
+    0 5px 32px color-mix(in srgb, var(--grill-ember) 15%, transparent);
+}
+
+.prompt-surface[data-grill] > form {
+  position: relative;
+  z-index: 1;
+}
+
+.grill-heat {
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  animation: grill-ignite 700ms ease-out both;
+}
+
+.grill-heat__orbit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--grill-angle),
+    transparent 0deg,
+    var(--grill-ember) 65deg,
+    var(--grill-hot) 85deg,
+    #fff3d6 90deg,
+    transparent 105deg,
+    transparent 180deg,
+    var(--grill-ember) 245deg,
+    var(--grill-hot) 265deg,
+    #fff3d6 270deg,
+    transparent 285deg
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: grill-orbit 5s linear infinite;
+}
+
+.grill-heat__bed {
+  position: absolute;
+  inset: auto 0 0;
+  height: 70px;
+  background:
+    radial-gradient(
+      ellipse at 18% 100%,
+      color-mix(in srgb, var(--grill-ember) 17%, transparent),
+      transparent 65%
+    ),
+    radial-gradient(
+      ellipse at 88% 100%,
+      color-mix(in srgb, var(--grill-hot) 14%, transparent),
+      transparent 60%
+    );
+  transform-origin: bottom;
+  animation: grill-coals 3.5s ease-in-out infinite alternate;
+}
+
+.grill-heat__ember {
+  --ember-rise: -62px;
+  position: absolute;
+  bottom: 2px;
+  left: var(--ember-x);
+  width: 2px;
+  height: 3px;
+  background: var(--grill-ember);
+  box-shadow: 0 0 5px var(--grill-hot);
+  opacity: 0;
+  animation: grill-ember-rise 3.8s ease-out infinite;
+  animation-delay: var(--ember-delay);
+}
+
+.grill-heat__ember:nth-child(even) {
+  height: 2px;
+  background: var(--grill-hot);
+}
+
+.prompt-surface[data-grill][data-working] .grill-heat__orbit {
+  animation-duration: 2s;
+}
+
+.prompt-surface[data-grill][data-working] .grill-heat__bed {
+  height: 110px;
+  animation-duration: 1.8s;
+}
+
+.prompt-surface[data-grill][data-working] .grill-heat__ember {
+  --ember-rise: -112px;
+  animation-duration: 2.4s;
+}
+
+[data-grill-option],
+[data-grill-badge] {
+  color: var(--grill-accent);
+  border-color: color-mix(in srgb, var(--grill-ember) 35%, var(--line));
+  background-color: color-mix(in srgb, var(--grill-ember) 7%, var(--surface));
+}
+
+[data-grill-option][role="menuitemradio"] {
+  margin-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--grill-ember) 20%, var(--line));
+}
+
+[data-grill-option]:is(:hover, [data-state="open"], [data-highlighted]) {
+  background-color: color-mix(in srgb, var(--grill-ember) 13%, var(--surface));
+}
+
+.prompt-surface[data-grill] button[type="submit"] {
+  border-color: var(--grill-action);
+  background: var(--grill-action);
+  color: var(--grill-action-ink);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--grill-ember) 18%, transparent);
+}
+
+@keyframes grill-ignite {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes grill-orbit {
+  to {
+    --grill-angle: 360deg;
+  }
+}
+
+@keyframes grill-coals {
+  from {
+    opacity: 0.6;
+    transform: scaleY(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1.15);
+  }
+}
+
+@keyframes grill-ember-rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 4px);
+  }
+  20% {
+    opacity: 0.75;
+  }
+  65% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--ember-drift), var(--ember-rise)) scale(0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grill-heat,
+  .grill-heat * {
+    animation: none !important;
+  }
+
+  .grill-heat__orbit {
+    --grill-angle: 45deg;
+  }
+
+  .grill-heat__ember {
+    display: none;
+  }
+}

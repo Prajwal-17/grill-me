@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/tw-animate.css";
+@import "./styles/grill.css";
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme inline {

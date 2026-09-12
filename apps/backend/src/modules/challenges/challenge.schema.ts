@@ -9,7 +9,12 @@ export const challengeTypeSchema = z.enum([
 ]);
 
 export const buildScopeSchema = z.enum(["focused", "feature", "system"]);
-export const buildDifficultySchema = z.enum(["easy", "medium", "hard"]);
+export const buildDifficultySchema = z.enum([
+  "easy",
+  "medium",
+  "hard",
+  "grill",
+]);
 
 // One source for structured-output limits and runtime validation.
 export const BUILD_SCOPE_LIMITS = {

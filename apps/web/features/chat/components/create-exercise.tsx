@@ -14,6 +14,7 @@ import { TypingSuggestion } from "../../../shared/components/ai/typing-suggestio
 import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
 import { useCreateBuild } from "../hooks/use-create-exercise";
 import { BuildOptionMenu } from "./build-option-menu";
+import { GrillHeat } from "./grill-heat";
 
 const EXAMPLES = [
   "Build a React command palette with keyboard navigation",
@@ -61,6 +62,12 @@ const DIFFICULTIES = [
     id: "hard",
     label: "Hard",
     description: "Complex logic and edge cases.",
+  },
+  {
+    id: "grill",
+    label: "Grill",
+    description: "Maximum difficulty.",
+    accent: "grill",
   },
 ] as const;
 
@@ -149,7 +156,12 @@ export function GenerationHome({ profile }: { profile: Profile }) {
             Create without clarification
           </Button>
         )}
-        <PromptSurface className="flex min-h-0 flex-col">
+        <PromptSurface
+          className="flex min-h-0 flex-col"
+          data-grill={difficulty === "grill" || undefined}
+          data-working={busy || undefined}
+        >
+          {difficulty === "grill" && <GrillHeat />}
           {clarification?.question ? (
             <ClarificationCard
               key={clarification.question}

@@ -12,7 +12,7 @@ export type ProfilePreferences = GuidedPreferences & {
 };
 
 export type BuildScope = "focused" | "feature" | "system";
-export type BuildDifficulty = "easy" | "medium" | "hard";
+export type BuildDifficulty = "easy" | "medium" | "hard" | "grill";
 export type DurationEstimate = {
   minMinutes: number;
   maxMinutes: number;
