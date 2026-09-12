@@ -1,4 +1,3 @@
-import { migrateLegacyPreferences } from "@repo/preferences";
 import type { ProfilePreferencesRow, ProfileRow } from "./profile.model";
 import {
   profilePreferencesSchema,
@@ -15,9 +14,8 @@ export function toProfile(row: ProfileRow): Profile {
 export function toProfilePreferences(
   row: ProfilePreferencesRow,
 ): ProfilePreferences {
-  const migrated = migrateLegacyPreferences(row);
   return profilePreferencesSchema.parse({
-    ...(row.guidedPreferences ?? migrated),
+    ...row.guidedPreferences,
     profileId: row.profileId,
     aboutMe: row.aboutMe,
     updatedAt: row.updatedAt.toISOString(),

@@ -18,20 +18,17 @@ export type DurationEstimate = {
   maxMinutes: number;
 };
 
-export type ChallengeType =
-  "implementation" | "exercise" | "question" | "architecture" | "mini-project";
 export type ChallengeStatus = "active" | "completed";
 
 export type Challenge = {
   id: string;
   profileId: string;
   title: string;
-  type: ChallengeType;
-  scope: BuildScope | null;
-  difficulty: BuildDifficulty | null;
-  contextualDifficulty: BuildDifficulty | null;
-  durationEstimate: DurationEstimate | null;
-  implementationMilestones: string[] | null;
+  scope: BuildScope;
+  difficulty: BuildDifficulty;
+  contextualDifficulty: BuildDifficulty;
+  durationEstimate: DurationEstimate;
+  implementationMilestones: string[];
   problemStatement: string;
   expectedOutcome: string;
   constraints: string[];

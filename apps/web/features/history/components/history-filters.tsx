@@ -1,6 +1,9 @@
 import { Search, X } from "lucide-react";
 import { Input } from "../../../shared/components/ui/input";
 import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
+import type { BuildScope } from "../../../shared/types/api";
+
+export type HistoryScope = BuildScope | "all";
 
 export function HistoryFilters({
   search,
@@ -10,8 +13,8 @@ export function HistoryFilters({
 }: {
   search: string;
   setSearch: (value: string) => void;
-  scope: string;
-  setScope: (value: string) => void;
+  scope: HistoryScope;
+  setScope: (value: HistoryScope) => void;
 }) {
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row">
@@ -40,13 +43,12 @@ export function HistoryFilters({
       <ChoiceSelect
         label="Filter history by scope"
         value={scope}
-        onChange={setScope}
+        onChange={(value) => setScope(value as HistoryScope)}
         options={[
           { id: "all", label: "All scopes" },
           { id: "focused", label: "Focused" },
           { id: "feature", label: "Feature" },
           { id: "system", label: "System" },
-          { id: "legacy", label: "Older builds" },
         ]}
         className="h-10 w-full bg-surface sm:w-48"
       />

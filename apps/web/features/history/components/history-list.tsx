@@ -4,7 +4,7 @@ import { History } from "lucide-react";
 import type { Challenge } from "../../../shared/types/api";
 import { buildMetadata } from "../../challenges/lib/challenge-formatters";
 import { Button, buttonStyles } from "../../../shared/components/ui/button";
-import { HistoryFilters } from "./history-filters";
+import { HistoryFilters, type HistoryScope } from "./history-filters";
 import { HistoryRow } from "./history-row";
 
 export function HistoryList({
@@ -17,14 +17,11 @@ export function HistoryList({
   challenges: Challenge[];
   search: string;
   setSearch: (value: string) => void;
-  scope: string;
-  setScope: (value: string) => void;
+  scope: HistoryScope;
+  setScope: (value: HistoryScope) => void;
 }) {
   const filtered = challenges.filter((challenge) => {
-    const matchesScope =
-      scope === "all" ||
-      challenge.scope === scope ||
-      (scope === "legacy" && challenge.scope === null);
+    const matchesScope = scope === "all" || challenge.scope === scope;
     const terms = [
       challenge.title,
       ...buildMetadata(challenge).map((item) => item.value),

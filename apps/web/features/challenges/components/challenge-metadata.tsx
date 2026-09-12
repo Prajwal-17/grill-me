@@ -13,10 +13,7 @@ import {
 } from "../../../shared/components/ui/tooltip";
 import { buildMetadata } from "../lib/challenge-formatters";
 
-const DIFFICULTY_ICONS: Record<
-  NonNullable<Challenge["difficulty"]>,
-  LucideIcon
-> = {
+const DIFFICULTY_ICONS: Record<Challenge["difficulty"], LucideIcon> = {
   easy: EasyDifficultyIcon,
   medium: MediumDifficultyIcon,
   hard: HardDifficultyIcon,
@@ -39,17 +36,14 @@ export function ChallengeMetadata({
       aria-label="Build details"
     >
       {metadata.map(({ label, value, help }) => {
-        const displayedDifficulty =
-          challenge.contextualDifficulty ?? challenge.difficulty;
-        const DifficultyIcon = displayedDifficulty
-          ? DIFFICULTY_ICONS[displayedDifficulty]
-          : null;
+        const DifficultyIcon = DIFFICULTY_ICONS[challenge.contextualDifficulty];
         const badge = (
           <span
             title={help ? undefined : label}
             aria-label={help ? `${label}: ${value}. ${help}` : undefined}
             data-grill-badge={
-              (label === "Difficulty" && displayedDifficulty === "grill") ||
+              (label === "Difficulty" &&
+                challenge.contextualDifficulty === "grill") ||
               undefined
             }
             className={cn(
@@ -58,7 +52,7 @@ export function ChallengeMetadata({
             )}
           >
             <span className="sr-only">{label}: </span>
-            {label === "Difficulty" && DifficultyIcon && (
+            {label === "Difficulty" && (
               <DifficultyIcon size={12} className="mr-1" aria-hidden="true" />
             )}
             {label === "AI-estimated duration" && (

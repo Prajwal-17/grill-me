@@ -1,6 +1,6 @@
 "use client";
 import type { ReactNode } from "react";
-import { Blocks, Code2, MessageSquare, Network, Target } from "lucide-react";
+import { Blocks, Network, Target } from "lucide-react";
 import { cn } from "../../../shared/lib/cn";
 import type { Challenge } from "../../../shared/types/api";
 import { Markdown } from "../../../shared/components/markdown";
@@ -18,19 +18,12 @@ export function ChallengeCard({
   headingPrefix?: string;
   headerAction?: ReactNode;
 }) {
-  const Icon = challenge.scope
-    ? challenge.scope === "system"
+  const Icon =
+    challenge.scope === "system"
       ? Network
       : challenge.scope === "feature"
         ? Blocks
-        : Target
-    : challenge.type === "question"
-      ? MessageSquare
-      : challenge.type === "architecture"
-        ? Network
-        : challenge.type === "mini-project"
-          ? Blocks
-          : Code2;
+        : Target;
   return (
     <article className={cn("mx-auto w-full min-w-0 max-w-[76ch]", className)}>
       <header className="mb-6 border-b border-line pb-5">

@@ -63,7 +63,6 @@ export const challengeModel = {
           id,
           profileId,
           title: content.title,
-          type: content.type,
           scope: content.scope,
           difficulty: content.difficulty,
           contextualDifficulty: content.contextualDifficulty,

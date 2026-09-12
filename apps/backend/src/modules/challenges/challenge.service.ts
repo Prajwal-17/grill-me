@@ -38,7 +38,6 @@ export function createChallengeService(dependencies: {
         title: row.title,
         scope: row.scope,
         contextualDifficulty: row.contextualDifficulty,
-        legacyType: row.type,
         summary: row.problemStatement.slice(0, 500),
       })),
     };
@@ -94,7 +93,6 @@ export function createChallengeService(dependencies: {
       }
       const finalBuild = challengeContentSchema.parse({
         ...validated.data,
-        type: "implementation",
         scope: input.scope,
         difficulty: input.difficulty,
         contextualDifficulty: validated.data.contextualDifficulty,

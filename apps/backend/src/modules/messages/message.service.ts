@@ -31,7 +31,6 @@ export function createMessageService(dependencies: {
         title: row.title,
         scope: row.scope,
         contextualDifficulty: row.contextualDifficulty,
-        legacyType: row.type,
         summary: row.problemStatement.slice(0, 500),
       })),
     };

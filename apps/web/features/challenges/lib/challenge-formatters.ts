@@ -2,16 +2,8 @@ import type {
   BuildDifficulty,
   BuildScope,
   Challenge,
-  ChallengeType,
   DurationEstimate,
 } from "../../../shared/types/api";
-
-export function formatChallengeType(type: ChallengeType) {
-  if (type === "mini-project") return "Mini-project";
-  if (type === "exercise") return "Coding exercise";
-  if (type === "question") return "Tricky question";
-  return type[0]!.toUpperCase() + type.slice(1);
-}
 
 export function formatBuildScope(scope: BuildScope) {
   return scope[0]!.toUpperCase() + scope.slice(1);
@@ -39,34 +31,17 @@ export function formatDurationEstimate(estimate: DurationEstimate) {
 }
 
 export function buildMetadata(challenge: Challenge) {
-  if (!challenge.scope) {
-    return [
-      { label: "Legacy type", value: formatChallengeType(challenge.type) },
-    ];
-  }
-  const displayedDifficulty =
-    challenge.contextualDifficulty ?? challenge.difficulty;
   return [
     { label: "Scope", value: formatBuildScope(challenge.scope) },
-    ...(displayedDifficulty
-      ? [
-          {
-            label: "Difficulty",
-            value: formatBuildDifficulty(displayedDifficulty),
-            help: challenge.contextualDifficulty
-              ? "This difficulty is based on your context."
-              : "This is the requested difficulty for this build.",
-          },
-        ]
-      : []),
-    ...(challenge.durationEstimate
-      ? [
-          {
-            label: "AI-estimated duration",
-            value: formatDurationEstimate(challenge.durationEstimate),
-          },
-        ]
-      : []),
+    {
+      label: "Difficulty",
+      value: formatBuildDifficulty(challenge.contextualDifficulty),
+      help: "This difficulty is based on your context.",
+    },
+    {
+      label: "AI-estimated duration",
+      value: formatDurationEstimate(challenge.durationEstimate),
+    },
   ];
 }
 

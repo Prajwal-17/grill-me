@@ -17,11 +17,12 @@ import {
 import { buttonStyles } from "../../../shared/components/ui/button";
 import { HistoryDetail } from "../components/history-detail";
 import { HistoryList } from "../components/history-list";
+import type { HistoryScope } from "../components/history-filters";
 
 export function HistoryPage() {
   const profile = useProfile();
   const [search, setSearch] = useState("");
-  const [scope, setScope] = useState("all");
+  const [scope, setScope] = useState<HistoryScope>("all");
   const selectedId = useSearchParams().get("id");
   const history = useQuery({
     queryKey: challengeKeys.history(profile?.id),

@@ -1,13 +1,5 @@
 import { z } from "zod";
 
-export const challengeTypeSchema = z.enum([
-  "implementation",
-  "exercise",
-  "question",
-  "architecture",
-  "mini-project",
-]);
-
 export const buildScopeSchema = z.enum(["focused", "feature", "system"]);
 export const buildDifficultySchema = z.enum([
   "easy",
@@ -35,16 +27,6 @@ export const durationEstimateSchema = z
 
 const milestoneSchema = z.string().trim().min(1).max(300);
 
-const legacyChallengeContentSchema = z.object({
-  title: z.string().min(3).max(120),
-  type: challengeTypeSchema,
-  problemStatement: z.string().min(20),
-  expectedOutcome: z.string().min(10),
-  constraints: z.array(z.string().min(1)).min(1).max(8),
-  starterCode: z.string().nullable(),
-  completionCriteria: z.array(z.string().min(1)).min(1).max(8),
-});
-
 export const generatedBuildContentSchema = z.object({
   title: z.string().min(3).max(120),
   contextualDifficulty: buildDifficultySchema,
@@ -69,19 +51,13 @@ export function generatedBuildSchemaForScope(scope: BuildScope) {
 }
 
 export const challengeContentSchema = generatedBuildContentSchema.extend({
-  type: challengeTypeSchema,
   scope: buildScopeSchema,
   difficulty: buildDifficultySchema,
 });
 
-export const challengeSchema = legacyChallengeContentSchema.extend({
+export const challengeSchema = challengeContentSchema.extend({
   id: z.string().uuid(),
   profileId: z.string().uuid(),
-  scope: buildScopeSchema.nullable(),
-  difficulty: buildDifficultySchema.nullable(),
-  contextualDifficulty: buildDifficultySchema.nullable(),
-  durationEstimate: durationEstimateSchema.nullable(),
-  implementationMilestones: z.array(milestoneSchema).max(7).nullable(),
   hint: z.string().nullable(),
   status: z.enum(["active", "completed"]),
   createdAt: z.string(),

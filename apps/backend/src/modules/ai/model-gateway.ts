@@ -21,7 +21,6 @@ export type LearnerContext = {
     title: string;
     scope: Challenge["scope"];
     contextualDifficulty: Challenge["contextualDifficulty"];
-    legacyType: Challenge["type"];
     summary: string;
   }[];
 };

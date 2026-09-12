@@ -5,8 +5,6 @@ import {
   Blocks,
   BookOpen,
   Check,
-  Code2,
-  MessageSquare,
   Network,
   Plus,
   Target,
@@ -30,19 +28,12 @@ import { ChallengeMetadata } from "../components/challenge-metadata";
 
 function BuildRow({ challenge }: { challenge: Challenge }) {
   const completed = challenge.status === "completed";
-  const Icon = challenge.scope
-    ? challenge.scope === "system"
+  const Icon =
+    challenge.scope === "system"
       ? Network
       : challenge.scope === "feature"
         ? Blocks
-        : Target
-    : challenge.type === "question"
-      ? MessageSquare
-      : challenge.type === "architecture"
-        ? Network
-        : challenge.type === "mini-project"
-          ? Blocks
-          : Code2;
+        : Target;
   return (
     <Link
       href={

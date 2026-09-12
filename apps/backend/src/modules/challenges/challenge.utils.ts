@@ -5,13 +5,10 @@ import { challengeSchema, type Challenge } from "./challenge.schema";
 export function toChallenge(row: ChallengeRow): Challenge {
   return challengeSchema.parse({
     ...row,
-    durationEstimate:
-      row.durationMinMinutes !== null && row.durationMaxMinutes !== null
-        ? {
-            minMinutes: row.durationMinMinutes,
-            maxMinutes: row.durationMaxMinutes,
-          }
-        : null,
+    durationEstimate: {
+      minMinutes: row.durationMinMinutes,
+      maxMinutes: row.durationMaxMinutes,
+    },
     createdAt: row.createdAt.toISOString(),
     completedAt: row.completedAt?.toISOString() ?? null,
   });

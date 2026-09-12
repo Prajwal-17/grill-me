@@ -5,11 +5,11 @@ export function statementBody(challenge: Challenge) {
   const list = (items: string[]) =>
     items.map((item) => "- " + item.replace(/\n/g, "\n  ")).join("\n");
   const sections = [
-    `## ${!challenge.scope && challenge.type === "question" ? "Question" : "The build"}\n\n${challenge.problemStatement}`,
-    `## ${!challenge.scope && challenge.type === "question" ? "Your answer" : "Expected outcome"}\n\n${challenge.expectedOutcome}`,
-    `## ${challenge.scope ? "Constraints and exclusions" : "Constraints"}\n\n${list(challenge.constraints)}`,
+    `## The build\n\n${challenge.problemStatement}`,
+    `## Expected outcome\n\n${challenge.expectedOutcome}`,
+    `## Constraints and exclusions\n\n${list(challenge.constraints)}`,
   ];
-  if (challenge.implementationMilestones?.length) {
+  if (challenge.implementationMilestones.length) {
     sections.push(
       `## Implementation milestones\n\n${challenge.implementationMilestones
         .map(

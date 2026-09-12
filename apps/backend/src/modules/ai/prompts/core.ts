@@ -65,7 +65,6 @@ export function conversationPromptContext(input: {
       difficulty: challenge.difficulty,
       contextualDifficulty: challenge.contextualDifficulty,
       durationEstimate: challenge.durationEstimate,
-      legacyType: challenge.scope ? null : challenge.type,
       problemStatement: challenge.problemStatement,
       expectedOutcome: challenge.expectedOutcome,
       constraints: challenge.constraints,

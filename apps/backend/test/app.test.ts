@@ -250,7 +250,6 @@ describe("build quality pipeline", () => {
     expect(challenge.title).toBe(generated.title);
     expect(challenge.completionCriteria).toEqual(generated.completionCriteria);
     expect(challenge.scope).toBe("focused");
-    expect(challenge.type).toBe("implementation");
     expect(challenge.difficulty).toBe("medium");
     expect(challenge.contextualDifficulty).toBe("easy");
     expect(challenge.durationEstimate).toEqual(generated.durationEstimate);

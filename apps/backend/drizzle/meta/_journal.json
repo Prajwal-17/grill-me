@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1788524434685,
-      "tag": "0000_shiny_the_liberteens",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1788544864668,
-      "tag": "0001_big_lockheed",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1789015965486,
-      "tag": "0002_wandering_human_cannonball",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1789139127227,
-      "tag": "0003_redundant_doctor_spectrum",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1789157561329,
-      "tag": "0004_tearful_shotgun",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1789157917289,
-      "tag": "0005_soft_bedlam",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1789186753285,
-      "tag": "0006_even_franklin_richards",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1789207700860,
-      "tag": "0007_shallow_masque",
+      "when": 1789218112237,
+      "tag": "0000_bent_jamie_braddock",
       "breakpoints": true
     }
   ]

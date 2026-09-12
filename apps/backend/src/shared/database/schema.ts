@@ -24,10 +24,9 @@ export const profilePreferences = sqliteTable("profile_preferences", {
     .references(() => profiles.id, { onDelete: "cascade" }),
   guidedPreferences: text("guided_preferences", {
     mode: "json",
-  }).$type<GuidedPreferences>(),
-  experienceLevel: text("experience_level"),
-  languagesStack: text("languages_stack"),
-  learningGoals: text("learning_goals"),
+  })
+    .$type<GuidedPreferences>()
+    .notNull(),
   aboutMe: text("about_me"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .notNull()
@@ -43,29 +42,22 @@ export const challenges = sqliteTable("challenges", {
     .notNull()
     .references(() => profiles.id, { onDelete: "cascade" }),
   title: text("title").notNull(),
-  type: text("type", {
-    enum: [
-      "implementation",
-      "exercise",
-      "question",
-      "architecture",
-      "mini-project",
-    ],
-  }).notNull(),
   scope: text("scope", {
     enum: ["focused", "feature", "system"],
-  }),
+  }).notNull(),
   difficulty: text("difficulty", {
     enum: ["easy", "medium", "hard", "grill"],
-  }),
+  }).notNull(),
   contextualDifficulty: text("contextual_difficulty", {
     enum: ["easy", "medium", "hard", "grill"],
-  }),
-  durationMinMinutes: integer("duration_min_minutes"),
-  durationMaxMinutes: integer("duration_max_minutes"),
+  }).notNull(),
+  durationMinMinutes: integer("duration_min_minutes").notNull(),
+  durationMaxMinutes: integer("duration_max_minutes").notNull(),
   implementationMilestones: text("implementation_milestones", {
     mode: "json",
-  }).$type<string[]>(),
+  })
+    .$type<string[]>()
+    .notNull(),
   problemStatement: text("problem_statement").notNull(),
   expectedOutcome: text("expected_outcome").notNull(),
   constraints: text("constraints", { mode: "json" })

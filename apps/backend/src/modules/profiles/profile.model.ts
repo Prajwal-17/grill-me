@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm";
+import { EMPTY_GUIDED } from "@repo/preferences";
 import { db } from "../../shared/database/db";
 import { profilePreferences, profiles } from "../../shared/database/schema";
 import type { SavePreferencesInput } from "./profile.schema";
@@ -36,7 +37,7 @@ export const profilePreferencesModel = {
   createDefaults(profileId: string) {
     return db
       .insert(profilePreferences)
-      .values({ profileId })
+      .values({ profileId, guidedPreferences: EMPTY_GUIDED })
       .onConflictDoNothing()
       .returning()
       .get();

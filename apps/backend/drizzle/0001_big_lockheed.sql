@@ -1,1 +1,0 @@
-DROP INDEX `one_active_challenge_per_profile`;

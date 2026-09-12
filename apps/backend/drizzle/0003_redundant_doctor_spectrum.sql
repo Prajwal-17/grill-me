@@ -1,1 +1,0 @@
-ALTER TABLE `profile_preferences` ADD `guided_preferences` text;
