@@ -44,13 +44,18 @@ export function buildMetadata(challenge: Challenge) {
       { label: "Legacy type", value: formatChallengeType(challenge.type) },
     ];
   }
+  const displayedDifficulty =
+    challenge.contextualDifficulty ?? challenge.difficulty;
   return [
     { label: "Scope", value: formatBuildScope(challenge.scope) },
-    ...(challenge.difficulty
+    ...(displayedDifficulty
       ? [
           {
             label: "Difficulty",
-            value: formatBuildDifficulty(challenge.difficulty),
+            value: formatBuildDifficulty(displayedDifficulty),
+            help: challenge.contextualDifficulty
+              ? "This difficulty is based on your context."
+              : "This is the requested difficulty for this build.",
           },
         ]
       : []),

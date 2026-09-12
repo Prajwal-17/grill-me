@@ -66,6 +66,7 @@ export const challengeModel = {
           type: content.type,
           scope: content.scope,
           difficulty: content.difficulty,
+          contextualDifficulty: content.contextualDifficulty,
           durationMinMinutes: content.durationEstimate.minMinutes,
           durationMaxMinutes: content.durationEstimate.maxMinutes,
           implementationMilestones: content.implementationMilestones,

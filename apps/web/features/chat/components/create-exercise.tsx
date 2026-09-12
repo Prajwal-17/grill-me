@@ -19,15 +19,15 @@ import { ClarificationCard } from "../../../shared/components/ai/clarification-c
 import { PromptTextarea } from "../../../shared/components/ai/prompt-textarea";
 import { PromptSurface } from "../../../shared/components/ai/prompt-surface";
 import { TypingSuggestion } from "../../../shared/components/ai/typing-suggestion";
-import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
-import { useCreateBuild } from "../hooks/use-create-exercise";
-import { BuildOptionMenu } from "./build-option-menu";
-import { GrillHeat } from "./grill-heat";
 import {
   EasyDifficultyIcon,
   HardDifficultyIcon,
   MediumDifficultyIcon,
-} from "./difficulty-icons";
+} from "../../../shared/components/difficulty-icons";
+import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
+import { useCreateBuild } from "../hooks/use-create-exercise";
+import { BuildOptionMenu } from "./build-option-menu";
+import { GrillHeat } from "./grill-heat";
 
 const EXAMPLES = [
   "Build a React command palette with keyboard navigation",

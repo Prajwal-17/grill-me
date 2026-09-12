@@ -20,6 +20,7 @@ export type LearnerContext = {
   recentChallenges: {
     title: string;
     scope: Challenge["scope"];
+    contextualDifficulty: Challenge["contextualDifficulty"];
     legacyType: Challenge["type"];
     summary: string;
   }[];

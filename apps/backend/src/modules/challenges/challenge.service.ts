@@ -37,6 +37,7 @@ export function createChallengeService(dependencies: {
       recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
         title: row.title,
         scope: row.scope,
+        contextualDifficulty: row.contextualDifficulty,
         legacyType: row.type,
         summary: row.problemStatement.slice(0, 500),
       })),
@@ -96,6 +97,7 @@ export function createChallengeService(dependencies: {
         type: "implementation",
         scope: input.scope,
         difficulty: input.difficulty,
+        contextualDifficulty: validated.data.contextualDifficulty,
       });
       return toChallenge(
         challenges.create(profileId, finalBuild, input.prompt),

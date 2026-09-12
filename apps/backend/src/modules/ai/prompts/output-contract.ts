@@ -5,6 +5,10 @@ import {
 
 const baseBuildProperties = {
   title: { type: "string", minLength: 3, maxLength: 120 },
+  contextualDifficulty: {
+    type: "string",
+    enum: ["easy", "medium", "hard", "grill"],
+  },
   problemStatement: { type: "string", minLength: 20 },
   expectedOutcome: { type: "string", minLength: 10 },
   constraints: {
@@ -57,6 +61,7 @@ export function buildJsonSchema(scope: BuildScope) {
     additionalProperties: false,
     required: [
       "title",
+      "contextualDifficulty",
       "problemStatement",
       "expectedOutcome",
       "constraints",

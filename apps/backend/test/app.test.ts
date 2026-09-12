@@ -29,6 +29,7 @@ const { startAiLog } = await import("../src/modules/logs/ai-log-recorder");
 
 const generated: GeneratedBuildContent = {
   title: "Group words by first letter",
+  contextualDifficulty: "easy",
   durationEstimate: { minMinutes: 35, maxMinutes: 50 },
   implementationMilestones: [],
   problemStatement: "Build a function that groups words by their first letter.",
@@ -251,6 +252,7 @@ describe("build quality pipeline", () => {
     expect(challenge.scope).toBe("focused");
     expect(challenge.type).toBe("implementation");
     expect(challenge.difficulty).toBe("medium");
+    expect(challenge.contextualDifficulty).toBe("easy");
     expect(challenge.durationEstimate).toEqual(generated.durationEstimate);
     expect(challenge.implementationMilestones).toEqual([]);
     expect(model.generationInputs).toHaveLength(1);
@@ -264,9 +266,13 @@ describe("build quality pipeline", () => {
       model.final = attemptedOverride;
       const build = await createChallenge(app, profile.id, { difficulty });
       expect(build.difficulty).toBe(difficulty);
+      expect(build.contextualDifficulty).toBe("easy");
       expect(build.scope).toBe("focused");
       const policy = generationPrompt(model.generationInputs.at(-1)!);
       expect(JSON.parse(policy.input).selectedDifficulty).toBe(difficulty);
+      expect(policy.instructions).toContain(
+        "relative to the learner's technicalContext",
+      );
       if (difficulty === "grill") {
         expect(policy.instructions).toContain("strictly harder than Hard");
         expect(policy.instructions).toContain("at least two relevant sources");

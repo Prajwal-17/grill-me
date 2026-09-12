@@ -25,7 +25,6 @@ import {
   formatTokens,
   logHref,
   OPERATION_LABELS,
-  prettyPayload,
   readLogFilters,
 } from "../lib/log-formatters";
 
@@ -163,10 +162,10 @@ export function LogDetailPage({ id }: { id: string }) {
                     Raw JSON
                   </TabsTrigger>
                 </TabsList>
-                <TabsContent value="response">
+                <TabsContent value="response" className="grid gap-5">
                   <LogPayload
                     title="Model response"
-                    text={log.responseText}
+                    value={log.responseText}
                     empty={
                       log.status === "running"
                         ? "The request is running. Its full response will appear when it finishes."
@@ -179,19 +178,29 @@ export function LogDetailPage({ id }: { id: string }) {
                       not pass.
                     </p>
                   )}
+                  {log.responseBody && (
+                    <LogPayload
+                      title="Provider response"
+                      value={log.responseBody}
+                    />
+                  )}
                 </TabsContent>
                 <TabsContent value="request" className="grid gap-5">
                   <LogPayload
                     title="Instructions"
-                    text={prettyPayload(log.requestBody.instructions ?? "")}
+                    value={log.requestBody.instructions ?? ""}
                   />
                   <LogPayload
                     title="Input"
-                    text={prettyPayload(log.requestBody.input ?? "")}
+                    value={log.requestBody.input ?? ""}
                   />
                 </TabsContent>
                 <TabsContent value="raw">
-                  <LogPayload title="Full log JSON" text={prettyPayload(log)} />
+                  <LogPayload
+                    title="Full log JSON"
+                    value={log}
+                    defaultView="source"
+                  />
                 </TabsContent>
               </Tabs>
               <div className="mt-6 grid gap-2 border-t border-line pt-5 text-xs leading-5 text-muted">

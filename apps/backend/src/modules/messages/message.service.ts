@@ -30,6 +30,7 @@ export function createMessageService(dependencies: {
       recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
         title: row.title,
         scope: row.scope,
+        contextualDifficulty: row.contextualDifficulty,
         legacyType: row.type,
         summary: row.problemStatement.slice(0, 500),
       })),

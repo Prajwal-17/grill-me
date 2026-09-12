@@ -58,6 +58,9 @@ export const challenges = sqliteTable("challenges", {
   difficulty: text("difficulty", {
     enum: ["easy", "medium", "hard", "grill"],
   }),
+  contextualDifficulty: text("contextual_difficulty", {
+    enum: ["easy", "medium", "hard", "grill"],
+  }),
   durationMinMinutes: integer("duration_min_minutes"),
   durationMaxMinutes: integer("duration_max_minutes"),
   implementationMilestones: text("implementation_milestones", {

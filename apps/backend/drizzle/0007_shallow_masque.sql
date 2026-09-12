@@ -1,0 +1,1 @@
+ALTER TABLE `challenges` ADD `contextual_difficulty` text;

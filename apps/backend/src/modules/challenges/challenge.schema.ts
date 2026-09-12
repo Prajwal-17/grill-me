@@ -47,6 +47,7 @@ const legacyChallengeContentSchema = z.object({
 
 export const generatedBuildContentSchema = z.object({
   title: z.string().min(3).max(120),
+  contextualDifficulty: buildDifficultySchema,
   problemStatement: z.string().min(20).max(5_000),
   expectedOutcome: z.string().min(10),
   constraints: z.array(z.string().min(1)).min(1).max(8),
@@ -78,6 +79,7 @@ export const challengeSchema = legacyChallengeContentSchema.extend({
   profileId: z.string().uuid(),
   scope: buildScopeSchema.nullable(),
   difficulty: buildDifficultySchema.nullable(),
+  contextualDifficulty: buildDifficultySchema.nullable(),
   durationEstimate: durationEstimateSchema.nullable(),
   implementationMilestones: z.array(milestoneSchema).max(7).nullable(),
   hint: z.string().nullable(),

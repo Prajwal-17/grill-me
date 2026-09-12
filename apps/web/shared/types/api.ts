@@ -29,6 +29,7 @@ export type Challenge = {
   type: ChallengeType;
   scope: BuildScope | null;
   difficulty: BuildDifficulty | null;
+  contextualDifficulty: BuildDifficulty | null;
   durationEstimate: DurationEstimate | null;
   implementationMilestones: string[] | null;
   problemStatement: string;
