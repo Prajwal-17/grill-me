@@ -94,7 +94,7 @@
 }
 
 .grill-heat__ember {
-  --ember-rise: -62px;
+  --ember-rise: -76px;
   position: absolute;
   bottom: 2px;
   left: var(--ember-x);
@@ -103,13 +103,24 @@
   background: var(--grill-ember);
   box-shadow: 0 0 5px var(--grill-hot);
   opacity: 0;
-  animation: grill-ember-rise 3.8s ease-out infinite;
+  animation: grill-ember-rise 3.6s ease-out infinite;
   animation-delay: var(--ember-delay);
 }
 
 .grill-heat__ember:nth-child(even) {
   height: 2px;
   background: var(--grill-hot);
+}
+
+/* Just a few longer flecks suggest flame without turning the edge into a fire. */
+.grill-heat__ember:nth-child(3n) {
+  height: 5px;
+  background: linear-gradient(
+    to top,
+    transparent,
+    var(--grill-ember) 35%,
+    var(--grill-hot)
+  );
 }
 
 .prompt-surface[data-grill][data-working] .grill-heat__orbit {
@@ -122,7 +133,7 @@
 }
 
 .prompt-surface[data-grill][data-working] .grill-heat__ember {
-  --ember-rise: -112px;
+  --ember-rise: -124px;
   animation-duration: 2.4s;
 }
 
@@ -182,6 +193,13 @@
   }
   20% {
     opacity: 0.75;
+  }
+  45% {
+    transform: translate(
+        calc(var(--ember-drift) * -0.25),
+        calc(var(--ember-rise) * 0.45)
+      )
+      scale(1, 0.9);
   }
   65% {
     opacity: 0.4;

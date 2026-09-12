@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 // Fixed, staggered particles keep the animation stable while the draft changes.
-const EMBERS = [7, 18, 32, 45, 59, 72, 84, 94];
+const EMBERS = [6, 15, 25, 36, 47, 58, 69, 79, 88, 96];
 
 export function GrillHeat() {
   return (
@@ -15,7 +15,7 @@ export function GrillHeat() {
           style={
             {
               "--ember-x": `${position}%`,
-              "--ember-delay": `${index * -0.47}s`,
+              "--ember-delay": `${index * -0.37}s`,
               "--ember-drift": `${index % 2 === 0 ? 12 : -8}px`,
             } as CSSProperties
           }
