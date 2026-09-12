@@ -8,11 +8,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
-import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 export function WorkspaceTabs({
   reviews,
   send,
-}: Pick<ExerciseWorkspaceState, "reviews" | "send">) {
+}: Pick<ChallengeWorkspaceState, "reviews" | "send">) {
   return (
     <div className="shrink-0 overflow-x-auto overflow-y-hidden border-b border-line px-3 md:px-7">
       <TabsList

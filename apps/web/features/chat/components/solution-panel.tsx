@@ -1,7 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import type { Challenge } from "@/shared/types/api";
-import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 import { ChevronDown } from "lucide-react";
 import { ChatMessage } from "@/features/chat/components/chat-message";
 import { ChatComposer } from "@/features/chat/components/chat-composer";
@@ -23,7 +23,7 @@ export function SolutionPanel({
   challenge,
   messageFeedback,
 }: Pick<
-  ExerciseWorkspaceState,
+  ChallengeWorkspaceState,
   | "finished"
   | "busy"
   | "send"

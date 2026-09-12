@@ -3,7 +3,7 @@ import { AlertCircle } from "lucide-react";
 import type { Challenge } from "@/shared/types/api";
 import { Tabs } from "@/shared/components/ui/tabs";
 import type { WorkspaceTab } from "@/features/chat/types/workspace";
-import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 import { ActivityFeedback } from "@/features/chat/components/activity-feedback";
 import { WorkspaceHeader } from "@/features/chat/components/workspace-header";
 import { WorkspaceTabs } from "@/features/chat/components/workspace-tabs";
@@ -14,10 +14,10 @@ import { ReviewPanel } from "@/features/chat/components/review-panel";
 import { ReportsPanel } from "@/features/chat/components/reports-panel";
 import { DiscussionPanel } from "@/features/chat/components/discussion-panel";
 
-export function ExerciseWorkspace({
+export function ChallengeWorkspace({
   state,
 }: {
-  state: ExerciseWorkspaceState & { challenge: Challenge };
+  state: ChallengeWorkspaceState & { challenge: Challenge };
 }) {
   const {
     activityReady,

@@ -13,20 +13,20 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/shared/components/ui/alert-dialog";
-import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 export function WorkspaceHeader({
   finished,
   busy,
   complete,
-}: Pick<ExerciseWorkspaceState, "finished" | "busy" | "complete">) {
+}: Pick<ChallengeWorkspaceState, "finished" | "busy" | "complete">) {
   return (
     <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-line px-4 md:px-7">
       <Link
-        href="/exercises"
+        href="/challenges"
         className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"
       >
         <ArrowLeft size={15} />
-        <span>Builds</span>
+        <span>Challenges</span>
       </Link>
       <div className="flex items-center gap-2">
         {finished ? (

@@ -23,7 +23,7 @@ import { formatDate } from "@/features/challenges/lib/challenge-formatters";
 import type { Challenge } from "@/shared/types/api";
 import { ChallengeMetadata } from "@/features/challenges/components/challenge-metadata";
 
-function BuildRow({ challenge }: { challenge: Challenge }) {
+function ChallengeRow({ challenge }: { challenge: Challenge }) {
   const completed = challenge.status === "completed";
   const Icon =
     challenge.scope === "system"
@@ -70,7 +70,7 @@ function BuildRow({ challenge }: { challenge: Challenge }) {
   );
 }
 
-export function ExercisesPage() {
+export function ChallengesPage() {
   const profile = useProfile();
   const active = useQuery({
     queryKey: challengeKeys.active(profile?.id),
@@ -91,7 +91,7 @@ export function ExercisesPage() {
         <LoadingScreen />
       ) : error ? (
         <ErrorState
-          title="Could not load builds"
+          title="Could not load challenges"
           message={error.message}
           onRetry={() => {
             void active.refetch();
@@ -102,7 +102,7 @@ export function ExercisesPage() {
         <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
           <header className="mb-10 flex items-center justify-between gap-4">
             <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-              Builds
+              Challenges
             </h1>
             <Link className={buttonStyles("primary")} href="/">
               <Plus size={16} />
@@ -119,7 +119,7 @@ export function ExercisesPage() {
             {active.data?.length ? (
               <div className="overflow-hidden rounded-xl border border-line">
                 {active.data.map((challenge) => (
-                  <BuildRow key={challenge.id} challenge={challenge} />
+                  <ChallengeRow key={challenge.id} challenge={challenge} />
                 ))}
               </div>
             ) : (
@@ -148,12 +148,12 @@ export function ExercisesPage() {
             {history.data?.length ? (
               <div className="overflow-hidden rounded-xl border border-line">
                 {history.data.slice(0, 4).map((challenge) => (
-                  <BuildRow key={challenge.id} challenge={challenge} />
+                  <ChallengeRow key={challenge.id} challenge={challenge} />
                 ))}
               </div>
             ) : (
               <p className="rounded-lg border border-line px-5 py-5 text-sm text-muted">
-                Completed builds will appear here.
+                Completed challenges will appear here.
               </p>
             )}
           </section>

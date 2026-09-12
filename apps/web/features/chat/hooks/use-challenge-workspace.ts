@@ -13,9 +13,9 @@ import {
 } from "@/features/chat/api/message-api";
 import type { Submission } from "@/features/chat/types/workspace";
 import { useWorkspaceStore } from "@/features/chat/stores/chat-store";
-import { useSelectedExercise } from "@/features/chat/hooks/use-selected-exercise";
+import { useSelectedChallenge } from "@/features/chat/hooks/use-selected-challenge";
 import { useDiscussionScroll } from "@/features/chat/hooks/use-discussion-scroll";
-export function useExerciseWorkspace({
+export function useChallengeWorkspace({
   profile,
   challengeId,
   createNew,
@@ -46,7 +46,7 @@ export function useExerciseWorkspace({
   const chatComposer = useRef<HTMLTextAreaElement>(null);
   const activeChallenge = useRef<string | undefined>(undefined);
   const { challenge, loading, error, retry, setCompletedChallenge } =
-    useSelectedExercise({ profile, challengeId, createNew });
+    useSelectedChallenge({ profile, challengeId, createNew });
 
   useEffect(() => {
     if (challenge?.id && activeChallenge.current !== challenge.id) {
@@ -188,4 +188,4 @@ export function useExerciseWorkspace({
     activityReady,
   };
 }
-export type ExerciseWorkspaceState = ReturnType<typeof useExerciseWorkspace>;
+export type ChallengeWorkspaceState = ReturnType<typeof useChallengeWorkspace>;

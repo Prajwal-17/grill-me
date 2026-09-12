@@ -7,7 +7,7 @@ import {
   getActiveChallenges,
   getChallenge,
 } from "@/features/challenges/api/challenge-api";
-export function useSelectedExercise({
+export function useSelectedChallenge({
   profile,
   challengeId,
   createNew,

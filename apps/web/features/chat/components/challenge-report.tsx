@@ -3,7 +3,7 @@ import type { Challenge, ChatMessage } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
 import { formatDate } from "@/features/challenges/lib/challenge-formatters";
 
-export function ExerciseReport({
+export function ChallengeReport({
   challenge,
   messages,
   onReview,

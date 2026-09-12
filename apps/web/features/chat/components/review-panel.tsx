@@ -1,7 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import type { Challenge } from "@/shared/types/api";
-import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 import { Upload } from "lucide-react";
 import { ChatMessage } from "@/features/chat/components/chat-message";
 import { Button } from "@/shared/components/ui/button";
@@ -16,7 +16,7 @@ export function ReviewPanel({
   challenge,
   messageFeedback,
 }: Pick<
-  ExerciseWorkspaceState,
+  ChallengeWorkspaceState,
   "finished" | "reply" | "reviews" | "activityReady" | "setTab"
 > & { challenge: Challenge; messageFeedback: ReactNode }) {
   return (

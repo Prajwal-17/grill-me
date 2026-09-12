@@ -21,7 +21,7 @@ import {
   MediumDifficultyIcon,
 } from "@/shared/components/difficulty-icons";
 import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
-import { useCreateBuild } from "@/features/chat/hooks/use-create-exercise";
+import { useCreateBuild } from "@/features/chat/hooks/use-create-challenge";
 import { BuildOptionMenu } from "@/features/chat/components/build-option-menu";
 import { GrillHeat } from "@/features/chat/components/grill-heat";
 

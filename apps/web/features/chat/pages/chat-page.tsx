@@ -2,12 +2,12 @@
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
 import { useProfile } from "@/features/profile/hooks/use-profile";
-import { ExerciseWorkspace } from "@/features/chat/components/exercise-workspace";
-import { useExerciseWorkspace } from "@/features/chat/hooks/use-exercise-workspace";
+import { ChallengeWorkspace } from "@/features/chat/components/challenge-workspace";
+import { useChallengeWorkspace } from "@/features/chat/hooks/use-challenge-workspace";
 
 export function ChatPage({ challengeId }: { challengeId: string }) {
   const profile = useProfile();
-  const state = useExerciseWorkspace({
+  const state = useChallengeWorkspace({
     profile,
     challengeId,
     createNew: false,
@@ -25,7 +25,7 @@ export function ChatPage({ challengeId }: { challengeId: string }) {
           onRetry={state.retry}
         />
       ) : state.challenge ? (
-        <ExerciseWorkspace state={{ ...state, challenge: state.challenge }} />
+        <ChallengeWorkspace state={{ ...state, challenge: state.challenge }} />
       ) : null}
     </AppShell>
   );

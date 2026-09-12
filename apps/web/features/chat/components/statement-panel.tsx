@@ -1,6 +1,6 @@
 "use client";
 import type { Challenge } from "@/shared/types/api";
-import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 import { Upload } from "lucide-react";
 import { StatementReader } from "@/features/challenges/components/statement-reader";
 import { Button } from "@/shared/components/ui/button";
@@ -9,7 +9,7 @@ export function StatementPanel({
   finished,
   setTab,
   challenge,
-}: Pick<ExerciseWorkspaceState, "finished" | "setTab"> & {
+}: Pick<ChallengeWorkspaceState, "finished" | "setTab"> & {
   challenge: Challenge;
 }) {
   return (

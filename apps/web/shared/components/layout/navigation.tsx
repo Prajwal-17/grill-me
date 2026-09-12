@@ -143,10 +143,10 @@ export function Navigation({
             active: pathname === "/",
           },
           {
-            href: "/exercises",
-            label: "Builds",
+            href: "/challenges",
+            label: "Challenges",
             icon: BookOpen,
-            active: pathname === "/exercises" || pathname === "/chat",
+            active: pathname === "/challenges" || pathname === "/chat",
           },
           {
             href: "/history",

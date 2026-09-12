@@ -90,10 +90,10 @@ export function HistoryList({
             Complete a build to keep its statement and discussion here.
           </p>
           <Link
-            href="/exercises"
+            href="/challenges"
             className={buttonStyles("secondary") + " mt-5"}
           >
-            Back to builds
+            Back to challenges
           </Link>
         </div>
       )}

@@ -1,8 +1,8 @@
 import { AlertCircle } from "lucide-react";
-import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 export function ActivityFeedback({
   messages,
-}: Pick<ExerciseWorkspaceState, "messages">) {
+}: Pick<ChallengeWorkspaceState, "messages">) {
   return messages.isLoading ? (
     <p role="status" className="text-sm text-muted">
       Loading saved activity…

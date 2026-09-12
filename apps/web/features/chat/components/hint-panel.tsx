@@ -1,6 +1,6 @@
 "use client";
 import type { Challenge } from "@/shared/types/api";
-import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 import { AlertCircle, Lightbulb } from "lucide-react";
 import { Markdown } from "@/shared/components/markdown";
 import { ChatMessage } from "@/features/chat/components/chat-message";
@@ -12,7 +12,7 @@ export function HintPanel({
   hint,
   reply,
   challenge,
-}: Pick<ExerciseWorkspaceState, "finished" | "busy" | "hint" | "reply"> & {
+}: Pick<ChallengeWorkspaceState, "finished" | "busy" | "hint" | "reply"> & {
   challenge: Challenge;
 }) {
   return (
