@@ -1,4 +1,4 @@
-import type { MessageAttachment } from "../../../shared/types/api";
+import type { MessageAttachment } from "@/shared/types/api";
 
 export const MAX_ATTACHMENTS = 5;
 export const MAX_ATTACHMENT_BYTES = 100 * 1024;

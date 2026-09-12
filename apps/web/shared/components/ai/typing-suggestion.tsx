@@ -43,7 +43,7 @@ export function TypingSuggestion({ words }: { words: readonly string[] }) {
     >
       {text}
       {!reducedMotion && (
-        <span className="typing-cursor ml-px inline-block h-[1.05em] w-px translate-y-[2px] bg-muted" />
+        <span className="ml-px inline-block h-[1.05em] w-px translate-y-[2px] animate-[typing-cursor_800ms_steps(1,end)_infinite] bg-muted" />
       )}
     </span>
   );

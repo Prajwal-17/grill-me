@@ -1,21 +1,18 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { QueryProvider } from "../shared/components/query-provider";
-import {
-  ThemeProvider,
-  themeScript,
-} from "../shared/components/theme-provider";
-import { UIProvider } from "../shared/components/ui/ui-provider";
+import { QueryProvider } from "@/shared/components/query-provider";
+import { themeScript } from "@/shared/components/theme-provider";
+import { UIProvider } from "@/shared/components/ui/ui-provider";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 const sans = localFont({
-  src: "./fonts/IBMPlexSans-Latin.woff2",
+  src: "../assets/fonts/IBMPlexSans-Latin.woff2",
   variable: "--font-plex-sans",
   display: "swap",
   weight: "100 700",
 });
 const mono = localFont({
-  src: "./fonts/IBMPlexMono-Latin.woff2",
+  src: "../assets/fonts/IBMPlexMono-Latin.woff2",
   variable: "--font-plex-mono",
   display: "swap",
   weight: "400",
@@ -40,11 +37,9 @@ export default function RootLayout({
           " min-h-dvh font-sans antialiased"
         }
       >
-        <ThemeProvider>
-          <QueryProvider>
-            <UIProvider>{children}</UIProvider>
-          </QueryProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <UIProvider>{children}</UIProvider>
+        </QueryProvider>
       </body>
     </html>
   );

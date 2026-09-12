@@ -9,7 +9,7 @@ import {
   ListTree,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { cn } from "../../../shared/lib/cn";
+import { cn } from "@/shared/lib/cn";
 
 type View = "formatted" | "source";
 

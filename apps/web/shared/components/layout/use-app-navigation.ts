@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useSidebar } from "../ui/ui-provider";
+import { useSidebar } from "@/shared/stores/app-store";
 export function useAppNavigation() {
   const { collapsed, toggle } = useSidebar();
   const previousCollapsed = useRef(collapsed);

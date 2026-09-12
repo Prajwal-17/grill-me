@@ -6,7 +6,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "../../../shared/components/ui/dropdown-menu";
+} from "@/shared/components/ui/dropdown-menu";
 
 type BuildOption<T extends string> = {
   id: T;
@@ -39,7 +39,7 @@ export function BuildOptionMenu<T extends string>({
           disabled={disabled}
           aria-label={label}
           data-grill-option={selected?.accent === "grill" || undefined}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line px-2 text-sm font-normal outline-none hover:bg-elevated focus-visible:ring-2 focus-visible:ring-foreground data-[grill-option]:focus-visible:ring-[var(--grill-accent)] data-[state=open]:bg-elevated disabled:opacity-50 sm:px-2.5"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line px-2 text-sm font-normal hover:bg-elevated focus-visible:ring-2 focus-visible:ring-foreground data-[grill-option]:focus-visible:ring-[var(--grill-accent)] data-[state=open]:bg-elevated disabled:opacity-50 sm:px-2.5"
         >
           {SelectedIcon && (
             <SelectedIcon

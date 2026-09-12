@@ -19,7 +19,7 @@
   --grill-action-ink: #2b1811;
 }
 
-.prompt-surface[data-grill] {
+[data-slot="prompt-surface"][data-grill] {
   position: relative;
   isolation: isolate;
   border-color: color-mix(in srgb, var(--grill-ember) 60%, var(--line));
@@ -28,13 +28,13 @@
     0 5px 28px color-mix(in srgb, var(--grill-ember) 12%, transparent);
 }
 
-.prompt-surface[data-grill]:focus-within {
+[data-slot="prompt-surface"][data-grill]:focus-within {
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--grill-ember) 13%, transparent),
     0 5px 32px color-mix(in srgb, var(--grill-ember) 15%, transparent);
 }
 
-.prompt-surface[data-grill] > form {
+[data-slot="prompt-surface"][data-grill] > form {
   position: relative;
   z-index: 1;
 }
@@ -123,16 +123,16 @@
   );
 }
 
-.prompt-surface[data-grill][data-working] .grill-heat__orbit {
+[data-slot="prompt-surface"][data-grill][data-working] .grill-heat__orbit {
   animation-duration: 2s;
 }
 
-.prompt-surface[data-grill][data-working] .grill-heat__bed {
+[data-slot="prompt-surface"][data-grill][data-working] .grill-heat__bed {
   height: 110px;
   animation-duration: 1.8s;
 }
 
-.prompt-surface[data-grill][data-working] .grill-heat__ember {
+[data-slot="prompt-surface"][data-grill][data-working] .grill-heat__ember {
   --ember-rise: -124px;
   animation-duration: 2.4s;
 }
@@ -153,7 +153,7 @@
   background-color: color-mix(in srgb, var(--grill-ember) 13%, var(--surface));
 }
 
-.prompt-surface[data-grill] button[type="submit"] {
+[data-slot="prompt-surface"][data-grill] button[type="submit"] {
   border-color: var(--grill-action);
   background: var(--grill-action);
   color: var(--grill-action-ink);

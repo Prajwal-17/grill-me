@@ -1,11 +1,11 @@
 "use client";
 import type { ReactNode } from "react";
-import type { ExerciseWorkspaceState } from "../hooks/use-exercise-workspace";
+import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
 import { ArrowDown } from "lucide-react";
-import { ChatMessage } from "./chat-message";
-import { ChatComposer } from "./chat-composer";
-import { Button } from "../../../shared/components/ui/button";
-import { TabsContent } from "../../../shared/components/ui/tabs";
+import { ChatMessage } from "@/features/chat/components/chat-message";
+import { ChatComposer } from "@/features/chat/components/chat-composer";
+import { Button } from "@/shared/components/ui/button";
+import { TabsContent } from "@/shared/components/ui/tabs";
 export function DiscussionPanel({
   finished,
   busy,
@@ -49,7 +49,9 @@ export function DiscussionPanel({
         onScroll={onScroll}
       >
         <div className="mx-auto w-full max-w-[76ch]">
-          <h1 className="page-title">Chat</h1>
+          <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+            Chat
+          </h1>
           <p className="mb-6 mt-2 text-sm text-muted">
             Clarify a requirement when you need to.
           </p>

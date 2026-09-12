@@ -4,17 +4,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw, ScrollText } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { useProfile } from "../../profile/hooks/use-profile";
-import { AppShell } from "../../../shared/components/layout/app-shell";
-import { Button } from "../../../shared/components/ui/button";
-import {
-  ErrorState,
-  LoadingScreen,
-} from "../../../shared/components/ui/feedback";
-import { getLogs } from "../api/log-api";
-import { LogFilterBar } from "../components/log-filters";
-import { LogPagination } from "../components/log-pagination";
-import { LogStatusBadge } from "../components/log-status";
+import { useProfile } from "@/features/profile/hooks/use-profile";
+import { AppShell } from "@/shared/components/layout/app-shell";
+import { Button } from "@/shared/components/ui/button";
+import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
+import { getLogs } from "@/features/logs/api/log-api";
+import { LogFilterBar } from "@/features/logs/components/log-filters";
+import { LogPagination } from "@/features/logs/components/log-pagination";
+import { LogStatusBadge } from "@/features/logs/components/log-status";
 import {
   formatLatency,
   formatLogDate,
@@ -22,7 +19,7 @@ import {
   logHref,
   OPERATION_LABELS,
   readLogFilters,
-} from "../lib/log-formatters";
+} from "@/features/logs/lib/log-formatters";
 
 export function LogsPage() {
   const profile = useProfile();
@@ -45,7 +42,9 @@ export function LogsPage() {
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1280px] flex-col px-5 py-6 md:px-10 md:py-8">
         <header className="mb-6 flex shrink-0 items-start justify-between gap-4">
           <div>
-            <h1 className="page-title">Logs</h1>
+            <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+              Logs
+            </h1>
             <p className="mt-2 text-sm text-muted">
               AI requests, responses, and timing.
             </p>

@@ -1,15 +1,18 @@
 "use client";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { List } from "lucide-react";
-import type { Challenge } from "../../../shared/types/api";
+import type { Challenge } from "@/shared/types/api";
 import {
   markdownOutline,
   type OutlineItem,
-} from "../../../shared/lib/markdown-outline";
-import { CopyButton } from "../../../shared/components/ui/copy-button";
-import { ChallengeCard } from "./challenge-card";
-import { statementBody, statementMarkdown } from "../lib/challenge-statement";
-import { cn } from "../../../shared/lib/cn";
+} from "@/shared/lib/markdown-outline";
+import { CopyButton } from "@/shared/components/ui/copy-button";
+import { ChallengeCard } from "@/features/challenges/components/challenge-card";
+import {
+  statementBody,
+  statementMarkdown,
+} from "@/features/challenges/lib/challenge-statement";
+import { cn } from "@/shared/lib/cn";
 
 export function StatementReader({ challenge }: { challenge: Challenge }) {
   const prefix = "statement-" + challenge.id + "-";

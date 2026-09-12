@@ -24,7 +24,9 @@ export function rehypeStreaming({ enabled }: { enabled: boolean }) {
         return (node.value.match(/\S+\s*|\s+/gu) ?? []).map((value) => ({
           type: "element",
           tagName: "span",
-          properties: { className: ["stream-word"] },
+          properties: {
+            className: ["animate-[stream-word-enter_240ms_ease-out_both]"],
+          },
           children: [{ type: "text", value }],
         }));
       });

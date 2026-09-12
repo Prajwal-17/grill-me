@@ -1,18 +1,18 @@
 "use client";
 import { AlertCircle } from "lucide-react";
-import type { Challenge } from "../../../shared/types/api";
-import { Tabs } from "../../../shared/components/ui/tabs";
-import type { WorkspaceTab } from "../types/workspace";
-import type { ExerciseWorkspaceState } from "../hooks/use-exercise-workspace";
-import { ActivityFeedback } from "./activity-feedback";
-import { WorkspaceHeader } from "./workspace-header";
-import { WorkspaceTabs } from "./workspace-tabs";
-import { StatementPanel } from "./statement-panel";
-import { HintPanel } from "./hint-panel";
-import { SolutionPanel } from "./solution-panel";
-import { ReviewPanel } from "./review-panel";
-import { ReportsPanel } from "./reports-panel";
-import { DiscussionPanel } from "./discussion-panel";
+import type { Challenge } from "@/shared/types/api";
+import { Tabs } from "@/shared/components/ui/tabs";
+import type { WorkspaceTab } from "@/features/chat/types/workspace";
+import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
+import { ActivityFeedback } from "@/features/chat/components/activity-feedback";
+import { WorkspaceHeader } from "@/features/chat/components/workspace-header";
+import { WorkspaceTabs } from "@/features/chat/components/workspace-tabs";
+import { StatementPanel } from "@/features/chat/components/statement-panel";
+import { HintPanel } from "@/features/chat/components/hint-panel";
+import { SolutionPanel } from "@/features/chat/components/solution-panel";
+import { ReviewPanel } from "@/features/chat/components/review-panel";
+import { ReportsPanel } from "@/features/chat/components/reports-panel";
+import { DiscussionPanel } from "@/features/chat/components/discussion-panel";
 
 export function ExerciseWorkspace({
   state,
@@ -54,11 +54,14 @@ export function ExerciseWorkspace({
       <ActivityFeedback messages={messages} />
     );
   return (
-    <main className="workspace flex min-h-0 flex-col">
+    <main className="h-full flex min-h-0 flex-col">
       <WorkspaceHeader finished={finished} busy={busy} complete={complete} />
       {(complete.error ||
         (send.error && tab !== "solution" && tab !== "chat")) && (
-        <p role="alert" className="feedback border-b border-line px-5 py-3">
+        <p
+          role="alert"
+          className="flex items-start gap-2 border-b border-line px-5 py-3 text-sm leading-6 text-destructive"
+        >
           <AlertCircle size={16} />
           {(complete.error ?? send.error)?.message}
           {send.error && (

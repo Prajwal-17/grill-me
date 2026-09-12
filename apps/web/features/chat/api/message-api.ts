@@ -1,9 +1,9 @@
-import { apiRequest, streamRequest } from "../../../shared/lib/api-client";
+import { apiRequest, streamRequest } from "@/shared/lib/api-client";
 import type {
   Challenge,
   ChatMessage,
   MessageAttachment,
-} from "../../../shared/types/api";
+} from "@/shared/types/api";
 
 export type ComposerMode = "clarify" | "review";
 

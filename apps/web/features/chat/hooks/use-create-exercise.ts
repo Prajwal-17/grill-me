@@ -1,34 +1,41 @@
 "use client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, type FormEvent } from "react";
 import {
   challengeKeys,
   generateChallenge,
   prepareChallenge,
-} from "../../challenges/api/challenge-api";
-import type {
-  BuildDifficulty,
-  BuildScope,
-  ChallengePreparation,
-  ClarificationContext,
-  Profile,
-} from "../../../shared/types/api";
+} from "@/features/challenges/api/challenge-api";
+import { useBuildStore } from "@/features/chat/stores/chat-store";
+import type { ClarificationContext, Profile } from "@/shared/types/api";
 
 export function useCreateBuild(profile: Profile) {
   const router = useRouter();
   const queries = useQueryClient();
-  const [prompt, setPrompt] = useState("");
-  const [scope, setScope] = useState<BuildScope>("focused");
-  const [difficulty, setDifficulty] = useState<BuildDifficulty>("medium");
-  const [clarification, setClarification] =
-    useState<ChallengePreparation | null>(null);
-  const [choice, setChoice] = useState("");
-  const [custom, setCustom] = useState("");
-  const [ready, setReady] = useState(false);
-  const [lastAnswer, setLastAnswer] = useState<ClarificationContext | null>(
-    null,
-  );
+  const {
+    prompt,
+    scope,
+    difficulty,
+    clarification,
+    choice,
+    custom,
+    ready,
+    lastAnswer,
+    setPrompt,
+    setScope,
+    setDifficulty,
+    setClarification,
+    setChoice,
+    setCustom,
+    setReady,
+    setLastAnswer,
+    resetFlow,
+    resetBuild,
+  } = useBuildStore();
+
+  useEffect(() => () => resetBuild(), [resetBuild]);
+
   const generate = useMutation({
     mutationFn: (context: ClarificationContext | null) =>
       generateChallenge(profile.id, {
@@ -62,11 +69,7 @@ export function useCreateBuild(profile: Profile) {
   const busy = prepare.isPending || generate.isPending || generate.isSuccess;
   const error = generate.error ?? prepare.error;
   function reset() {
-    setClarification(null);
-    setChoice("");
-    setCustom("");
-    setReady(false);
-    setLastAnswer(null);
+    resetFlow();
     prepare.reset();
     generate.reset();
   }

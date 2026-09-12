@@ -1,7 +1,7 @@
 "use client";
 // Beautiful UI StreamingText, adapted to live deltas instead of its demo timer.
-import { Markdown } from "../markdown";
-import { StreamingStatus } from "./streaming-status";
+import { Markdown } from "@/shared/components/markdown";
+import { StreamingStatus } from "@/shared/components/ai/streaming-status";
 
 export function StreamingText({
   content,
@@ -24,7 +24,7 @@ export function StreamingText({
           >
             <span
               aria-hidden="true"
-              className="stream-cursor inline-block h-3.5 w-0.5 rounded-full bg-foreground"
+              className="inline-block h-3.5 w-0.5 animate-[stream-cursor-pulse_1s_ease-in-out_infinite] rounded-full bg-foreground"
             />
           </span>
         ) : (

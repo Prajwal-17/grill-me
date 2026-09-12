@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { ArrowUpRight, Check } from "lucide-react";
-import type { Challenge } from "../../../shared/types/api";
-import { formatDate } from "../../challenges/lib/challenge-formatters";
-import { ChallengeMetadata } from "../../challenges/components/challenge-metadata";
+import type { Challenge } from "@/shared/types/api";
+import { formatDate } from "@/features/challenges/lib/challenge-formatters";
+import { ChallengeMetadata } from "@/features/challenges/components/challenge-metadata";
 
 export function HistoryRow({ challenge: c }: { challenge: Challenge }) {
   return (
     <Link
       href={"/history?id=" + encodeURIComponent(c.id)}
-      className="archive-row group grid grid-cols-[minmax(0,1fr)_20px] items-center gap-x-4 gap-y-2 border-b border-line px-4 py-5 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_130px_24px] md:px-5"
+      className="transition-colors hover:bg-canvas group grid grid-cols-[minmax(0,1fr)_20px] items-center gap-x-4 gap-y-2 border-b border-line px-4 py-5 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_130px_24px] md:px-5"
     >
       <span className="flex min-w-0 items-center gap-3">
         <span className="hidden size-8 shrink-0 place-items-center rounded-lg border border-line bg-surface sm:grid">

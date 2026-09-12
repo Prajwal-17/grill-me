@@ -1,13 +1,13 @@
 "use client";
 import type { ReactNode } from "react";
-import type { Challenge } from "../../../shared/types/api";
-import type { ExerciseWorkspaceState } from "../hooks/use-exercise-workspace";
+import type { Challenge } from "@/shared/types/api";
+import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
 import { ChevronDown } from "lucide-react";
-import { ChatMessage } from "./chat-message";
-import { ChatComposer } from "./chat-composer";
-import { Button } from "../../../shared/components/ui/button";
-import { formatDate } from "../../challenges/lib/challenge-formatters";
-import { TabsContent } from "../../../shared/components/ui/tabs";
+import { ChatMessage } from "@/features/chat/components/chat-message";
+import { ChatComposer } from "@/features/chat/components/chat-composer";
+import { Button } from "@/shared/components/ui/button";
+import { formatDate } from "@/features/challenges/lib/challenge-formatters";
+import { TabsContent } from "@/shared/components/ui/tabs";
 export function SolutionPanel({
   finished,
   busy,
@@ -43,7 +43,9 @@ export function SolutionPanel({
       className="min-h-0 overflow-y-auto px-5 py-8 data-[state=inactive]:hidden md:px-10 md:py-10"
     >
       <div className="mx-auto w-full max-w-[76ch]">
-        <h1 className="page-title">Your solution</h1>
+        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+          Your solution
+        </h1>
         <p className="mt-2 text-sm text-muted">{challenge.title}</p>
         {!finished && (
           <>
@@ -82,7 +84,7 @@ export function SolutionPanel({
           </>
         )}
         <section className="mt-8">
-          <h2 className="section-heading">Submitted work</h2>
+          <h2 className="text-[15px] font-semibold">Submitted work</h2>
           <div className="mt-4">
             {messageFeedback}
             {activityReady && !submissions.length && (

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertCircle, LoaderCircle } from "lucide-react";
-import { Button } from "./button";
+import { Button } from "@/shared/components/ui/button";
 export function LoadingIndicator({ label }: { label: string }) {
   return (
     <span
@@ -29,7 +29,7 @@ export function ErrorState({
   onRetry: () => void;
 }) {
   return (
-    <main className="page">
+    <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
       <div className="mx-auto max-w-md py-16">
         <AlertCircle size={22} className="mb-4 text-muted" />
         <h1 className="text-xl font-semibold">{title}</h1>

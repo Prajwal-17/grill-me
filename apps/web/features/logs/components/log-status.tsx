@@ -1,7 +1,7 @@
 import { Check, CircleAlert, LoaderCircle, Minus } from "lucide-react";
-import { cn } from "../../../shared/lib/cn";
-import { STATUS_LABELS } from "../lib/log-formatters";
-import type { LogStatus } from "../types";
+import { cn } from "@/shared/lib/cn";
+import { STATUS_LABELS } from "@/features/logs/lib/log-formatters";
+import type { LogStatus } from "@/features/logs/types";
 export function LogStatusBadge({ status }: { status: LogStatus }) {
   const Icon =
     status === "success"

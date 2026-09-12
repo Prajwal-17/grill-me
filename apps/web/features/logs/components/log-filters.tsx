@@ -1,16 +1,19 @@
 "use client";
 import { Search } from "lucide-react";
-import { Button } from "../../../shared/components/ui/button";
-import { Input } from "../../../shared/components/ui/input";
+import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../shared/components/ui/select";
-import { OPERATION_LABELS, STATUS_LABELS } from "../lib/log-formatters";
-import type { LogFilters } from "../types";
+} from "@/shared/components/ui/select";
+import {
+  OPERATION_LABELS,
+  STATUS_LABELS,
+} from "@/features/logs/lib/log-formatters";
+import type { LogFilters } from "@/features/logs/types";
 export function LogFilterBar({
   filters,
   onChange,

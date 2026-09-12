@@ -1,6 +1,6 @@
 import { FileCode2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import type { MessageAttachment } from "../../../shared/types/api";
+import type { MessageAttachment } from "@/shared/types/api";
 export function AttachmentChips({
   attachments,
   disabled,

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { LogDetailPage } from "../../../features/logs/pages/log-detail-page";
-import { LoadingScreen } from "../../../shared/components/ui/feedback";
+import { LogDetailPage } from "@/features/logs/pages/log-detail-page";
+import { LoadingScreen } from "@/shared/components/ui/feedback";
 export default async function Page({
   params,
 }: {

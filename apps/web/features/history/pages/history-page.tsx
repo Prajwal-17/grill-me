@@ -7,17 +7,14 @@ import { useSearchParams } from "next/navigation";
 import {
   challengeKeys,
   getChallengeHistory,
-} from "../../challenges/api/challenge-api";
-import { useProfile } from "../../profile/hooks/use-profile";
-import { AppShell } from "../../../shared/components/layout/app-shell";
-import {
-  ErrorState,
-  LoadingScreen,
-} from "../../../shared/components/ui/feedback";
-import { buttonStyles } from "../../../shared/components/ui/button";
-import { HistoryDetail } from "../components/history-detail";
-import { HistoryList } from "../components/history-list";
-import type { HistoryScope } from "../components/history-filters";
+} from "@/features/challenges/api/challenge-api";
+import { useProfile } from "@/features/profile/hooks/use-profile";
+import { AppShell } from "@/shared/components/layout/app-shell";
+import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
+import { buttonStyles } from "@/shared/components/ui/button";
+import { HistoryDetail } from "@/features/history/components/history-detail";
+import { HistoryList } from "@/features/history/components/history-list";
+import type { HistoryScope } from "@/features/history/components/history-filters";
 
 export function HistoryPage() {
   const profile = useProfile();
@@ -52,8 +49,10 @@ export function HistoryPage() {
             selected={selected}
           />
         ) : (
-          <main className="page">
-            <h1 className="page-title">Build not found</h1>
+          <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
+            <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+              Build not found
+            </h1>
             <p className="mt-3 text-sm text-muted">
               This build is not in your completed history.
             </p>

@@ -9,10 +9,10 @@ import {
   GOALS,
   FOCUS,
 } from "@repo/preferences";
-import type { ProfilePreferences } from "../../../shared/types/api";
-import { MultiSelect } from "../../../shared/components/ui/multi-select";
-import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
-import { Textarea } from "../../../shared/components/ui/textarea";
+import type { ProfilePreferences } from "@/shared/types/api";
+import { MultiSelect } from "@/shared/components/ui/multi-select";
+import { ChoiceSelect } from "@/shared/components/ui/choice-select";
+import { Textarea } from "@/shared/components/ui/textarea";
 
 export type PreferenceValues = Omit<
   ProfilePreferences,
@@ -45,8 +45,8 @@ export function PreferencesFields({
   const [notesOpen, setNotesOpen] = useState(Boolean(values.aboutMe));
   return (
     <div>
-      <section className="form-section">
-        <h2 className="section-heading">Background</h2>
+      <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
+        <h2 className="text-[15px] font-semibold">Background</h2>
         <div className="grid gap-5">
           <div className="grid gap-2">
             <span className="text-sm font-medium">Experience</span>
@@ -79,8 +79,8 @@ export function PreferencesFields({
           />
         </div>
       </section>
-      <section className="form-section">
-        <h2 className="section-heading">Direction</h2>
+      <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
+        <h2 className="text-[15px] font-semibold">Direction</h2>
         <div className="grid gap-5">
           <MultiSelect
             label="Learning goals"

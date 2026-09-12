@@ -2,9 +2,9 @@
 import hljs from "highlight.js/lib/common";
 import { WrapText } from "lucide-react";
 import { useMemo, useState } from "react";
-import { cn } from "../../lib/cn";
-import { Button } from "./button";
-import { CopyButton } from "./copy-button";
+import { cn } from "@/shared/lib/cn";
+import { Button } from "@/shared/components/ui/button";
+import { CopyButton } from "@/shared/components/ui/copy-button";
 
 export function CodeBlock({
   code,

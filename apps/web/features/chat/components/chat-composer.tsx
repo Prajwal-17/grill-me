@@ -1,17 +1,20 @@
 "use client";
 // Prompt and toolbar layout adapted from Beautiful UI.
 import { AlertCircle, ArrowUp, LoaderCircle, Paperclip } from "lucide-react";
-import { AttachmentChips } from "./attachment-chips";
-import { useComposerAttachments } from "../hooks/use-composer-attachments";
-import { PromptTextarea } from "../../../shared/components/ai/prompt-textarea";
-import { PromptSurface } from "../../../shared/components/ai/prompt-surface";
-import { Button } from "../../../shared/components/ui/button";
-import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
+import { AttachmentChips } from "@/features/chat/components/attachment-chips";
+import { useComposerAttachments } from "@/features/chat/hooks/use-composer-attachments";
+import { PromptTextarea } from "@/shared/components/ai/prompt-textarea";
+import { PromptSurface } from "@/shared/components/ai/prompt-surface";
+import { Button } from "@/shared/components/ui/button";
+import { ChoiceSelect } from "@/shared/components/ui/choice-select";
 import { type FormEvent, type RefObject } from "react";
-import type { MessageAttachment } from "../../../shared/types/api";
-import type { ComposerMode } from "../api/message-api";
-import { attachmentBytes, MAX_ATTACHMENTS } from "../lib/attachment-utils";
-import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
+import type { MessageAttachment } from "@/shared/types/api";
+import type { ComposerMode } from "@/features/chat/api/message-api";
+import {
+  attachmentBytes,
+  MAX_ATTACHMENTS,
+} from "@/features/chat/lib/attachment-utils";
+import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
 export function ChatComposer({
   mode,
   fixedMode = false,
@@ -146,7 +149,10 @@ export function ChatComposer({
         </div>
       </PromptSurface>
       {(fileError || error) && (
-        <p role="alert" className="feedback mt-2">
+        <p
+          role="alert"
+          className="mt-2 flex items-start gap-2 text-sm leading-6 text-destructive"
+        >
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           {fileError || error}
         </p>

@@ -1,20 +1,20 @@
 "use client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
-import type { MessageAttachment, Profile } from "../../../shared/types/api";
+import { useEffect, useRef } from "react";
+import type { Profile } from "@/shared/types/api";
 import {
   challengeKeys,
   completeChallenge,
-} from "../../challenges/api/challenge-api";
+} from "@/features/challenges/api/challenge-api";
 import {
   getHint,
   getMessages,
   sendMessage,
-  type ComposerMode,
-} from "../api/message-api";
-import type { WorkspaceTab, Submission } from "../types/workspace";
-import { useSelectedExercise } from "./use-selected-exercise";
-import { useDiscussionScroll } from "./use-discussion-scroll";
+} from "@/features/chat/api/message-api";
+import type { Submission } from "@/features/chat/types/workspace";
+import { useWorkspaceStore } from "@/features/chat/stores/chat-store";
+import { useSelectedExercise } from "@/features/chat/hooks/use-selected-exercise";
+import { useDiscussionScroll } from "@/features/chat/hooks/use-discussion-scroll";
 export function useExerciseWorkspace({
   profile,
   challengeId,
@@ -25,19 +25,38 @@ export function useExerciseWorkspace({
   createNew: boolean;
 }) {
   const queries = useQueryClient();
-  const [tab, setTab] = useState<WorkspaceTab>("statement");
-  const [solution, setSolution] = useState("");
-  const [solutionFiles, setSolutionFiles] = useState<MessageAttachment[]>([]);
-  const [question, setQuestion] = useState("");
-  const [pending, setPending] = useState<Submission | null>(null);
-  const [reply, setReply] = useState<{
-    content: string;
-    mode: ComposerMode | "hint";
-  } | null>(null);
+  const {
+    tab,
+    solution,
+    solutionFiles,
+    question,
+    pending,
+    reply,
+    setTab,
+    setSolution,
+    setSolutionFiles,
+    setQuestion,
+    setPending,
+    setReply,
+    appendReply,
+    returnToDraft,
+    resetWorkspace,
+  } = useWorkspaceStore();
   const solutionComposer = useRef<HTMLTextAreaElement>(null);
   const chatComposer = useRef<HTMLTextAreaElement>(null);
+  const activeChallenge = useRef<string | undefined>(undefined);
   const { challenge, loading, error, retry, setCompletedChallenge } =
     useSelectedExercise({ profile, challengeId, createNew });
+
+  useEffect(() => {
+    if (challenge?.id && activeChallenge.current !== challenge.id) {
+      activeChallenge.current = challenge.id;
+      resetWorkspace();
+    }
+  }, [challenge?.id, resetWorkspace]);
+
+  useEffect(() => () => resetWorkspace(), [resetWorkspace]);
+
   const messages = useQuery({
     queryKey: challengeKeys.messages(challenge?.id),
     queryFn: () => getMessages(profile!.id, challenge!.id),
@@ -53,11 +72,7 @@ export function useExerciseWorkspace({
         input.content,
         input.mode,
         input.attachments,
-        (delta) =>
-          setReply((current) => ({
-            mode: input.mode,
-            content: (current?.content ?? "") + delta,
-          })),
+        (delta) => appendReply(input.mode, delta),
       ),
     onMutate: (input) => {
       resumeFollowing();
@@ -79,17 +94,13 @@ export function useExerciseWorkspace({
     onError: (_error, input) => {
       setPending(null);
       setReply(null);
-      if (input.mode === "review")
-        setTab((current) => (current === "review" ? "solution" : current));
+      if (input.mode === "review") returnToDraft();
     },
   });
   const hint = useMutation({
     mutationFn: () =>
       getHint(profile!.id, challenge!.id, (delta) =>
-        setReply((current) => ({
-          mode: "hint",
-          content: (current?.content ?? "") + delta,
-        })),
+        appendReply("hint", delta),
       ),
     onMutate: () => {
       setTab("hints");

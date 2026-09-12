@@ -1,9 +1,9 @@
-import { apiRequest } from "../../../shared/lib/api-client";
+import { apiRequest } from "@/shared/lib/api-client";
 import type {
   Challenge,
   ChallengePreparation,
   GenerateBuildRequest,
-} from "../../../shared/types/api";
+} from "@/shared/types/api";
 
 export const challengeKeys = {
   active: (profileId?: string) => ["challenges", "active", profileId] as const,

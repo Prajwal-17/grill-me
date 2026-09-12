@@ -3,22 +3,19 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, CircleAlert } from "lucide-react";
-import { useProfile } from "../../profile/hooks/use-profile";
-import { AppShell } from "../../../shared/components/layout/app-shell";
-import {
-  ErrorState,
-  LoadingScreen,
-} from "../../../shared/components/ui/feedback";
-import { CopyButton } from "../../../shared/components/ui/copy-button";
+import { useProfile } from "@/features/profile/hooks/use-profile";
+import { AppShell } from "@/shared/components/layout/app-shell";
+import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
+import { CopyButton } from "@/shared/components/ui/copy-button";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "../../../shared/components/ui/tabs";
-import { getLog } from "../api/log-api";
-import { LogPayload } from "../components/log-payload";
-import { LogStatusBadge } from "../components/log-status";
+} from "@/shared/components/ui/tabs";
+import { getLog } from "@/features/logs/api/log-api";
+import { LogPayload } from "@/features/logs/components/log-payload";
+import { LogStatusBadge } from "@/features/logs/components/log-status";
 import {
   formatLatency,
   formatLogDate,
@@ -26,7 +23,7 @@ import {
   logHref,
   OPERATION_LABELS,
   readLogFilters,
-} from "../lib/log-formatters";
+} from "@/features/logs/lib/log-formatters";
 
 export function LogDetailPage({ id }: { id: string }) {
   const profile = useProfile();
@@ -65,7 +62,7 @@ export function LogDetailPage({ id }: { id: string }) {
               <header className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="page-title">
+                    <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
                       {OPERATION_LABELS[log.operation]}
                     </h1>
                     <LogStatusBadge status={log.status} />

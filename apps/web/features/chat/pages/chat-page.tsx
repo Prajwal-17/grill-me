@@ -1,12 +1,9 @@
 "use client";
-import { AppShell } from "../../../shared/components/layout/app-shell";
-import {
-  ErrorState,
-  LoadingScreen,
-} from "../../../shared/components/ui/feedback";
-import { useProfile } from "../../profile/hooks/use-profile";
-import { ExerciseWorkspace } from "../components/exercise-workspace";
-import { useExerciseWorkspace } from "../hooks/use-exercise-workspace";
+import { AppShell } from "@/shared/components/layout/app-shell";
+import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
+import { useProfile } from "@/features/profile/hooks/use-profile";
+import { ExerciseWorkspace } from "@/features/chat/components/exercise-workspace";
+import { useExerciseWorkspace } from "@/features/chat/hooks/use-exercise-workspace";
 
 export function ChatPage({ challengeId }: { challengeId: string }) {
   const profile = useProfile();

@@ -2,7 +2,11 @@
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { useId, useState } from "react";
 import type { Option } from "@repo/preferences";
-import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -10,9 +14,9 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "./command";
-import { Button } from "./button";
-import { cn } from "../../lib/cn";
+} from "@/shared/components/ui/command";
+import { Button } from "@/shared/components/ui/button";
+import { cn } from "@/shared/lib/cn";
 export function MultiSelect<T extends string>({
   label,
   options,

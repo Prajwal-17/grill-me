@@ -2,13 +2,13 @@
 // Message layout adapted from Beautiful UI's ChatComposer and StreamingText.
 import { Check, Copy, FileCode2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { MessageAttachment, MessageMode } from "../../../shared/types/api";
-import { Markdown } from "../../../shared/components/markdown";
-import { CodeBlock } from "../../../shared/components/ui/code-block";
-import { Button } from "../../../shared/components/ui/button";
-import { BrandMark } from "../../../shared/components/brand";
-import { StreamingText } from "../../../shared/components/ai/streaming-text";
-import { cn } from "../../../shared/lib/cn";
+import type { MessageAttachment, MessageMode } from "@/shared/types/api";
+import { Markdown } from "@/shared/components/markdown";
+import { CodeBlock } from "@/shared/components/ui/code-block";
+import { Button } from "@/shared/components/ui/button";
+import { BrandMark } from "@/shared/components/brand";
+import { StreamingText } from "@/shared/components/ai/streaming-text";
+import { cn } from "@/shared/lib/cn";
 export function ChatMessage({
   role,
   mode,
@@ -62,7 +62,7 @@ export function ChatMessage({
       </div>
       <div
         className={cn(
-          "reading min-w-0",
+          "min-w-0 text-base leading-7 [overflow-wrap:anywhere]",
           user && "rounded-xl rounded-tr-sm bg-canvas px-4 py-3",
         )}
       >
@@ -101,7 +101,7 @@ export function ChatMessage({
         )}
       </div>
       {!user && !streaming && content && (
-        <div className="stream-actions mt-2 flex items-center gap-2">
+        <div className="mt-2 flex animate-[stream-word-enter_200ms_ease-out_both] items-center gap-2">
           <Button
             size="icon-sm"
             variant="ghost"

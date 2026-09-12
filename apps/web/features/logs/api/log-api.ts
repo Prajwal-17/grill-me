@@ -1,6 +1,6 @@
-import { apiRequest } from "../../../shared/lib/api-client";
-import { logQuery } from "../lib/log-formatters";
-import type { AiLog, LogFilters, LogPage } from "../types";
+import { apiRequest } from "@/shared/lib/api-client";
+import { logQuery } from "@/features/logs/lib/log-formatters";
+import type { AiLog, LogFilters, LogPage } from "@/features/logs/types";
 export function getLogs(profileId: string, filters: LogFilters) {
   return apiRequest<LogPage>(`/logs?${logQuery(filters)}`, {}, profileId);
 }

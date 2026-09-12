@@ -1,9 +1,9 @@
 "use client";
-import { AppShell } from "../../../shared/components/layout/app-shell";
-import { LoadingScreen } from "../../../shared/components/ui/feedback";
-import { ProfileGatePage } from "../../profile/pages/profile-gate-page";
-import { useProfile } from "../../profile/hooks/use-profile";
-import { GenerationHome } from "../components/create-exercise";
+import { AppShell } from "@/shared/components/layout/app-shell";
+import { LoadingScreen } from "@/shared/components/ui/feedback";
+import { ProfileGatePage } from "@/features/profile/pages/profile-gate-page";
+import { useProfile } from "@/features/profile/hooks/use-profile";
+import { GenerationHome } from "@/features/chat/components/create-exercise";
 
 export function GenerationHomePage() {
   const profile = useProfile();

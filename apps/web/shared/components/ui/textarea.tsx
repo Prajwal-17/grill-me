@@ -1,6 +1,6 @@
-import { PromptTextarea } from "../ai/prompt-textarea";
+import { PromptTextarea } from "@/shared/components/ai/prompt-textarea";
 import * as React from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/shared/lib/cn";
 
 function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
   return (

@@ -1,5 +1,5 @@
 // Adapted from shadcn/ui. See LICENSE.md.
-import { cn } from "../../lib/cn";
+import { cn } from "@/shared/lib/cn";
 
 function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
   return (

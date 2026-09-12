@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { ArrowLeft, Check } from "lucide-react";
-import { Button } from "../../../shared/components/ui/button";
+import { Button } from "@/shared/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,8 +12,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "../../../shared/components/ui/alert-dialog";
-import type { ExerciseWorkspaceState } from "../hooks/use-exercise-workspace";
+} from "@/shared/components/ui/alert-dialog";
+import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
 export function WorkspaceHeader({
   finished,
   busy,

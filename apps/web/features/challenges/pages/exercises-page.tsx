@@ -10,21 +10,18 @@ import {
   Target,
 } from "lucide-react";
 import Link from "next/link";
-import { useProfile } from "../../profile/hooks/use-profile";
-import { AppShell } from "../../../shared/components/layout/app-shell";
-import { buttonStyles } from "../../../shared/components/ui/button";
-import {
-  ErrorState,
-  LoadingScreen,
-} from "../../../shared/components/ui/feedback";
+import { useProfile } from "@/features/profile/hooks/use-profile";
+import { AppShell } from "@/shared/components/layout/app-shell";
+import { buttonStyles } from "@/shared/components/ui/button";
+import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
 import {
   challengeKeys,
   getActiveChallenges,
   getChallengeHistory,
-} from "../api/challenge-api";
-import { formatDate } from "../lib/challenge-formatters";
-import type { Challenge } from "../../../shared/types/api";
-import { ChallengeMetadata } from "../components/challenge-metadata";
+} from "@/features/challenges/api/challenge-api";
+import { formatDate } from "@/features/challenges/lib/challenge-formatters";
+import type { Challenge } from "@/shared/types/api";
+import { ChallengeMetadata } from "@/features/challenges/components/challenge-metadata";
 
 function BuildRow({ challenge }: { challenge: Challenge }) {
   const completed = challenge.status === "completed";
@@ -39,7 +36,7 @@ function BuildRow({ challenge }: { challenge: Challenge }) {
       href={
         completed ? "/history?id=" + challenge.id : "/chat?id=" + challenge.id
       }
-      className="archive-row group flex items-center gap-4 border-b border-line px-4 py-5 last:border-b-0 sm:px-5"
+      className="transition-colors hover:bg-canvas group flex items-center gap-4 border-b border-line px-4 py-5 last:border-b-0 sm:px-5"
     >
       <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-line bg-surface">
         <Icon size={18} strokeWidth={1.5} className="text-muted" />
@@ -102,9 +99,11 @@ export function ExercisesPage() {
           }}
         />
       ) : (
-        <main className="page max-w-[1100px]">
+        <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
           <header className="mb-10 flex items-center justify-between gap-4">
-            <h1 className="page-title">Builds</h1>
+            <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+              Builds
+            </h1>
             <Link className={buttonStyles("primary")} href="/">
               <Plus size={16} />
               New build

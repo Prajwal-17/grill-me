@@ -3,7 +3,7 @@ import type {
   BuildScope,
   Challenge,
   DurationEstimate,
-} from "../../../shared/types/api";
+} from "@/shared/types/api";
 
 export function formatBuildScope(scope: BuildScope) {
   return scope[0]!.toUpperCase() + scope.slice(1);

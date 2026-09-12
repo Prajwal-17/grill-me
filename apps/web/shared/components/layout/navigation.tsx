@@ -13,14 +13,18 @@ import {
 } from "lucide-react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { Button, buttonStyles } from "../ui/button";
-import { ThemeSelect } from "../theme-provider";
-import { BrandMark } from "../brand";
-import { useSidebar } from "../ui/ui-provider";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { cn } from "../../lib/cn";
-import type { Profile } from "../../types/api";
-import { AccountMenu } from "./account-menu";
+import { Button, buttonStyles } from "@/shared/components/ui/button";
+import { ThemeSelect } from "@/shared/components/theme-provider";
+import { BrandMark } from "@/shared/components/brand";
+import { useSidebar } from "@/shared/stores/app-store";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
+import { cn } from "@/shared/lib/cn";
+import type { Profile } from "@/shared/types/api";
+import { AccountMenu } from "@/shared/components/layout/account-menu";
 
 function NavItem({
   label,

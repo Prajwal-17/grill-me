@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { buttonStyles } from "../../../shared/components/ui/button";
-import { cn } from "../../../shared/lib/cn";
-import { logHref } from "../lib/log-formatters";
-import type { LogFilters, LogPage } from "../types";
+import { buttonStyles } from "@/shared/components/ui/button";
+import { cn } from "@/shared/lib/cn";
+import { logHref } from "@/features/logs/lib/log-formatters";
+import type { LogFilters, LogPage } from "@/features/logs/types";
 
 export function LogPagination({
   data,

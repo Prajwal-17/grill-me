@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, LogOut, UserRound } from "lucide-react";
-import { Button } from "../ui/button";
+import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,10 +10,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { clearProfile } from "../../../features/profile/lib/profile-storage";
-import { cn } from "../../lib/cn";
-import type { Profile } from "../../types/api";
+} from "@/shared/components/ui/dropdown-menu";
+import { useAppStore } from "@/shared/stores/app-store";
+import { cn } from "@/shared/lib/cn";
+import type { Profile } from "@/shared/types/api";
 export function AccountMenu({
   profile,
   collapsed = false,
@@ -25,6 +25,7 @@ export function AccountMenu({
 }) {
   const router = useRouter();
   const queries = useQueryClient();
+  const clearProfile = useAppStore((state) => state.clearProfile);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

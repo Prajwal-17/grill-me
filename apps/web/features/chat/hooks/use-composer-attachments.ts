@@ -1,8 +1,8 @@
 "use client";
 import { useRef, useState } from "react";
-import type { MessageAttachment } from "../../../shared/types/api";
-import type { ComposerMode } from "../api/message-api";
-import { readAttachments } from "../lib/attachment-utils";
+import type { MessageAttachment } from "@/shared/types/api";
+import type { ComposerMode } from "@/features/chat/api/message-api";
+import { readAttachments } from "@/features/chat/lib/attachment-utils";
 export function useComposerAttachments({
   busy,
   attachments,

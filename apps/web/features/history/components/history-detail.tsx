@@ -2,19 +2,19 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowLeft, Check, MessageSquare } from "lucide-react";
-import type { Challenge, Profile } from "../../../shared/types/api";
-import { challengeKeys } from "../../challenges/api/challenge-api";
-import { ChallengeCard } from "../../challenges/components/challenge-card";
-import { formatDate } from "../../challenges/lib/challenge-formatters";
-import { getMessages } from "../../chat/api/message-api";
-import { ChatMessage } from "../../chat/components/chat-message";
-import { Button, buttonStyles } from "../../../shared/components/ui/button";
+import type { Challenge, Profile } from "@/shared/types/api";
+import { challengeKeys } from "@/features/challenges/api/challenge-api";
+import { ChallengeCard } from "@/features/challenges/components/challenge-card";
+import { formatDate } from "@/features/challenges/lib/challenge-formatters";
+import { getMessages } from "@/features/chat/api/message-api";
+import { ChatMessage } from "@/features/chat/components/chat-message";
+import { Button, buttonStyles } from "@/shared/components/ui/button";
 import {
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
-} from "../../../shared/components/ui/tabs";
+} from "@/shared/components/ui/tabs";
 export function HistoryDetail({
   profile,
   selected,
@@ -29,7 +29,7 @@ export function HistoryDetail({
   });
   const discussion = messages.data?.filter((m) => m.mode !== "generate") ?? [];
   return (
-    <main className="workspace flex min-h-0 flex-col">
+    <main className="h-full flex min-h-0 flex-col">
       <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line px-5 md:px-8">
         <Link href="/history" className={buttonStyles("ghost", "sm")}>
           <ArrowLeft size={15} />

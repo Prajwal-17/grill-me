@@ -1,12 +1,12 @@
 "use client";
 import type { ReactNode } from "react";
-import type { Challenge } from "../../../shared/types/api";
-import type { ExerciseWorkspaceState } from "../hooks/use-exercise-workspace";
+import type { Challenge } from "@/shared/types/api";
+import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
 import { Upload } from "lucide-react";
-import { ChatMessage } from "./chat-message";
-import { Button } from "../../../shared/components/ui/button";
-import { formatDate } from "../../challenges/lib/challenge-formatters";
-import { TabsContent } from "../../../shared/components/ui/tabs";
+import { ChatMessage } from "@/features/chat/components/chat-message";
+import { Button } from "@/shared/components/ui/button";
+import { formatDate } from "@/features/challenges/lib/challenge-formatters";
+import { TabsContent } from "@/shared/components/ui/tabs";
 export function ReviewPanel({
   finished,
   reply,
@@ -25,7 +25,9 @@ export function ReviewPanel({
       className="min-h-0 overflow-y-auto px-5 py-8 md:px-10 md:py-10"
     >
       <div className="mx-auto w-full max-w-[76ch]">
-        <h1 className="page-title">Review</h1>
+        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+          Review
+        </h1>
         <p className="mb-6 mt-2 text-sm text-muted">{challenge.title}</p>
         {messageFeedback}
         {reply?.mode === "review" && (

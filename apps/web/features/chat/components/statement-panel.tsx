@@ -1,10 +1,10 @@
 "use client";
-import type { Challenge } from "../../../shared/types/api";
-import type { ExerciseWorkspaceState } from "../hooks/use-exercise-workspace";
+import type { Challenge } from "@/shared/types/api";
+import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
 import { Upload } from "lucide-react";
-import { StatementReader } from "../../challenges/components/statement-reader";
-import { Button } from "../../../shared/components/ui/button";
-import { TabsContent } from "../../../shared/components/ui/tabs";
+import { StatementReader } from "@/features/challenges/components/statement-reader";
+import { Button } from "@/shared/components/ui/button";
+import { TabsContent } from "@/shared/components/ui/tabs";
 export function StatementPanel({
   finished,
   setTab,

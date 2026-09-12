@@ -2,13 +2,13 @@
 import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { PanelLeftOpen } from "lucide-react";
-import { Button } from "../ui/button";
-import { Kbd, KbdGroup } from "../ui/kbd";
-import { cn } from "../../lib/cn";
-import type { Profile } from "../../types/api";
-import { Navigation } from "./navigation";
-import { MobileNavigation } from "./mobile-navigation";
-import { useAppNavigation } from "./use-app-navigation";
+import { Button } from "@/shared/components/ui/button";
+import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
+import { cn } from "@/shared/lib/cn";
+import type { Profile } from "@/shared/types/api";
+import { Navigation } from "@/shared/components/layout/navigation";
+import { MobileNavigation } from "@/shared/components/layout/mobile-navigation";
+import { useAppNavigation } from "@/shared/components/layout/use-app-navigation";
 export function AppShell({
   profile,
   children,

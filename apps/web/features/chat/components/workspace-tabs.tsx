@@ -7,8 +7,8 @@ import {
   BarChart3,
   MessageSquare,
 } from "lucide-react";
-import { TabsList, TabsTrigger } from "../../../shared/components/ui/tabs";
-import type { ExerciseWorkspaceState } from "../hooks/use-exercise-workspace";
+import { TabsList, TabsTrigger } from "@/shared/components/ui/tabs";
+import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
 export function WorkspaceTabs({
   reviews,
   send,

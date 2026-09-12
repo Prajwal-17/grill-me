@@ -1,6 +1,6 @@
 import { isValidElement, type ReactNode } from "react";
 import type { Components } from "react-markdown";
-import { CodeBlock } from "../ui/code-block";
+import { CodeBlock } from "@/shared/components/ui/code-block";
 function textFromNode(node: ReactNode): string {
   if (typeof node === "string" || typeof node === "number") {
     return String(node);

@@ -1,12 +1,12 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import type { Challenge, Profile } from "../../../shared/types/api";
+import type { Challenge, Profile } from "@/shared/types/api";
 import {
   challengeKeys,
   getActiveChallenges,
   getChallenge,
-} from "../../challenges/api/challenge-api";
+} from "@/features/challenges/api/challenge-api";
 export function useSelectedExercise({
   profile,
   challengeId,

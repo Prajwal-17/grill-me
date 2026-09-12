@@ -1,11 +1,14 @@
 "use client";
 import Link from "next/link";
 import { History } from "lucide-react";
-import type { Challenge } from "../../../shared/types/api";
-import { buildMetadata } from "../../challenges/lib/challenge-formatters";
-import { Button, buttonStyles } from "../../../shared/components/ui/button";
-import { HistoryFilters, type HistoryScope } from "./history-filters";
-import { HistoryRow } from "./history-row";
+import type { Challenge } from "@/shared/types/api";
+import { buildMetadata } from "@/features/challenges/lib/challenge-formatters";
+import { Button, buttonStyles } from "@/shared/components/ui/button";
+import {
+  HistoryFilters,
+  type HistoryScope,
+} from "@/features/history/components/history-filters";
+import { HistoryRow } from "@/features/history/components/history-row";
 
 export function HistoryList({
   challenges,
@@ -32,9 +35,11 @@ export function HistoryList({
   });
 
   return (
-    <main className="page max-w-[1100px]">
+    <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
       <header className="mb-8 flex items-end justify-between">
-        <h1 className="page-title">History</h1>
+        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+          History
+        </h1>
         <span className="text-xs text-muted">
           {challenges.length} completed
         </span>

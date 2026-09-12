@@ -5,7 +5,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./select";
+} from "@/shared/components/ui/select";
 export function ChoiceSelect({
   value,
   onChange,

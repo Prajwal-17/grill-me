@@ -1,11 +1,11 @@
 "use client";
-import type { Challenge } from "../../../shared/types/api";
-import type { ExerciseWorkspaceState } from "../hooks/use-exercise-workspace";
+import type { Challenge } from "@/shared/types/api";
+import type { ExerciseWorkspaceState } from "@/features/chat/hooks/use-exercise-workspace";
 import { AlertCircle, Lightbulb } from "lucide-react";
-import { Markdown } from "../../../shared/components/markdown";
-import { ChatMessage } from "./chat-message";
-import { Button } from "../../../shared/components/ui/button";
-import { TabsContent } from "../../../shared/components/ui/tabs";
+import { Markdown } from "@/shared/components/markdown";
+import { ChatMessage } from "@/features/chat/components/chat-message";
+import { Button } from "@/shared/components/ui/button";
+import { TabsContent } from "@/shared/components/ui/tabs";
 export function HintPanel({
   finished,
   busy,
@@ -22,7 +22,9 @@ export function HintPanel({
     >
       <div className="mx-auto max-w-[76ch]">
         <div className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="page-title">Hints</h1>
+          <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+            Hints
+          </h1>
           {!challenge.hint && !finished && (
             <Button onClick={() => hint.mutate()} disabled={busy}>
               <Lightbulb size={15} />
@@ -31,12 +33,15 @@ export function HintPanel({
           )}
         </div>
         {hint.error ? (
-          <p role="alert" className="feedback">
+          <p
+            role="alert"
+            className="flex items-start gap-2 text-sm leading-6 text-destructive"
+          >
             <AlertCircle size={16} />
             {hint.error.message}
           </p>
         ) : challenge.hint ? (
-          <div className="reading">
+          <div className="text-base leading-7 [overflow-wrap:anywhere]">
             <Markdown>{challenge.hint}</Markdown>
           </div>
         ) : reply?.mode === "hint" ? (

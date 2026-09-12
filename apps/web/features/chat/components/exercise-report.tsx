@@ -1,7 +1,7 @@
 import { Check, FileText, ClipboardCheck } from "lucide-react";
-import type { Challenge, ChatMessage } from "../../../shared/types/api";
-import { Button } from "../../../shared/components/ui/button";
-import { formatDate } from "../../challenges/lib/challenge-formatters";
+import type { Challenge, ChatMessage } from "@/shared/types/api";
+import { Button } from "@/shared/components/ui/button";
+import { formatDate } from "@/features/challenges/lib/challenge-formatters";
 
 export function ExerciseReport({
   challenge,
@@ -23,7 +23,9 @@ export function ExerciseReport({
   );
   return (
     <div className="mx-auto w-full max-w-[76ch]">
-      <h1 className="page-title">Build report</h1>
+      <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+        Build report
+      </h1>
       <p className="mt-2 text-sm text-muted">{challenge.title}</p>
       <dl className="mt-8 grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 text-sm [&>dt]:border-b [&>dt]:border-line [&>dt]:py-3 [&>dt]:text-muted [&>dd]:border-b [&>dd]:border-line [&>dd]:py-3 [&>dd]:text-right">
         <dt>Status</dt>
@@ -56,7 +58,7 @@ export function ExerciseReport({
         </Button>
       )}
       <section className="mt-10">
-        <h2 className="section-heading">Saved activity</h2>
+        <h2 className="text-[15px] font-semibold">Saved activity</h2>
         {events.length ? (
           <ol className="mt-4 divide-y divide-line">
             {events.map((m) => (

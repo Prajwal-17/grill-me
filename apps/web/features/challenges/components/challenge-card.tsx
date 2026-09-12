@@ -1,11 +1,11 @@
 "use client";
 import type { ReactNode } from "react";
 import { Blocks, Network, Target } from "lucide-react";
-import { cn } from "../../../shared/lib/cn";
-import type { Challenge } from "../../../shared/types/api";
-import { Markdown } from "../../../shared/components/markdown";
-import { statementBody } from "../lib/challenge-statement";
-import { ChallengeMetadata } from "./challenge-metadata";
+import { cn } from "@/shared/lib/cn";
+import type { Challenge } from "@/shared/types/api";
+import { Markdown } from "@/shared/components/markdown";
+import { statementBody } from "@/features/challenges/lib/challenge-statement";
+import { ChallengeMetadata } from "@/features/challenges/components/challenge-metadata";
 
 export function ChallengeCard({
   challenge,
@@ -34,9 +34,11 @@ export function ChallengeCard({
           </div>
           {headerAction}
         </div>
-        <h1 className="page-title leading-tight">{challenge.title}</h1>
+        <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em]">
+          {challenge.title}
+        </h1>
       </header>
-      <div className="reading">
+      <div className="text-base leading-7 [overflow-wrap:anywhere]">
         <Markdown headingPrefix={headingPrefix}>
           {statementBody(challenge)}
         </Markdown>

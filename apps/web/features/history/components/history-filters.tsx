@@ -1,7 +1,7 @@
 import { Search, X } from "lucide-react";
-import { Input } from "../../../shared/components/ui/input";
-import { ChoiceSelect } from "../../../shared/components/ui/choice-select";
-import type { BuildScope } from "../../../shared/types/api";
+import { Input } from "@/shared/components/ui/input";
+import { ChoiceSelect } from "@/shared/components/ui/choice-select";
+import type { BuildScope } from "@/shared/types/api";
 
 export type HistoryScope = BuildScope | "all";
 

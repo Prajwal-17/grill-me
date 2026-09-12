@@ -1,4 +1,8 @@
-import type { LogFilters, LogOperation, LogStatus } from "../types";
+import type {
+  LogFilters,
+  LogOperation,
+  LogStatus,
+} from "@/features/logs/types";
 
 export const OPERATION_LABELS: Record<LogOperation, string> = {
   preparation: "Request check",

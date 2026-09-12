@@ -1,17 +1,17 @@
 import { Clock3, Flame, type LucideIcon } from "lucide-react";
-import type { Challenge } from "../../../shared/types/api";
-import { cn } from "../../../shared/lib/cn";
+import type { Challenge } from "@/shared/types/api";
+import { cn } from "@/shared/lib/cn";
 import {
   EasyDifficultyIcon,
   HardDifficultyIcon,
   MediumDifficultyIcon,
-} from "../../../shared/components/difficulty-icons";
+} from "@/shared/components/difficulty-icons";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "../../../shared/components/ui/tooltip";
-import { buildMetadata } from "../lib/challenge-formatters";
+} from "@/shared/components/ui/tooltip";
+import { buildMetadata } from "@/features/challenges/lib/challenge-formatters";
 
 const DIFFICULTY_ICONS: Record<Challenge["difficulty"], LucideIcon> = {
   easy: EasyDifficultyIcon,

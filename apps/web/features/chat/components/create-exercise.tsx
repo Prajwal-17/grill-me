@@ -9,25 +9,21 @@ import {
   Target,
 } from "lucide-react";
 import { useRef, useState } from "react";
-import { Button } from "../../../shared/components/ui/button";
-import type {
-  BuildDifficulty,
-  BuildScope,
-  Profile,
-} from "../../../shared/types/api";
-import { ClarificationCard } from "../../../shared/components/ai/clarification-card";
-import { PromptTextarea } from "../../../shared/components/ai/prompt-textarea";
-import { PromptSurface } from "../../../shared/components/ai/prompt-surface";
-import { TypingSuggestion } from "../../../shared/components/ai/typing-suggestion";
+import { Button } from "@/shared/components/ui/button";
+import type { BuildDifficulty, BuildScope, Profile } from "@/shared/types/api";
+import { ClarificationCard } from "@/shared/components/ai/clarification-card";
+import { PromptTextarea } from "@/shared/components/ai/prompt-textarea";
+import { PromptSurface } from "@/shared/components/ai/prompt-surface";
+import { TypingSuggestion } from "@/shared/components/ai/typing-suggestion";
 import {
   EasyDifficultyIcon,
   HardDifficultyIcon,
   MediumDifficultyIcon,
-} from "../../../shared/components/difficulty-icons";
-import { shouldSubmitOnEnter } from "../lib/composer-keyboard";
-import { useCreateBuild } from "../hooks/use-create-exercise";
-import { BuildOptionMenu } from "./build-option-menu";
-import { GrillHeat } from "./grill-heat";
+} from "@/shared/components/difficulty-icons";
+import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
+import { useCreateBuild } from "@/features/chat/hooks/use-create-exercise";
+import { BuildOptionMenu } from "@/features/chat/components/build-option-menu";
+import { GrillHeat } from "@/features/chat/components/grill-heat";
 
 const EXAMPLES = [
   "Build a React command palette with keyboard navigation",
@@ -148,7 +144,7 @@ export function GenerationHome({ profile }: { profile: Profile }) {
                 type="button"
                 disabled={busy}
                 onClick={() => fillExample(example)}
-                className="group border-b border-line py-3 text-left text-sm leading-5 text-muted outline-none transition-colors hover:text-foreground focus-visible:border-foreground disabled:opacity-50"
+                className="group border-b border-line py-3 text-left text-sm leading-5 text-muted transition-colors hover:text-foreground focus-visible:border-foreground disabled:opacity-50"
               >
                 {example}
               </button>
@@ -165,7 +161,7 @@ export function GenerationHome({ profile }: { profile: Profile }) {
           <p
             role="alert"
             id="generation-error"
-            className="feedback mb-3 rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-destructive"
+            className="flex items-start gap-2 text-sm leading-6 mb-3 rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-destructive"
           >
             <AlertCircle size={17} className="mt-0.5 shrink-0" />
             {error.message}

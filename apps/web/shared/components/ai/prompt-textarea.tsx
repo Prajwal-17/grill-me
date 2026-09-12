@@ -6,7 +6,7 @@ import {
   useImperativeHandle,
   type ComponentProps,
 } from "react";
-import { cn } from "../../lib/cn";
+import { cn } from "@/shared/lib/cn";
 
 export function PromptTextarea({
   value,

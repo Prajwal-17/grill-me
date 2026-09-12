@@ -1,17 +1,17 @@
 "use client";
 import Link from "next/link";
 import { Menu } from "lucide-react";
-import { BrandMark } from "../brand";
-import { Button } from "../ui/button";
+import { BrandMark } from "@/shared/components/brand";
+import { Button } from "@/shared/components/ui/button";
 import {
   Sheet,
   SheetContent,
   SheetTitle,
   SheetDescription,
   SheetTrigger,
-} from "../ui/sheet";
-import type { Profile } from "../../types/api";
-import { Navigation } from "./navigation";
+} from "@/shared/components/ui/sheet";
+import type { Profile } from "@/shared/types/api";
+import { Navigation } from "@/shared/components/layout/navigation";
 
 export function MobileNavigation({
   profile,

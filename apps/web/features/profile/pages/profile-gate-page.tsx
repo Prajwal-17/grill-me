@@ -2,18 +2,19 @@
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { BrandMark } from "../../../shared/components/brand";
-import { Input } from "../../../shared/components/ui/input";
-import { Button } from "../../../shared/components/ui/button";
-import { ThemeSelect } from "../../../shared/components/theme-provider";
-import { startProfile } from "../api/profile-api";
-import { storeProfile } from "../lib/profile-storage";
+import { BrandMark } from "@/shared/components/brand";
+import { Input } from "@/shared/components/ui/input";
+import { Button } from "@/shared/components/ui/button";
+import { ThemeSelect } from "@/shared/components/theme-provider";
+import { useAppStore } from "@/shared/stores/app-store";
+import { startProfile } from "@/features/profile/api/profile-api";
 
 export function ProfileGatePage() {
   const [email, setEmail] = useState("");
+  const setProfile = useAppStore((state) => state.setProfile);
   const start = useMutation({
     mutationFn: () => startProfile(email),
-    onSuccess: storeProfile,
+    onSuccess: setProfile,
   });
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -31,9 +32,11 @@ export function ProfileGatePage() {
         </div>
       </div>
       <section className="mx-auto my-auto w-full max-w-[400px] rounded-2xl border border-line bg-surface p-7 shadow-xs sm:p-8">
-        <h1 className="page-title">Ready to build?</h1>
+        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+          Ready to build?
+        </h1>
         <form onSubmit={submit} className="mt-8 grid gap-4">
-          <label className="field-label" htmlFor="email">
+          <label className="grid gap-2 text-sm font-medium" htmlFor="email">
             Email
             <Input
               id="email"
@@ -60,7 +63,10 @@ export function ProfileGatePage() {
             Your email loads your local profile.
           </p>
           {start.error && (
-            <p role="alert" className="feedback">
+            <p
+              role="alert"
+              className="flex items-start gap-2 text-sm leading-6 text-destructive"
+            >
               <AlertCircle size={16} className="shrink-0" />
               {start.error.message}
             </p>

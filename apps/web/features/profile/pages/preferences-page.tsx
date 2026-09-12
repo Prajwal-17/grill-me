@@ -2,24 +2,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { AppShell } from "../../../shared/components/layout/app-shell";
-import { Button } from "../../../shared/components/ui/button";
-import {
-  ErrorState,
-  LoadingScreen,
-} from "../../../shared/components/ui/feedback";
+import { AppShell } from "@/shared/components/layout/app-shell";
+import { Button } from "@/shared/components/ui/button";
+import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
 import {
   getPreferences,
   preferencesKey,
   savePreferences,
-} from "../api/profile-api";
+} from "@/features/profile/api/profile-api";
 import {
   DEFAULT_PREFERENCES,
   PreferencesFields,
   preferenceValues,
   type PreferenceValues,
-} from "../components/preferences-fields";
-import { useProfile } from "../hooks/use-profile";
+} from "@/features/profile/components/preferences-fields";
+import { useProfile } from "@/features/profile/hooks/use-profile";
 export function PreferencesPage() {
   const profile = useProfile();
   const queryClient = useQueryClient();
@@ -69,10 +66,12 @@ export function PreferencesPage() {
           onRetry={() => preferences.refetch()}
         />
       ) : (
-        <main className="page max-w-[850px]">
+        <main className="mx-auto w-full max-w-[850px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
           <form onSubmit={submit}>
             <header className="sticky top-0 z-10 -mx-1 flex items-center justify-between gap-4 border-b border-line bg-surface px-1 pb-6 pt-1 md:top-0">
-              <h1 className="page-title">Preferences</h1>
+              <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+                Preferences
+              </h1>
               <Button type="submit" variant="primary" disabled={save.isPending}>
                 {save.isPending ? (
                   <LoaderCircle size={15} className="animate-spin" />
@@ -95,13 +94,16 @@ export function PreferencesPage() {
             </fieldset>
             <div className="mt-5 min-h-6" aria-live="polite">
               {saved && (
-                <p className="feedback">
+                <p className="flex items-start gap-2 text-sm leading-6 text-success">
                   <Check size={16} />
                   Preferences saved
                 </p>
               )}
               {save.error && (
-                <p role="alert" className="feedback">
+                <p
+                  role="alert"
+                  className="flex items-start gap-2 text-sm leading-6 text-destructive"
+                >
                   <AlertCircle size={16} className="mt-0.5 shrink-0" />
                   {save.error.message}
                 </p>

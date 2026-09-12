@@ -1,6 +1,6 @@
-import { CopyButton } from "../../../shared/components/ui/copy-button";
-import { prettyPayload } from "../lib/log-formatters";
-import { JsonInspector } from "./json-inspector";
+import { CopyButton } from "@/shared/components/ui/copy-button";
+import { prettyPayload } from "@/features/logs/lib/log-formatters";
+import { JsonInspector } from "@/features/logs/components/json-inspector";
 
 function payload(value: unknown) {
   if (typeof value === "string") {

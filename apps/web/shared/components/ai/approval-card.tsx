@@ -2,9 +2,9 @@
 // Adapted from Beautiful UI ApprovalCard (MIT; see LICENSE).
 import { useEffect, useId, useRef } from "react";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
-import { Button } from "../ui/button";
-import { Textarea } from "../ui/textarea";
-import { useApprovalSubmission } from "./use-approval-submission";
+import { Button } from "@/shared/components/ui/button";
+import { Textarea } from "@/shared/components/ui/textarea";
+import { useApprovalSubmission } from "@/shared/components/ai/use-approval-submission";
 
 export type ApprovalCardProps = {
   question: string;

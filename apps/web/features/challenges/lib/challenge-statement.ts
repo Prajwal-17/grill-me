@@ -1,5 +1,5 @@
-import type { Challenge } from "../../../shared/types/api";
-import { buildMetadata } from "./challenge-formatters";
+import type { Challenge } from "@/shared/types/api";
+import { buildMetadata } from "@/features/challenges/lib/challenge-formatters";
 
 export function statementBody(challenge: Challenge) {
   const list = (items: string[]) =>

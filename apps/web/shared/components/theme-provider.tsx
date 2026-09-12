@@ -1,66 +1,24 @@
 "use client";
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from "react";
 import { Moon, Sun } from "lucide-react";
-import { Button } from "./ui/button";
+import {
+  APP_STORAGE_KEY,
+  useAppStore,
+  type Theme,
+} from "@/shared/stores/app-store";
+import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-type Theme = "light" | "dark";
-const KEY = "grill-me-theme";
-const ThemeContext = createContext<{
-  theme: Theme;
-  setTheme: (value: Theme) => void;
-}>({ theme: "dark", setTheme: () => {} });
-export const themeScript =
-  "(function(){var t='dark';try{t=localStorage.getItem('grill-me-theme')==='light'?'light':'dark';localStorage.setItem('grill-me-theme',t)}catch(e){}document.documentElement.dataset.theme=t})()";
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, updateTheme] = useState<Theme>("dark");
-  useEffect(() => {
-    function sync() {
-      let saved: Theme = "dark";
-      try {
-        const value = localStorage.getItem(KEY);
-        if (value === "light") saved = "light";
-        if (value !== saved) localStorage.setItem(KEY, saved);
-      } catch {
-        /* Storage can be unavailable. */
-      }
-      updateTheme(saved);
-      document.documentElement.dataset.theme = saved;
-    }
-    sync();
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-  function setTheme(value: Theme) {
-    updateTheme(value);
-    try {
-      localStorage.setItem(KEY, value);
-    } catch {
-      /* The current page still changes theme. */
-    }
-    document.documentElement.dataset.theme = value;
-  }
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
+} from "@/shared/components/ui/dropdown-menu";
+
+export const themeScript = `(function(){var t='dark';try{var s=JSON.parse(localStorage.getItem('${APP_STORAGE_KEY}')||'{}');t=s&&s.state&&s.state.theme==='light'?'light':'dark'}catch(e){}document.documentElement.dataset.theme=t})()`;
+
 export function ThemeSelect({ compact = false }: { compact?: boolean }) {
-  const { theme, setTheme } = useContext(ThemeContext);
+  const theme = useAppStore((state) => state.theme);
+  const setTheme = useAppStore((state) => state.setTheme);
   const Icon = theme === "dark" ? Moon : Sun;
   return (
     <DropdownMenu>

@@ -4,9 +4,9 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
-import { remarkHeadingIds } from "../lib/markdown-outline";
-import { rehypeStreaming } from "../lib/rehype-streaming";
-import { markdownComponents } from "./markdown/renderers";
+import { remarkHeadingIds } from "@/shared/lib/markdown-outline";
+import { rehypeStreaming } from "@/shared/lib/rehype-streaming";
+import { markdownComponents } from "@/shared/components/markdown/renderers";
 export const Markdown = memo(function Markdown({
   children,
   headingPrefix,
