@@ -15,7 +15,7 @@ import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { Button, buttonStyles } from "@/shared/components/ui/button";
 import { ThemeSelect } from "@/shared/components/theme-provider";
-import { BrandMark } from "@/shared/components/brand";
+import { BrandLockup } from "@/shared/components/brand";
 import { useSidebar } from "@/shared/stores/app-store";
 import {
   Tooltip,
@@ -80,7 +80,7 @@ export function Navigation({
     >
       <div
         className={cn(
-          "mb-7 flex h-9 items-center",
+          "mb-6 flex h-11 items-center",
           collapsed ? "justify-center" : "gap-2.5 px-2",
         )}
       >
@@ -101,12 +101,9 @@ export function Navigation({
             href="/"
             onClick={close}
             aria-label="Grill Me home"
-            className="flex shrink-0 items-center gap-2.5 rounded-lg"
+            className="rounded-lg outline-offset-4"
           >
-            <BrandMark />
-            <span className="text-[17px] font-semibold tracking-tight">
-              Grill Me
-            </span>
+            <BrandLockup />
           </Link>
         )}
         {!collapsed && !close && (

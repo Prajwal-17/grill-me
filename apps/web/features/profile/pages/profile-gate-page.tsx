@@ -2,7 +2,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { BrandMark } from "@/shared/components/brand";
+import { BrandLockup } from "@/shared/components/brand";
 import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { ThemeSelect } from "@/shared/components/theme-provider";
@@ -23,10 +23,7 @@ export function ProfileGatePage() {
   return (
     <main className="flex min-h-dvh flex-col gap-12 px-5 pb-16">
       <div className="flex items-center justify-between py-6">
-        <span className="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-          <BrandMark />
-          Grill Me
-        </span>
+        <BrandLockup />
         <div className="w-48">
           <ThemeSelect />
         </div>

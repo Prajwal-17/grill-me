@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Menu } from "lucide-react";
-import { BrandMark } from "@/shared/components/brand";
+import { BrandLockup } from "@/shared/components/brand";
 import { Button } from "@/shared/components/ui/button";
 import {
   Sheet,
@@ -24,9 +24,8 @@ export function MobileNavigation({
 }) {
   return (
     <header className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-line bg-canvas px-4 md:hidden">
-      <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
-        <BrandMark className="size-9" />
-        Grill Me
+      <Link href="/" aria-label="Grill Me home" className="rounded-lg">
+        <BrandLockup markClassName="size-10" wordmarkClassName="text-[17px]" />
       </Link>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
