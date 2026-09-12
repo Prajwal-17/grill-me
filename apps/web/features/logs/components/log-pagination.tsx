@@ -19,7 +19,7 @@ export function LogPagination({
     .sort((a, b) => a - b);
   const navClass = buttonStyles("ghost", "icon-sm");
   return (
-    <footer className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+    <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-line px-3 py-2">
       <p className="text-xs tabular-nums text-muted">
         {data.total === 0
           ? "0 requests"

@@ -22,10 +22,10 @@ export function LogFilterBar({
   onChange: (filters: LogFilters) => void;
 }) {
   return (
-    <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center">
+    <div className="flex shrink-0 flex-col gap-2 border-b border-line p-2.5 sm:flex-row sm:items-center">
       <form
         key={filters.search}
-        className="flex min-w-0 flex-1 gap-2"
+        className="flex min-w-0 flex-1 gap-1.5 sm:max-w-[440px]"
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
@@ -46,12 +46,14 @@ export function LogFilterBar({
             maxLength={200}
             placeholder="Search requests or models"
             aria-label="Search logs"
-            className="pl-9 shadow-none"
+            className="h-8 border-line bg-canvas pl-9 text-sm shadow-none"
           />
         </div>
-        <Button type="submit">Search</Button>
+        <Button type="submit" size="sm">
+          Search
+        </Button>
       </form>
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 sm:ml-auto">
         <Select
           value={filters.status}
           onValueChange={(status) =>
@@ -64,7 +66,8 @@ export function LogFilterBar({
         >
           <SelectTrigger
             aria-label="Filter by status"
-            className="flex-1 shadow-none sm:w-[145px]"
+            size="sm"
+            className="h-8 flex-1 border-line shadow-none sm:w-[132px]"
           >
             <SelectValue />
           </SelectTrigger>
@@ -89,7 +92,8 @@ export function LogFilterBar({
         >
           <SelectTrigger
             aria-label="Filter by operation"
-            className="flex-1 shadow-none sm:w-[170px]"
+            size="sm"
+            className="h-8 flex-1 border-line shadow-none sm:w-[154px]"
           >
             <SelectValue />
           </SelectTrigger>

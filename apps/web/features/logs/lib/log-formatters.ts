@@ -53,6 +53,16 @@ export function formatLatency(value: number | null) {
 export function formatTokens(value: number | null) {
   return value === null ? "—" : value.toLocaleString("en");
 }
+export function formatCost(value: number | null) {
+  if (value === null) return "—";
+  if (value === 0) return "$0";
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: value < 0.01 ? 4 : 2,
+    maximumFractionDigits: value < 0.01 ? 6 : 2,
+  }).format(value);
+}
 export function formatLogDate(value: string) {
   return new Intl.DateTimeFormat("en", {
     month: "short",

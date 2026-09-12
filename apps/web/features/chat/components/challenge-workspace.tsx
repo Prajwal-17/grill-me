@@ -107,7 +107,6 @@ export function ChallengeWorkspace({
           submissions={submissions}
           activityReady={activityReady}
           setTab={setTab}
-          challenge={challenge}
           messageFeedback={messageFeedback}
         />
         <ReviewPanel
@@ -116,7 +115,6 @@ export function ChallengeWorkspace({
           reviews={reviews}
           activityReady={activityReady}
           setTab={setTab}
-          challenge={challenge}
           messageFeedback={messageFeedback}
         />
         <ReportsPanel

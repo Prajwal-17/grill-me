@@ -13,6 +13,7 @@ import { LogFilterBar } from "@/features/logs/components/log-filters";
 import { LogPagination } from "@/features/logs/components/log-pagination";
 import { LogStatusBadge } from "@/features/logs/components/log-status";
 import {
+  formatCost,
   formatLatency,
   formatLogDate,
   formatTokens,
@@ -39,18 +40,19 @@ export function LogsPage() {
   if (!profile) return null;
   return (
     <AppShell profile={profile}>
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1280px] flex-col px-5 py-6 md:px-10 md:py-8">
-        <header className="mb-6 flex shrink-0 items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-              Logs
-            </h1>
-            <p className="mt-2 text-sm text-muted">
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-3 py-3 md:px-5 md:py-4">
+        <header className="mb-3 flex shrink-0 items-center justify-between gap-4">
+          <div className="flex min-w-0 items-baseline gap-3">
+            <h1 className="text-xl font-semibold tracking-[-0.02em]">Logs</h1>
+            <p className="hidden truncate text-xs text-muted sm:block">
               AI requests, responses, and timing.
             </p>
           </div>
           <Button
             aria-label="Refresh logs"
+            title="Refresh logs"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => void logs.refetch()}
             disabled={logs.isFetching}
           >
@@ -58,13 +60,8 @@ export function LogsPage() {
               size={15}
               className={logs.isFetching ? "animate-spin" : undefined}
             />
-            <span className="hidden sm:inline">Refresh</span>
           </Button>
         </header>
-        <LogFilterBar
-          filters={filters}
-          onChange={(next) => router.push(logHref(next))}
-        />
         {logs.isLoading ? (
           <div className="min-h-0 flex-1 overflow-y-auto">
             <LoadingScreen label="Loading logs…" />
@@ -79,46 +76,56 @@ export function LogsPage() {
           </div>
         ) : (
           logs.data && (
-            <>
+            <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-line">
+              <LogFilterBar
+                filters={filters}
+                onChange={(next) => router.push(logHref(next))}
+              />
               <div
                 ref={list}
-                className="my-5 min-h-0 flex-1 overflow-auto overscroll-contain"
+                className="min-h-0 flex-1 overflow-auto overscroll-contain"
                 aria-live="polite"
                 aria-busy={logs.isFetching}
               >
-                <table className="w-full table-fixed border-collapse text-left text-sm">
+                <table className="w-full min-w-[680px] table-fixed border-collapse text-left text-xs">
                   <caption className="sr-only">
                     AI request logs, newest first
                   </caption>
-                  <thead className="sticky top-0 z-10 border-y border-line bg-surface text-xs text-muted">
+                  <thead className="sticky top-0 z-10 border-b border-line bg-surface/95 text-[11px] text-muted backdrop-blur-sm">
                     <tr>
-                      <th scope="col" className="py-3 pr-4 font-medium">
+                      <th scope="col" className="w-[34%] px-3 py-2 font-medium">
                         Request
+                      </th>
+                      <th scope="col" className="w-[19%] px-3 py-2 font-medium">
+                        Model
                       </th>
                       <th
                         scope="col"
-                        className="hidden w-[20%] py-3 pr-4 font-medium md:table-cell"
+                        className="w-[92px] px-3 py-2 font-medium"
                       >
-                        Model
-                      </th>
-                      <th scope="col" className="w-[108px] py-3 font-medium">
                         Status
                       </th>
                       <th
                         scope="col"
-                        className="hidden w-[90px] py-3 text-right font-medium sm:table-cell"
-                      >
-                        Duration
-                      </th>
-                      <th
-                        scope="col"
-                        className="hidden w-[95px] py-3 text-right font-medium lg:table-cell"
+                        className="w-[82px] px-3 py-2 text-right font-medium"
                       >
                         Tokens
                       </th>
                       <th
                         scope="col"
-                        className="hidden w-[155px] py-3 pl-5 text-right font-medium xl:table-cell"
+                        className="hidden w-[82px] px-3 py-2 text-right font-medium lg:table-cell"
+                      >
+                        Cost
+                      </th>
+                      <th
+                        scope="col"
+                        className="w-[82px] px-3 py-2 text-right font-medium"
+                      >
+                        Latency
+                      </th>
+                      <th
+                        scope="col"
+                        className="hidden w-[138px] px-3 py-2 text-right font-medium xl:table-cell"
                       >
                         Started
                       </th>
@@ -126,8 +133,8 @@ export function LogsPage() {
                   </thead>
                   <tbody className="divide-y divide-line">
                     {logs.data.items.map((log) => (
-                      <tr key={log.id} className="group hover:bg-elevated/35">
-                        <td className="py-4 pr-4">
+                      <tr key={log.id} className="group hover:bg-elevated/40">
+                        <td className="px-3 py-2.5">
                           <Link
                             href={logHref(
                               { ...filters, page: logs.data!.page },
@@ -135,42 +142,38 @@ export function LogsPage() {
                             )}
                             className="block min-w-0 rounded-sm outline-offset-4"
                           >
-                            <span className="font-medium group-hover:underline">
+                            <span className="block truncate font-medium group-hover:underline">
                               {OPERATION_LABELS[log.operation]}
                             </span>
-                            <span className="mt-1 block truncate text-xs text-muted">
+                            <span className="mt-0.5 block truncate text-[11px] text-muted">
                               {log.preview || "No request preview"}
-                            </span>
-                            <span className="mt-1 block truncate text-xs text-muted md:hidden">
-                              {log.actualModel ?? log.requestedModel} ·{" "}
-                              {formatLogDate(log.startedAt)}
                             </span>
                           </Link>
                         </td>
-                        <td className="hidden py-4 pr-4 md:table-cell">
+                        <td className="px-3 py-2.5">
                           <span
                             className="block truncate"
                             title={log.actualModel ?? log.requestedModel}
                           >
                             {log.actualModel ?? log.requestedModel}
                           </span>
-                          <span className="mt-1 block text-xs text-muted">
+                          <span className="mt-0.5 block text-[11px] text-muted">
                             {log.streamed ? "Streamed" : "Structured"}
                           </span>
                         </td>
-                        <td className="py-4">
+                        <td className="px-3 py-2.5">
                           <LogStatusBadge status={log.status} />
-                          <span className="mt-1 block text-xs tabular-nums text-muted sm:hidden">
-                            {formatLatency(log.durationMs)}
-                          </span>
                         </td>
-                        <td className="hidden py-4 text-right tabular-nums text-muted sm:table-cell">
-                          {formatLatency(log.durationMs)}
-                        </td>
-                        <td className="hidden py-4 text-right tabular-nums text-muted lg:table-cell">
+                        <td className="px-3 py-2.5 text-right tabular-nums text-muted">
                           {formatTokens(log.totalTokens)}
                         </td>
-                        <td className="hidden py-4 pl-5 text-right text-xs tabular-nums text-muted xl:table-cell">
+                        <td className="hidden px-3 py-2.5 text-right tabular-nums text-muted lg:table-cell">
+                          {formatCost(log.costUsd)}
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-muted">
+                          {formatLatency(log.durationMs)}
+                        </td>
+                        <td className="hidden px-3 py-2.5 text-right text-[11px] tabular-nums text-muted xl:table-cell">
                           <time dateTime={log.startedAt}>
                             {formatLogDate(log.startedAt)}
                           </time>
@@ -180,7 +183,7 @@ export function LogsPage() {
                   </tbody>
                 </table>
                 {logs.data.total === 0 && (
-                  <div className="py-16 text-center">
+                  <div className="py-12 text-center">
                     <ScrollText
                       size={28}
                       strokeWidth={1.25}
@@ -214,13 +217,9 @@ export function LogsPage() {
                 )}
               </div>
               <LogPagination data={logs.data} filters={filters} />
-            </>
+            </section>
           )
         )}
-        <p className="mt-3 shrink-0 text-xs leading-5 text-muted">
-          Full payloads are stored locally for this profile. Only new AI
-          requests are logged.
-        </p>
       </main>
     </AppShell>
   );

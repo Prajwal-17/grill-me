@@ -23,11 +23,8 @@ export function ChallengeReport({
   );
   return (
     <div className="mx-auto w-full max-w-[76ch]">
-      <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-        Build report
-      </h1>
-      <p className="mt-2 text-sm text-muted">{challenge.title}</p>
-      <dl className="mt-8 grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 text-sm [&>dt]:border-b [&>dt]:border-line [&>dt]:py-3 [&>dt]:text-muted [&>dd]:border-b [&>dd]:border-line [&>dd]:py-3 [&>dd]:text-right">
+      <p className="mb-3 truncate text-xs text-muted">{challenge.title}</p>
+      <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-6 text-sm [&>dt]:border-b [&>dt]:border-line [&>dt]:py-3 [&>dt]:text-muted [&>dd]:border-b [&>dd]:border-line [&>dd]:py-3 [&>dd]:text-right">
         <dt>Status</dt>
         <dd
           className={

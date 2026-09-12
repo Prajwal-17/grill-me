@@ -45,16 +45,10 @@ export function DiscussionPanel({
     >
       <div
         ref={scroll}
-        className="min-h-0 flex-1 overflow-y-auto px-5 py-8 md:px-10"
+        className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-10"
         onScroll={onScroll}
       >
         <div className="mx-auto w-full max-w-[76ch]">
-          <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-            Chat
-          </h1>
-          <p className="mb-6 mt-2 text-sm text-muted">
-            Clarify a requirement when you need to.
-          </p>
           {messageFeedback}
           {chat.map((item) => (
             <ChatMessage key={item.id} {...item} />

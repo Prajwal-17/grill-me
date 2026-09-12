@@ -1,6 +1,5 @@
 "use client";
 import type { ReactNode } from "react";
-import type { Challenge } from "@/shared/types/api";
 import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 import { Upload } from "lucide-react";
 import { ChatMessage } from "@/features/chat/components/chat-message";
@@ -13,22 +12,17 @@ export function ReviewPanel({
   reviews,
   activityReady,
   setTab,
-  challenge,
   messageFeedback,
 }: Pick<
   ChallengeWorkspaceState,
   "finished" | "reply" | "reviews" | "activityReady" | "setTab"
-> & { challenge: Challenge; messageFeedback: ReactNode }) {
+> & { messageFeedback: ReactNode }) {
   return (
     <TabsContent
       value="review"
-      className="min-h-0 overflow-y-auto px-5 py-8 md:px-10 md:py-10"
+      className="min-h-0 overflow-y-auto px-5 py-6 md:px-10"
     >
       <div className="mx-auto w-full max-w-[76ch]">
-        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-          Review
-        </h1>
-        <p className="mb-6 mt-2 text-sm text-muted">{challenge.title}</p>
         {messageFeedback}
         {reply?.mode === "review" && (
           <ChatMessage role="assistant" {...reply} streaming />

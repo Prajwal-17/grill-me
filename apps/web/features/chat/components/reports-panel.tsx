@@ -16,7 +16,7 @@ export function ReportsPanel({
   return (
     <TabsContent
       value="reports"
-      className="min-h-0 overflow-y-auto px-5 py-8 md:px-10 md:py-10"
+      className="min-h-0 overflow-y-auto px-5 py-6 md:px-10"
     >
       {messageFeedback ? (
         <div className="mx-auto max-w-[76ch]">{messageFeedback}</div>

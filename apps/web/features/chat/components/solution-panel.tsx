@@ -1,6 +1,5 @@
 "use client";
 import type { ReactNode } from "react";
-import type { Challenge } from "@/shared/types/api";
 import type { ChallengeWorkspaceState } from "@/features/chat/hooks/use-challenge-workspace";
 import { ChevronDown } from "lucide-react";
 import { ChatMessage } from "@/features/chat/components/chat-message";
@@ -20,7 +19,6 @@ export function SolutionPanel({
   submissions,
   activityReady,
   setTab,
-  challenge,
   messageFeedback,
 }: Pick<
   ChallengeWorkspaceState,
@@ -35,21 +33,17 @@ export function SolutionPanel({
   | "submissions"
   | "activityReady"
   | "setTab"
-> & { challenge: Challenge; messageFeedback: ReactNode }) {
+> & { messageFeedback: ReactNode }) {
   return (
     <TabsContent
       forceMount
       value="solution"
-      className="min-h-0 overflow-y-auto px-5 py-8 data-[state=inactive]:hidden md:px-10 md:py-10"
+      className="min-h-0 overflow-y-auto px-5 py-6 data-[state=inactive]:hidden md:px-10"
     >
       <div className="mx-auto w-full max-w-[76ch]">
-        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-          Your solution
-        </h1>
-        <p className="mt-2 text-sm text-muted">{challenge.title}</p>
         {!finished && (
           <>
-            <p className="mb-5 mt-6 text-sm text-muted">
+            <p className="mb-4 text-sm text-muted">
               Work in your own tools. Paste your solution or attach files for
               review.
             </p>
@@ -83,7 +77,7 @@ export function SolutionPanel({
             />
           </>
         )}
-        <section className="mt-8">
+        <section className={finished ? undefined : "mt-7"}>
           <h2 className="text-[15px] font-semibold">Submitted work</h2>
           <div className="mt-4">
             {messageFeedback}

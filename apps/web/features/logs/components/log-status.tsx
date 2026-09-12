@@ -14,7 +14,7 @@ export function LogStatusBadge({ status }: { status: LogStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[11px] font-medium leading-4",
         status === "success"
           ? "border-success/20 bg-success/5 text-success"
           : status === "error"
@@ -23,7 +23,7 @@ export function LogStatusBadge({ status }: { status: LogStatus }) {
       )}
     >
       <Icon
-        size={12}
+        size={10}
         className={status === "running" ? "animate-spin" : undefined}
       />
       {STATUS_LABELS[status]}

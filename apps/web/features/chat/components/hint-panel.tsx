@@ -18,20 +18,17 @@ export function HintPanel({
   return (
     <TabsContent
       value="hints"
-      className="min-h-0 overflow-y-auto px-5 py-6 md:px-8"
+      className="min-h-0 overflow-y-auto px-5 py-4 md:px-8"
     >
       <div className="mx-auto max-w-[76ch]">
-        <div className="mb-6 flex items-center justify-between gap-3">
-          <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-            Hints
-          </h1>
-          {!challenge.hint && !finished && (
+        {!challenge.hint && !finished && (
+          <div className="mb-4 flex items-center justify-end">
             <Button onClick={() => hint.mutate()} disabled={busy}>
               <Lightbulb size={15} />
               {hint.isPending ? "Getting hint…" : "Get a hint"}
             </Button>
-          )}
-        </div>
+          </div>
+        )}
         {hint.error ? (
           <p
             role="alert"
