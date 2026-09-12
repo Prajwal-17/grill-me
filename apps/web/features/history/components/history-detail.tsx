@@ -30,7 +30,7 @@ export function HistoryDetail({
   const discussion = messages.data?.filter((m) => m.mode !== "generate") ?? [];
   return (
     <main className="h-full flex min-h-0 flex-col">
-      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line px-5 md:px-8">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-line px-5 md:px-8 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
         <Link href="/history" className={buttonStyles("ghost", "sm")}>
           <ArrowLeft size={15} />
           History

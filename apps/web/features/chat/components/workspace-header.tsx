@@ -20,7 +20,7 @@ export function WorkspaceHeader({
   complete,
 }: Pick<ChallengeWorkspaceState, "finished" | "busy" | "complete">) {
   return (
-    <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-line px-4 md:px-7">
+    <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-line px-4 md:px-7 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
       <Link
         href="/challenges"
         className="inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"

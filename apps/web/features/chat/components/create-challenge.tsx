@@ -122,7 +122,7 @@ export function GenerationHome({ profile }: { profile: Profile }) {
   }
 
   return (
-    <main className="mx-auto flex h-full min-h-0 w-full max-w-[820px] flex-col gap-6 overflow-hidden px-5 pb-[max(24px,env(safe-area-inset-bottom))] pt-6 sm:px-8 md:px-10 md:pb-10 md:pt-[min(8vh,80px)]">
+    <main className="mx-auto flex h-full min-h-0 w-full max-w-[820px] flex-col gap-6 overflow-hidden px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-6 sm:px-8 md:px-10 md:pb-4 md:pt-[min(8vh,80px)]">
       <section
         aria-labelledby="generation-heading"
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain"

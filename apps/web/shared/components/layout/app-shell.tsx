@@ -4,6 +4,11 @@ import { motion, useReducedMotion } from "motion/react";
 import { PanelLeftOpen } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/cn";
 import type { Profile } from "@/shared/types/api";
 import { Navigation } from "@/shared/components/layout/navigation";
@@ -19,7 +24,10 @@ export function AppShell({
   const { collapsed, toggle, open, setOpen } = useAppNavigation();
   const reduced = useReducedMotion();
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div
+      className="group/shell flex h-dvh overflow-hidden"
+      data-sidebar-collapsed={collapsed}
+    >
       <motion.aside
         initial={false}
         animate={{ width: collapsed ? 0 : 232 }}
@@ -43,30 +51,40 @@ export function AppShell({
           collapsed && "md:pl-2",
         )}
       >
-        {collapsed && (
-          <div className="hidden h-10 shrink-0 items-center px-2 pb-2 md:flex">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggle}
-              aria-label="Open sidebar"
-              aria-keyshortcuts="Control+b"
-            >
-              <PanelLeftOpen size={17} />{" "}
-              <span className="text-xs">Sidebar</span>
-              <KbdGroup className="ml-2" aria-label="Control plus B">
-                <Kbd>Ctrl</Kbd>
-                <span aria-hidden="true">+</span>
-                <Kbd>B</Kbd>
-              </KbdGroup>
-            </Button>
-          </div>
-        )}
         <MobileNavigation profile={profile} open={open} setOpen={setOpen} />
         <div
           data-slot="app-content"
           className="relative min-h-0 flex-1 overflow-y-auto bg-surface md:rounded-xl md:border md:border-line"
         >
+          {collapsed && (
+            <div className="absolute left-2 top-2 z-40 hidden md:block">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={toggle}
+                    aria-label="Open sidebar"
+                    aria-keyshortcuts="Control+b"
+                    className="bg-surface/90 shadow-xs backdrop-blur-sm"
+                  >
+                    <PanelLeftOpen size={16} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent
+                  side="right"
+                  className="flex items-center gap-2"
+                >
+                  <span>Open sidebar</span>
+                  <KbdGroup aria-label="Control plus B">
+                    <Kbd>Ctrl</Kbd>
+                    <span aria-hidden="true">+</span>
+                    <Kbd>B</Kbd>
+                  </KbdGroup>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          )}
           {children}
         </div>
       </div>
