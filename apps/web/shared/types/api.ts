@@ -137,6 +137,7 @@ export type ReviewJob = {
 export type PracticeSubmission = {
   id: string;
   challengeId: string;
+  projectId: string | null;
   sequence: number;
   content: string;
   manifest: { path: string; bytes: number; sha256: string }[];

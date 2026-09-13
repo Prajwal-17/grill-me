@@ -6,12 +6,19 @@ import { File as CodeFile } from "@pierre/diffs/react";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import {
   Braces,
+  ChevronDown,
   FileCode2,
   FileQuestion,
+  Info,
   LoaderCircle,
   Maximize2,
   Minimize2,
+  MousePointer2,
+  PanelRight,
+  ChevronRight,
   Search,
+  SquareCode,
+  SquareTerminal,
 } from "lucide-react";
 import type { PracticeSubmission } from "@/shared/types/api";
 import { getSubmissionFile } from "@/features/chat/api/review-api";
@@ -22,6 +29,12 @@ import {
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import { useAppStore } from "@/shared/stores/app-store";
 
 type CustomProperties = CSSProperties & Record<`--${string}`, string | number>;
@@ -30,6 +43,11 @@ function formatBytes(bytes: number) {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function editorUrl(protocol: "cursor" | "vscode" | "zed", path: string) {
+  const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+  return `${protocol}://file${encodedPath}`;
 }
 
 function SourcePath({ path }: { path: string }) {
@@ -85,6 +103,11 @@ function SubmissionFilesSurface({
   onSelect,
   expanded,
   onExpandedChange,
+  treeOpen,
+  onTreeOpenChange,
+  projectPath,
+  submissionCount,
+  onClose,
 }: {
   attempt: PracticeSubmission;
   profileId: string;
@@ -92,6 +115,11 @@ function SubmissionFilesSurface({
   onSelect: (path: string) => void;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
+  treeOpen: boolean;
+  onTreeOpenChange: (open: boolean) => void;
+  projectPath: string | null;
+  submissionCount: number;
+  onClose: () => void;
 }) {
   const [search, setSearch] = useState("");
   const theme = useAppStore((state) => state.theme);
@@ -160,16 +188,82 @@ function SubmissionFilesSurface({
         <span className="text-xs tabular-nums text-muted">
           {attempt.manifest.length}
         </span>
+        {submissionCount > 1 && (
+          <span
+            className="hidden min-w-0 items-center gap-1 truncate border-l border-line pl-2 text-[11px] text-muted sm:flex"
+            title="The file viewer shows the complete saved snapshot for the selected submission."
+          >
+            <Info size={12} />
+            Submission {attempt.sequence} · full snapshot
+          </span>
+        )}
+        {projectPath && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto h-8 gap-1.5 px-2.5"
+                title={`Open ${projectPath}`}
+              >
+                <SquareCode size={14} />
+                Open
+                <ChevronDown size={12} className="text-muted" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem asChild>
+                <a href={editorUrl("cursor", projectPath)}>
+                  <MousePointer2 />
+                  Cursor
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href={editorUrl("vscode", projectPath)}>
+                  <SquareCode />
+                  VS Code
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href={editorUrl("zed", projectPath)}>
+                  <SquareTerminal />
+                  Zed
+                </a>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         <Button
           size="icon-sm"
           variant="ghost"
-          className="ml-auto"
+          className={projectPath ? undefined : "ml-auto"}
+          aria-label={treeOpen ? "Hide file tree" : "Show file tree"}
+          aria-pressed={treeOpen}
+          title={treeOpen ? "Hide file tree" : "Show file tree"}
+          onClick={() => onTreeOpenChange(!treeOpen)}
+        >
+          <PanelRight size={14} />
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
           aria-label={expanded ? "Restore file viewer" : "Expand file viewer"}
           title={expanded ? "Restore" : "Full screen"}
           onClick={() => onExpandedChange(!expanded)}
         >
           {expanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </Button>
+        {!expanded && (
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Collapse submission files"
+            title="Collapse files"
+            onClick={onClose}
+          >
+            <ChevronRight size={15} />
+          </Button>
+        )}
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -246,29 +340,33 @@ function SubmissionFilesSurface({
           </div>
         </div>
 
-        <aside className="flex w-[230px] shrink-0 flex-col border-l border-line bg-surface sm:w-[260px]">
-          <div className="relative shrink-0 border-b border-line p-2">
-            <Search
-              aria-hidden="true"
-              size={13}
-              className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted"
-            />
-            <Input
-              value={search}
-              onChange={(event) => model.setSearch(event.target.value || null)}
-              placeholder="Search files"
-              aria-label="Search submission files"
-              className="h-8 border-transparent bg-elevated/60 pr-2 pl-8 font-mono text-xs shadow-none focus-visible:border-line-strong focus-visible:ring-0 md:h-8"
-            />
-          </div>
-          <div className="min-h-0 flex-1 p-1.5">
-            <FileTree
-              model={model}
-              aria-label="Submission file tree"
-              style={treeStyles}
-            />
-          </div>
-        </aside>
+        {treeOpen && (
+          <aside className="flex w-[230px] shrink-0 flex-col border-l border-line bg-surface sm:w-[260px]">
+            <div className="relative shrink-0 border-b border-line p-2">
+              <Search
+                aria-hidden="true"
+                size={13}
+                className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-muted"
+              />
+              <Input
+                value={search}
+                onChange={(event) =>
+                  model.setSearch(event.target.value || null)
+                }
+                placeholder="Search files"
+                aria-label="Search submission files"
+                className="h-8 border-transparent bg-elevated/60 pr-2 pl-8 font-mono text-xs shadow-none focus-visible:border-line-strong focus-visible:ring-0 md:h-8"
+              />
+            </div>
+            <div className="min-h-0 flex-1 p-1.5">
+              <FileTree
+                model={model}
+                aria-label="Submission file tree"
+                style={treeStyles}
+              />
+            </div>
+          </aside>
+        )}
       </div>
     </section>
   );
@@ -277,14 +375,21 @@ function SubmissionFilesSurface({
 export function SubmissionFiles({
   attempt,
   profileId,
+  projectPath,
+  submissionCount,
+  onClose,
 }: {
   attempt: PracticeSubmission;
   profileId: string;
+  projectPath: string | null;
+  submissionCount: number;
+  onClose: () => void;
 }) {
   const [selectedPath, setSelectedPath] = useState(
     attempt.manifest[0]?.path ?? "",
   );
   const [expanded, setExpanded] = useState(false);
+  const [treeOpen, setTreeOpen] = useState(true);
   const surface = (fullScreen: boolean) => (
     <SubmissionFilesSurface
       attempt={attempt}
@@ -293,13 +398,18 @@ export function SubmissionFiles({
       onSelect={setSelectedPath}
       expanded={fullScreen}
       onExpandedChange={setExpanded}
+      treeOpen={treeOpen}
+      onTreeOpenChange={setTreeOpen}
+      projectPath={projectPath}
+      submissionCount={submissionCount}
+      onClose={onClose}
     />
   );
 
   return (
     <>
       {!expanded && (
-        <aside className="h-[600px] min-h-0 w-full shrink-0 overflow-hidden border-t border-line xl:h-auto xl:w-[58%] xl:min-w-[560px] xl:max-w-[900px] xl:border-t-0 xl:border-l">
+        <aside className="absolute inset-y-0 right-0 z-30 min-h-0 w-[min(94vw,760px)] shrink-0 overflow-hidden border-l border-line shadow-[-12px_0_30px_rgb(0_0_0/0.18)] xl:static xl:w-[58%] xl:min-w-[560px] xl:max-w-[920px] xl:shadow-none">
           {surface(false)}
         </aside>
       )}

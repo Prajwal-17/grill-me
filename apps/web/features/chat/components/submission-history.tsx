@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { FileSearch2 } from "lucide-react";
 import type { PracticeSubmission, ReviewJob } from "@/shared/types/api";
 import {
@@ -11,7 +10,6 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { AttemptReview } from "./attempt-review";
-import { SubmissionFiles } from "./submission-files";
 
 const verdictLabel = {
   accepted: "Accepted",
@@ -31,32 +29,33 @@ function attemptState(attempt: PracticeSubmission) {
 
 export function SubmissionHistory({
   attempts,
-  profileId,
+  selectedId,
+  onSelectedChange,
   busy,
   onRetry,
   onCancel,
 }: {
   attempts: PracticeSubmission[];
-  profileId: string;
+  selectedId: string;
+  onSelectedChange: (id: string) => void;
   busy: boolean;
   onRetry: (review: ReviewJob, response: string | null) => void;
   onCancel: (review: ReviewJob) => void;
 }) {
-  const [selectedId, setSelectedId] = useState("");
   const selected =
     attempts.find((attempt) => attempt.id === selectedId) ?? attempts[0];
 
   return (
     <section
       aria-label="Submission reviews"
-      className="flex h-full min-h-0 flex-col overflow-y-auto xl:flex-row xl:overflow-hidden"
+      className="flex h-full min-h-0 flex-col"
     >
-      <div className="min-h-0 flex-1 px-5 py-6 md:px-10 xl:overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-10">
         {selected ? (
           <>
             {attempts.length > 1 && (
               <div className="mx-auto mb-5 flex max-w-[820px] justify-end">
-                <Select value={selected.id} onValueChange={setSelectedId}>
+                <Select value={selected.id} onValueChange={onSelectedChange}>
                   <SelectTrigger
                     aria-label="Select submission"
                     className="h-8 w-52 bg-surface"
@@ -100,13 +99,6 @@ export function SubmissionHistory({
           </div>
         )}
       </div>
-      {selected && (
-        <SubmissionFiles
-          key={selected.id}
-          attempt={selected}
-          profileId={profileId}
-        />
-      )}
     </section>
   );
 }

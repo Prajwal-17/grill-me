@@ -11,6 +11,7 @@ import {
   Play,
   Check,
   Bookmark,
+  Files,
 } from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
@@ -36,6 +37,7 @@ import {
   uploadFile,
 } from "@/features/chat/api/review-api";
 import { SubmissionHistory } from "./submission-history";
+import { SubmissionFiles } from "./submission-files";
 import { SubmissionComposer } from "./submission-composer";
 import { ProjectPicker } from "./project-picker";
 import {
@@ -91,6 +93,8 @@ export function PracticeWorkspace({
   const [helpOpen, setHelpOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [reply, setReply] = useState("");
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
+  const [filesOpen, setFilesOpen] = useState(true);
   const refresh = async () => {
     await Promise.all([
       queries.invalidateQueries({ queryKey: ["submissions", challenge.id] }),
@@ -203,6 +207,8 @@ export function PracticeWorkspace({
     },
     onSuccess: async () => {
       update({ content: "", uploads: [] });
+      setSelectedSubmissionId("");
+      setFilesOpen(true);
       setTab("reviews");
       await refresh();
     },
@@ -257,6 +263,12 @@ export function PracticeWorkspace({
   const running = attempts.data?.some((s) =>
     s.reviews.some((r) => r.status === "running" || r.status === "queued"),
   );
+  const selectedAttempt =
+    attempts.data?.find((attempt) => attempt.id === selectedSubmissionId) ??
+    attempts.data?.[0];
+  const selectedProject = projects.data?.find(
+    (project) => project.id === selectedAttempt?.projectId,
+  );
   const busy =
     connection.isPending ||
     submit.isPending ||
@@ -276,301 +288,328 @@ export function PracticeWorkspace({
     messages.data?.filter((m) => m.mode === "hint" || m.mode === "clarify") ??
     [];
   return (
-    <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-4 py-3 md:px-7 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
-        <div className="flex min-w-0 items-center gap-3">
-          <Button
-            asChild
-            size="icon-sm"
-            variant="ghost"
-            className="border border-line"
-          >
-            <Link href="/challenges" aria-label="Back to challenges">
-              <ArrowLeft size={15} />
-            </Link>
-          </Button>
-          <div className="min-w-0">
-            <nav
-              aria-label="Breadcrumb"
-              className="flex items-center gap-1 text-[11px] text-muted"
+    <main className="relative flex h-full min-h-0 overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-4 py-3 md:px-7 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button
+              asChild
+              size="icon-sm"
+              variant="ghost"
+              className="border border-line"
             >
-              <Link href="/challenges" className="hover:text-foreground">
-                Challenges
+              <Link href="/challenges" aria-label="Back to challenges">
+                <ArrowLeft size={15} />
               </Link>
-            </nav>
-            <h1 className="mt-0.5 truncate text-base font-semibold">
-              {challenge.title}
-            </h1>
+            </Button>
+            <div className="min-w-0">
+              <nav
+                aria-label="Breadcrumb"
+                className="flex items-center gap-1 text-[11px] text-muted"
+              >
+                <Link href="/challenges" className="hover:text-foreground">
+                  Challenges
+                </Link>
+              </nav>
+              <h1 className="mt-0.5 truncate text-base font-semibold">
+                {challenge.title}
+              </h1>
+            </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {challenge.status === "completed" && (
-            <span className="text-xs text-success">Completed</span>
-          )}
-          {challenge.status === "saved" && (
-            <span className="text-xs text-muted">Saved for later</span>
-          )}
-          {(active || challenge.status === "paused") && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy || lifecycle.isPending}
-              onClick={() => lifecycle.mutate("saved")}
-            >
-              <Bookmark size={14} /> Save for later
-            </Button>
-          )}
-          {active ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => lifecycle.mutate("paused")}
-            >
-              <Pause size={14} />
-              Pause
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => lifecycle.mutate("active")}
-            >
-              <Play size={14} />
-              Resume
-            </Button>
-          )}
-          {challenge.status !== "completed" && (
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={busy}
-              onClick={() => lifecycle.mutate("completed")}
-            >
-              <Check size={15} />
-              Mark completed
-            </Button>
-          )}
-        </div>
-      </header>
-      {error && (
-        <p
-          role="alert"
-          className="shrink-0 border-b border-line px-5 py-3 text-sm text-destructive"
-        >
-          {error.message}
-        </p>
-      )}
-      <Tabs
-        value={tab}
-        onValueChange={setTab}
-        className="min-h-0 flex-1 gap-0 overflow-hidden"
-      >
-        <div className="shrink-0 border-b border-line px-4 md:px-7">
-          <TabsList
-            variant="line"
-            className="h-11 w-full justify-start"
-            aria-label="Challenge workspace"
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedAttempt && (
+              <Button
+                size="sm"
+                variant={filesOpen ? "secondary" : "ghost"}
+                aria-pressed={filesOpen}
+                onClick={() => setFilesOpen((open) => !open)}
+              >
+                <Files size={14} />
+                Files
+              </Button>
+            )}
+            {challenge.status === "completed" && (
+              <span className="text-xs text-success">Completed</span>
+            )}
+            {challenge.status === "saved" && (
+              <span className="text-xs text-muted">Saved for later</span>
+            )}
+            {(active || challenge.status === "paused") && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy || lifecycle.isPending}
+                onClick={() => lifecycle.mutate("saved")}
+              >
+                <Bookmark size={14} /> Save for later
+              </Button>
+            )}
+            {active ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => lifecycle.mutate("paused")}
+              >
+                <Pause size={14} />
+                Pause
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => lifecycle.mutate("active")}
+              >
+                <Play size={14} />
+                Resume
+              </Button>
+            )}
+            {challenge.status !== "completed" && (
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={busy}
+                onClick={() => lifecycle.mutate("completed")}
+              >
+                <Check size={15} />
+                Mark completed
+              </Button>
+            )}
+          </div>
+        </header>
+        {error && (
+          <p
+            role="alert"
+            className="shrink-0 border-b border-line px-5 py-3 text-sm text-destructive"
           >
-            <TabsTrigger value="challenge" className="flex-none px-4">
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="submit" className="flex-none px-4">
-              Submit
-            </TabsTrigger>
-            <TabsTrigger value="reviews" className="flex-none px-4">
-              Reviews
-              {running && <LoaderCircle size={13} className="animate-spin" />}
-            </TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent
-          value="challenge"
-          className="min-h-0 flex-1 overflow-y-auto"
+            {error.message}
+          </p>
+        )}
+        <Tabs
+          value={tab}
+          onValueChange={setTab}
+          className="min-h-0 flex-1 gap-0 overflow-hidden"
         >
-          <div className="px-5 py-6 md:px-10">
-            <div className="mx-auto max-w-[850px] space-y-6">
-              <ChallengeCard
-                challenge={challenge}
-                className="max-w-none"
-                showTitle={false}
-                headerAction={
-                  <CopyButton
-                    text={statementMarkdown(challenge)}
-                    label="Copy challenge"
-                  />
-                }
-              />
-              {active && (
-                <div className="flex gap-2">
-                  <Button variant="primary" onClick={() => setTab("submit")}>
-                    Submit implementation
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setHelpOpen(!helpOpen)}
-                    aria-expanded={helpOpen}
-                  >
-                    Help
-                  </Button>
-                </div>
-              )}
-              {helpOpen && active && (
-                <section
-                  className="space-y-4 rounded-lg border border-line p-4"
-                  aria-label="Challenge help"
-                >
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => help.mutate("hint")}
-                    >
-                      Give me a hint
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => help.mutate("approach")}
-                    >
-                      High-level approach
-                    </Button>
-                  </div>
-                  <form
-                    className="flex items-start gap-2"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (draft.question.trim()) help.mutate("clarify");
-                    }}
-                  >
-                    <Textarea
-                      aria-label="Clarify a requirement"
-                      value={draft.question}
-                      onChange={(e) => update({ question: e.target.value })}
-                      placeholder="What is unclear in the requirements?"
-                      rows={2}
-                    />
-                    <Button
-                      size="sm"
-                      type="submit"
-                      disabled={busy || !draft.question.trim()}
-                    >
-                      Clarify
-                    </Button>
-                  </form>
-                  {reply && (
-                    <div aria-live="polite">
-                      <Markdown>{reply}</Markdown>
-                    </div>
-                  )}
-                  {help.isPending && !reply && (
-                    <p role="status" className="text-xs text-muted">
-                      Preparing help…
-                    </p>
-                  )}
-                </section>
-              )}
-              {!!savedHelp.length && (
-                <details className="border-t border-line pt-4 text-sm">
-                  <summary className="cursor-pointer text-muted">
-                    Saved help ({savedHelp.length})
-                  </summary>
-                  <div className="mt-4 space-y-5">
-                    {savedHelp.map((m) => (
-                      <div key={m.id}>
-                        <p className="mb-1 text-xs text-muted">
-                          {m.role === "user" ? "You" : "Guidance"}
-                        </p>
-                        <Markdown>{m.content}</Markdown>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-              {challenge.contextSnapshot && (
-                <details className="text-xs text-muted">
-                  <summary className="cursor-pointer">
-                    Generation details
-                  </summary>
-                  <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
-                    {JSON.stringify(challenge.contextSnapshot, null, 2)}
-                  </pre>
-                </details>
-              )}
-            </div>
-          </div>
-        </TabsContent>
-        <TabsContent value="submit" className="min-h-0 flex-1 overflow-y-auto">
-          <div className="px-5 py-6 md:px-10">
-            <section
-              className="mx-auto max-w-[900px] space-y-5"
-              aria-label="Submit implementation"
+          <div className="shrink-0 border-b border-line px-4 md:px-7">
+            <TabsList
+              variant="line"
+              className="h-11 w-full justify-start"
+              aria-label="Challenge workspace"
             >
-              {!active && (
-                <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
-                  {challenge.status === "completed"
-                    ? "You marked this challenge completed."
-                    : challenge.status === "saved"
-                      ? "This challenge is saved for later."
-                      : "This challenge is paused."}{" "}
-                  Resume to submit another version.
-                </div>
-              )}
-              <SubmissionComposer
-                active={active}
-                busy={busy}
-                running={Boolean(running)}
-                projects={projects.data ?? []}
-                projectsLoading={projects.isLoading}
-                projectsError={Boolean(projects.error)}
-                projectId={draft.projectId}
-                uploads={draft.uploads}
-                content={draft.content}
-                uploadProgress={uploadProgress}
-                uploadNotice={uploadNotice}
-                onProjectChange={(projectId) => update({ projectId })}
-                onConnectFolder={() => setFolderOpen(true)}
-                onUpload={(files) => upload.mutate(files)}
-                onRemoveUpload={(id) =>
-                  update({
-                    uploads: draft.uploads.filter((file) => file.id !== id),
-                  })
-                }
-                onClearUploads={() => update({ uploads: [] })}
-                onContentChange={(content) => update({ content })}
-                onSubmit={() => submit.mutate()}
-                onViewReview={() => setTab("reviews")}
-              />
-            </section>
+              <TabsTrigger value="challenge" className="flex-none px-4">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="submit" className="flex-none px-4">
+                Submit
+              </TabsTrigger>
+              <TabsTrigger value="reviews" className="flex-none px-4">
+                Reviews
+                {running && <LoaderCircle size={13} className="animate-spin" />}
+              </TabsTrigger>
+            </TabsList>
           </div>
-        </TabsContent>
-        <TabsContent value="reviews" className="min-h-0 overflow-hidden">
-          {attempts.isLoading ? (
-            <p role="status" className="text-sm text-muted">
-              Loading submissions…
-            </p>
-          ) : attempts.error ? (
-            <div role="alert">
-              <p>{attempts.error.message}</p>
-              <Button onClick={() => attempts.refetch()}>Retry</Button>
+          <TabsContent
+            value="challenge"
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
+            <div className="px-5 py-6 md:px-10">
+              <div className="mx-auto max-w-[850px] space-y-6">
+                <ChallengeCard
+                  challenge={challenge}
+                  className="max-w-none"
+                  showTitle={false}
+                  headerAction={
+                    <CopyButton
+                      text={statementMarkdown(challenge)}
+                      label="Copy challenge"
+                    />
+                  }
+                />
+                {active && (
+                  <div className="flex gap-2">
+                    <Button variant="primary" onClick={() => setTab("submit")}>
+                      Submit implementation
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setHelpOpen(!helpOpen)}
+                      aria-expanded={helpOpen}
+                    >
+                      Help
+                    </Button>
+                  </div>
+                )}
+                {helpOpen && active && (
+                  <section
+                    className="space-y-4 rounded-lg border border-line p-4"
+                    aria-label="Challenge help"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => help.mutate("hint")}
+                      >
+                        Give me a hint
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => help.mutate("approach")}
+                      >
+                        High-level approach
+                      </Button>
+                    </div>
+                    <form
+                      className="flex items-start gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (draft.question.trim()) help.mutate("clarify");
+                      }}
+                    >
+                      <Textarea
+                        aria-label="Clarify a requirement"
+                        value={draft.question}
+                        onChange={(e) => update({ question: e.target.value })}
+                        placeholder="What is unclear in the requirements?"
+                        rows={2}
+                      />
+                      <Button
+                        size="sm"
+                        type="submit"
+                        disabled={busy || !draft.question.trim()}
+                      >
+                        Clarify
+                      </Button>
+                    </form>
+                    {reply && (
+                      <div aria-live="polite">
+                        <Markdown>{reply}</Markdown>
+                      </div>
+                    )}
+                    {help.isPending && !reply && (
+                      <p role="status" className="text-xs text-muted">
+                        Preparing help…
+                      </p>
+                    )}
+                  </section>
+                )}
+                {!!savedHelp.length && (
+                  <details className="border-t border-line pt-4 text-sm">
+                    <summary className="cursor-pointer text-muted">
+                      Saved help ({savedHelp.length})
+                    </summary>
+                    <div className="mt-4 space-y-5">
+                      {savedHelp.map((m) => (
+                        <div key={m.id}>
+                          <p className="mb-1 text-xs text-muted">
+                            {m.role === "user" ? "You" : "Guidance"}
+                          </p>
+                          <Markdown>{m.content}</Markdown>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+                {challenge.contextSnapshot && (
+                  <details className="text-xs text-muted">
+                    <summary className="cursor-pointer">
+                      Generation details
+                    </summary>
+                    <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
+                      {JSON.stringify(challenge.contextSnapshot, null, 2)}
+                    </pre>
+                  </details>
+                )}
+              </div>
             </div>
-          ) : (
-            <SubmissionHistory
-              attempts={attempts.data ?? []}
-              profileId={profile.id}
-              busy={busy || Boolean(running) || !active}
-              onRetry={(review, response) =>
-                reviewAction.mutate({ review, response })
-              }
-              onCancel={(review) =>
-                reviewAction.mutate({ review, cancel: true })
-              }
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+          <TabsContent
+            value="submit"
+            className="min-h-0 flex-1 overflow-y-auto"
+          >
+            <div className="px-5 py-6 md:px-10">
+              <section
+                className="mx-auto max-w-[900px] space-y-5"
+                aria-label="Submit implementation"
+              >
+                {!active && (
+                  <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
+                    {challenge.status === "completed"
+                      ? "You marked this challenge completed."
+                      : challenge.status === "saved"
+                        ? "This challenge is saved for later."
+                        : "This challenge is paused."}{" "}
+                    Resume to submit another version.
+                  </div>
+                )}
+                <SubmissionComposer
+                  active={active}
+                  busy={busy}
+                  running={Boolean(running)}
+                  projects={projects.data ?? []}
+                  projectsLoading={projects.isLoading}
+                  projectsError={Boolean(projects.error)}
+                  projectId={draft.projectId}
+                  uploads={draft.uploads}
+                  content={draft.content}
+                  uploadProgress={uploadProgress}
+                  uploadNotice={uploadNotice}
+                  onProjectChange={(projectId) => update({ projectId })}
+                  onConnectFolder={() => setFolderOpen(true)}
+                  onUpload={(files) => upload.mutate(files)}
+                  onRemoveUpload={(id) =>
+                    update({
+                      uploads: draft.uploads.filter((file) => file.id !== id),
+                    })
+                  }
+                  onClearUploads={() => update({ uploads: [] })}
+                  onContentChange={(content) => update({ content })}
+                  onSubmit={() => submit.mutate()}
+                  onViewReview={() => setTab("reviews")}
+                />
+              </section>
+            </div>
+          </TabsContent>
+          <TabsContent value="reviews" className="min-h-0 overflow-hidden">
+            {attempts.isLoading ? (
+              <p role="status" className="text-sm text-muted">
+                Loading submissions…
+              </p>
+            ) : attempts.error ? (
+              <div role="alert">
+                <p>{attempts.error.message}</p>
+                <Button onClick={() => attempts.refetch()}>Retry</Button>
+              </div>
+            ) : (
+              <SubmissionHistory
+                attempts={attempts.data ?? []}
+                selectedId={selectedSubmissionId}
+                onSelectedChange={setSelectedSubmissionId}
+                busy={busy || Boolean(running) || !active}
+                onRetry={(review, response) =>
+                  reviewAction.mutate({ review, response })
+                }
+                onCancel={(review) =>
+                  reviewAction.mutate({ review, cancel: true })
+                }
+              />
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+      {filesOpen && selectedAttempt && (
+        <SubmissionFiles
+          key={selectedAttempt.id}
+          attempt={selectedAttempt}
+          profileId={profile.id}
+          projectPath={selectedProject?.root ?? null}
+          submissionCount={attempts.data?.length ?? 0}
+          onClose={() => setFilesOpen(false)}
+        />
+      )}
       <ProjectPicker
         profileId={profile.id}
         open={folderOpen}
