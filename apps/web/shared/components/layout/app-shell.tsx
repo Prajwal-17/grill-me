@@ -17,9 +17,11 @@ import { useAppNavigation } from "@/shared/components/layout/use-app-navigation"
 export function AppShell({
   profile,
   children,
+  contentScrollable = true,
 }: {
   profile: Profile;
   children: ReactNode;
+  contentScrollable?: boolean;
 }) {
   const { collapsed, toggle, open, setOpen } = useAppNavigation();
   const reduced = useReducedMotion();
@@ -54,7 +56,10 @@ export function AppShell({
         <MobileNavigation profile={profile} open={open} setOpen={setOpen} />
         <div
           data-slot="app-content"
-          className="relative min-h-0 flex-1 overflow-y-auto bg-surface md:rounded-xl md:border md:border-line"
+          className={cn(
+            "relative min-h-0 flex-1 bg-surface md:rounded-xl md:border md:border-line",
+            contentScrollable ? "overflow-y-auto" : "overflow-hidden",
+          )}
         >
           {collapsed && (
             <div className="absolute left-2 top-2 z-40 hidden md:block">

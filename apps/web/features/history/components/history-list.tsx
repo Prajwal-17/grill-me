@@ -49,7 +49,7 @@ export function HistoryList({
           </span>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-8">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-8">
         <div className="mx-auto w-full max-w-[1100px]">
           <TopicProgressView profileId={profileId} />
           {challenges.length ? (

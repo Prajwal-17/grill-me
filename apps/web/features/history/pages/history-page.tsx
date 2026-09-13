@@ -32,7 +32,7 @@ export function HistoryPage() {
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
   return (
-    <AppShell profile={profile}>
+    <AppShell profile={profile} contentScrollable={false}>
       {history.isLoading ? (
         <LoadingScreen label="Loading history…" />
       ) : history.error ? (

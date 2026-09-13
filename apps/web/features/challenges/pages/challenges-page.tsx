@@ -102,7 +102,7 @@ export function ChallengesPage() {
   if (!profile) return null;
   const error = active.error ?? saved.error ?? history.error;
   return (
-    <AppShell profile={profile}>
+    <AppShell profile={profile} contentScrollable={false}>
       {active.isLoading || saved.isLoading || history.isLoading ? (
         <LoadingScreen />
       ) : error ? (
@@ -128,7 +128,7 @@ export function ChallengesPage() {
               </Link>
             </div>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-8">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-8">
             <div className="mx-auto w-full max-w-[1100px]">
               <section>
                 <h2 className="mb-4 flex items-center gap-2.5 text-sm font-medium">

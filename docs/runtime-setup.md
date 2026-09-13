@@ -45,7 +45,7 @@ docker compose exec backend codex login --device-auth
 docker compose exec backend bun run codex:doctor
 ```
 
-Web and API ports bind to host loopback. Database and Codex authentication use separate named volumes; project mounts are read-only. This profile supports project inspection. Automatic verification is intended for the native backend with Docker available; the default compose profile does not expose a host Docker socket or run privileged Docker-in-Docker. Both application profiles share the same prompts and judging contract.
+Web and API ports bind to host loopback. The host's `${HOME}/.config/grill-me` directory is mounted at `/root/.config/grill-me`, so native and Compose runs share the same database, submissions, uploads, evaluations, and backups. Codex authentication remains in its separate named volume, and project mounts are read-only. This profile supports project inspection. Automatic verification is intended for the native backend with Docker available; the default compose profile does not expose a host Docker socket or run privileged Docker-in-Docker. Both application profiles share the same prompts and judging contract.
 
 Validation commands
 -------------------

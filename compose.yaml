@@ -7,15 +7,13 @@ services:
     environment:
       API_HOST: 0.0.0.0
       API_PORT: 8017
-      DATABASE_URL: /data/grill-me.sqlite
-      SNAPSHOT_ROOT: /data/submissions
-      UPLOAD_ROOT: /data/uploads
+      GRILL_ME_HOME: /root/.config/grill-me
       WEB_ORIGIN: http://localhost:8018
       CODEX_HOME: /codex-state
     ports:
       - "127.0.0.1:8017:8017"
     volumes:
-      - grill-data:/data
+      - ${HOME}/.config/grill-me:/root/.config/grill-me
       - codex-state:/codex-state
       - ${GRILL_PROJECTS_PATH:-./workspace}:/projects:ro
   web:
@@ -29,5 +27,4 @@ services:
     depends_on:
       - backend
 volumes:
-  grill-data:
   codex-state:
