@@ -7,6 +7,7 @@ import { create } from "zustand";
 import {
   ArrowLeft,
   LoaderCircle,
+  Lightbulb,
   Pause,
   Play,
   Check,
@@ -15,20 +16,16 @@ import {
 } from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
-import { Textarea } from "@/shared/components/ui/textarea";
 import { Markdown } from "@/shared/components/markdown";
 import { ChallengeCard } from "@/features/challenges/components/challenge-card";
 import { CopyButton } from "@/shared/components/ui/copy-button";
 import { statementMarkdown } from "@/features/challenges/lib/challenge-statement";
 import { challengeKeys } from "@/features/challenges/api/challenge-api";
-import {
-  getHint,
-  getMessages,
-  sendMessage,
-} from "@/features/chat/api/message-api";
+import { getHint, getMessages } from "@/features/chat/api/message-api";
 import {
   cancelReview,
   connectProject,
+  getJudgeStatus,
   getProjects,
   getSubmissions,
   retryReview,
@@ -52,13 +49,11 @@ type Draft = {
   content: string;
   uploads: { id: string; filename: string }[];
   projectId: string;
-  question: string;
 };
 const emptyDraft: Draft = {
   content: "",
   uploads: [],
   projectId: "",
-  question: "",
 };
 
 const useDrafts = create<{
@@ -90,7 +85,6 @@ export function PracticeWorkspace({
   const [tab, setTab] = useState("challenge");
   const [folderOpen, setFolderOpen] = useState(false);
   const [uploadNotice, setUploadNotice] = useState("");
-  const [helpOpen, setHelpOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [reply, setReply] = useState("");
   const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
@@ -118,6 +112,13 @@ export function PracticeWorkspace({
   const projects = useQuery({
     queryKey: ["projects", profile.id],
     queryFn: () => getProjects(profile.id),
+  });
+  const judgeStatus = useQuery({
+    queryKey: ["judge-status", profile.id],
+    queryFn: () => getJudgeStatus(profile.id),
+    enabled: tab === "submit",
+    retry: false,
+    staleTime: 15_000,
   });
   const messages = useQuery({
     queryKey: challengeKeys.messages(challenge.id),
@@ -239,24 +240,13 @@ export function PracticeWorkspace({
         : retryReview(profile.id, review.id, response ?? null),
     onSuccess: refresh,
   });
-  const help = useMutation({
-    mutationFn: async (kind: "clarify" | "hint" | "approach") => {
+  const hint = useMutation({
+    mutationFn: async () => {
       setReply("");
       const delta = (text: string) => setReply((current) => current + text);
-      return kind === "clarify"
-        ? sendMessage(
-            profile.id,
-            challenge.id,
-            draft.question,
-            "clarify",
-            [],
-            delta,
-          )
-        : getHint(profile.id, challenge.id, delta, kind);
+      return getHint(profile.id, challenge.id, delta);
     },
     onSuccess: async () => {
-      update({ question: "" });
-      setReply("");
       await refresh();
     },
   });
@@ -269,11 +259,26 @@ export function PracticeWorkspace({
   const selectedProject = projects.data?.find(
     (project) => project.id === selectedAttempt?.projectId,
   );
+  const projectReview =
+    Boolean(draft.projectId) ||
+    draft.uploads.some((file) => file.filename.includes("/"));
+  const reviewIssue = judgeStatus.data
+    ? projectReview
+      ? !judgeStatus.data.codex.installed
+        ? "Codex is not installed. " + judgeStatus.data.codex.message
+        : !judgeStatus.data.codex.authenticated
+          ? "Codex is not signed in. " + judgeStatus.data.codex.message
+          : null
+      : !judgeStatus.data.omniroute.configured ||
+          !judgeStatus.data.omniroute.online
+        ? judgeStatus.data.omniroute.message
+        : null
+    : null;
   const busy =
     connection.isPending ||
     submit.isPending ||
     upload.isPending ||
-    help.isPending ||
+    hint.isPending ||
     lifecycle.isPending ||
     reviewAction.isPending;
   const active = challenge.status === "active";
@@ -283,10 +288,8 @@ export function PracticeWorkspace({
     connection.error ??
     lifecycle.error ??
     reviewAction.error ??
-    help.error;
-  const savedHelp =
-    messages.data?.filter((m) => m.mode === "hint" || m.mode === "clarify") ??
-    [];
+    hint.error;
+  const savedHints = messages.data?.filter((m) => m.mode === "hint") ?? [];
   return (
     <main className="relative flex h-full min-h-0 overflow-hidden">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -433,80 +436,44 @@ export function PracticeWorkspace({
                     </Button>
                     <Button
                       variant="ghost"
-                      onClick={() => setHelpOpen(!helpOpen)}
-                      aria-expanded={helpOpen}
+                      disabled={busy}
+                      onClick={() => hint.mutate()}
                     >
-                      Help
+                      {hint.isPending ? (
+                        <LoaderCircle size={14} className="animate-spin" />
+                      ) : (
+                        <Lightbulb size={14} />
+                      )}
+                      Hint
                     </Button>
                   </div>
                 )}
-                {helpOpen && active && (
+                {(reply || hint.isPending) && active && (
                   <section
-                    className="space-y-4 rounded-lg border border-line p-4"
-                    aria-label="Challenge help"
+                    className="border-l-2 border-[var(--grill-accent)] py-1 pl-4"
+                    aria-label="Challenge hint"
+                    aria-live="polite"
                   >
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        disabled={busy}
-                        onClick={() => help.mutate("hint")}
-                      >
-                        Give me a hint
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={busy}
-                        onClick={() => help.mutate("approach")}
-                      >
-                        High-level approach
-                      </Button>
-                    </div>
-                    <form
-                      className="flex items-start gap-2"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        if (draft.question.trim()) help.mutate("clarify");
-                      }}
-                    >
-                      <Textarea
-                        aria-label="Clarify a requirement"
-                        value={draft.question}
-                        onChange={(e) => update({ question: e.target.value })}
-                        placeholder="What is unclear in the requirements?"
-                        rows={2}
-                      />
-                      <Button
-                        size="sm"
-                        type="submit"
-                        disabled={busy || !draft.question.trim()}
-                      >
-                        Clarify
-                      </Button>
-                    </form>
                     {reply && (
-                      <div aria-live="polite">
+                      <div className="text-sm leading-6">
                         <Markdown>{reply}</Markdown>
                       </div>
                     )}
-                    {help.isPending && !reply && (
+                    {hint.isPending && !reply && (
                       <p role="status" className="text-xs text-muted">
-                        Preparing help…
+                        Preparing a hint…
                       </p>
                     )}
                   </section>
                 )}
-                {!!savedHelp.length && (
+                {!!savedHints.length && (
                   <details className="border-t border-line pt-4 text-sm">
                     <summary className="cursor-pointer text-muted">
-                      Saved help ({savedHelp.length})
+                      Previous hints ({savedHints.length})
                     </summary>
                     <div className="mt-4 space-y-5">
-                      {savedHelp.map((m) => (
+                      {savedHints.map((m) => (
                         <div key={m.id}>
-                          <p className="mb-1 text-xs text-muted">
-                            {m.role === "user" ? "You" : "Guidance"}
-                          </p>
                           <Markdown>{m.content}</Markdown>
                         </div>
                       ))}
@@ -569,6 +536,10 @@ export function PracticeWorkspace({
                   onContentChange={(content) => update({ content })}
                   onSubmit={() => submit.mutate()}
                   onViewReview={() => setTab("reviews")}
+                  reviewIssue={reviewIssue}
+                  reviewStatusLoading={judgeStatus.isLoading}
+                  reviewStatusError={Boolean(judgeStatus.error)}
+                  onRetryReviewStatus={() => judgeStatus.refetch()}
                 />
               </section>
             </div>

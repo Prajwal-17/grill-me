@@ -2,7 +2,10 @@
 
 import {
   ArrowRight,
+  AlertTriangle,
   Braces,
+  Check,
+  ChevronsUpDown,
   Database,
   File,
   FileArchive,
@@ -20,16 +23,24 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useState } from "react";
 import type { ConnectedProject } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/shared/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
+import { cn } from "@/shared/lib/cn";
 
 type UploadedFile = { id: string; filename: string };
 
@@ -132,6 +143,10 @@ export function SubmissionComposer({
   onContentChange,
   onSubmit,
   onViewReview,
+  reviewIssue,
+  reviewStatusLoading,
+  reviewStatusError,
+  onRetryReviewStatus,
 }: {
   active: boolean;
   busy: boolean;
@@ -152,7 +167,12 @@ export function SubmissionComposer({
   onContentChange: (content: string) => void;
   onSubmit: () => void;
   onViewReview: () => void;
+  reviewIssue: string | null;
+  reviewStatusLoading: boolean;
+  reviewStatusError: boolean;
+  onRetryReviewStatus: () => void;
 }) {
+  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const selectedProject = projects.find((project) => project.id === projectId);
   const hasSource = Boolean(projectId || uploads.length || content.trim());
   const snippetLines = content.trim() ? content.trim().split("\n").length : 0;
@@ -165,36 +185,88 @@ export function SubmissionComposer({
       <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
           <label className="mb-2 block text-xs font-medium">Project</label>
-          <Select
-            value={projectId || "__attached__"}
-            onValueChange={(value) =>
-              onProjectChange(value === "__attached__" ? "" : value)
-            }
-            disabled={projectsLoading}
-          >
-            <SelectTrigger
-              aria-label="Connected project"
-              className="h-9 w-full min-w-0"
+          <Popover open={projectMenuOpen} onOpenChange={setProjectMenuOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                role="combobox"
+                aria-label="Connected project"
+                aria-expanded={projectMenuOpen}
+                disabled={projectsLoading}
+                className="h-9 w-full min-w-0 justify-between px-3 font-normal"
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {selectedProject ? (
+                    <Folder size={15} className="shrink-0" />
+                  ) : (
+                    <Files size={15} className="shrink-0" />
+                  )}
+                  <span className="truncate">
+                    {projectsLoading
+                      ? "Loading projects…"
+                      : selectedProject?.name || "Attached files only"}
+                  </span>
+                </span>
+                <ChevronsUpDown size={14} className="shrink-0 text-muted" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="start"
+              className="w-[var(--radix-popover-trigger-width)] p-0"
             >
-              <SelectValue
-                placeholder={
-                  projectsLoading ? "Loading projects…" : "Attached files only"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent position="popper" align="start">
-              <SelectItem value="__attached__">
-                <Files size={15} />
-                Attached files only
-              </SelectItem>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  <Folder size={15} />
-                  {project.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <Command>
+                <CommandInput placeholder="Search folders…" />
+                <CommandList>
+                  <CommandEmpty>No connected folders found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="attached files only"
+                      onSelect={() => {
+                        onProjectChange("");
+                        setProjectMenuOpen(false);
+                      }}
+                    >
+                      <Files />
+                      <span>Attached files only</span>
+                      <Check
+                        className={cn(
+                          "ml-auto",
+                          projectId ? "opacity-0" : "opacity-100",
+                        )}
+                      />
+                    </CommandItem>
+                    {projects.map((project) => (
+                      <CommandItem
+                        key={project.id}
+                        value={project.name + " " + project.root}
+                        onSelect={() => {
+                          onProjectChange(project.id);
+                          setProjectMenuOpen(false);
+                        }}
+                      >
+                        <Folder />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{project.name}</span>
+                          <span className="block truncate font-mono text-[10px] text-muted">
+                            {project.root}
+                          </span>
+                        </span>
+                        <Check
+                          className={cn(
+                            "ml-auto",
+                            project.id === projectId
+                              ? "opacity-100"
+                              : "opacity-0",
+                          )}
+                        />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
         <Button onClick={onConnectFolder}>
           <Folder size={15} />
@@ -324,11 +396,38 @@ export function SubmissionComposer({
       </details>
 
       <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <p role="status" className="min-w-0 truncate text-xs text-muted">
-          {uploadProgress ||
-            uploadNotice ||
-            (hasSource ? "Ready for review" : "Add a project, file, or code")}
-        </p>
+        <div className="flex min-w-0 items-center gap-2">
+          {reviewIssue && (
+            <AlertTriangle size={14} className="shrink-0 text-warning" />
+          )}
+          <p
+            role="status"
+            className={cn(
+              "min-w-0 text-xs",
+              reviewIssue ? "text-warning" : "truncate text-muted",
+            )}
+          >
+            {uploadProgress ||
+              uploadNotice ||
+              reviewIssue ||
+              (reviewStatusLoading
+                ? "Checking review service…"
+                : reviewStatusError
+                  ? "Could not check review service."
+                  : hasSource
+                    ? "Ready for review"
+                    : "Add a project, file, or code")}
+          </p>
+          {(reviewIssue || reviewStatusError) && (
+            <button
+              type="button"
+              className="shrink-0 text-xs underline underline-offset-2"
+              onClick={onRetryReviewStatus}
+            >
+              Retry
+            </button>
+          )}
+        </div>
         <div className="flex shrink-0 gap-2">
           {running && (
             <Button size="sm" variant="ghost" onClick={onViewReview}>
@@ -337,7 +436,13 @@ export function SubmissionComposer({
           )}
           <Button
             variant="primary"
-            disabled={!active || busy || running || !hasSource}
+            disabled={
+              !active ||
+              busy ||
+              running ||
+              !hasSource ||
+              Boolean(reviewIssue)
+            }
             onClick={onSubmit}
           >
             {busy && <LoaderCircle size={15} className="animate-spin" />}

@@ -29,6 +29,23 @@ export const getSubmissionFile = (
   );
 export const getProjects = (profile: string) =>
   apiRequest<ConnectedProject[]>("/projects", {}, profile);
+export type JudgeStatus = {
+  codex: {
+    installed: boolean;
+    authenticated: boolean;
+    version: string | null;
+    message: string;
+  };
+  omniroute: {
+    configured: boolean;
+    online: boolean;
+    message: string;
+  };
+  omnirouteConfigured: boolean;
+  verificationAvailable: boolean;
+};
+export const getJudgeStatus = (profile: string) =>
+  apiRequest<JudgeStatus>("/judges/status", {}, profile);
 export const connectProject = (profile: string, path: string) =>
   apiRequest<ConnectedProject>("/projects", post({ path }), profile);
 export const submitAttempt = (

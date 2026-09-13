@@ -8,6 +8,7 @@ import {
   Folder,
   Home,
   LoaderCircle,
+  Search,
 } from "lucide-react";
 import { browseFolders } from "../api/review-api";
 import { Button } from "@/shared/components/ui/button";
@@ -89,6 +90,7 @@ export function ProjectPicker({
 }) {
   const [path, setPath] = useState("");
   const [typedPath, setTypedPath] = useState("");
+  const [folderSearch, setFolderSearch] = useState("");
   const listing = useQuery({
     queryKey: ["folders", profileId, path],
     queryFn: () => browseFolders(profileId, path),
@@ -96,10 +98,15 @@ export function ProjectPicker({
     retry: false,
   });
   const selectedPath = listing.data?.path ?? path;
+  const folders =
+    listing.data?.folders.filter((folder) =>
+      folder.name.toLowerCase().includes(folderSearch.trim().toLowerCase()),
+    ) ?? [];
 
   function navigate(next: string) {
     setPath(next);
     setTypedPath("");
+    setFolderSearch("");
   }
 
   return (
@@ -149,6 +156,22 @@ export function ProjectPicker({
             <PathBreadcrumb path={selectedPath} onNavigate={navigate} />
           </div>
 
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              size={14}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+            />
+            <Input
+              aria-label="Search folders"
+              value={folderSearch}
+              onChange={(event) => setFolderSearch(event.target.value)}
+              placeholder="Search this folder"
+              autoComplete="off"
+              className="h-9 pl-9"
+            />
+          </div>
+
           <div className="h-56 overflow-y-auto rounded-md border border-line p-1">
             {listing.isLoading || listing.isFetching ? (
               <div className="flex h-full items-center justify-center gap-2 text-sm text-muted">
@@ -165,9 +188,9 @@ export function ProjectPicker({
                   Go home
                 </Button>
               </div>
-            ) : listing.data?.folders.length ? (
+            ) : folders.length ? (
               <div role="list" aria-label="Folders">
-                {listing.data.folders.map((folder) => (
+                {folders.map((folder) => (
                   <button
                     type="button"
                     role="listitem"
@@ -186,6 +209,10 @@ export function ProjectPicker({
                     />
                   </button>
                 ))}
+              </div>
+            ) : folderSearch && listing.data?.folders.length ? (
+              <div className="flex h-full items-center justify-center text-sm text-muted">
+                No matching folders
               </div>
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-muted">

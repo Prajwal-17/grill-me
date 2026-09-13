@@ -563,6 +563,18 @@ function eventResponse(events: Record<string, unknown>[]) {
     { headers: { "Content-Type": "text/event-stream" } },
   );
 }
+
+function claudeResponse(text: string) {
+  return {
+    id: "msg-claude",
+    type: "message",
+    role: "assistant",
+    model: "claude-test",
+    stop_reason: "end_turn",
+    content: [{ type: "text", text }],
+    usage: { input_tokens: 100, output_tokens: 25 },
+  };
+}
 async function profileLogs(app: TestApp, id: string, query = "") {
   const response = await request(app, `/logs${query}`, id);
   expect(response.status).toBe(200);
@@ -713,6 +725,47 @@ describe("AI request logs", () => {
     expect(log.durationMs).toBeGreaterThanOrEqual(0);
     expect(log.firstTokenMs).toBeNull();
     expect(log.completedAt).not.toBeNull();
+  });
+
+  test("accepts Claude-style structured and streaming text shapes", async () => {
+    const app = createApp({
+      llm: loggedModel(() =>
+        Response.json(claudeResponse(JSON.stringify(generated))),
+      ),
+    });
+    const owner = await startProfile(
+      app,
+      `claude-shape-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id);
+    const preferences = (
+      await json<{ data: LearnerContext["preferences"] }>(
+        await request(app, "/profiles/preferences", owner.id),
+      )
+    ).data;
+    expect(challenge.title).toBe(generated.title);
+
+    const streaming = loggedModel(() =>
+      eventResponse([
+        {
+          type: "content_block_delta",
+          delta: { type: "text_delta", text: "Claude hint" },
+        },
+        { type: "message_stop" },
+      ]),
+    );
+    let hint = "";
+    for await (const delta of streaming.generateHint({
+      challenge,
+      messages: [],
+      learner: {
+        profileId: owner.id,
+        preferences,
+        recentChallenges: [],
+      },
+    }))
+      hint += delta;
+    expect(hint).toBe("Claude hint");
   });
 
   test("logs malformed output and provider errors without saving failed builds", async () => {

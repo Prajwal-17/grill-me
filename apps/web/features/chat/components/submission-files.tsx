@@ -19,6 +19,7 @@ import {
   Search,
   SquareCode,
   SquareTerminal,
+  X,
 } from "lucide-react";
 import type { PracticeSubmission } from "@/shared/types/api";
 import { getSubmissionFile } from "@/features/chat/api/review-api";
@@ -35,7 +36,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/shared/components/ui/context-menu";
 import { useAppStore } from "@/shared/stores/app-store";
+import { cn } from "@/shared/lib/cn";
 
 type CustomProperties = CSSProperties & Record<`--${string}`, string | number>;
 
@@ -48,6 +57,109 @@ function formatBytes(bytes: number) {
 function editorUrl(protocol: "cursor" | "vscode" | "zed", path: string) {
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
   return `${protocol}://file${encodedPath}`;
+}
+
+function fileName(path: string) {
+  return path.split("/").at(-1) ?? path;
+}
+
+function FileTabs({
+  paths,
+  selectedPath,
+  onSelect,
+  onClose,
+  onCloseOthers,
+  onCloseRight,
+  onCloseAll,
+}: {
+  paths: string[];
+  selectedPath: string;
+  onSelect: (path: string) => void;
+  onClose: (path: string) => void;
+  onCloseOthers: (path: string) => void;
+  onCloseRight: (path: string) => void;
+  onCloseAll: () => void;
+}) {
+  if (!paths.length) return null;
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Open submission files"
+      className="flex h-9 shrink-0 overflow-x-auto border-b border-line bg-surface"
+    >
+      {paths.map((path, index) => {
+        const active = path === selectedPath;
+        return (
+          <ContextMenu key={path}>
+            <ContextMenuTrigger asChild>
+              <div
+                role="tab"
+                tabIndex={active ? 0 : -1}
+                aria-selected={active}
+                title={path}
+                onClick={() => onSelect(path)}
+                onAuxClick={(event) => {
+                  if (event.button === 1) onClose(path);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onSelect(path);
+                  }
+                }}
+                className={cn(
+                  "group relative flex h-full max-w-48 shrink-0 cursor-default items-center gap-1.5 border-r border-line px-3 font-mono text-[11px] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
+                  active
+                    ? "bg-canvas/50 text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[var(--grill-accent)]"
+                    : "text-muted hover:bg-elevated/50 hover:text-foreground",
+                )}
+              >
+                <FileCode2 size={12} className="shrink-0" />
+                <span className="truncate">{fileName(path)}</span>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-label={`Close ${fileName(path)}`}
+                  className={cn(
+                    "ml-1 rounded-sm p-0.5 hover:bg-elevated hover:text-foreground",
+                    active
+                      ? "text-muted"
+                      : "text-transparent group-hover:text-muted",
+                  )}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onClose(path);
+                  }}
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onSelect={() => onClose(path)}>
+                Close
+              </ContextMenuItem>
+              <ContextMenuItem
+                disabled={paths.length === 1}
+                onSelect={() => onCloseOthers(path)}
+              >
+                Close others
+              </ContextMenuItem>
+              <ContextMenuItem
+                disabled={index === paths.length - 1}
+                onSelect={() => onCloseRight(path)}
+              >
+                Close to the right
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem onSelect={onCloseAll}>Close all</ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        );
+      })}
+    </div>
+  );
 }
 
 function SourcePath({ path }: { path: string }) {
@@ -100,7 +212,12 @@ function SubmissionFilesSurface({
   attempt,
   profileId,
   selectedPath,
+  openPaths,
   onSelect,
+  onCloseFile,
+  onCloseOtherFiles,
+  onCloseFilesToRight,
+  onCloseAllFiles,
   expanded,
   onExpandedChange,
   treeOpen,
@@ -112,7 +229,12 @@ function SubmissionFilesSurface({
   attempt: PracticeSubmission;
   profileId: string;
   selectedPath: string;
+  openPaths: string[];
   onSelect: (path: string) => void;
+  onCloseFile: (path: string) => void;
+  onCloseOtherFiles: (path: string) => void;
+  onCloseFilesToRight: (path: string) => void;
+  onCloseAllFiles: () => void;
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   treeOpen: boolean;
@@ -268,6 +390,19 @@ function SubmissionFilesSurface({
 
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col bg-canvas/35">
+          <FileTabs
+            paths={openPaths}
+            selectedPath={selectedPath}
+            onSelect={(path) => {
+              model.focusPath(path);
+              model.scrollToPath(path);
+              onSelect(path);
+            }}
+            onClose={onCloseFile}
+            onCloseOthers={onCloseOtherFiles}
+            onCloseRight={onCloseFilesToRight}
+            onCloseAll={onCloseAllFiles}
+          />
           <div className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-line px-3">
             {selectedPath ? (
               <SourcePath path={selectedPath} />
@@ -388,14 +523,49 @@ export function SubmissionFiles({
   const [selectedPath, setSelectedPath] = useState(
     attempt.manifest[0]?.path ?? "",
   );
+  const [openPaths, setOpenPaths] = useState<string[]>(
+    attempt.manifest[0]?.path ? [attempt.manifest[0].path] : [],
+  );
   const [expanded, setExpanded] = useState(false);
   const [treeOpen, setTreeOpen] = useState(true);
+  const openFile = (path: string) => {
+    setOpenPaths((current) =>
+      current.includes(path) ? current : [...current, path],
+    );
+    setSelectedPath(path);
+  };
+  const closeFile = (path: string) => {
+    const index = openPaths.indexOf(path);
+    const remaining = openPaths.filter((item) => item !== path);
+    setOpenPaths(remaining);
+    if (selectedPath === path)
+      setSelectedPath(remaining[Math.min(index, remaining.length - 1)] ?? "");
+  };
+  const closeOtherFiles = (path: string) => {
+    setOpenPaths([path]);
+    setSelectedPath(path);
+  };
+  const closeFilesToRight = (path: string) => {
+    const index = openPaths.indexOf(path);
+    const remaining = openPaths.slice(0, index + 1);
+    setOpenPaths(remaining);
+    if (!remaining.includes(selectedPath)) setSelectedPath(path);
+  };
+  const closeAllFiles = () => {
+    setOpenPaths([]);
+    setSelectedPath("");
+  };
   const surface = (fullScreen: boolean) => (
     <SubmissionFilesSurface
       attempt={attempt}
       profileId={profileId}
       selectedPath={selectedPath}
-      onSelect={setSelectedPath}
+      openPaths={openPaths}
+      onSelect={openFile}
+      onCloseFile={closeFile}
+      onCloseOtherFiles={closeOtherFiles}
+      onCloseFilesToRight={closeFilesToRight}
+      onCloseAllFiles={closeAllFiles}
       expanded={fullScreen}
       onExpandedChange={setExpanded}
       treeOpen={treeOpen}

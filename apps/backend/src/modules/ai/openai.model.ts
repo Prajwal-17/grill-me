@@ -32,6 +32,96 @@ type StructuredPrompt = {
   input: string;
 };
 
+function responseText(value: unknown) {
+  if (!value || typeof value !== "object") return "";
+  const response = value as Record<string, unknown>;
+  if (typeof response.output_text === "string") return response.output_text;
+  if (typeof response.content === "string") return response.content;
+
+  const containers = Array.isArray(response.output)
+    ? response.output
+    : [response];
+  const parts: string[] = [];
+  for (const container of containers) {
+    if (!container || typeof container !== "object") continue;
+    const content = (container as Record<string, unknown>).content;
+    if (!Array.isArray(content)) continue;
+    for (const part of content) {
+      if (!part || typeof part !== "object") continue;
+      const record = part as Record<string, unknown>;
+      if (typeof record.text === "string") parts.push(record.text);
+      else if (typeof record.output_text === "string")
+        parts.push(record.output_text);
+    }
+  }
+  return parts.join("");
+}
+
+function streamEventText(value: unknown) {
+  if (!value || typeof value !== "object") return "";
+  const event = value as Record<string, unknown>;
+  if (
+    event.type === "response.output_text.delta" &&
+    typeof event.delta === "string"
+  )
+    return event.delta;
+  if (
+    event.type === "response.output_text.done" &&
+    typeof event.text === "string"
+  )
+    return event.text;
+  if (
+    event.type === "content_block_delta" &&
+    event.delta &&
+    typeof event.delta === "object"
+  ) {
+    const delta = event.delta as Record<string, unknown>;
+    return typeof delta.text === "string" ? delta.text : "";
+  }
+  return "";
+}
+
+export async function omnirouteStatus() {
+  const apiKey = process.env.LLM_API_KEY;
+  const baseURL = process.env.LLM_BASE_URL ?? "http://localhost:20128/v1";
+  if (!apiKey)
+    return {
+      configured: false,
+      online: false,
+      message: "Add LLM_API_KEY to apps/backend/.env.",
+    };
+
+  try {
+    const response = await fetch(baseURL.replace(/\/+$/, "") + "/models", {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(2500),
+    });
+    if (response.status === 401 || response.status === 403)
+      return {
+        configured: true,
+        online: false,
+        message: "OmniRoute rejected LLM_API_KEY.",
+      };
+    if (!response.ok)
+      return {
+        configured: true,
+        online: false,
+        message: `OmniRoute returned HTTP ${response.status}.`,
+      };
+    return {
+      configured: true,
+      online: true,
+      message: "Ready for direct reviews",
+    };
+  } catch {
+    return {
+      configured: true,
+      online: false,
+      message: "OmniRoute is offline or unreachable.",
+    };
+  }
+}
+
 export function createOpenAIModel(
   options: { client?: OpenAI } = {},
 ): ModelGateway {
@@ -127,7 +217,8 @@ export function createOpenAIModel(
           true,
         );
       }
-      if (!response.output_text?.trim()) {
+      const outputText = responseText(response);
+      if (!outputText.trim()) {
         throw new AppError(
           "EMPTY_MODEL_RESPONSE",
           `The provider returned no ${stage} text. Retry or check your combo's Responses API support.`,
@@ -137,7 +228,7 @@ export function createOpenAIModel(
       }
       let parsed: unknown;
       try {
-        parsed = parseJson(response.output_text);
+        parsed = parseJson(outputText);
       } catch {
         throw new AppError(
           "MODEL_OUTPUT_INVALID",
@@ -195,15 +286,33 @@ export function createOpenAIModel(
       const events = await client().responses.create(request);
       for await (const event of events) {
         log.event(event);
-        if (event.type === "response.completed") completed = true;
-        if (event.type === "response.output_text.delta") {
+        const eventRecord = event as unknown as Record<string, unknown>;
+        const eventType = eventRecord.type;
+        const delta = streamEventText(event);
+        if (
+          eventType === "response.completed" ||
+          eventType === "response.output_text.done" ||
+          eventType === "message_stop"
+        )
+          completed = true;
+        if (
+          delta &&
+          !(eventType === "response.output_text.done" && receivedText)
+        ) {
           receivedText = true;
-          log.delta(event.delta);
-          yield event.delta;
+          log.delta(delta);
+          yield delta;
+        } else if (eventType === "response.completed" && !receivedText) {
+          const finalText = responseText(eventRecord.response);
+          if (finalText) {
+            receivedText = true;
+            log.delta(finalText);
+            yield finalText;
+          }
         } else if (
-          event.type === "error" ||
-          event.type === "response.failed" ||
-          event.type === "response.incomplete"
+          eventType === "error" ||
+          eventType === "response.failed" ||
+          eventType === "response.incomplete"
         ) {
           throw new AppError(
             "MODEL_STREAM_FAILED",

@@ -8,6 +8,7 @@ import { parseInput, readJson } from "../../shared/http/validation";
 import { profileIdSchema } from "../profiles/profile.schema";
 import type { ProfileService } from "../profiles/profile.service";
 import { codexStatus, codexModels } from "../judges/codex";
+import { omnirouteStatus } from "../ai/openai.model";
 import { AppError } from "../../shared/errors/app-error";
 export function createReviewRoutes(
   service: ReturnType<typeof createReviewService>,
@@ -70,11 +71,13 @@ export function createReviewRoutes(
   });
   routes.get("/judges/status", async (c) => {
     profile(c);
+    const omniroute = await omnirouteStatus();
     return c.json({
       data: {
         codex: await codexStatus(),
         verificationAvailable: Boolean(Bun.which("docker")),
-        omnirouteConfigured: Boolean(process.env.LLM_API_KEY),
+        omniroute,
+        omnirouteConfigured: omniroute.configured,
       },
     });
   });
