@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { CopyButton } from "@/shared/components/ui/copy-button";
 import { Check, LoaderCircle } from "lucide-react";
 import type { PracticeSubmission, ReviewJob } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
@@ -273,27 +272,13 @@ export function AttemptReview({
                 be available in Logs.
               </p>
             )}
+            <p>
+              New Codex reviews use temporary sessions and cannot be resumed in
+              Codex CLI. Their full request, response, and tool history is saved
+              here in Logs. Use Grill Me to reassess a submission.
+            </p>
             {review.providerThreadId && (
-              <>
-                <p>
-                  View this session with the same Codex account and home used by
-                  Grill Me:
-                </p>
-                <div className="flex items-start justify-between gap-2 rounded border border-line p-3">
-                  <code className="break-all text-foreground">
-                    codex resume {review.providerThreadId}
-                  </code>
-                  <CopyButton
-                    text={"codex resume " + review.providerThreadId}
-                    label="Copy Codex resume command"
-                  />
-                </div>
-                <p>
-                  Use Grill Me for further reviews so its file tools remain
-                  available. Sessions created before persistent history was
-                  enabled cannot be resumed.
-                </p>
-              </>
+              <p className="break-all">Session ID: {review.providerThreadId}</p>
             )}
           </div>
         </details>

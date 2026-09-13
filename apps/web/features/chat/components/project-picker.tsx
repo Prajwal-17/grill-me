@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Folder, FolderUp, ArrowUp, LoaderCircle } from "lucide-react";
+import { Folder, ArrowUp, LoaderCircle } from "lucide-react";
 import { browseFolders } from "../api/review-api";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -16,13 +16,11 @@ export function ProjectPicker({
   open,
   onOpenChange,
   onSelect,
-  onUpload,
 }: {
   profileId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (path: string) => void;
-  onUpload: (files: File[]) => void;
 }) {
   const [path, setPath] = useState("");
   const [typedPath, setTypedPath] = useState<string | null>(null);
@@ -42,10 +40,10 @@ export function ProjectPicker({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Choose a project folder</DialogTitle>
+          <DialogTitle>Connect a folder</DialogTitle>
           <DialogDescription>
-            Enter a path or browse folders on this machine. You can also upload
-            a folder from your computer.
+            Enter a path or browse folders available to Grill Me. Files are read
+            when you submit for review.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -127,26 +125,7 @@ export function ProjectPicker({
             </p>
           )}
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="relative flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-muted hover:text-foreground focus-within:ring-2">
-            <FolderUp size={16} />
-            Upload folder
-            <input
-              aria-label="Choose folder from computer"
-              type="file"
-              multiple
-              {...{ webkitdirectory: "" }}
-              className="absolute inset-0 cursor-pointer opacity-0"
-              onChange={(e) => {
-                const files = Array.from(e.target.files ?? []);
-                e.target.value = "";
-                if (files.length) {
-                  onUpload(files);
-                  onOpenChange(false);
-                }
-              }}
-            />
-          </label>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
@@ -164,7 +143,7 @@ export function ProjectPicker({
                 onOpenChange(false);
               }}
             >
-              Select folder
+              Connect folder
             </Button>
           </div>
         </div>

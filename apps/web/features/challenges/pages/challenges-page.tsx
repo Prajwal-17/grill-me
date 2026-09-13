@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Blocks,
   BookOpen,
+  Bookmark,
   Check,
   Network,
   Plus,
@@ -17,6 +18,7 @@ import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
 import {
   challengeKeys,
   getActiveChallenges,
+  getSavedChallenges,
   getChallengeHistory,
 } from "@/features/challenges/api/challenge-api";
 import { formatDate } from "@/features/challenges/lib/challenge-formatters";
@@ -60,7 +62,13 @@ function ChallengeRow({ challenge }: { challenge: Challenge }) {
         ) : (
           <span className="size-1.5 rounded-full border border-current" />
         )}
-        {completed ? "Completed" : "In progress"}
+        {completed
+          ? "Completed"
+          : challenge.status === "saved"
+            ? "Saved for later"
+            : challenge.status === "paused"
+              ? "Paused"
+              : "In progress"}
       </span>
       <ArrowUpRight
         size={16}
@@ -77,6 +85,11 @@ export function ChallengesPage() {
     queryFn: () => getActiveChallenges(profile!.id),
     enabled: Boolean(profile),
   });
+  const saved = useQuery({
+    queryKey: challengeKeys.saved(profile?.id),
+    queryFn: () => getSavedChallenges(profile!.id),
+    enabled: Boolean(profile),
+  });
   const history = useQuery({
     queryKey: challengeKeys.history(profile?.id),
     queryFn: () => getChallengeHistory(profile!.id),
@@ -84,10 +97,10 @@ export function ChallengesPage() {
   });
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
-  const error = active.error ?? history.error;
+  const error = active.error ?? saved.error ?? history.error;
   return (
     <AppShell profile={profile}>
-      {active.isLoading || history.isLoading ? (
+      {active.isLoading || saved.isLoading || history.isLoading ? (
         <LoadingScreen />
       ) : error ? (
         <ErrorState
@@ -95,6 +108,7 @@ export function ChallengesPage() {
           message={error.message}
           onRetry={() => {
             void active.refetch();
+            void saved.refetch();
             void history.refetch();
           }}
         />
@@ -131,6 +145,26 @@ export function ChallengesPage() {
                   Create build
                 </Link>
               </div>
+            )}
+          </section>
+          <section className="mt-10" aria-label="Saved for later">
+            <h2 className="mb-4 flex items-center gap-2.5 text-sm font-medium">
+              <Bookmark size={15} /> Saved for later
+              <span className="rounded-md bg-canvas px-1.5 py-0.5 text-xs text-muted">
+                {saved.data?.length ?? 0}
+              </span>
+            </h2>
+            {saved.data?.length ? (
+              <div className="overflow-hidden rounded-xl border border-line">
+                {saved.data.map((challenge) => (
+                  <ChallengeRow key={challenge.id} challenge={challenge} />
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg border border-line px-5 py-5 text-sm text-muted">
+                Good challenge, wrong time? Save it for later and return when
+                you’re ready.
+              </p>
             )}
           </section>
           <section className="mt-10">

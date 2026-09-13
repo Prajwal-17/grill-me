@@ -22,6 +22,13 @@
       "when": 1789279932702,
       "tag": "0002_wealthy_luke_cage",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789283852442,
+      "tag": "0003_magenta_jack_flag",
+      "breakpoints": true
     }
   ]
 }

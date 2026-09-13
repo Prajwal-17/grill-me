@@ -81,7 +81,9 @@ export const challenges = sqliteTable("challenges", {
     .$type<string[]>()
     .notNull(),
   hint: text("hint"),
-  status: text("status", { enum: ["active", "paused", "stopped", "completed"] })
+  status: text("status", {
+    enum: ["active", "paused", "saved", "stopped", "completed"],
+  })
     .notNull()
     .default("active"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
@@ -245,3 +247,18 @@ export const verificationRuns = sqliteTable("verification_runs", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+export const aiLogEvents = sqliteTable(
+  "ai_log_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    logId: text("log_id")
+      .notNull()
+      .references(() => aiLogs.id, { onDelete: "cascade" }),
+    recordedAt: integer("recorded_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    payload: text("payload", { mode: "json" }).$type<unknown>().notNull(),
+  },
+  (table) => [index("ai_log_events_log_idx").on(table.logId, table.id)],
+);

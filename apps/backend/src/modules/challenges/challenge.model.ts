@@ -31,6 +31,20 @@ export const challengeModel = {
       .all();
   },
 
+  findSaved(profileId: string) {
+    return db
+      .select()
+      .from(challenges)
+      .where(
+        and(
+          eq(challenges.profileId, profileId),
+          eq(challenges.status, "saved"),
+        ),
+      )
+      .orderBy(desc(challenges.createdAt))
+      .all();
+  },
+
   findHistory(profileId: string) {
     return db
       .select()
@@ -121,7 +135,7 @@ export const challengeModel = {
     });
   },
 
-  setStatus(id: string, status: "active" | "paused" | "stopped") {
+  setStatus(id: string, status: "active" | "paused" | "saved" | "stopped") {
     return db
       .update(challenges)
       .set({ status, completedAt: null, completionSource: null })

@@ -19,7 +19,7 @@ System challenges request a bounded working core and assess design choices in co
 
 Prompts live under `apps/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one bounded retry for difficulty mismatch.
 
-Preferences include an optional “Send recent challenges to AI” setting, off by default. Folder uploads use the native file chooser and preserve nested paths; connected projects can be chosen in the local folder browser. Codex reviews link to their saved prompts, responses, tool activity, and persistent CLI session.
+Preferences include an optional “Send recent challenges to AI” setting, off by default. Connect a folder by entering its path or browsing the folders available to Grill Me; connecting does not upload files. Save challenges for later from the workspace and reopen them from the separate Saved for later section in Challenges. Codex reviews use ephemeral sessions and link to their database-saved prompts, responses, and complete app-server protocol activity. Preferences includes a Codex model picker, defaulting to GPT-5.6 Sol. Run `bun run db:studio` to browse the local database.
 
 Existing history is preserved. Old manual completions are labeled as legacy; historical scores and missing context are not invented. Local profile selection is not authentication; keep the app private to your machine.
 

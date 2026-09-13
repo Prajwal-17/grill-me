@@ -20,7 +20,7 @@ export async function browseFolders(path?: string) {
   } catch {
     throw new AppError(
       "FOLDER_UNAVAILABLE",
-      "This folder cannot be opened by the backend. Choose another folder or upload it from your computer.",
+      "This folder cannot be opened by the backend. Choose a folder accessible to Grill Me. If using Docker, mount it and use its container path.",
       400,
     );
   }

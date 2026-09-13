@@ -1,3 +1,4 @@
+import { briefIssues } from "./challenge-quality";
 import { recentLearningEvidence } from "../reviews/learning-evidence";
 import { DIFFICULTY_BANDS } from "../ai/prompts/difficulty-policies";
 import {
@@ -63,6 +64,11 @@ export function createChallengeService(dependencies: {
       return challenges.findActive(profileId).map(toChallenge);
     },
 
+    getSaved(profileId: string) {
+      profiles.assertExists(profileId);
+      return challenges.findSaved(profileId).map(toChallenge);
+    },
+
     getHistory(profileId: string) {
       profiles.assertExists(profileId);
       return challenges.findHistory(profileId).map(toChallenge);
@@ -93,28 +99,67 @@ export function createChallengeService(dependencies: {
         ...input,
         learner: learnerContext(profileId),
       };
-      let generated = await llm.generateBuild(modelInput);
       const [min, max] = DIFFICULTY_BANDS[input.difficulty];
-      if (
-        generated.estimatedDifficultyScore < min ||
-        generated.estimatedDifficultyScore > max
-      ) {
-        generated = await llm.generateBuild({
-          ...modelInput,
-          calibrationFeedback: `The previous brief was estimated at ${generated.estimatedDifficultyScore}/10. Reduce or increase the actual reasoning demands to fit ${input.difficulty} (${min}–${max}/10) while keeping the selected scope and prerequisites. Do not simply relabel it.`,
-        });
+      let feedback: string | null = null;
+      let generated:
+        Awaited<ReturnType<ModelGateway["generateBuild"]>> | undefined;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        let issues: string[];
+        try {
+          generated = await llm.generateBuild({
+            ...modelInput,
+            calibrationFeedback: feedback,
+          });
+          issues = briefIssues(generated, input.scope, input.difficulty);
+          if (!issues.length) {
+            const assessment = await llm.assessBuild(modelInput, generated);
+            issues.push(...assessment.issues);
+            if (!assessment.relevant)
+              issues.push(
+                "Solving the task must require the explicitly requested subject.",
+              );
+            if (!assessment.scopeMatches)
+              issues.push(
+                "Reduce or adjust implementation breadth to match the selected scope.",
+              );
+            if (!assessment.prerequisitesMatch)
+              issues.push(
+                "Remove unfamiliar or unrelated prerequisites; respect current learner familiarity.",
+              );
+            if (
+              assessment.estimatedDifficultyScore < min ||
+              assessment.estimatedDifficultyScore > max
+            )
+              issues.push(
+                `Independent estimate is ${assessment.estimatedDifficultyScore}/10: ${assessment.difficultyReason}. Change actual reasoning demands to fit ${input.difficulty} (${min}–${max}), not just the label.`,
+              );
+            generated = {
+              ...generated,
+              estimatedDifficultyScore: assessment.estimatedDifficultyScore,
+              difficultyReason: assessment.difficultyReason,
+            };
+          }
+        } catch (error) {
+          if (
+            !(error instanceof AppError) ||
+            error.code !== "MODEL_OUTPUT_INVALID"
+          )
+            throw error;
+          issues = [
+            "Return valid structured output matching all field limits.",
+          ];
+        }
+        if (!issues.length && generated) break;
+        feedback = issues.join("\n");
+        generated = undefined;
       }
-      if (
-        generated.estimatedDifficultyScore < min ||
-        generated.estimatedDifficultyScore > max
-      ) {
+      if (!generated)
         throw new AppError(
-          "DIFFICULTY_MISMATCH",
-          "The generated task did not match your selected difficulty. Try again.",
+          "CHALLENGE_QUALITY_MISMATCH",
+          "The generated challenge did not meet topic, difficulty, or readability requirements after one repair. Please retry.",
           502,
           true,
         );
-      }
       const validated = generatedBuildSchemaForScope(input.scope).safeParse(
         generated,
       );
@@ -150,7 +195,7 @@ export function createChallengeService(dependencies: {
     setStatus(
       id: string,
       profileId: string,
-      status: "active" | "paused" | "stopped",
+      status: "active" | "paused" | "saved" | "stopped",
     ) {
       owned(id, profileId);
       return toChallenge(challenges.setStatus(id, status)!);

@@ -6,6 +6,7 @@ import type {
 } from "@/shared/types/api";
 
 export const challengeKeys = {
+  saved: (profileId?: string) => ["challenges", "saved", profileId] as const,
   active: (profileId?: string) => ["challenges", "active", profileId] as const,
   history: (profileId?: string) =>
     ["challenges", "history", profileId] as const,
@@ -20,6 +21,10 @@ export function getActiveChallenges(profileId: string) {
 
 export function getChallenge(profileId: string, challengeId: string) {
   return apiRequest<Challenge>(`/challenges/${challengeId}`, {}, profileId);
+}
+
+export function getSavedChallenges(profileId: string) {
+  return apiRequest<Challenge[]>("/challenges/saved", {}, profileId);
 }
 
 export function getChallengeHistory(profileId: string) {

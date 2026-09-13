@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  DEFAULT_CODEX_MODEL,
   EXPERIENCE,
   LANGUAGES,
   STACK,
@@ -20,6 +21,13 @@ function unique<T>(values: T[]) {
   return [...new Set(values)];
 }
 export const guidedPreferencesSchema = z.object({
+  codexModel: z
+    .string()
+    .trim()
+    .min(1)
+    .max(160)
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9._:/-]*$/)
+    .default(DEFAULT_CODEX_MODEL),
   includeRecentChallenges: z.boolean().default(false),
   topicFamiliarity: z
     .array(

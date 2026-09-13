@@ -31,6 +31,8 @@ export function createChallengeController(service: ChallengeService) {
   return {
     active: (c: Context) => c.json({ data: service.getActive(profileId(c)) }),
 
+    saved: (c: Context) => c.json({ data: service.getSaved(profileId(c)) }),
+
     history: (c: Context) => c.json({ data: service.getHistory(profileId(c)) }),
 
     getById: (c: Context) =>
@@ -57,7 +59,7 @@ export function createChallengeController(service: ChallengeService) {
 
     status: async (c: Context) => {
       const { status } = parseInput(
-        z.object({ status: z.enum(["active", "paused", "stopped"]) }),
+        z.object({ status: z.enum(["active", "paused", "saved", "stopped"]) }),
         await readJson(c.req.raw),
       );
       return c.json({

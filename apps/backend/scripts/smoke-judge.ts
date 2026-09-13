@@ -85,14 +85,43 @@ try {
   const reader = new CodexClient();
   try {
     await reader.initialize();
-    const saved = await reader.request<{
-      thread: { id: string; turns: unknown[] };
-    }>("thread/read", { threadId, includeTurns: true });
-    if (saved.thread.id !== threadId || !saved.thread.turns.length)
-      throw new Error("Codex session history was not persisted.");
-    console.log(
-      "Codex session history and complete request/response logs verified.",
-    );
+    let unavailable = false;
+    try {
+      await reader.request("thread/read", { threadId, includeTurns: true });
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !/not found|not loaded|no rollout|does not exist|not persisted|unable to find/i.test(
+          error.message,
+        )
+      )
+        throw error;
+      unavailable = true;
+    }
+    if (!unavailable)
+      throw new Error(
+        "Ephemeral session unexpectedly persisted in Codex history.",
+      );
+    if (
+      (savedLog.requestBody.threadStart as { ephemeral?: boolean })
+        .ephemeral !== true
+    )
+      throw new Error("Review was not ephemeral.");
+    const wire = savedLog.streamEvents as {
+      direction?: string;
+      message?: { method?: string };
+    }[];
+    if (
+      !wire.some(
+        (e) => e.direction === "sent" && e.message?.method === "initialize",
+      ) ||
+      !wire.some(
+        (e) =>
+          e.direction === "received" && e.message?.method === "turn/completed",
+      )
+    )
+      throw new Error("Full Codex protocol transcript was not saved.");
+    console.log("Ephemeral session and durable full protocol logs verified.");
   } finally {
     reader.close();
   }

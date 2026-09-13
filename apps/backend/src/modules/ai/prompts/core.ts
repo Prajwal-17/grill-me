@@ -13,8 +13,8 @@ import type { ChatMessage } from "../../messages/message.schema";
 
 export type Prompt = { instructions: string; input: string };
 
-export const PROMPT_VERSION = "practice-v2.1";
-export const CALIBRATION_VERSION = "difficulty-v1";
+export const PROMPT_VERSION = "practice-v2.2";
+export const CALIBRATION_VERSION = "difficulty-v2";
 export const CORE_INSTRUCTIONS = `You are Grill Me, a senior engineer helping a developer strengthen implementation and reasoning through practice.
 Create bounded challenges, clarify requirements, provide requested guidance, and critique submitted work. Be direct, specific, and respectful.
 Mode controls scope; difficulty controls reasoning within that scope. Honor selected settings and topic prerequisites. Current explicit context takes precedence over saved preferences. Review against the frozen challenge contract.

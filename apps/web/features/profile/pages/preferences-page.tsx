@@ -16,6 +16,8 @@ import {
   preferenceValues,
   type PreferenceValues,
 } from "@/features/profile/components/preferences-fields";
+import { apiRequest } from "@/shared/lib/api-client";
+import { DEFAULT_CODEX_MODEL } from "@repo/preferences";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 export function PreferencesPage() {
   const profile = useProfile();
@@ -26,6 +28,18 @@ export function PreferencesPage() {
     queryKey: preferencesKey(profile?.id),
     queryFn: () => getPreferences(profile!.id),
     enabled: Boolean(profile),
+  });
+  const codexModels = useQuery({
+    queryKey: ["codex-models", profile?.id],
+    queryFn: () =>
+      apiRequest<{ models: { id: string; label: string }[] }>(
+        "/judges/models",
+        {},
+        profile!.id,
+      ),
+    enabled: Boolean(profile),
+    retry: false,
+    staleTime: 60_000,
   });
   const form =
     edits ??
@@ -91,6 +105,63 @@ export function PreferencesPage() {
               </Button>
             </header>
             <fieldset disabled={save.isPending}>
+              <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
+                <h2 className="text-[15px] font-semibold">Code reviews</h2>
+                <div className="space-y-2">
+                  <label
+                    htmlFor="codex-model"
+                    className="block text-sm font-medium"
+                  >
+                    Codex model
+                  </label>
+                  <input
+                    id="codex-model"
+                    list="codex-model-options"
+                    value={form.codexModel}
+                    required
+                    maxLength={160}
+                    onChange={(e) => update("codexModel", e.target.value)}
+                    className="w-full rounded border border-line bg-surface px-3 py-2 text-sm text-foreground"
+                  />
+                  <datalist id="codex-model-options">
+                    {(
+                      codexModels.data?.models ?? [
+                        { id: DEFAULT_CODEX_MODEL, label: "GPT-5.6 Sol" },
+                      ]
+                    ).map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.label}
+                      </option>
+                    ))}
+                  </datalist>
+                  <p className="text-xs leading-5 text-muted">
+                    Default: GPT-5.6 Sol for complex code reviews. Choose an
+                    available model or enter its ID. Applies to new Codex review
+                    runs.
+                  </p>
+                  <p className="text-xs leading-5 text-muted">
+                    Review sessions are temporary. Prompts, responses, and tool
+                    activity are saved in Grill Me’s Logs.
+                  </p>
+                  {codexModels.isLoading && (
+                    <p className="text-xs text-muted">
+                      Loading available models…
+                    </p>
+                  )}
+                  {codexModels.error && (
+                    <p className="text-xs text-muted">
+                      Could not load models: {codexModels.error.message}{" "}
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => codexModels.refetch()}
+                      >
+                        Retry
+                      </button>
+                    </p>
+                  )}
+                </div>
+              </section>
               <PreferencesFields
                 values={form}
                 onChange={update}

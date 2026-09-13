@@ -44,6 +44,7 @@ export function startAiLog(
   request: Record<string, unknown>,
   endpoint: string,
   secret?: string,
+  durableEvents = false,
 ) {
   const id = crypto.randomUUID();
   const started = performance.now();
@@ -70,7 +71,8 @@ export function startAiLog(
       startedAt: new Date(),
     });
     persisted = true;
-  } catch {
+  } catch (error) {
+    if (durableEvents) throw error;
     console.warn(
       "[ai-log] Could not save request log; model request will continue.",
     );
@@ -83,7 +85,8 @@ export function startAiLog(
       if (persisted) {
         try {
           logModel.finish(id, { requestBody: safe(request) });
-        } catch {
+        } catch (error) {
+          if (durableEvents) throw error;
           console.warn("[ai-log] Could not update request details.");
         }
       }
@@ -94,7 +97,8 @@ export function startAiLog(
         responseText = response.output_text;
     },
     event(value: unknown) {
-      events.push(value);
+      if (durableEvents) logModel.appendEvent(id, safe(value));
+      else events.push(value);
       const event = object(value);
       if (event.response) response = object(event.response);
     },
@@ -159,7 +163,8 @@ export function startAiLog(
           ...safe(update),
           completedAt: update.completedAt,
         });
-      } catch {
+      } catch (error) {
+        if (durableEvents) throw error;
         console.warn(
           "[ai-log] Could not finish request log; model result is unchanged.",
         );

@@ -1,6 +1,6 @@
 import { and, count, desc, eq, getTableColumns, or, sql } from "drizzle-orm";
 import { db } from "../../shared/database/db";
-import { aiLogs } from "../../shared/database/schema";
+import { aiLogs, aiLogEvents } from "../../shared/database/schema";
 import type { LogQuery } from "./log.schema";
 
 export type LogInsert = typeof aiLogs.$inferInsert;
@@ -22,12 +22,28 @@ export const logModel = {
   finish(id: string, value: Partial<LogInsert>) {
     db.update(aiLogs).set(value).where(eq(aiLogs.id, id)).run();
   },
+  appendEvent(logId: string, payload: unknown) {
+    db.insert(aiLogEvents).values({ logId, payload }).run();
+  },
   findOwned(id: string, profileId: string) {
-    return db
+    const row = db
       .select()
       .from(aiLogs)
       .where(and(eq(aiLogs.id, id), eq(aiLogs.profileId, profileId)))
       .get();
+    if (!row) return undefined;
+    const events = db
+      .select({ payload: aiLogEvents.payload })
+      .from(aiLogEvents)
+      .where(eq(aiLogEvents.logId, id))
+      .orderBy(aiLogEvents.id)
+      .all();
+    return {
+      ...row,
+      streamEvents: events.length
+        ? [...(row.streamEvents ?? []), ...events.map((e) => e.payload)]
+        : row.streamEvents,
+    };
   },
   list(profileId: string, query: LogQuery) {
     const search = query.search.toLowerCase();

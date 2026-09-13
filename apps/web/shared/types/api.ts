@@ -18,7 +18,8 @@ export type DurationEstimate = {
   maxMinutes: number;
 };
 
-export type ChallengeStatus = "active" | "paused" | "stopped" | "completed";
+export type ChallengeStatus =
+  "active" | "paused" | "saved" | "stopped" | "completed";
 
 export type Challenge = {
   estimatedDifficultyScore: number | null;

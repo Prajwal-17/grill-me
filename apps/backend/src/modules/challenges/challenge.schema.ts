@@ -54,6 +54,13 @@ export function generatedBuildSchemaForScope(scope: BuildScope) {
   const limits = BUILD_SCOPE_LIMITS[scope];
   return generatedBuildContentSchema.extend({
     problemStatement: z.string().min(20).max(limits.statement),
+    completionCriteria: z
+      .array(z.string().trim().min(1).max(320))
+      .min(1)
+      .max(scope === "focused" ? 4 : scope === "feature" ? 6 : 8),
+    constraints: z.array(z.string().trim().min(1).max(220)).max(4),
+    expectedOutcome: z.string().trim().min(10).max(240),
+    implementationBoundary: z.string().trim().max(450),
     implementationMilestones: z
       .array(milestoneSchema)
       .min(limits.minMilestones)
@@ -88,7 +95,7 @@ export const challengeSchema = challengeContentSchema.extend({
   id: z.string().uuid(),
   profileId: z.string().uuid(),
   hint: z.string().nullable(),
-  status: z.enum(["active", "paused", "stopped", "completed"]),
+  status: z.enum(["active", "paused", "saved", "stopped", "completed"]),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
 });

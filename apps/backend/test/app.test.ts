@@ -68,6 +68,18 @@ class FakeModel implements ModelGateway {
     learner: LearnerContext;
   }[] = [];
 
+  async assessBuild(input: BuildModelInput, _candidate: GeneratedBuildContent) {
+    return {
+      relevant: true,
+      scopeMatches: true,
+      prerequisitesMatch: true,
+      estimatedDifficultyScore: { easy: 2, medium: 5, hard: 8, grill: 10 }[
+        input.difficulty
+      ],
+      difficultyReason: "Assessed fixture reasoning.",
+      issues: [] as string[],
+    };
+  }
   async prepareBuild(input: Omit<BuildModelInput, "clarificationContext">) {
     this.prepareInputs.push(input);
     return this.preparation;
@@ -300,11 +312,7 @@ describe("build quality pipeline", () => {
     model.final = {
       ...generated,
       durationEstimate: { minMinutes: 240, maxMinutes: 480 },
-      implementationMilestones: [
-        "Implement ingestion.",
-        "Implement retries.",
-        "Verify failure recovery.",
-      ],
+      implementationMilestones: [],
     };
     for (const scope of ["feature", "system"] as const) {
       const build = await createChallenge(app, profile.id, {
@@ -582,14 +590,192 @@ async function profileLogs(app: TestApp, id: string, query = "") {
   ).data;
 }
 
+describe("challenge quality regressions", () => {
+  test("rejects a Codex request answered with an unrelated exercise and repairs once", async () => {
+    const model = new FakeModel();
+    let checks = 0;
+    model.assessBuild = async (input, candidate) => {
+      checks++;
+      return {
+        relevant: candidate.topic === "Codex App Server",
+        scopeMatches: true,
+        prerequisitesMatch: true,
+        estimatedDifficultyScore: 5,
+        difficultyReason: "One familiar protocol interaction.",
+        issues:
+          candidate.topic === "Codex App Server"
+            ? []
+            : ["A generic grouping exercise does not use Codex App Server."],
+      };
+    };
+    const original = model.generateBuild.bind(model);
+    model.generateBuild = async (input) => {
+      if (input.calibrationFeedback)
+        model.final = {
+          ...generated,
+          title: "Stream a Codex response",
+          topic: "Codex App Server",
+          problemStatement:
+            "Build a small Codex App Server client that sends a prompt and displays its streamed response.",
+          completionCriteria: [
+            "Connects to Codex App Server and sends a prompt.",
+            "Displays streamed response text in order.",
+          ],
+        };
+      return original(input);
+    };
+    const app = createApp({ llm: model });
+    const owner = await startProfile(
+      app,
+      `topic-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id, {
+      prompt: "I just learned Codex App Server; give me a challenge",
+    });
+    expect(checks).toBe(2);
+    expect(model.generationInputs).toHaveLength(2);
+    expect(model.generationInputs[1]!.calibrationFeedback).toContain(
+      "explicitly requested subject",
+    );
+    expect(challenge.topic).toBe("Codex App Server");
+    expect(challenge.contextSnapshot?.currentRequest).toContain(
+      "Codex App Server",
+    );
+  });
+  test("rejects an oversized C8 without modifying saved historical challenges", async () => {
+    const model = new FakeModel();
+    const app = createApp({ llm: model });
+    const owner = await startProfile(
+      app,
+      `length-${crypto.randomUUID()}@test.dev`,
+    );
+    const existing = await createChallenge(app, owner.id);
+    model.generationInputs = [];
+    model.final = {
+      ...generated,
+      completionCriteria: [
+        ...Array.from(
+          { length: 7 },
+          (_, i) => `Behavior ${i + 1} is observable.`,
+        ),
+        "Recovery must converge. ".repeat(200),
+      ],
+    };
+    const failed = await request(app, "/challenges/generate", owner.id, {
+      prompt: "Build a background job processor",
+      scope: "system",
+      difficulty: "grill",
+    });
+    expect(failed.status).toBe(502);
+    expect(model.generationInputs).toHaveLength(2);
+    expect(model.generationInputs[1]!.calibrationFeedback).toContain(
+      "completionCriteria.7",
+    );
+    const active = await request(app, "/challenges/active", owner.id);
+    expect(
+      (await json<{ data: Challenge[] }>(active)).data.map((c) => c.id),
+    ).toEqual([existing.id]);
+  });
+  test("rejects a hard task self-labelled medium using the independent assessment", async () => {
+    const model = new FakeModel();
+    model.assessBuild = async () => ({
+      relevant: true,
+      scopeMatches: true,
+      prerequisitesMatch: true,
+      estimatedDifficultyScore: 9,
+      difficultyReason: "Requires unfamiliar concurrency and crash recovery.",
+      issues: [],
+    });
+    const app = createApp({ llm: model });
+    const owner = await startProfile(
+      app,
+      `difficulty-${crypto.randomUUID()}@test.dev`,
+    );
+    const failed = await request(app, "/challenges/generate", owner.id, {
+      prompt: "Practice async programming",
+      scope: "focused",
+      difficulty: "medium",
+    });
+    expect(failed.status).toBe(502);
+    expect(model.generationInputs).toHaveLength(2);
+    expect(model.generationInputs[1]!.calibrationFeedback).toContain(
+      "Independent estimate is 9/10",
+    );
+  });
+  test("checks the total brief even when each individual field is within its limit", async () => {
+    const { briefIssues } =
+      await import("../src/modules/challenges/challenge-quality");
+    const candidate = {
+      ...generated,
+      problemStatement: "word ".repeat(120),
+      completionCriteria: Array(4).fill("word ".repeat(30)),
+      constraints: [],
+    };
+    expect(
+      briefIssues(candidate, "focused", "medium").some((i) =>
+        i.includes("Complete brief"),
+      ),
+    ).toBe(true);
+  });
+});
+
 describe("AI request logs", () => {
+  test("durable protocol events survive unfinished runs and redact credentials", async () => {
+    const app = createApp({ llm: new FakeModel() });
+    const owner = await startProfile(
+      app,
+      `durable-${crypto.randomUUID()}@test.dev`,
+    );
+    const log = startAiLog(
+      { profileId: owner.id, operation: "review", preview: "partial" },
+      { model: "test", stream: true },
+      "codex://local/app-server",
+      "secret-value",
+      true,
+    );
+    log.event({
+      direction: "sent",
+      message: {
+        id: 1,
+        method: "initialize",
+        params: { api_key: "secret-value" },
+      },
+    });
+    log.event({
+      direction: "received",
+      message: { id: 1, result: { text: "partial secret-value" } },
+    });
+    const before = logModel.findOwned(log.id!, owner.id)!;
+    expect(before.status).toBe("running");
+    expect(before.streamEvents).toHaveLength(2);
+    expect(JSON.stringify(before)).not.toContain("secret-value");
+    logModel.markInterrupted();
+    const after = logModel.findOwned(log.id!, owner.id)!;
+    expect(after.status).toBe("cancelled");
+    expect(after.streamEvents).toEqual(before.streamEvents);
+  });
+
   test("records full structured payloads, returned model, usage and redacts credentials", async () => {
     const app = createApp({
-      llm: loggedModel(() =>
+      llm: loggedModel((body) =>
         Response.json(
-          modelResponse(JSON.stringify(generated), {
-            debug: { api_key: "hidden-key", note: "test-log-secret" },
-          }),
+          modelResponse(
+            JSON.stringify(
+              String(body.instructions).startsWith("Audit a proposed")
+                ? {
+                    relevant: true,
+                    scopeMatches: true,
+                    prerequisitesMatch: true,
+                    estimatedDifficultyScore: 5,
+                    difficultyReason: "Fixture reasoning",
+                    issues: [],
+                  }
+                : generated,
+            ),
+            {
+              debug: { api_key: "hidden-key", note: "test-log-secret" },
+            },
+          ),
         ),
       ),
     });
@@ -599,8 +785,11 @@ describe("AI request logs", () => {
     );
     await createChallenge(app, owner.id, { difficulty: "medium" });
     const list = await profileLogs(app, owner.id);
-    expect(list.total).toBe(1);
-    expect(list.items[0]).toMatchObject({
+    expect(list.total).toBe(2);
+    const generationLog = list.items.find(
+      (row) => !row.preview.startsWith("Quality check:"),
+    )!;
+    expect(generationLog).toMatchObject({
       status: "success",
       operation: "generation",
       actualModel: "provider/actual-model",
@@ -613,7 +802,7 @@ describe("AI request logs", () => {
     expect(list.items[0]).not.toHaveProperty("requestBody");
     expect(list.items[0]).not.toHaveProperty("responseBody");
     expect(list.items[0]).not.toHaveProperty("responseText");
-    const response = await request(app, `/logs/${list.items[0]!.id}`, owner.id);
+    const response = await request(app, `/logs/${generationLog.id}`, owner.id);
     expect(response.headers.get("cache-control")).toBe("no-store");
     const log = (await json<{ data: LogRow }>(response)).data;
     expect(log.responseText).toBe(JSON.stringify(generated));
@@ -667,9 +856,9 @@ describe("AI request logs", () => {
       });
       expect(response.status).toBeGreaterThanOrEqual(500);
     }
-    expect(calls).toBe(2);
+    expect(calls).toBe(3);
     const list = await profileLogs(app, owner.id, "?status=error");
-    expect(list.total).toBe(2);
+    expect(list.total).toBe(3);
     const logs = list.items.map((row) => logModel.findOwned(row.id, owner.id)!);
     expect(
       logs.some(
@@ -939,6 +1128,76 @@ describe("structured practice reviews", () => {
     }
     throw new Error("Review fixture timed out");
   }
+  test("saved-for-later work stays separate, preserves its contract and can resume", async () => {
+    const { app, owner, challenge } = await fixture();
+    const saved = await request(
+      app,
+      `/challenges/${challenge.id}/status`,
+      owner.id,
+      { status: "saved" },
+    );
+    expect(saved.status).toBe(200);
+    const value = (await json<{ data: Challenge }>(saved)).data;
+    expect(value.status).toBe("saved");
+    expect(value.completedAt).toBeNull();
+    expect(value.contextSnapshot).toEqual(challenge.contextSnapshot);
+    expect(value.completionCriteria).toEqual(challenge.completionCriteria);
+    const listed = (
+      await json<{ data: Challenge[] }>(
+        await request(app, "/challenges/saved", owner.id),
+      )
+    ).data;
+    expect(listed.map((c) => c.id)).toEqual([challenge.id]);
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/active", owner.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/history", owner.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+    const other = await startProfile(
+      app,
+      `later-other-${crypto.randomUUID()}@test.dev`,
+    );
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/saved", other.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+    const blocked = await request(
+      app,
+      `/challenges/${challenge.id}/submissions`,
+      owner.id,
+      { content: "", attachments: [{ filename: "code.py", text: "pass" }] },
+    );
+    expect(blocked.status).toBe(409);
+    await request(app, `/challenges/${challenge.id}/status`, owner.id, {
+      status: "active",
+    });
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/saved", owner.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/active", owner.id),
+        )
+      ).data[0]?.id,
+    ).toBe(challenge.id);
+  });
   test("saves original context and independent numeric difficulty", async () => {
     const { app, owner, challenge } = await fixture();
     expect(challenge.estimatedDifficultyScore).toBe(5);
@@ -1039,6 +1298,157 @@ describe("structured practice reviews", () => {
       ),
     ).toThrow();
   });
+  test("Codex model preferences persist and reach new review runs", async () => {
+    const { app, model, owner } = await fixture();
+    const challenge = await createChallenge(app, owner.id, {
+      scope: "feature",
+    });
+    const initial = await request(app, "/profiles/preferences", owner.id);
+    expect(
+      (await json<{ data: { codexModel: string } }>(initial)).data.codexModel,
+    ).toBe("gpt-5.6-sol");
+    await request(app, "/profiles/preferences", owner.id, {
+      codexModel: "gpt-5.6-terra",
+    });
+    const reloaded = await request(app, "/profiles/preferences", owner.id);
+    expect(
+      (await json<{ data: { codexModel: string } }>(reloaded)).data.codexModel,
+    ).toBe("gpt-5.6-terra");
+    const { createReviewService } =
+      await import("../src/modules/reviews/review.service");
+    let selected: string | undefined;
+    const service = createReviewService(
+      model,
+      async (input) => {
+        selected = input.codexModel;
+        return result(challenge);
+      },
+      inspection,
+    );
+    const started = await service.submit(challenge.id, owner.id, {
+      content: "",
+      attachments: [
+        {
+          filename: "answer.py",
+          text:
+            "# source comment\n".repeat(3000) + "def group(words): return {}",
+        },
+      ],
+      uploadIds: [],
+      projectId: null,
+      subdirectory: "",
+      baseRevision: "",
+    });
+    // A large source file uses incremental Codex inspection.
+    if (started.review.judge === "codex") {
+      await finished(service, started.review.id, owner.id);
+      expect(selected).toBe("gpt-5.6-terra");
+    } else throw new Error("Fixture must route through Codex.");
+  });
+  test("ephemeral Codex reviews durably log both wire directions including failed tool calls", async () => {
+    const { owner, challenge } = await fixture();
+    const { mkdtemp, writeFile, chmod, rm } = await import("node:fs/promises");
+    const root = await mkdtemp("/tmp/grill-wire-");
+    const binary = root + "/fake-codex";
+    const response = result(challenge);
+    await writeFile(root + "/answer.py", "def group(words): return {}\n");
+    await writeFile(
+      binary,
+      `#!/usr/bin/env bun
+import { createInterface } from "node:readline";
+const send = value => process.stdout.write(JSON.stringify(value) + "\\n");
+createInterface({input: process.stdin}).on("line", line => {
+ const r = JSON.parse(line);
+ if (r.method === "initialize") send({id:r.id,result:{}});
+ if (r.method === "config/read") send({id:r.id,result:{config:{}}});
+ if (r.method === "thread/start") {
+  if (!r.params.ephemeral) return send({id:r.id,error:{message:"Must be ephemeral"}});
+  send({id:r.id,result:{thread:{id:"ephemeral-fixture"},model:r.params.model}});
+ }
+ if (r.method === "turn/start") {
+  send({id:r.id,result:{turn:{id:"turn-fixture"}}});
+  send({id:900,method:"item/tool/call",params:{tool:"grill_read_file",arguments:{path:"missing.py"}}});
+ }
+ if(r.id===900 && r.result) send({id:901,method:"item/tool/call",params:{tool:"grill_read_file",arguments:{path:"answer.py"}}});
+ if(r.id===901 && r.result) {
+  send({method:"item/completed",params:{threadId:"ephemeral-fixture",item:{type:"agentMessage",text:${JSON.stringify(JSON.stringify(response))}}}});
+  send({method:"turn/completed",params:{threadId:"ephemeral-fixture",turn:{status:"completed"}}});
+ }
+});
+`,
+    );
+    await chmod(binary, 0o700);
+    const previous = process.env.CODEX_BIN;
+    process.env.CODEX_BIN = binary;
+    try {
+      const { codexJudge } = await import("../src/modules/judges/codex");
+      let logId = "";
+      await codexJudge(
+        {
+          challenge,
+          codexModel: "gpt-5.6-terra",
+          content: "",
+          attachments: [],
+          evidence: await inspection(),
+          assistance: { hints: 0, guidance: false },
+        },
+        root,
+        (_progress, ids) => {
+          if (ids?.logId) logId = ids.logId;
+        },
+      );
+      const log = logModel.findOwned(logId, owner.id)!;
+      expect(log.requestBody.threadStart).toMatchObject({
+        ephemeral: true,
+        model: "gpt-5.6-terra",
+      });
+      expect(log.status).toBe("success");
+      expect(log.responseText).toContain(response.summary);
+      const wire = log.streamEvents as {
+        direction?: string;
+        message?: {
+          id?: number;
+          method?: string;
+          result?: { success?: boolean };
+        };
+      }[];
+      expect(
+        wire.some(
+          (e) => e.direction === "sent" && e.message?.method === "initialize",
+        ),
+      ).toBe(true);
+      expect(
+        wire.some((e) => e.direction === "received" && e.message?.id === 1),
+      ).toBe(true);
+      expect(
+        wire.some(
+          (e) =>
+            e.direction === "sent" &&
+            e.message?.id === 900 &&
+            e.message.result?.success === false,
+        ),
+      ).toBe(true);
+      expect(
+        wire.some(
+          (e) =>
+            e.direction === "sent" &&
+            e.message?.id === 901 &&
+            e.message.result?.success === true,
+        ),
+      ).toBe(true);
+      expect(
+        wire.some(
+          (e) =>
+            e.direction === "received" &&
+            e.message?.method === "turn/completed",
+        ),
+      ).toBe(true);
+    } finally {
+      if (previous === undefined) delete process.env.CODEX_BIN;
+      else process.env.CODEX_BIN = previous;
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   test("persists accepted reviews without marking the challenge complete", async () => {
     const { model, app, owner, challenge } = await fixture();
     const { createReviewService } =
@@ -1046,6 +1456,7 @@ describe("structured practice reviews", () => {
     const service = createReviewService(
       {
         ...model,
+        assessBuild: model.assessBuild.bind(model),
         prepareBuild: model.prepareBuild.bind(model),
         generateBuild: model.generateBuild.bind(model),
         respond: model.respond.bind(model),

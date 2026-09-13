@@ -122,7 +122,9 @@ export type TopicFamiliarity = {
   topic: string;
   familiarity: "new" | "practiced" | "comfortable";
 };
+export const DEFAULT_CODEX_MODEL = "gpt-5.6-sol";
 export type GuidedPreferences = {
+  codexModel: string;
   includeRecentChallenges: boolean;
   topicFamiliarity: TopicFamiliarity[];
   knownConcepts: string[];
@@ -134,6 +136,7 @@ export type GuidedPreferences = {
   currentFocus: (typeof FOCUS)[number]["id"] | null;
 };
 export const EMPTY_GUIDED: GuidedPreferences = {
+  codexModel: DEFAULT_CODEX_MODEL,
   includeRecentChallenges: false,
   topicFamiliarity: [],
   knownConcepts: [],

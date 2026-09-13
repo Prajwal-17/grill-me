@@ -1,3 +1,4 @@
+import { guidedPreferencesSchema } from "../profiles/profile.schema";
 import { rm } from "node:fs/promises";
 import { uploadInfo } from "../projects/uploads";
 import { and, desc, eq, inArray } from "drizzle-orm";
@@ -5,6 +6,7 @@ import { z } from "zod";
 import { db } from "../../shared/database/db";
 import {
   challenges,
+  profilePreferences,
   messages,
   projects,
   reviewJobs,
@@ -131,7 +133,15 @@ export function createReviewService(
         )
         .orderBy(desc(reviewJobs.createdAt))
         .get()?.response;
+      const savedPreferences = db
+        .select()
+        .from(profilePreferences)
+        .where(eq(profilePreferences.profileId, challenge.profileId))
+        .get();
       const input: JudgeInput = {
+        codexModel: guidedPreferencesSchema.parse(
+          savedPreferences?.guidedPreferences ?? {},
+        ).codexModel,
         challenge,
         content:
           row.judge === "codex" && Buffer.byteLength(attempt.content) > 16384
@@ -370,7 +380,11 @@ export function createReviewService(
     retry(id: string, profileId: string, followup: string | null) {
       const { row, attempt } = ownedJob(id, profileId);
       const challenge = owned(attempt.challengeId, profileId);
-      if (challenge.status === "paused" || challenge.status === "stopped")
+      if (
+        challenge.status === "paused" ||
+        challenge.status === "stopped" ||
+        challenge.status === "saved"
+      )
         throw new AppError(
           "CHALLENGE_INACTIVE",
           "Resume this challenge before requesting a review.",

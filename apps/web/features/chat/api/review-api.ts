@@ -46,7 +46,7 @@ export const cancelReview = (profile: string, id: string) =>
 export const setChallengeStatus = (
   profile: string,
   id: string,
-  status: "active" | "paused" | "stopped",
+  status: "active" | "paused" | "saved" | "stopped",
 ) =>
   apiRequest<Challenge>(`/challenges/${id}/status`, post({ status }), profile);
 export const getProgress = (profile: string) =>

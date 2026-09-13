@@ -1,3 +1,5 @@
+import { buildAssessmentSchema } from "../challenges/challenge-quality";
+import { assessmentPrompt } from "./prompts/assess-build";
 import {
   reviewResultSchema,
   reviewJsonSchema,
@@ -10,7 +12,7 @@ import type { z } from "zod";
 import { AppError } from "../../shared/errors/app-error";
 import {
   challengePreparationSchema,
-  generatedBuildSchemaForScope,
+  generatedBuildContentSchema,
 } from "../challenges/challenge.schema";
 import type { ModelGateway } from "./model-gateway";
 import { normalizePreparationOutput } from "./preparation-output";
@@ -293,6 +295,20 @@ export function createOpenAIModel(
       });
     },
 
+    assessBuild(input, candidate) {
+      return requestStructured({
+        context: {
+          profileId: input.learner.profileId,
+          operation: "generation",
+          preview: "Quality check: " + input.prompt,
+        },
+        prompt: assessmentPrompt(input, candidate),
+        name: "challenge_assessment",
+        stage: "generation",
+        schema: zod.toJSONSchema(buildAssessmentSchema),
+        validator: buildAssessmentSchema,
+      });
+    },
     generateBuild(input) {
       return requestStructured({
         context: {
@@ -304,7 +320,7 @@ export function createOpenAIModel(
         name: "engineering_build",
         stage: "generation",
         schema: buildJsonSchema(input.scope),
-        validator: generatedBuildSchemaForScope(input.scope),
+        validator: generatedBuildContentSchema,
       });
     },
 

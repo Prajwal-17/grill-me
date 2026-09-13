@@ -7,7 +7,7 @@ import { submissionRequestSchema } from "./review.service";
 import { parseInput, readJson } from "../../shared/http/validation";
 import { profileIdSchema } from "../profiles/profile.schema";
 import type { ProfileService } from "../profiles/profile.service";
-import { codexStatus } from "../judges/codex";
+import { codexStatus, codexModels } from "../judges/codex";
 import { AppError } from "../../shared/errors/app-error";
 export function createReviewRoutes(
   service: ReturnType<typeof createReviewService>,
@@ -63,6 +63,10 @@ export function createReviewRoutes(
       await readJson(c.req.raw),
     );
     return c.json({ data: await service.connect(owner, input.path) }, 201);
+  });
+  routes.get("/judges/models", async (c) => {
+    profile(c);
+    return c.json({ data: await codexModels() });
   });
   routes.get("/judges/status", async (c) => {
     profile(c);

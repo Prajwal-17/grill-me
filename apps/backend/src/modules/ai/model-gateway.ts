@@ -46,6 +46,7 @@ export type BuildModelInput = {
 };
 
 export type JudgeInput = {
+  codexModel?: string;
   challenge: Challenge;
   content: string;
   attachments: MessageAttachment[];
@@ -56,6 +57,10 @@ export type JudgeInput = {
   signal?: AbortSignal;
 };
 export interface ModelGateway {
+  assessBuild(
+    input: BuildModelInput,
+    candidate: GeneratedBuildContent,
+  ): Promise<import("../challenges/challenge-quality").BuildAssessment>;
   judge?(input: JudgeInput): Promise<ReviewResult>;
   planVerification?(input: JudgeInput): Promise<VerificationPlan>;
 

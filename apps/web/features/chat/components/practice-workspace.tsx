@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
@@ -12,7 +13,7 @@ import {
   Play,
   Check,
   Folder,
-  FolderUp,
+  Bookmark,
 } from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
@@ -88,6 +89,7 @@ export function PracticeWorkspace({
   const draft = useDrafts((s) => s.drafts[key] ?? emptyDraft);
   const updateDraft = useDrafts((s) => s.update);
   const update = (patch: Partial<Draft>) => updateDraft(key, patch);
+  const router = useRouter();
   const [tab, setTab] = useState("challenge");
   const [folderOpen, setFolderOpen] = useState(false);
   const [uploadNotice, setUploadNotice] = useState("");
@@ -212,11 +214,14 @@ export function PracticeWorkspace({
     onSettled: () => setUploadProgress(""),
   });
   const lifecycle = useMutation({
-    mutationFn: (status: "active" | "paused" | "completed") =>
+    mutationFn: (status: "active" | "paused" | "saved" | "completed") =>
       status === "completed"
         ? completeChallenge(profile.id, challenge.id)
         : setChallengeStatus(profile.id, challenge.id, status),
-    onSuccess: refresh,
+    onSuccess: async (_result, status) => {
+      await refresh();
+      if (status === "saved") router.push("/challenges");
+    },
   });
   const reviewAction = useMutation({
     mutationFn: ({
@@ -286,9 +291,22 @@ export function PracticeWorkspace({
           <ArrowLeft size={15} />
           Challenges
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {challenge.status === "completed" && (
             <span className="text-xs text-success">Completed</span>
+          )}
+          {challenge.status === "saved" && (
+            <span className="text-xs text-muted">Saved for later</span>
+          )}
+          {(active || challenge.status === "paused") && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy || lifecycle.isPending}
+              onClick={() => lifecycle.mutate("saved")}
+            >
+              <Bookmark size={14} /> Save for later
+            </Button>
           )}
           {active ? (
             <Button
@@ -470,15 +488,16 @@ export function PracticeWorkspace({
             <div>
               <h2 className="text-xl font-semibold">Your implementation</h2>
               <p className="mt-2 text-sm text-muted">
-                Attach code, upload a folder, or connect your project. No
-                explanation needed.
+                Attach code or connect a folder. No explanation needed.
               </p>
             </div>
             {!active && (
               <div className="rounded border border-line p-4 text-sm text-muted">
                 {challenge.status === "completed"
                   ? "You marked this challenge completed."
-                  : "This challenge is paused."}{" "}
+                  : challenge.status === "saved"
+                    ? "This challenge is saved for later."
+                    : "This challenge is paused."}{" "}
                 Resume to submit another version.
               </div>
             )}
@@ -503,30 +522,13 @@ export function PracticeWorkspace({
                     }}
                   />
                 </label>
-                <label className="relative flex cursor-pointer items-center gap-2 rounded-md border border-line px-4 py-3 text-sm hover:bg-elevated focus-within:ring-2">
-                  <FolderUp size={16} />
-                  Upload folder
-                  <input
-                    aria-label="Upload source folder"
-                    type="file"
-                    multiple
-                    {...{ webkitdirectory: "" }}
-                    disabled={!active || busy}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      if (files.length) upload.mutate(files);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
                 <Button
                   className="h-auto py-3"
                   variant="ghost"
                   onClick={() => setFolderOpen(true)}
                 >
                   <Folder size={16} />
-                  Connect project
+                  Connect folder
                 </Button>
               </div>
               {draft.uploads.length > 0 && (
@@ -724,7 +726,6 @@ export function PracticeWorkspace({
         open={folderOpen}
         onOpenChange={setFolderOpen}
         onSelect={(path) => connection.mutate(path)}
-        onUpload={(files) => upload.mutate(files)}
       />
     </main>
   );
