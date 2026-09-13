@@ -1,7 +1,33 @@
 "use client";
+
 import { useState } from "react";
+import { FileSearch2 } from "lucide-react";
 import type { PracticeSubmission, ReviewJob } from "@/shared/types/api";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import { AttemptReview } from "./attempt-review";
+
+const verdictLabel = {
+  accepted: "Accepted",
+  needs_revision: "Needs revision",
+  needs_evidence: "Needs evidence",
+};
+
+function attemptState(attempt: PracticeSubmission) {
+  const review = attempt.reviews[0];
+  if (review?.response) return verdictLabel[review.response.verdict];
+  if (review?.status === "running") return "Reviewing";
+  if (review?.status === "queued") return "Queued";
+  if (review?.status === "failed") return "Failed";
+  if (review?.status === "cancelled") return "Cancelled";
+  return "Saved";
+}
+
 export function SubmissionHistory({
   attempts,
   busy,
@@ -14,57 +40,63 @@ export function SubmissionHistory({
   onCancel: (review: ReviewJob) => void;
 }) {
   const [selectedId, setSelectedId] = useState("");
-  const selected = attempts.find((a) => a.id === selectedId) ?? attempts[0];
-  if (!selected)
-    return (
-      <div className="py-12 text-center">
-        <h2 className="text-lg font-semibold">No submissions yet</h2>
-        <p className="mt-2 text-sm text-muted">
-          Attach your code in Submit. Your reviews will appear here.
-        </p>
-      </div>
-    );
+  const selected =
+    attempts.find((attempt) => attempt.id === selectedId) ?? attempts[0];
+
   return (
     <section
       aria-label="Submission reviews"
-      className="mx-auto w-full max-w-[900px]"
+      className="flex h-full min-h-0 flex-col"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-5">
-        <h2 className="text-lg font-semibold">
-          Review history{" "}
-          <span className="ml-2 text-sm font-normal text-muted">
-            {attempts.length}{" "}
-            {attempts.length === 1 ? "submission" : "submissions"}
-          </span>
-        </h2>
-        <select
-          aria-label="Select submission"
-          value={selected.id}
-          onChange={(e) => setSelectedId(e.target.value)}
-          className="max-w-full rounded border border-line bg-surface px-3 py-2 text-sm"
-        >
-          {attempts.map((a) => {
-            const r = a.reviews[0];
-            return (
-              <option key={a.id} value={a.id}>
-                Submission {a.sequence}
-                {a.id === attempts[0]?.id ? " · Latest" : ""} ·{" "}
-                {r?.response?.verdict.replaceAll("_", " ") ??
-                  r?.status ??
-                  "Saved"}
-                {r?.score != null ? ` · ${r.score}/10` : ""}
-              </option>
-            );
-          })}
-        </select>
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-10">
+        {selected ? (
+          <>
+            {attempts.length > 1 && (
+              <div className="mx-auto mb-5 flex max-w-[820px] justify-end">
+                <Select value={selected.id} onValueChange={setSelectedId}>
+                  <SelectTrigger
+                    aria-label="Select submission"
+                    className="h-8 w-52 bg-surface"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper" align="end">
+                    {attempts.map((attempt, index) => {
+                      const review = attempt.reviews[0];
+                      return (
+                        <SelectItem key={attempt.id} value={attempt.id}>
+                          Submission {attempt.sequence}
+                          {index === 0 ? " · Latest" : ""}
+                          {" · "}
+                          {attemptState(attempt)}
+                          {review?.score != null
+                            ? " " + review.score + "/10"
+                            : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <AttemptReview
+              key={selected.id}
+              attempt={selected}
+              busy={busy}
+              onRetry={onRetry}
+              onCancel={onCancel}
+            />
+          </>
+        ) : (
+          <div className="mx-auto flex max-w-sm flex-col items-center py-16 text-center">
+            <FileSearch2 size={22} className="text-muted" />
+            <h3 className="mt-4 text-sm font-semibold">No reviews yet</h3>
+            <p className="mt-1 text-sm text-muted">
+              Submit an implementation to start a review.
+            </p>
+          </div>
+        )}
       </div>
-      <AttemptReview
-        key={selected.id}
-        attempt={selected}
-        busy={busy}
-        onRetry={onRetry}
-        onCancel={onCancel}
-      />
     </section>
   );
 }

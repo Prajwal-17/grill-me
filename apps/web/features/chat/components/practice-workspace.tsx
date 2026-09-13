@@ -6,13 +6,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import {
   ArrowLeft,
-  Paperclip,
   LoaderCircle,
-  X,
   Pause,
   Play,
   Check,
-  Folder,
   Bookmark,
 } from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
@@ -39,6 +36,7 @@ import {
   uploadFile,
 } from "@/features/chat/api/review-api";
 import { SubmissionHistory } from "./submission-history";
+import { SubmissionComposer } from "./submission-composer";
 import { ProjectPicker } from "./project-picker";
 import {
   Tabs,
@@ -52,18 +50,15 @@ type Draft = {
   content: string;
   uploads: { id: string; filename: string }[];
   projectId: string;
-  subdirectory: string;
-  baseRevision: string;
   question: string;
 };
 const emptyDraft: Draft = {
   content: "",
   uploads: [],
   projectId: "",
-  subdirectory: "",
-  baseRevision: "",
   question: "",
 };
+
 const useDrafts = create<{
   drafts: Record<string, Draft>;
   update: (id: string, patch: Partial<Draft>) => void;
@@ -202,8 +197,8 @@ export function PracticeWorkspace({
         content,
         uploadIds,
         projectId: draft.projectId || null,
-        subdirectory: draft.subdirectory,
-        baseRevision: draft.baseRevision,
+        subdirectory: "",
+        baseRevision: "",
       });
     },
     onSuccess: async () => {
@@ -280,17 +275,34 @@ export function PracticeWorkspace({
   const savedHelp =
     messages.data?.filter((m) => m.mode === "hint" || m.mode === "clarify") ??
     [];
-  const legacyReviews = messages.data?.filter((m) => m.mode === "review") ?? [];
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 md:px-7 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
-        <Link
-          href="/challenges"
-          className="flex items-center gap-2 text-sm text-muted"
-        >
-          <ArrowLeft size={15} />
-          Challenges
-        </Link>
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-4 py-3 md:px-7 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button
+            asChild
+            size="icon-sm"
+            variant="ghost"
+            className="border border-line"
+          >
+            <Link href="/challenges" aria-label="Back to challenges">
+              <ArrowLeft size={15} />
+            </Link>
+          </Button>
+          <div className="min-w-0">
+            <nav
+              aria-label="Breadcrumb"
+              className="flex items-center gap-1 text-[11px] text-muted"
+            >
+              <Link href="/challenges" className="hover:text-foreground">
+                Challenges
+              </Link>
+            </nav>
+            <h1 className="mt-0.5 truncate text-base font-semibold">
+              {challenge.title}
+            </h1>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           {challenge.status === "completed" && (
             <span className="text-xs text-success">Completed</span>
@@ -350,16 +362,24 @@ export function PracticeWorkspace({
           {error.message}
         </p>
       )}
-      <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-0">
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="min-h-0 flex-1 gap-0 overflow-hidden"
+      >
         <div className="shrink-0 border-b border-line px-4 md:px-7">
           <TabsList
             variant="line"
-            className="h-12 w-full max-w-sm"
+            className="h-11 w-full justify-start"
             aria-label="Challenge workspace"
           >
-            <TabsTrigger value="challenge">Challenge</TabsTrigger>
-            <TabsTrigger value="submit">Submit</TabsTrigger>
-            <TabsTrigger value="reviews">
+            <TabsTrigger value="challenge" className="flex-none px-4">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="submit" className="flex-none px-4">
+              Submit
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="flex-none px-4">
               Reviews
               {running && <LoaderCircle size={13} className="animate-spin" />}
             </TabsTrigger>
@@ -367,318 +387,166 @@ export function PracticeWorkspace({
         </div>
         <TabsContent
           value="challenge"
-          className="min-h-0 overflow-y-auto px-5 py-7 md:px-10"
+          className="min-h-0 flex-1 overflow-y-auto"
         >
-          <div className="mx-auto max-w-[850px] space-y-6">
-            <ChallengeCard
-              challenge={challenge}
-              className="max-w-none"
-              headerAction={
-                <CopyButton
-                  text={statementMarkdown(challenge)}
-                  label="Copy challenge"
-                />
-              }
-            />
-            {active && (
-              <div className="flex gap-2">
-                <Button variant="primary" onClick={() => setTab("submit")}>
-                  Submit implementation
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setHelpOpen(!helpOpen)}
-                  aria-expanded={helpOpen}
-                >
-                  Help
-                </Button>
-              </div>
-            )}
-            {helpOpen && active && (
-              <section
-                className="space-y-4 rounded-lg border border-line p-4"
-                aria-label="Challenge help"
-              >
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => help.mutate("hint")}
-                  >
-                    Give me a hint
+          <div className="px-5 py-6 md:px-10">
+            <div className="mx-auto max-w-[850px] space-y-6">
+              <ChallengeCard
+                challenge={challenge}
+                className="max-w-none"
+                showTitle={false}
+                headerAction={
+                  <CopyButton
+                    text={statementMarkdown(challenge)}
+                    label="Copy challenge"
+                  />
+                }
+              />
+              {active && (
+                <div className="flex gap-2">
+                  <Button variant="primary" onClick={() => setTab("submit")}>
+                    Submit implementation
                   </Button>
                   <Button
-                    size="sm"
                     variant="ghost"
-                    disabled={busy}
-                    onClick={() => help.mutate("approach")}
+                    onClick={() => setHelpOpen(!helpOpen)}
+                    aria-expanded={helpOpen}
                   >
-                    High-level approach
+                    Help
                   </Button>
                 </div>
-                <form
-                  className="flex items-start gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (draft.question.trim()) help.mutate("clarify");
-                  }}
+              )}
+              {helpOpen && active && (
+                <section
+                  className="space-y-4 rounded-lg border border-line p-4"
+                  aria-label="Challenge help"
                 >
-                  <Textarea
-                    aria-label="Clarify a requirement"
-                    value={draft.question}
-                    onChange={(e) => update({ question: e.target.value })}
-                    placeholder="What is unclear in the requirements?"
-                    rows={2}
-                  />
-                  <Button
-                    size="sm"
-                    type="submit"
-                    disabled={busy || !draft.question.trim()}
-                  >
-                    Clarify
-                  </Button>
-                </form>
-                {reply && (
-                  <div aria-live="polite">
-                    <Markdown>{reply}</Markdown>
-                  </div>
-                )}
-                {help.isPending && !reply && (
-                  <p role="status" className="text-xs text-muted">
-                    Preparing help…
-                  </p>
-                )}
-              </section>
-            )}
-            {!!savedHelp.length && (
-              <details className="border-t border-line pt-4 text-sm">
-                <summary className="cursor-pointer text-muted">
-                  Saved help ({savedHelp.length})
-                </summary>
-                <div className="mt-4 space-y-5">
-                  {savedHelp.map((m) => (
-                    <div key={m.id}>
-                      <p className="mb-1 text-xs text-muted">
-                        {m.role === "user" ? "You" : "Guidance"}
-                      </p>
-                      <Markdown>{m.content}</Markdown>
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-            {challenge.contextSnapshot && (
-              <details className="text-xs text-muted">
-                <summary className="cursor-pointer">Generation details</summary>
-                <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
-                  {JSON.stringify(challenge.contextSnapshot, null, 2)}
-                </pre>
-              </details>
-            )}
-          </div>
-        </TabsContent>
-        <TabsContent
-          value="submit"
-          className="min-h-0 overflow-y-auto px-5 py-7 md:px-10"
-        >
-          <section
-            className="mx-auto max-w-[800px] space-y-6"
-            aria-label="Submit implementation"
-          >
-            <div>
-              <h2 className="text-xl font-semibold">Your implementation</h2>
-              <p className="mt-2 text-sm text-muted">
-                Attach code or connect a folder. No explanation needed.
-              </p>
-            </div>
-            {!active && (
-              <div className="rounded border border-line p-4 text-sm text-muted">
-                {challenge.status === "completed"
-                  ? "You marked this challenge completed."
-                  : challenge.status === "saved"
-                    ? "This challenge is saved for later."
-                    : "This challenge is paused."}{" "}
-                Resume to submit another version.
-              </div>
-            )}
-            <fieldset
-              disabled={!active || busy}
-              className="space-y-5 disabled:opacity-60"
-            >
-              <div className="flex flex-wrap gap-3">
-                <label className="relative flex cursor-pointer items-center gap-2 rounded-md border border-line px-4 py-3 text-sm hover:bg-elevated focus-within:ring-2">
-                  <Paperclip size={16} />
-                  Attach files
-                  <input
-                    aria-label="Attach source files"
-                    type="file"
-                    multiple
-                    disabled={!active || busy}
-                    className="absolute inset-0 cursor-pointer opacity-0"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      if (files.length) upload.mutate(files);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-                <Button
-                  className="h-auto py-3"
-                  variant="ghost"
-                  onClick={() => setFolderOpen(true)}
-                >
-                  <Folder size={16} />
-                  Connect folder
-                </Button>
-              </div>
-              {draft.uploads.length > 0 && (
-                <div className="rounded-lg border border-line">
-                  <div className="flex items-center justify-between border-b border-line px-4 py-2">
-                    <span className="text-sm">
-                      {draft.uploads.length}{" "}
-                      {draft.uploads.length === 1 ? "file" : "files"} attached
-                    </span>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      disabled={busy}
+                      onClick={() => help.mutate("hint")}
+                    >
+                      Give me a hint
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => update({ uploads: [] })}
+                      disabled={busy}
+                      onClick={() => help.mutate("approach")}
                     >
-                      Clear files
+                      High-level approach
                     </Button>
                   </div>
-                  <ul className="max-h-44 overflow-y-auto divide-y divide-line">
-                    {draft.uploads.map((file) => (
-                      <li
-                        key={file.id}
-                        className="flex items-center justify-between gap-3 px-4 py-2 text-xs"
-                      >
-                        <span className="min-w-0 break-all">
-                          {file.filename}
-                        </span>
-                        <button
-                          aria-label={"Remove " + file.filename}
-                          onClick={() =>
-                            update({
-                              uploads: draft.uploads.filter(
-                                (f) => f.id !== file.id,
-                              ),
-                            })
-                          }
-                          className="shrink-0 rounded p-1 hover:bg-elevated"
-                        >
-                          <X size={14} />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {(draft.projectId || Boolean(projects.data?.length)) && (
-                <div className="space-y-3 rounded-lg border border-line p-4">
-                  <label className="grid gap-2 text-sm">
-                    Connected project
-                    <select
-                      aria-label="Connected project"
-                      value={draft.projectId}
-                      onChange={(e) => update({ projectId: e.target.value })}
-                      className="w-full min-w-0 rounded border border-line bg-surface px-3 py-2 text-sm"
+                  <form
+                    className="flex items-start gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (draft.question.trim()) help.mutate("clarify");
+                    }}
+                  >
+                    <Textarea
+                      aria-label="Clarify a requirement"
+                      value={draft.question}
+                      onChange={(e) => update({ question: e.target.value })}
+                      placeholder="What is unclear in the requirements?"
+                      rows={2}
+                    />
+                    <Button
+                      size="sm"
+                      type="submit"
+                      disabled={busy || !draft.question.trim()}
                     >
-                      <option value="">
-                        Use uploaded files or pasted code
-                      </option>
-                      {projects.data?.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} — {p.root}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {draft.projectId && (
-                    <details className="text-xs text-muted">
-                      <summary className="cursor-pointer">
-                        Project options
-                      </summary>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                        <input
-                          aria-label="Relevant subdirectory"
-                          value={draft.subdirectory}
-                          onChange={(e) =>
-                            update({ subdirectory: e.target.value })
-                          }
-                          placeholder="Source subfolder (optional)"
-                          className="min-w-0 rounded border border-line bg-surface px-3 py-2 text-sm"
-                        />
-                        <input
-                          aria-label="Base Git revision"
-                          value={draft.baseRevision}
-                          onChange={(e) =>
-                            update({ baseRevision: e.target.value })
-                          }
-                          placeholder="Base Git revision (optional)"
-                          className="min-w-0 rounded border border-line bg-surface px-3 py-2 text-sm"
-                        />
-                      </div>
-                    </details>
+                      Clarify
+                    </Button>
+                  </form>
+                  {reply && (
+                    <div aria-live="polite">
+                      <Markdown>{reply}</Markdown>
+                    </div>
                   )}
+                  {help.isPending && !reply && (
+                    <p role="status" className="text-xs text-muted">
+                      Preparing help…
+                    </p>
+                  )}
+                </section>
+              )}
+              {!!savedHelp.length && (
+                <details className="border-t border-line pt-4 text-sm">
+                  <summary className="cursor-pointer text-muted">
+                    Saved help ({savedHelp.length})
+                  </summary>
+                  <div className="mt-4 space-y-5">
+                    {savedHelp.map((m) => (
+                      <div key={m.id}>
+                        <p className="mb-1 text-xs text-muted">
+                          {m.role === "user" ? "You" : "Guidance"}
+                        </p>
+                        <Markdown>{m.content}</Markdown>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+              {challenge.contextSnapshot && (
+                <details className="text-xs text-muted">
+                  <summary className="cursor-pointer">
+                    Generation details
+                  </summary>
+                  <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
+                    {JSON.stringify(challenge.contextSnapshot, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+          </div>
+        </TabsContent>
+        <TabsContent value="submit" className="min-h-0 flex-1 overflow-y-auto">
+          <div className="px-5 py-6 md:px-10">
+            <section
+              className="mx-auto max-w-[900px] space-y-5"
+              aria-label="Submit implementation"
+            >
+              {!active && (
+                <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
+                  {challenge.status === "completed"
+                    ? "You marked this challenge completed."
+                    : challenge.status === "saved"
+                      ? "This challenge is saved for later."
+                      : "This challenge is paused."}{" "}
+                  Resume to submit another version.
                 </div>
               )}
-              <details className="text-sm">
-                <summary className="cursor-pointer text-muted">
-                  Or paste code
-                </summary>
-                <Textarea
-                  aria-label="Implementation code"
-                  value={draft.content}
-                  onChange={(e) => update({ content: e.target.value })}
-                  placeholder="Paste code here…"
-                  rows={9}
-                  className="mt-3 font-mono text-sm"
-                />
-              </details>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-                <p role="status" className="text-xs text-muted">
-                  {uploadProgress ||
-                    (draft.projectId
-                      ? "A fresh snapshot is saved with each submission."
-                      : "Files are saved with this submission.")}
-                </p>
-                <Button
-                  variant="primary"
-                  disabled={
-                    !active ||
-                    busy ||
-                    Boolean(running) ||
-                    (!draft.content.trim() &&
-                      !draft.uploads.length &&
-                      !draft.projectId)
-                  }
-                  onClick={() => submit.mutate()}
-                >
-                  {submit.isPending && (
-                    <LoaderCircle size={15} className="animate-spin" />
-                  )}
-                  Submit for review
-                </Button>
-              </div>
-            </fieldset>
-            {uploadNotice && (
-              <p className="text-xs text-muted">{uploadNotice}</p>
-            )}
-            {running && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setTab("reviews")}
-              >
-                View running review
-              </Button>
-            )}
-          </section>
+              <SubmissionComposer
+                active={active}
+                busy={busy}
+                running={Boolean(running)}
+                projects={projects.data ?? []}
+                projectsLoading={projects.isLoading}
+                projectsError={Boolean(projects.error)}
+                projectId={draft.projectId}
+                uploads={draft.uploads}
+                content={draft.content}
+                uploadProgress={uploadProgress}
+                uploadNotice={uploadNotice}
+                onProjectChange={(projectId) => update({ projectId })}
+                onConnectFolder={() => setFolderOpen(true)}
+                onUpload={(files) => upload.mutate(files)}
+                onRemoveUpload={(id) =>
+                  update({
+                    uploads: draft.uploads.filter((file) => file.id !== id),
+                  })
+                }
+                onClearUploads={() => update({ uploads: [] })}
+                onContentChange={(content) => update({ content })}
+                onSubmit={() => submit.mutate()}
+                onViewReview={() => setTab("reviews")}
+              />
+            </section>
+          </div>
         </TabsContent>
-        <TabsContent
-          value="reviews"
-          className="min-h-0 overflow-y-auto px-5 py-7 md:px-10"
-        >
+        <TabsContent value="reviews" className="min-h-0 overflow-hidden">
           {attempts.isLoading ? (
             <p role="status" className="text-sm text-muted">
               Loading submissions…
@@ -699,25 +567,6 @@ export function PracticeWorkspace({
                 reviewAction.mutate({ review, cancel: true })
               }
             />
-          )}
-          {!!legacyReviews.length && (
-            <details className="mx-auto mt-5 max-w-[900px] border-t border-line pt-4 text-sm">
-              <summary className="cursor-pointer text-muted">
-                Earlier submission feedback
-              </summary>
-              <div className="mt-4 space-y-4">
-                {legacyReviews.map((m) => (
-                  <div key={m.id}>
-                    <p className="text-xs text-muted">
-                      {m.role === "user"
-                        ? "Submitted work"
-                        : "Historical review · unscored"}
-                    </p>
-                    <Markdown>{m.content}</Markdown>
-                  </div>
-                ))}
-              </div>
-            </details>
           )}
         </TabsContent>
       </Tabs>

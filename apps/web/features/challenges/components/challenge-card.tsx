@@ -12,11 +12,13 @@ export function ChallengeCard({
   className,
   headingPrefix,
   headerAction,
+  showTitle = true,
 }: {
   challenge: Challenge;
   className?: string;
   headingPrefix?: string;
   headerAction?: ReactNode;
+  showTitle?: boolean;
 }) {
   const Icon =
     challenge.scope === "system"
@@ -34,9 +36,11 @@ export function ChallengeCard({
           </div>
           {headerAction}
         </div>
-        <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em]">
-          {challenge.title}
-        </h1>
+        {showTitle && (
+          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em]">
+            {challenge.title}
+          </h1>
+        )}
       </header>
       <div className="text-base leading-7 [overflow-wrap:anywhere]">
         <Markdown headingPrefix={headingPrefix}>

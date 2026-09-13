@@ -123,19 +123,21 @@ export function GenerationHome({ profile }: { profile: Profile }) {
 
   return (
     <main className="mx-auto flex h-full min-h-0 w-full max-w-[820px] flex-col gap-6 overflow-hidden px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-6 sm:px-8 md:px-10 md:pb-4 md:pt-[min(8vh,80px)]">
-      <section
-        aria-labelledby="generation-heading"
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-      >
+      <header className="shrink-0">
         <h1
           id="generation-heading"
           className="text-balance text-[clamp(2rem,4vw,2.5rem)] font-semibold leading-[1.12] tracking-[-0.035em]"
         >
           Stop consuming. Start building.
         </h1>
+      </header>
+      <section
+        aria-labelledby="generation-heading"
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
         {!clarification?.question && (
           <div
-            className="mt-8 grid gap-x-8 sm:grid-cols-2"
+            className="grid gap-x-8 sm:grid-cols-2"
             aria-label="Example builds"
           >
             {EXAMPLES.map((example) => (

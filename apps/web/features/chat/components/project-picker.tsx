@@ -1,9 +1,17 @@
 "use client";
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Folder, ArrowUp, LoaderCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Folder,
+  Home,
+  LoaderCircle,
+} from "lucide-react";
 import { browseFolders } from "../api/review-api";
 import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +19,63 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/shared/components/ui/dialog";
+
+function normalizeLocalPath(value: string) {
+  const path = value.trim();
+  if (!path.startsWith("file://")) return path;
+  try {
+    return decodeURIComponent(new URL(path).pathname);
+  } catch {
+    return path;
+  }
+}
+
+function PathBreadcrumb({
+  path,
+  onNavigate,
+}: {
+  path: string;
+  onNavigate: (path: string) => void;
+}) {
+  const segments = path.split("/").filter(Boolean);
+  return (
+    <nav
+      aria-label="Current folder"
+      className="flex min-w-0 flex-1 items-center overflow-x-auto font-mono text-[11px]"
+    >
+      <button
+        type="button"
+        aria-label="Root folder"
+        className="shrink-0 rounded p-1 text-muted hover:bg-elevated hover:text-foreground"
+        onClick={() => onNavigate("/")}
+      >
+        <Home size={13} />
+      </button>
+      {segments.map((segment, index) => {
+        const segmentPath = "/" + segments.slice(0, index + 1).join("/");
+        const current = index === segments.length - 1;
+        return (
+          <span key={segmentPath} className="flex shrink-0 items-center">
+            <ChevronRight size={12} className="text-muted" />
+            <button
+              type="button"
+              aria-current={current ? "page" : undefined}
+              className={
+                current
+                  ? "rounded px-1.5 py-1 text-foreground"
+                  : "rounded px-1.5 py-1 text-muted hover:bg-elevated hover:text-foreground"
+              }
+              onClick={() => onNavigate(segmentPath)}
+            >
+              {segment}
+            </button>
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function ProjectPicker({
   profileId,
   open,
@@ -23,129 +88,129 @@ export function ProjectPicker({
   onSelect: (path: string) => void;
 }) {
   const [path, setPath] = useState("");
-  const [typedPath, setTypedPath] = useState<string | null>(null);
-  const navigate = (next: string) => {
-    setPath(next);
-    setTypedPath(null);
-  };
+  const [typedPath, setTypedPath] = useState("");
   const listing = useQuery({
     queryKey: ["folders", profileId, path],
     queryFn: () => browseFolders(profileId, path),
     enabled: open,
     retry: false,
   });
-  const inputPath = typedPath ?? listing.data?.path ?? path;
-  const pathChanged = inputPath.trim() !== listing.data?.path;
+  const selectedPath = listing.data?.path ?? path;
+
+  function navigate(next: string) {
+    setPath(next);
+    setTypedPath("");
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Connect a folder</DialogTitle>
-          <DialogDescription>
-            Enter a path or browse folders available to Grill Me. Files are read
-            when you submit for review.
+      <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="border-b border-line px-5 py-4">
+          <DialogTitle>Connect folder</DialogTitle>
+          <DialogDescription className="sr-only">
+            Browse or enter the path of a folder available to Grill Me.
           </DialogDescription>
         </DialogHeader>
-        <form
-          className="space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const next = inputPath.trim();
-            if (!next) return;
-            if (next === path) {
-              setTypedPath(null);
-              void listing.refetch();
-            } else navigate(next);
-          }}
-        >
-          <label htmlFor="project-folder-path" className="text-sm font-medium">
-            Folder path
-          </label>
-          <div className="flex items-center gap-2">
+
+        <div className="space-y-3 px-5 py-4">
+          <form
+            className="flex gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const next = normalizeLocalPath(typedPath);
+              if (next) navigate(next);
+            }}
+          >
+            <Input
+              aria-label="Folder path or file URL"
+              value={typedPath}
+              onChange={(event) => setTypedPath(event.target.value)}
+              placeholder="Path or file:// URL"
+              autoComplete="off"
+              spellCheck={false}
+              className="h-9 font-mono text-xs"
+            />
+            <Button type="submit" disabled={!typedPath.trim()}>
+              Open
+            </Button>
+          </form>
+
+          <div className="flex min-w-0 items-center gap-1 rounded-md border border-line px-1.5 py-1">
             <Button
               type="button"
               size="icon-sm"
               variant="ghost"
-              aria-label="Parent folder"
+              aria-label="Go back one folder"
               disabled={!listing.data?.parent || listing.isFetching}
               onClick={() => navigate(listing.data!.parent!)}
             >
-              <ArrowUp size={16} />
+              <ArrowLeft size={14} />
             </Button>
-            <input
-              id="project-folder-path"
-              value={inputPath}
-              onChange={(e) => setTypedPath(e.target.value)}
-              placeholder="/absolute/path/to/project"
-              autoComplete="off"
-              spellCheck={false}
-              className="min-w-0 flex-1 rounded border border-line bg-surface px-3 py-2 text-sm"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!inputPath.trim() || listing.isFetching}
-            >
-              Open
-            </Button>
+            <PathBreadcrumb path={selectedPath} onNavigate={navigate} />
           </div>
-          {pathChanged && typedPath !== null && (
-            <p className="text-xs text-muted">
-              Press Enter or Open to browse this path before selecting it.
-            </p>
-          )}
-        </form>
-        <div className="h-64 overflow-y-auto rounded border border-line p-1">
-          {listing.isLoading ? (
-            <p className="p-4 text-sm text-muted">
-              <LoaderCircle size={16} className="mr-2 inline animate-spin" />
-              Loading folders…
-            </p>
-          ) : listing.error ? (
-            <div className="p-4 text-sm" role="alert">
-              <p>{listing.error.message}</p>
-              <Button className="mt-3" size="sm" onClick={() => navigate("")}>
-                Back to home
-              </Button>
-            </div>
-          ) : listing.data?.folders.length ? (
-            listing.data.folders.map((folder) => (
-              <button
-                key={folder.path}
-                className="flex w-full items-center gap-3 rounded px-3 py-2 text-left text-sm hover:bg-elevated focus-visible:outline-2"
-                onClick={() => navigate(folder.path)}
+
+          <div className="h-56 overflow-y-auto rounded-md border border-line p-1">
+            {listing.isLoading || listing.isFetching ? (
+              <div className="flex h-full items-center justify-center gap-2 text-sm text-muted">
+                <LoaderCircle size={15} className="animate-spin" />
+                Loading…
+              </div>
+            ) : listing.error ? (
+              <div
+                role="alert"
+                className="flex h-full flex-col items-center justify-center px-5 text-center text-sm"
               >
-                <Folder size={16} className="shrink-0 text-muted" />
-                <span className="break-all">{folder.name}</span>
-              </button>
-            ))
-          ) : (
-            <p className="p-4 text-sm text-muted">
-              No subfolders. You can select this folder.
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              disabled={
-                !listing.data ||
-                listing.isFetching ||
-                pathChanged ||
-                listing.data.path === "/"
-              }
-              onClick={() => {
-                onSelect(listing.data!.path);
-                onOpenChange(false);
-              }}
-            >
-              Connect folder
-            </Button>
+                <p>{listing.error.message}</p>
+                <Button className="mt-3" size="sm" onClick={() => navigate("")}>
+                  Go home
+                </Button>
+              </div>
+            ) : listing.data?.folders.length ? (
+              <div role="list" aria-label="Folders">
+                {listing.data.folders.map((folder) => (
+                  <button
+                    type="button"
+                    role="listitem"
+                    key={folder.path}
+                    className="flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left text-sm hover:bg-elevated focus-visible:outline-2"
+                    onClick={() => navigate(folder.path)}
+                  >
+                    <Folder
+                      size={15}
+                      className="shrink-0 text-[var(--grill-accent)]"
+                    />
+                    <span className="min-w-0 truncate">{folder.name}</span>
+                    <ChevronRight
+                      size={13}
+                      className="ml-auto shrink-0 text-muted"
+                    />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted">
+                No subfolders
+              </div>
+            )}
           </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            disabled={
+              !listing.data || listing.isFetching || listing.data.path === "/"
+            }
+            onClick={() => {
+              onSelect(listing.data!.path);
+              onOpenChange(false);
+            }}
+          >
+            Connect folder
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

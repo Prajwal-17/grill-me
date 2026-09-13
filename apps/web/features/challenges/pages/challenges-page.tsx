@@ -113,84 +113,95 @@ export function ChallengesPage() {
           }}
         />
       ) : (
-        <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
-          <header className="mb-10 flex items-center justify-between gap-4">
-            <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-              Challenges
-            </h1>
-            <Link className={buttonStyles("primary")} href="/">
-              <Plus size={16} />
-              New build
-            </Link>
+        <main className="flex h-full min-h-0 flex-col overflow-hidden">
+          <header className="shrink-0 border-b border-line px-5 py-4 md:px-10">
+            <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-4">
+              <h1 className="text-xl font-semibold tracking-[-0.02em]">
+                Challenges
+              </h1>
+              <Link className={buttonStyles("primary")} href="/">
+                <Plus size={16} />
+                New build
+              </Link>
+            </div>
           </header>
-          <section>
-            <h2 className="mb-4 flex items-center gap-2.5 text-sm font-medium">
-              In progress
-              <span className="rounded-md bg-canvas px-1.5 py-0.5 text-xs text-muted">
-                {active.data?.length ?? 0}
-              </span>
-            </h2>
-            {active.data?.length ? (
-              <div className="overflow-hidden rounded-xl border border-line">
-                {active.data.map((challenge) => (
-                  <ChallengeRow key={challenge.id} challenge={challenge} />
-                ))}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-line px-6 py-10">
-                <BookOpen size={22} className="mb-4 text-muted" />
-                <h3 className="text-base font-medium">Start your next build</h3>
-                <Link href="/" className={buttonStyles("secondary") + " mt-5"}>
-                  <Plus size={15} />
-                  Create build
-                </Link>
-              </div>
-            )}
-          </section>
-          <section className="mt-10" aria-label="Saved for later">
-            <h2 className="mb-4 flex items-center gap-2.5 text-sm font-medium">
-              <Bookmark size={15} /> Saved for later
-              <span className="rounded-md bg-canvas px-1.5 py-0.5 text-xs text-muted">
-                {saved.data?.length ?? 0}
-              </span>
-            </h2>
-            {saved.data?.length ? (
-              <div className="overflow-hidden rounded-xl border border-line">
-                {saved.data.map((challenge) => (
-                  <ChallengeRow key={challenge.id} challenge={challenge} />
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-lg border border-line px-5 py-5 text-sm text-muted">
-                Good challenge, wrong time? Save it for later and return when
-                you’re ready.
-              </p>
-            )}
-          </section>
-          <section className="mt-10">
-            <header className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-medium">Recently completed</h2>
-              {Boolean(history.data?.length) && (
-                <Link
-                  href="/history"
-                  className="text-xs text-muted hover:text-foreground"
-                >
-                  View history
-                </Link>
-              )}
-            </header>
-            {history.data?.length ? (
-              <div className="overflow-hidden rounded-xl border border-line">
-                {history.data.slice(0, 4).map((challenge) => (
-                  <ChallengeRow key={challenge.id} challenge={challenge} />
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-lg border border-line px-5 py-5 text-sm text-muted">
-                Completed challenges will appear here.
-              </p>
-            )}
-          </section>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-8">
+            <div className="mx-auto w-full max-w-[1100px]">
+              <section>
+                <h2 className="mb-4 flex items-center gap-2.5 text-sm font-medium">
+                  In progress
+                  <span className="rounded-md bg-canvas px-1.5 py-0.5 text-xs text-muted">
+                    {active.data?.length ?? 0}
+                  </span>
+                </h2>
+                {active.data?.length ? (
+                  <div className="overflow-hidden rounded-xl border border-line">
+                    {active.data.map((challenge) => (
+                      <ChallengeRow key={challenge.id} challenge={challenge} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-line px-6 py-10">
+                    <BookOpen size={22} className="mb-4 text-muted" />
+                    <h3 className="text-base font-medium">
+                      Start your next build
+                    </h3>
+                    <Link
+                      href="/"
+                      className={buttonStyles("secondary") + " mt-5"}
+                    >
+                      <Plus size={15} />
+                      Create build
+                    </Link>
+                  </div>
+                )}
+              </section>
+              <section className="mt-10" aria-label="Saved for later">
+                <h2 className="mb-4 flex items-center gap-2.5 text-sm font-medium">
+                  <Bookmark size={15} /> Saved for later
+                  <span className="rounded-md bg-canvas px-1.5 py-0.5 text-xs text-muted">
+                    {saved.data?.length ?? 0}
+                  </span>
+                </h2>
+                {saved.data?.length ? (
+                  <div className="overflow-hidden rounded-xl border border-line">
+                    {saved.data.map((challenge) => (
+                      <ChallengeRow key={challenge.id} challenge={challenge} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-line px-5 py-5 text-sm text-muted">
+                    Good challenge, wrong time? Save it for later and return
+                    when you’re ready.
+                  </p>
+                )}
+              </section>
+              <section className="mt-10">
+                <header className="mb-4 flex items-center justify-between">
+                  <h2 className="text-sm font-medium">Recently completed</h2>
+                  {Boolean(history.data?.length) && (
+                    <Link
+                      href="/history"
+                      className="text-xs text-muted hover:text-foreground"
+                    >
+                      View history
+                    </Link>
+                  )}
+                </header>
+                {history.data?.length ? (
+                  <div className="overflow-hidden rounded-xl border border-line">
+                    {history.data.slice(0, 4).map((challenge) => (
+                      <ChallengeRow key={challenge.id} challenge={challenge} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-lg border border-line px-5 py-5 text-sm text-muted">
+                    Completed challenges will appear here.
+                  </p>
+                )}
+              </section>
+            </div>
+          </div>
         </main>
       )}
     </AppShell>

@@ -1,16 +1,67 @@
 "use client";
+
 import { useState } from "react";
 import Link from "next/link";
-import { Check, LoaderCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  FileCode2,
+  LoaderCircle,
+  MessageSquare,
+  RotateCcw,
+  SearchCheck,
+  TerminalSquare,
+  XCircle,
+} from "lucide-react";
 import type { PracticeSubmission, ReviewJob } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { Markdown } from "@/shared/components/markdown";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+import { cn } from "@/shared/lib/cn";
+
 const verdicts = {
-  accepted: "Accepted",
-  needs_revision: "Needs revision",
-  needs_evidence: "Needs evidence",
+  accepted: {
+    label: "Accepted",
+    icon: CheckCircle2,
+    className: "text-success",
+  },
+  needs_revision: {
+    label: "Needs revision",
+    icon: AlertTriangle,
+    className: "text-warning",
+  },
+  needs_evidence: {
+    label: "Needs evidence",
+    icon: SearchCheck,
+    className: "text-warning",
+  },
 };
+
+function formatDate(value: string) {
+  return (
+    new Intl.DateTimeFormat("en", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+    }).format(new Date(value)) + " UTC"
+  );
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
 export function AttemptReview({
   attempt,
   onRetry,
@@ -24,261 +75,322 @@ export function AttemptReview({
 }) {
   const [selectedReview, setSelectedReview] = useState("");
   const review =
-    attempt.reviews.find((r) => r.id === selectedReview) ?? attempt.reviews[0];
+    attempt.reviews.find((item) => item.id === selectedReview) ??
+    attempt.reviews[0];
   const [responding, setResponding] = useState(false);
   const [response, setResponse] = useState("");
   const result = review?.response;
   const running = review?.status === "queued" || review?.status === "running";
+  const verdict = result ? verdicts[result.verdict] : null;
+  const VerdictIcon = verdict?.icon;
+
   return (
-    <article
-      className="border-t border-line py-6"
-      aria-label={"Submission " + attempt.sequence}
-    >
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <h3 className="font-semibold">Submission {attempt.sequence}</h3>
-          {result?.verdict === "accepted" && (
-            <Check size={16} className="text-success" />
-          )}
+    <article className="mx-auto w-full max-w-[820px]">
+      <header className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold">
+            Submission {attempt.sequence}
+          </h3>
+          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
+            <Clock3 size={12} />
+            <time dateTime={attempt.createdAt}>
+              {formatDate(attempt.createdAt)}
+            </time>
+          </p>
         </div>
-        <span className="text-xs text-muted">
-          {attempt.assistance.guidance
-            ? "Approach guidance used"
-            : attempt.assistance.hints
-              ? `${attempt.assistance.hints} hints used`
-              : "No hints used"}
-        </span>
-      </header>
-      {attempt.reviews.length > 1 && (
-        <label className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted">
-          Review run
-          <select
-            aria-label="Select review run"
+        {attempt.reviews.length > 1 && (
+          <Select
             value={review?.id ?? ""}
-            onChange={(e) => {
-              setSelectedReview(e.target.value);
+            onValueChange={(value) => {
+              setSelectedReview(value);
               setResponding(false);
             }}
-            className="rounded border border-line bg-surface px-3 py-2 text-sm text-foreground"
           >
-            {attempt.reviews.map((r, index) => (
-              <option key={r.id} value={r.id}>
-                Review {attempt.reviews.length - index}
-                {index === 0 ? " · Latest" : ""} ·{" "}
-                {r.response ? verdicts[r.response.verdict] : r.status}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      {review && (
-        <p className="mt-2 text-xs text-muted">
-          {review.judge === "codex" ? "Project review" : "Direct review"}
-          {result
-            ? ` · ${result.verification === "checks_run" ? "Checks run" : result.verification === "incomplete" ? "Verification incomplete" : "Code inspected; execution unverified"}`
-            : ""}
-        </p>
-      )}
-      <details className="mt-3 text-xs text-muted">
-        <summary className="cursor-pointer">
-          Submitted files ({attempt.manifest.length})
-        </summary>
-        <ul className="mt-2 space-y-1 break-all">
-          {attempt.manifest.map((f) => (
-            <li key={f.path}>{f.path}</li>
-          ))}
-        </ul>
-        {attempt.content && (
-          <div className="mt-3">
-            <Markdown>{attempt.content}</Markdown>
-          </div>
+            <SelectTrigger
+              aria-label="Select review run"
+              className="h-8 w-full sm:w-52"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" align="end">
+              {attempt.reviews.map((item, index) => (
+                <SelectItem key={item.id} value={item.id}>
+                  Review {attempt.reviews.length - index}
+                  {index === 0 ? " · Latest" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         )}
-      </details>
-      {running && (
-        <div role="status" className="mt-5 flex items-center gap-3 text-sm">
-          <LoaderCircle size={16} className="animate-spin" />
-          {review.progress}
+      </header>
+
+      {running && review && (
+        <div role="status" className="flex items-center gap-3 py-8">
+          <LoaderCircle size={17} className="animate-spin" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">Reviewing submission</p>
+            <p className="mt-1 truncate text-xs text-muted">
+              {review.progress || "Inspecting your implementation…"}
+            </p>
+          </div>
           <Button size="sm" variant="ghost" onClick={() => onCancel(review)}>
             Cancel
           </Button>
         </div>
       )}
+
       {review?.error && (
-        <div className="mt-4 rounded-lg border border-line p-4">
-          <p role="alert" className="text-sm">
-            {review.error}
-          </p>
-          <p className="mt-2 text-xs text-muted">Your submission is saved.</p>
+        <div className="border-b border-line py-6">
+          <div className="flex items-start gap-3">
+            <XCircle size={17} className="mt-0.5 text-destructive" />
+            <div>
+              <p role="alert" className="text-sm font-medium">
+                Review failed
+              </p>
+              <p className="mt-1 text-sm leading-6 text-muted">
+                {review.error}
+              </p>
+              <Button
+                className="mt-3"
+                size="sm"
+                disabled={busy}
+                onClick={() => onRetry(review, null)}
+              >
+                <RotateCcw size={14} />
+                Retry
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {review?.status === "cancelled" && !review.error && (
+        <div className="flex items-center justify-between gap-3 border-b border-line py-5">
+          <p className="text-sm text-muted">Review cancelled</p>
           <Button
-            className="mt-3"
             size="sm"
             disabled={busy}
             onClick={() => onRetry(review, null)}
           >
-            Retry review
+            <RotateCcw size={14} />
+            Retry
           </Button>
         </div>
       )}
-      {review?.status === "cancelled" && !review.error && (
-        <Button
-          className="mt-3"
-          size="sm"
-          disabled={busy}
-          onClick={() => onRetry(review, null)}
-        >
-          Retry review
-        </Button>
-      )}
-      {result && (
-        <div className="mt-5 space-y-5">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p
-              className={
-                result.verdict === "accepted"
-                  ? "font-medium text-success"
-                  : "font-medium"
-              }
-            >
-              {verdicts[result.verdict]}
-            </p>
-            <p className="text-sm">
-              {review.score === null ? (
-                "Score partially assessed"
-              ) : (
-                <>
-                  Submission score{" "}
-                  <strong className="ml-1 text-lg tabular-nums">
-                    {review.score}/10
-                  </strong>
-                </>
-              )}
-            </p>
-          </div>
-          <Markdown>{result.summary}</Markdown>
-          {!!result.findings.length && (
-            <div className="space-y-4">
-              {result.findings.map((finding, i) => (
-                <div key={i} className="border-l-2 border-destructive/50 pl-4">
-                  <p className="text-sm font-medium">{finding.issue}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {finding.criterionId}
-                    {finding.location ? ` · ${finding.location}` : ""}
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
-                    {finding.evidence}
-                  </p>
-                </div>
-              ))}
+
+      {result && verdict && VerdictIcon && review && (
+        <>
+          <section className="border-b border-line py-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <VerdictIcon
+                  size={19}
+                  className={cn("shrink-0", verdict.className)}
+                />
+                <h3 className={cn("text-lg font-semibold", verdict.className)}>
+                  {verdict.label}
+                </h3>
+              </div>
+              <p className="font-mono text-xl font-semibold tabular-nums">
+                {review.score === null ? "—" : review.score}
+                <span className="text-xs font-normal text-muted">/10</span>
+              </p>
             </div>
+            <div className="mt-5 text-[15px] leading-7">
+              <Markdown>{result.summary}</Markdown>
+            </div>
+          </section>
+
+          {result.nextStep && (
+            <section className="border-b border-line py-5">
+              <h4 className="text-sm font-semibold">Next step</h4>
+              <p className="mt-2 text-sm leading-6">{result.nextStep}</p>
+            </section>
           )}
-          <details className="text-sm">
-            <summary className="cursor-pointer text-muted">
-              Scores and evidence
+
+          {!!result.findings.length && (
+            <section className="border-b border-line py-6">
+              <h4 className="text-sm font-semibold">Findings</h4>
+              <div className="mt-4 divide-y divide-line">
+                {result.findings.map((finding, index) => (
+                  <div key={index} className="py-4 first:pt-0 last:pb-0">
+                    <p className="text-sm font-medium">{finding.issue}</p>
+                    {finding.location && (
+                      <code className="mt-1 block break-all font-mono text-[11px] text-muted">
+                        {finding.location}
+                      </code>
+                    )}
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted">
+                      {finding.evidence}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {!!result.optionalImprovements.length && (
+            <section className="border-b border-line py-5">
+              <h4 className="text-sm font-semibold">Suggestions</h4>
+              <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
+                {result.optionalImprovements.map((item, index) => (
+                  <li key={index}>{item}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {result.question && (
+            <section className="border-b border-line py-5">
+              <div className="flex items-start gap-2">
+                <MessageSquare size={15} className="mt-1 shrink-0" />
+                <div>
+                  <h4 className="text-sm font-semibold">Reviewer question</h4>
+                  <p className="mt-2 text-sm leading-6">{result.question}</p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          <div className="border-b border-line py-5">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => setResponding(!responding)}
+            >
+              <MessageSquare size={14} />
+              {result.question ? "Answer question" : "Reply to review"}
+            </Button>
+            {responding && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (response.trim()) onRetry(review, response);
+                }}
+                className="mt-4 space-y-3"
+              >
+                <Textarea
+                  aria-label="Response to review"
+                  placeholder="Add context for the reviewer…"
+                  value={response}
+                  onChange={(event) => setResponse(event.target.value)}
+                  rows={4}
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={busy || !response.trim()}
+                >
+                  Reassess submission
+                </Button>
+              </form>
+            )}
+          </div>
+
+          <details className="group border-b border-line py-4 text-sm">
+            <summary className="flex list-none items-center gap-2 text-muted hover:text-foreground">
+              <ChevronRight
+                size={14}
+                className="transition-transform group-open:rotate-90"
+              />
+              Assessment details
             </summary>
-            <dl className="mt-3 space-y-3">
-              {(
-                [
+            <div className="mt-5 space-y-6 pl-5">
+              <dl className="space-y-4">
+                {[
                   ["Correctness", result.correctness, 4],
                   ["Implementation reasoning", result.understanding, 3],
                   ["Engineering judgment", result.judgment, 3],
-                ] as const
-              ).map(([label, dimension, max]) => (
-                <div key={label}>
-                  <dt className="font-medium">
-                    {label}:{" "}
-                    {dimension.score === null
-                      ? "Unassessed"
-                      : `${dimension.score}/${max}`}
-                  </dt>
-                  <dd className="mt-1 leading-6 text-muted">
-                    {dimension.evidence}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <ul className="mt-4 space-y-2">
-              {result.criteria.map((criterion) => (
-                <li key={criterion.id}>
-                  <span className="font-medium">
-                    {criterion.id}: {criterion.status}
-                  </span>
-                  <p className="text-muted">{criterion.evidence}</p>
-                </li>
-              ))}
-            </ul>
+                ].map(([label, dimension, max]) => {
+                  const value = dimension as typeof result.correctness;
+                  return (
+                    <div key={label as string}>
+                      <dt className="text-xs font-medium">
+                        {label as string}:{" "}
+                        {value.score === null
+                          ? "Unassessed"
+                          : value.score + "/" + max}
+                      </dt>
+                      <dd className="mt-1 text-xs leading-5 text-muted">
+                        {value.evidence}
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+
+              <div>
+                <h4 className="text-xs font-medium">Completion criteria</h4>
+                <ul className="mt-2 divide-y divide-line">
+                  {result.criteria.map((criterion) => (
+                    <li key={criterion.id} className="py-2 text-xs">
+                      <span className="font-medium">
+                        {criterion.id} · {criterion.status}
+                      </span>
+                      <p className="mt-1 leading-5 text-muted">
+                        {criterion.evidence}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-medium">
+                  Submitted files ({attempt.manifest.length})
+                </h4>
+                <ul className="mt-2 max-h-52 space-y-1 overflow-y-auto font-mono text-[10px] text-muted">
+                  {attempt.manifest.map((file) => (
+                    <li key={file.path} className="flex gap-2">
+                      <FileCode2 size={12} className="mt-0.5 shrink-0" />
+                      <span className="min-w-0 flex-1 break-all">
+                        {file.path}
+                      </span>
+                      <span className="shrink-0">
+                        {formatBytes(file.bytes)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <p className="text-xs text-muted">
+                {review.judge === "codex" ? "Project review" : "Direct review"}
+                {" · "}
+                {result.verification === "checks_run"
+                  ? "Checks run"
+                  : result.verification === "incomplete"
+                    ? "Verification incomplete"
+                    : "Inspection only"}
+                {" · "}
+                {attempt.assistance.guidance
+                  ? "Guidance used"
+                  : attempt.assistance.hints
+                    ? attempt.assistance.hints + " hints used"
+                    : "No hints used"}
+              </p>
+            </div>
           </details>
-          {!!result.optionalImprovements.length && (
-            <details className="text-sm">
-              <summary className="cursor-pointer text-muted">
-                Optional improvements
-              </summary>
-              <ul className="mt-2 list-disc space-y-2 pl-5">
-                {result.optionalImprovements.map((v, i) => (
-                  <li key={i}>{v}</li>
-                ))}
-              </ul>
-            </details>
-          )}
-          {result.nextStep && (
-            <p className="text-sm leading-6">{result.nextStep}</p>
-          )}
-          {result.question && (
-            <p className="text-sm font-medium leading-6">{result.question}</p>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => setResponding(!responding)}
-          >
-            {result.question ? "Answer question" : "Discuss this review"}
-          </Button>
-          {responding && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (response.trim()) onRetry(review, response);
-              }}
-              className="space-y-3"
-            >
-              <Textarea
-                aria-label="Response to review"
-                placeholder="Explain your reasoning or identify a finding you disagree with."
-                value={response}
-                onChange={(e) => setResponse(e.target.value)}
-                rows={3}
-              />
-              <Button type="submit" disabled={busy || !response.trim()}>
-                Reassess this submission
-              </Button>
-            </form>
-          )}
-        </div>
+        </>
       )}
+
       {review?.judge === "codex" && (
-        <details className="mt-5 border-t border-line pt-4 text-xs text-muted">
-          <summary className="cursor-pointer">Codex session and logs</summary>
-          <div className="mt-3 space-y-3">
+        <details className="group py-4 text-xs text-muted">
+          <summary className="flex list-none items-center gap-2 hover:text-foreground">
+            <TerminalSquare size={14} />
+            Review logs
+          </summary>
+          <div className="mt-3 pl-5">
             {review.aiLogId ? (
               <Link
-                className="inline-block text-sm text-foreground underline underline-offset-4"
+                className="text-foreground underline underline-offset-4"
                 href={"/logs/" + review.aiLogId}
               >
-                Open saved prompt, response and tool activity
+                Open saved review activity
               </Link>
             ) : (
-              <p>
-                This older review has no direct log link. Its saved records may
-                be available in Logs.
-              </p>
-            )}
-            <p>
-              New Codex reviews use temporary sessions and cannot be resumed in
-              Codex CLI. Their full request, response, and tool history is saved
-              here in Logs. Use Grill Me to reassess a submission.
-            </p>
-            {review.providerThreadId && (
-              <p className="break-all">Session ID: {review.providerThreadId}</p>
+              <p>No direct log is available for this review.</p>
             )}
           </div>
         </details>
