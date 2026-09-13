@@ -22,9 +22,9 @@ import {
 } from "node:path";
 import type { MessageAttachment } from "../messages/message.schema";
 import { AppError } from "../../shared/errors/app-error";
+import { submissionsPath } from "../../shared/storage/paths";
 
-export const snapshotRoot = () =>
-  resolve(process.env.SNAPSHOT_ROOT ?? "./.data/submissions");
+export const snapshotRoot = submissionsPath;
 const excluded = new Set([
   ".git",
   "node_modules",

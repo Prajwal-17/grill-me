@@ -34,6 +34,7 @@ export type Challenge = {
 
   id: string;
   profileId: string;
+  number: number;
   title: string;
   scope: BuildScope;
   difficulty: BuildDifficulty;
@@ -155,6 +156,7 @@ export type SubmissionFile = {
 export type ConnectedProject = { id: string; name: string; root: string };
 export type TopicProgress = {
   challengeId: string;
+  number: number;
   title: string;
   topic: string;
   scope: BuildScope;

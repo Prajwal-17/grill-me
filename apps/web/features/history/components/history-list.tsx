@@ -29,6 +29,7 @@ export function HistoryList({
   const filtered = challenges.filter((challenge) => {
     const matchesScope = scope === "all" || challenge.scope === scope;
     const terms = [
+      `#${challenge.number}`,
       challenge.title,
       ...buildMetadata(challenge).map((item) => item.value),
     ]

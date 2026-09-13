@@ -3,6 +3,8 @@
   "ui": "tui",
   "globalEnv": [
     "API_PORT",
+    "GRILL_ME_HOME",
+    "XDG_CONFIG_HOME",
     "DATABASE_URL",
     "LLM_API_KEY",
     "LLM_BASE_URL",
@@ -13,6 +15,8 @@
     "API_HOST",
     "SNAPSHOT_ROOT",
     "UPLOAD_ROOT",
+    "EVALUATION_ROOT",
+    "CODEX_INSTALL_ROOT",
     "CODEX_BIN",
     "CODEX_MODEL",
     "DIRECT_REVIEW_CONTEXT_TOKENS",

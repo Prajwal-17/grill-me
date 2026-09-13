@@ -90,10 +90,20 @@ bun dev
 `bun dev` starts only the web and backend workspaces. Next.js 16 uses Turbopack by
 default, including its persistent development cache.
 
-## Database
+## Local data
 
-The local database is created at `apps/backend/.data/grill-me.sqlite` and is
-ignored by Git. Tracked migrations are applied when the backend starts.
+Grill Me stores local runtime data under `~/.config/grill-me/` by default:
+
+- `grill-me.sqlite`: application database
+- `submissions/`: immutable submission snapshots
+- `uploads/`: resumable file uploads
+- `evaluations/`: prompt evaluation reports
+- `backups/`: local database backups
+- `codex-cli/`: the app-managed Codex CLI, when installed
+
+On first startup, missing data is copied from the legacy
+`apps/backend/.data/` directory. Existing files in the new location are never
+overwritten. Tracked database migrations are then applied normally.
 
 ```bash
 bun db:generate
@@ -116,10 +126,16 @@ bun run build
 
 Backend variables:
 
+- `GRILL_ME_HOME`: override the complete app data directory
+- `XDG_CONFIG_HOME`: standard config root used when `GRILL_ME_HOME` is unset
 - `LLM_BASE_URL`: OpenAI-compatible base URL
 - `LLM_API_KEY`: API key expected by the model gateway
 - `LLM_MODEL`: model or OmniRoute alias
-- `DATABASE_URL`: SQLite file path
+- `DATABASE_URL`: override the SQLite file path
+- `SNAPSHOT_ROOT`: override submission snapshot storage
+- `UPLOAD_ROOT`: override resumable upload storage
+- `EVALUATION_ROOT`: override prompt evaluation output
+- `CODEX_INSTALL_ROOT`: override the app-managed Codex CLI directory
 - `API_PORT`: Hono port
 - `WEB_ORIGIN`: allowed browser origin
 

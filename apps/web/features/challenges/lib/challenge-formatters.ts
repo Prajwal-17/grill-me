@@ -36,16 +36,12 @@ export function buildMetadata(challenge: Challenge) {
     {
       label: "Difficulty",
       value:
-        formatBuildDifficulty(challenge.difficulty) +
-        (challenge.estimatedDifficultyScore !== null
-          ? ` (${challenge.estimatedDifficultyScore}/10)`
-          : ""),
-      help:
-        challenge.difficultyReason ??
-        "Historical estimate based on your context.",
+        challenge.estimatedDifficultyScore !== null
+          ? `${challenge.estimatedDifficultyScore}/10`
+          : formatBuildDifficulty(challenge.difficulty),
     },
     {
-      label: "AI-estimated duration",
+      label: "Estimated time",
       value: formatDurationEstimate(challenge.durationEstimate),
     },
   ];

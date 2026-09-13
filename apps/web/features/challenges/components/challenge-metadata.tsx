@@ -6,11 +6,6 @@ import {
   HardDifficultyIcon,
   MediumDifficultyIcon,
 } from "@/shared/components/difficulty-icons";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/shared/components/ui/tooltip";
 import { buildMetadata } from "@/features/challenges/lib/challenge-formatters";
 
 const DIFFICULTY_ICONS: Record<Challenge["difficulty"], LucideIcon> = {
@@ -35,12 +30,12 @@ export function ChallengeMetadata({
       className={cn("flex flex-wrap items-center gap-2", className)}
       aria-label="Build details"
     >
-      {metadata.map(({ label, value, help }) => {
+      {metadata.map(({ label, value }) => {
         const DifficultyIcon = DIFFICULTY_ICONS[challenge.contextualDifficulty];
-        const badge = (
+        return (
           <span
-            title={help ? undefined : label}
-            aria-label={help ? `${label}: ${value}. ${help}` : undefined}
+            key={label}
+            title={label}
             data-grill-badge={
               (label === "Difficulty" &&
                 challenge.contextualDifficulty === "grill") ||
@@ -55,22 +50,11 @@ export function ChallengeMetadata({
             {label === "Difficulty" && (
               <DifficultyIcon size={12} className="mr-1" aria-hidden="true" />
             )}
-            {label === "AI-estimated duration" && (
+            {label === "Estimated time" && (
               <Clock3 size={12} className="mr-1" aria-hidden="true" />
             )}
             {value}
-            {label === "AI-estimated duration" && (
-              <span className="ml-1">est.</span>
-            )}
           </span>
-        );
-        return help ? (
-          <Tooltip key={label}>
-            <TooltipTrigger asChild>{badge}</TooltipTrigger>
-            <TooltipContent sideOffset={7}>{help}</TooltipContent>
-          </Tooltip>
-        ) : (
-          <span key={label}>{badge}</span>
         );
       })}
     </div>

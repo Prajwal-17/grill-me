@@ -29,6 +29,13 @@
       "when": 1789283852442,
       "tag": "0003_magenta_jack_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789313268815,
+      "tag": "0004_mushy_cable",
+      "breakpoints": true
     }
   ]
 }

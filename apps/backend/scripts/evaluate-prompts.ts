@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { evaluationsPath } from "../src/shared/storage/paths";
 process.env.DATABASE_URL = ":memory:";
 const { migrateDatabase } = await import("../src/shared/database/db");
 const { createApp } = await import("../src/app");
@@ -55,7 +56,7 @@ for (const input of cases) {
     break;
   }
 }
-const dir = resolve(".data/evaluations");
+const dir = evaluationsPath();
 await mkdir(dir, { recursive: true });
 const path = resolve(dir, `prompts-${Date.now()}.json`);
 await writeFile(path, JSON.stringify(results, null, 2));

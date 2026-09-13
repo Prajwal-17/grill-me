@@ -4,7 +4,7 @@ import { verificationPlanSchema } from "../reviews/review.schema";
 import { z } from "zod";
 import { snapshotTools, callSnapshotTool } from "./file-tools";
 import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { join } from "node:path";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface } from "node:readline";
 import type { InitializeParams } from "./protocol/InitializeParams";
@@ -16,12 +16,13 @@ import type { JudgeInput } from "../ai/model-gateway";
 import { reviewJsonSchema, reviewResultSchema } from "../reviews/review.schema";
 import { parseJson } from "../ai/model.utils";
 import { startAiLog } from "../logs/ai-log-recorder";
+import { codexInstallPath } from "../../shared/storage/paths";
 
 export const CODEX_VERSION = "0.153.4";
 export const codexBinary = () =>
   process.env.CODEX_BIN ??
-  (existsSync(resolve(".data/codex-cli/node_modules/.bin/codex"))
-    ? resolve(".data/codex-cli/node_modules/.bin/codex")
+  (existsSync(join(codexInstallPath(), "node_modules/.bin/codex"))
+    ? join(codexInstallPath(), "node_modules/.bin/codex")
     : "codex");
 type Wire = {
   id?: number | string;

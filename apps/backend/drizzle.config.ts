@@ -1,14 +1,15 @@
 import { defineConfig } from "drizzle-kit";
+import { databasePath } from "./src/shared/storage/paths";
 
-const databasePath = process.env.DATABASE_URL ?? "./.data/grill-me.sqlite";
+const databaseFile = databasePath();
 
 export default defineConfig({
   schema: "./src/shared/database/schema.ts",
   out: "./drizzle",
   dialect: "sqlite",
   dbCredentials: {
-    url: databasePath.startsWith("file:")
-      ? databasePath
-      : `file:${databasePath}`,
+    url: databaseFile.startsWith("file:")
+      ? databaseFile
+      : `file:${databaseFile}`,
   },
 });

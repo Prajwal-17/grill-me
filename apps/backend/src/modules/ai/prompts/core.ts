@@ -7,9 +7,9 @@ import {
   optionLabel,
   optionLabels,
 } from "@repo/preferences";
-import type { BuildModelInput, LearnerContext } from "../model-gateway";
 import type { Challenge } from "../../challenges/challenge.schema";
 import type { ChatMessage } from "../../messages/message.schema";
+import type { BuildModelInput, LearnerContext } from "../model-gateway";
 
 export type Prompt = { instructions: string; input: string };
 

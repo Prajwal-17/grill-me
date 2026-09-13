@@ -1,9 +1,10 @@
 import { submissionPath } from "./paths";
 import { mkdir, readFile, writeFile, appendFile, stat } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { join } from "node:path";
 import { z } from "zod";
 import { AppError } from "../../shared/errors/app-error";
-const root = () => resolve(process.env.UPLOAD_ROOT ?? "./.data/uploads");
+import { uploadsPath } from "../../shared/storage/paths";
+const root = uploadsPath;
 const idSchema = z.string().uuid();
 const locks = new Set<string>();
 function directory(owner: string, id: string) {

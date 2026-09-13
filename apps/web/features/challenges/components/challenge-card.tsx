@@ -38,6 +38,9 @@ export function ChallengeCard({
         </div>
         {showTitle && (
           <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em]">
+            <span className="mr-2 font-normal text-muted">
+              #{challenge.number}
+            </span>
             {challenge.title}
           </h1>
         )}

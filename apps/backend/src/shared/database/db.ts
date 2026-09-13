@@ -4,8 +4,14 @@ import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import * as schema from "./schema";
+import {
+  databasePath,
+  migrateLegacyData,
+  usesDefaultDatabasePath,
+} from "../storage/paths";
 
-const filename = process.env.DATABASE_URL ?? "./.data/grill-me.sqlite";
+if (usesDefaultDatabasePath()) migrateLegacyData();
+const filename = databasePath();
 
 if (filename !== ":memory:") {
   mkdirSync(dirname(resolve(filename)), { recursive: true });

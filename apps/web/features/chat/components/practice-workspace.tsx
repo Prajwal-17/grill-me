@@ -315,6 +315,9 @@ export function PracticeWorkspace({
                 </Link>
               </nav>
               <h1 className="mt-0.5 truncate text-base font-semibold">
+                <span className="mr-2 font-normal text-muted">
+                  #{challenge.number}
+                </span>
                 {challenge.title}
               </h1>
             </div>

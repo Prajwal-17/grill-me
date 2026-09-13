@@ -45,6 +45,9 @@ function ChallengeRow({ challenge }: { challenge: Challenge }) {
       </span>
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-sm font-medium sm:text-base">
+          <span className="mr-2 font-normal text-muted">
+            #{challenge.number}
+          </span>
           {challenge.title}
         </h3>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">

@@ -94,6 +94,7 @@ export const challengeSchema = challengeContentSchema.extend({
     .default(null),
   id: z.string().uuid(),
   profileId: z.string().uuid(),
+  number: z.number().int().positive(),
   hint: z.string().nullable(),
   status: z.enum(["active", "paused", "saved", "stopped", "completed"]),
   createdAt: z.string(),

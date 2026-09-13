@@ -46,10 +46,11 @@ export function TopicProgressView({ profileId }: { profileId: string }) {
                   <Link
                     key={item.challengeId}
                     href={`/chat?id=${item.challengeId}`}
-                    title={item.title}
+                    title={`#${item.number} ${item.title}`}
                     className="underline decoration-line underline-offset-4 tabular-nums"
                   >
-                    {item.score === null ? "Unassessed" : `${item.score}/10`}
+                    #{item.number}{" "}
+                    {item.score === null ? "—" : `${item.score}/10`}
                   </Link>
                 ))}
               </div>

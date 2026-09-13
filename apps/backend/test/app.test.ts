@@ -269,6 +269,7 @@ describe("build quality pipeline", () => {
     expect(challenge.scope).toBe("focused");
     expect(challenge.difficulty).toBe("medium");
     expect(challenge.contextualDifficulty).toBe("medium");
+    expect(challenge.number).toBe(1);
     expect(challenge.durationEstimate).toEqual(generated.durationEstimate);
     expect(challenge.implementationMilestones).toEqual([]);
     expect(model.generationInputs).toHaveLength(1);
@@ -287,7 +288,10 @@ describe("build quality pipeline", () => {
       const policy = generationPrompt(model.generationInputs.at(-1)!);
       expect(JSON.parse(policy.input).selectedDifficulty).toBe(difficulty);
       expect(policy.instructions).toContain(
-        "relative to the learner's familiarity",
+        "difficulty from 1 to 10 for this learner",
+      );
+      expect(policy.instructions).toContain(
+        "implementation time for this learner",
       );
       expect(policy.instructions).toContain(
         "Do not require learner-authored tests",
@@ -335,6 +339,32 @@ describe("build quality pipeline", () => {
     expect(
       model.generationInputs.at(-1)?.learner.recentChallenges[0]?.title,
     ).toBe(generated.title);
+  });
+
+  test("assigns stable challenge numbers per profile", async () => {
+    const app = createApp({ llm: new FakeModel() });
+    const firstProfile = await startProfile(
+      app,
+      `number-a-${crypto.randomUUID()}@test.dev`,
+    );
+    const secondProfile = await startProfile(
+      app,
+      `number-b-${crypto.randomUUID()}@test.dev`,
+    );
+
+    const first = await createChallenge(app, firstProfile.id);
+    const second = await createChallenge(app, firstProfile.id);
+    const otherUser = await createChallenge(app, secondProfile.id);
+
+    expect([first.number, second.number]).toEqual([1, 2]);
+    expect(otherUser.number).toBe(1);
+
+    const persisted = await request(
+      app,
+      `/challenges/${second.id}`,
+      firstProfile.id,
+    );
+    expect((await json<{ data: Challenge }>(persisted)).data.number).toBe(2);
   });
 
   test("saves nothing when the generation fails", async () => {

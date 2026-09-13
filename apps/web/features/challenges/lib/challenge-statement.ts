@@ -65,5 +65,5 @@ export function statementMarkdown(challenge: Challenge) {
   const metadata = buildMetadata(challenge)
     .map(({ label, value }) => `${label}: ${value}`)
     .join("\n");
-  return `# ${challenge.title}\n\n${metadata}\n\n${statementBody(challenge)}`;
+  return `# #${challenge.number} ${challenge.title}\n\n${metadata}\n\n${statementBody(challenge)}`;
 }

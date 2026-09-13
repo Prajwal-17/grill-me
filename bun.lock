@@ -82,7 +82,7 @@
     },
     "packages/eslint-config": {
       "name": "@repo/eslint-config",
-      "version": "0.0.0",
+      "version": "0.1.0",
       "devDependencies": {
         "@babel/core": "8.0.1",
         "@babel/eslint-parser": "8.0.1",
@@ -99,11 +99,11 @@
     },
     "packages/preferences": {
       "name": "@repo/preferences",
-      "version": "0.0.1",
+      "version": "0.1.0",
     },
     "packages/typescript-config": {
       "name": "@repo/typescript-config",
-      "version": "0.0.0",
+      "version": "0.1.0",
     },
   },
   "packages": {

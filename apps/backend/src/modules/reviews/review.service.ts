@@ -493,6 +493,7 @@ export function createReviewService(
         return [
           {
             challengeId: challenge.id,
+            number: challenge.number,
             title: challenge.title,
             topic: challenge.topic ?? "Unspecified",
             scope: challenge.scope,

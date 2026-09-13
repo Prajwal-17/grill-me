@@ -14,7 +14,10 @@ export function HistoryRow({ challenge: c }: { challenge: Challenge }) {
         <span className="hidden size-8 shrink-0 place-items-center rounded-lg border border-line bg-surface sm:grid">
           <Check size={14} className="text-muted" />
         </span>
-        <span className="truncate text-sm font-medium">{c.title}</span>
+        <span className="truncate text-sm font-medium">
+          <span className="mr-2 font-normal text-muted">#{c.number}</span>
+          {c.title}
+        </span>
       </span>
       <div className="col-start-1 row-start-2 md:col-auto md:row-auto">
         <ChallengeMetadata challenge={c} compact />

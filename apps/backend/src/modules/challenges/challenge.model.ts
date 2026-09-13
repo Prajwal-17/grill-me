@@ -1,5 +1,5 @@
 import { PROMPT_VERSION, CALIBRATION_VERSION } from "../ai/prompts/core";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../../shared/database/db";
 import { challenges, messages } from "../../shared/database/schema";
 import type { ChallengeContent } from "./challenge.schema";
@@ -77,11 +77,19 @@ export const challengeModel = {
     const now = new Date();
 
     return db.transaction((tx) => {
+      const nextNumber = tx
+        .select({
+          value: sql<number>`coalesce(max(${challenges.number}), 0) + 1`,
+        })
+        .from(challenges)
+        .where(eq(challenges.profileId, profileId))
+        .get()!.value;
       const challenge = tx
         .insert(challenges)
         .values({
           id,
           profileId,
+          number: nextNumber,
           title: content.title,
           scope: content.scope,
           difficulty: content.difficulty,
