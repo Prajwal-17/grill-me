@@ -1,4 +1,8 @@
-import { submissionPath } from "./paths";
+import {
+  configuredProjectsRoot,
+  isWithinProjectsRoot,
+  submissionPath,
+} from "./paths";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
@@ -70,6 +74,22 @@ export async function projectRoot(path: string) {
   });
   if (!(await lstat(root)).isDirectory() || root === sep)
     throw new AppError("INVALID_PROJECT", "Select a project folder.", 400);
+  const configuredRoot = configuredProjectsRoot();
+  if (configuredRoot) {
+    const projectsRoot = await realpath(configuredRoot).catch(() => {
+      throw new AppError(
+        "PROJECTS_ROOT_UNAVAILABLE",
+        "The configured projects folder is unavailable. Check the Docker mount.",
+        500,
+      );
+    });
+    if (!isWithinProjectsRoot(projectsRoot, root))
+      throw new AppError(
+        "PROJECT_OUTSIDE_PROJECTS_ROOT",
+        `Choose a project inside ${projectsRoot}.`,
+        400,
+      );
+  }
   return root;
 }
 export async function hashFile(path: string) {

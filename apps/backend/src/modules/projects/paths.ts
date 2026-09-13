@@ -1,4 +1,19 @@
 import { AppError } from "../../shared/errors/app-error";
+import { isAbsolute, relative, resolve, sep } from "node:path";
+
+export function configuredProjectsRoot() {
+  const root = process.env.PROJECTS_ROOT?.trim();
+  return root ? resolve(root) : null;
+}
+
+export function isWithinProjectsRoot(root: string, candidate: string) {
+  const path = relative(root, candidate);
+  return (
+    path === "" ||
+    (path !== ".." && !path.startsWith(`..${sep}`) && !isAbsolute(path))
+  );
+}
+
 const excluded = new Set([
   ".git",
   "node_modules",

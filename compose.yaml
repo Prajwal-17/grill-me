@@ -11,6 +11,7 @@ services:
       LLM_BASE_URL: ${OMNIROUTE_BASE_URL:-http://host.docker.internal:20128/v1}
       WEB_ORIGIN: http://localhost:8018
       CODEX_HOME: /codex-state
+      PROJECTS_ROOT: /mnt/hdd/code/challenges
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -18,7 +19,7 @@ services:
     volumes:
       - ${HOME}/.config/grill-me:/root/.config/grill-me
       - codex-state:/codex-state
-      - /mnt/hdd/code/challenges:/projects:ro # ro is read only
+      - /mnt/hdd/code/challenges:/mnt/hdd/code/challenges:ro
   web:
     build:
       context: .
