@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: .
+      target: backend
+    env_file: apps/backend/.env
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: 8017
+      GRILL_ME_HOME: /root/.config/grill-me
+      WEB_ORIGIN: http://localhost:8018
+      CODEX_HOME: /codex-state
+    ports:
+      - "127.0.0.1:8017:8017"
+    volumes:
+      - ${HOME}/.config/grill-me:/root/.config/grill-me
+      - codex-state:/codex-state
+      - ${GRILL_PROJECTS_PATH:-./workspace}:/projects:ro
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8017
+    ports:
+      - "127.0.0.1:8018:8018"
+    depends_on:
+      - backend
+volumes:
+  codex-state:

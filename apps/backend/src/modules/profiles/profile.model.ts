@@ -1,8 +1,11 @@
 import { eq } from "drizzle-orm";
+import { EMPTY_GUIDED } from "@repo/preferences";
 import { db } from "../../shared/database/db";
-import { profiles } from "../../shared/database/schema";
+import { profilePreferences, profiles } from "../../shared/database/schema";
+import type { SavePreferencesInput } from "./profile.schema";
 
 export type ProfileRow = typeof profiles.$inferSelect;
+export type ProfilePreferencesRow = typeof profilePreferences.$inferSelect;
 
 export const profileModel = {
   findByEmail(email: string) {
@@ -22,4 +25,42 @@ export const profileModel = {
   },
 };
 
+export const profilePreferencesModel = {
+  findByProfileId(profileId: string) {
+    return db
+      .select()
+      .from(profilePreferences)
+      .where(eq(profilePreferences.profileId, profileId))
+      .get();
+  },
+
+  createDefaults(profileId: string) {
+    return db
+      .insert(profilePreferences)
+      .values({ profileId, guidedPreferences: EMPTY_GUIDED })
+      .onConflictDoNothing()
+      .returning()
+      .get();
+  },
+
+  save(profileId: string, input: SavePreferencesInput) {
+    const now = new Date();
+    const { aboutMe, ...guidedPreferences } = input;
+    const values = {
+      aboutMe,
+      guidedPreferences,
+    };
+    return db
+      .insert(profilePreferences)
+      .values({ profileId, ...values, createdAt: now, updatedAt: now })
+      .onConflictDoUpdate({
+        target: profilePreferences.profileId,
+        set: { ...values, updatedAt: now },
+      })
+      .returning()
+      .get();
+  },
+};
+
 export type ProfileModel = typeof profileModel;
+export type ProfilePreferencesModel = typeof profilePreferencesModel;

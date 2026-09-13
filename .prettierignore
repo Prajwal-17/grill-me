@@ -1,1 +1,6 @@
 apps/backend/drizzle/meta/
+
+.agents/
+
+# Local runtime and review artifacts
+.data/

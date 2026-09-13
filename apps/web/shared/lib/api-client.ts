@@ -1,6 +1,8 @@
-import type { ApiError } from "../types/api";
+import type { ApiError } from "@/shared/types/api";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8017";
+
+type JsonResponse<T> = { data?: T } | ApiError;
 
 export class ApiClientError extends Error {
   constructor(
@@ -20,6 +22,34 @@ function requestHeaders(init: RequestInit, profileId?: string) {
     ...init.headers,
   };
 }
+async function parseJsonResponse<T>(
+  response: Response,
+): Promise<JsonResponse<T>> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType && !contentType.toLowerCase().includes("application/json")) {
+    throw new ApiClientError(
+      "The API returned " +
+        response.status +
+        " " +
+        response.statusText +
+        " instead of JSON. Check that NEXT_PUBLIC_API_URL points to the backend at " +
+        API_URL +
+        ".",
+      "INVALID_RESPONSE",
+      false,
+    );
+  }
+
+  try {
+    return (await response.json()) as JsonResponse<T>;
+  } catch {
+    throw new ApiClientError(
+      "The API returned malformed JSON.",
+      "INVALID_RESPONSE",
+      false,
+    );
+  }
+}
 
 export async function apiRequest<T>(
   path: string,
@@ -30,7 +60,7 @@ export async function apiRequest<T>(
     ...init,
     headers: requestHeaders(init, profileId),
   });
-  const body = (await response.json()) as { data?: T } | ApiError;
+  const body = await parseJsonResponse<T>(response);
 
   if (!response.ok || "error" in body) {
     const error =
@@ -83,7 +113,14 @@ export async function streamRequest<T>(
   });
 
   if (!response.ok) {
-    const body = (await response.json()) as ApiError;
+    const body = await parseJsonResponse<never>(response);
+    if (!("error" in body)) {
+      throw new ApiClientError(
+        "The API returned an unexpected error response.",
+        "INVALID_RESPONSE",
+        false,
+      );
+    }
     throw new ApiClientError(
       body.error.message,
       body.error.code,

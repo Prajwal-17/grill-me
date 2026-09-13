@@ -5,15 +5,36 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1788524434685,
-      "tag": "0000_shiny_the_liberteens",
+      "when": 1789218112237,
+      "tag": "0000_bent_jamie_braddock",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "6",
-      "when": 1788544864668,
-      "tag": "0001_big_lockheed",
+      "when": 1789242916707,
+      "tag": "0001_cooing_thundra",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789279932702,
+      "tag": "0002_wealthy_luke_cage",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789283852442,
+      "tag": "0003_magenta_jack_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789313268815,
+      "tag": "0004_mushy_cable",
       "breakpoints": true
     }
   ]

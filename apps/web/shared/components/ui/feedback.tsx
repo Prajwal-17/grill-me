@@ -1,16 +1,24 @@
-import { LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "./button";
-
-export function LoadingScreen({ label = "Loading..." }: { label?: string }) {
+import { AlertCircle, LoaderCircle } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
+export function LoadingIndicator({ label }: { label: string }) {
   return (
-    <main className="flex min-h-[calc(100dvh-3.5rem)] items-center justify-center gap-2 text-sm text-muted">
-      <LoaderCircle className="animate-spin" size={18} />
-      <span>{label}</span>
+    <span
+      className="inline-flex items-center gap-2 text-sm text-muted"
+      role="status"
+    >
+      <LoaderCircle size={16} className="animate-spin" />
+      {label}
+    </span>
+  );
+}
+export function LoadingScreen({ label = "Loading…" }: { label?: string }) {
+  return (
+    <main className="flex min-h-[60dvh] items-center justify-center">
+      <LoadingIndicator label={label} />
     </main>
   );
 }
-
 export function ErrorState({
   title,
   message,
@@ -21,19 +29,21 @@ export function ErrorState({
   onRetry: () => void;
 }) {
   return (
-    <main className="flex min-h-[calc(100dvh-3.5rem)] flex-col items-center justify-center px-6 text-center">
-      <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-      <p className="mt-2 max-w-md text-sm text-muted">{message}</p>
-      <Button className="mt-5" onClick={onRetry}>
-        Try again
-      </Button>
+    <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
+      <div className="mx-auto max-w-md py-16">
+        <AlertCircle size={22} className="mb-4 text-muted" />
+        <h1 className="text-xl font-semibold">{title}</h1>
+        <p className="mt-2 text-sm text-muted">{message}</p>
+        <Button className="mt-5" onClick={onRetry}>
+          Try again
+        </Button>
+      </div>
     </main>
   );
 }
-
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-dashed border-line-strong bg-surface px-6 py-8 text-center text-sm text-muted">
+    <div className="border-y border-line py-8 text-sm text-muted">
       {children}
     </div>
   );

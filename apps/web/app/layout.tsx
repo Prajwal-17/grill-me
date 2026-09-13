@@ -1,31 +1,45 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
-import { QueryProvider } from "../shared/components/query-provider";
+import { QueryProvider } from "@/shared/components/query-provider";
+import { themeScript } from "@/shared/components/theme-provider";
+import { UIProvider } from "@/shared/components/ui/ui-provider";
+import "katex/dist/katex.min.css";
 import "./globals.css";
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
+const sans = localFont({
+  src: "../assets/fonts/IBMPlexSans-Latin.woff2",
+  variable: "--font-plex-sans",
+  display: "swap",
+  weight: "100 700",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
+const mono = localFont({
+  src: "../assets/fonts/IBMPlexMono-Latin.woff2",
+  variable: "--font-plex-mono",
+  display: "swap",
+  weight: "400",
 });
-
 export const metadata: Metadata = {
-  title: "Grill-Me",
-  description: "Small engineering challenges, made for what you just learned.",
+  title: "Grill Me",
+  description: "Implementation builds, shaped around what you want to make.",
 };
-
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-canvas font-sans text-foreground antialiased selection:bg-brand selection:text-white`}
+        className={
+          sans.variable +
+          " " +
+          mono.variable +
+          " min-h-dvh font-sans antialiased"
+        }
       >
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          <UIProvider>{children}</UIProvider>
+        </QueryProvider>
       </body>
     </html>
   );

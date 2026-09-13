@@ -3,13 +3,24 @@
   "ui": "tui",
   "globalEnv": [
     "API_PORT",
+    "GRILL_ME_HOME",
+    "XDG_CONFIG_HOME",
     "DATABASE_URL",
     "LLM_API_KEY",
     "LLM_BASE_URL",
     "LLM_MODEL",
     "NEXT_PUBLIC_API_URL",
     "WEB_ORIGIN",
-    "CI"
+    "CI",
+    "API_HOST",
+    "SNAPSHOT_ROOT",
+    "UPLOAD_ROOT",
+    "EVALUATION_ROOT",
+    "CODEX_INSTALL_ROOT",
+    "CODEX_BIN",
+    "CODEX_MODEL",
+    "DIRECT_REVIEW_CONTEXT_TOKENS",
+    "JUDGE_TIMEOUT_MS"
   ],
   "tasks": {
     "build": {

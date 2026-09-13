@@ -1,27 +1,62 @@
 # Grill-Me
 
-Grill-Me is a local-first practice companion for developers. Tell it what you
-just learned, get one focused challenge, work in your normal editor, ask for a
-hint, paste your solution for review, and mark the challenge complete.
+Grill-Me is a local-first practice companion for developers. Describe what you
+want to build, choose its scope and difficulty, work in your normal editor, ask
+for a hint, submit your implementation, and mark the challenge completed when you have finished learning.
 
-## V1 flow
+## Practice flow
 
-1. Enter an email to create or resume a local profile.
-2. See active and completed exercises on the Exercises home.
-3. Describe what you just learned to generate an exercise.
-4. Work through it in your own editor.
-5. Clarify the brief, use one hint, or paste a solution for review.
-6. Mark it complete and find it in History.
+1. Choose a local profile and optional stack, learning goal, topic familiarity, and known concepts.
+2. Describe the topic, choose Focused / Feature / System and Easy / Medium / Hard / Grill, and generate a challenge.
+3. Read a concise task with stable acceptance criteria. Each challenge saves a difficulty estimate out of 10 and the context used to generate it.
+4. Code in your editor. Paste an implementation, upload source files, or connect a local project. There are no application file-count or file-size limits; attachments upload in chunks.
+5. Submit for review. Self-contained exercises use OmniRoute; projects and submissions that need incremental exploration use the local Codex app-server judge.
+6. Use Challenge, Submit, and Reviews tabs. Submit code without a written explanation, select an earlier submission or review run when needed, and mark completed when you decide. Pause and resume anytime.
 
-Clarifications, hints, and solution reviews stream into the chat as they are
-generated instead of waiting for the full response.
+The tabbed workspace keeps the task, submission, and selected review separate. Reviews assess correctness (4), implementation reasoning (3), and engineering judgment (3), each with evidence. Unknown dimensions remain unassessed. Submission scores are separate from challenge difficulty; hints and retries do not reduce the score. Topic progress appears in History without a global intelligence score.
 
-The email is only a local profile selector. There is no authentication.
+System challenges request a bounded working core and assess design choices in code. No written explanation is required. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews do not complete the challenge. Mark completed records your decision independently; high scores cannot override unmet review requirements.
+
+Prompts live under `apps/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one bounded retry for difficulty mismatch.
+
+Preferences include an optional “Send recent challenges to AI” setting, off by default. Connect a folder by entering its path or browsing the folders available to Grill Me; connecting does not upload files. Save challenges for later from the workspace and reopen them from the separate Saved for later section in Challenges. Codex reviews use ephemeral sessions and link to their database-saved prompts, responses, and complete app-server protocol activity. Preferences includes a Codex model picker, defaulting to GPT-5.6 Sol. Run `bun run db:studio` to browse the local database.
+
+Existing history is preserved. Old manual completions are labeled as legacy; historical scores and missing context are not invented. Local profile selection is not authentication; keep the app private to your machine.
+
+See [runtime setup](docs/runtime-setup.md) for native Codex setup, optional Docker, verification images, storage, and diagnostics.
+
+## AI request logs
+
+Logs records each new AI operation: request checks, build generation, clarification,
+solution reviews, and hints. The paginated `/logs` page provides status and
+operation filters plus request/model search. Each `/logs/:id` detail page shows
+the complete instructions, input, response text, raw provider response, stream
+events, and errors, with copy actions. Requested and returned models are shown
+separately, alongside duration, time to first token, and provider-reported token
+usage and cost. Unreported values are left empty, not estimated.
+
+Logging begins before the provider call and ends after output validation or
+stream completion. Invalid JSON, failed validation, provider errors, incomplete
+streams, and cancelled consumers keep their received payloads. After a backend
+restart, unfinished records are marked interrupted. A log-storage failure warns
+on the backend console without changing the model result. Each log represents
+one application AI call; provider routing and internal retries are only visible
+when the provider includes that information in its response.
+
+Log payloads stay in the local SQLite database, scoped to the active profile.
+Transport credentials and known configured API keys are redacted. Full prompts,
+personal context, attached code, and responses can still contain private data:
+this local profile selector is not authentication, so do not expose the API or
+database publicly. Logs have no automatic expiry and will grow with usage.
+Existing calls cannot be reconstructed; only new calls are logged.
 
 ## Stack
 
 - Bun + Turborepo
-- Next.js 16, Tailwind CSS, TanStack Query
+- Next.js 16, Tailwind CSS, shadcn/ui (Radix), TanStack Query
+- Motion for interactions, respecting reduced-motion preferences
+- AI interface patterns adapted from [Beautiful UI](https://www.beautifului.dev/)
+- Empty-composer suggestions adapted from [Magic UI Typing Animation](https://magicui.design/docs/components/typing-animation)
 - Hono on Bun
 - Drizzle ORM + SQLite
 - OpenAI SDK pointed at an OpenAI-compatible endpoint such as OmniRoute
@@ -48,17 +83,27 @@ the app:
 bun dev
 ```
 
-- Web: http://localhost:3000
-- API: http://localhost:3001
-- Health check: http://localhost:3001/health
+- Web: http://localhost:8018
+- API: http://localhost:8017
+- Health check: http://localhost:8017/health
 
 `bun dev` starts only the web and backend workspaces. Next.js 16 uses Turbopack by
 default, including its persistent development cache.
 
-## Database
+## Local data
 
-The local database is created at `apps/backend/.data/grill-me.sqlite` and is
-ignored by Git. Tracked migrations are applied when the backend starts.
+Grill Me stores local runtime data under `~/.config/grill-me/` by default:
+
+- `grill-me.sqlite`: application database
+- `submissions/`: immutable submission snapshots
+- `uploads/`: resumable file uploads
+- `evaluations/`: prompt evaluation reports
+- `backups/`: local database backups
+- `codex-cli/`: the app-managed Codex CLI, when installed
+
+On first startup, missing data is copied from the legacy
+`apps/backend/.data/` directory. Existing files in the new location are never
+overwritten. Tracked database migrations are then applied normally.
 
 ```bash
 bun db:generate
@@ -81,13 +126,25 @@ bun run build
 
 Backend variables:
 
+- `GRILL_ME_HOME`: override the complete app data directory
+- `XDG_CONFIG_HOME`: standard config root used when `GRILL_ME_HOME` is unset
 - `LLM_BASE_URL`: OpenAI-compatible base URL
 - `LLM_API_KEY`: API key expected by the model gateway
 - `LLM_MODEL`: model or OmniRoute alias
-- `DATABASE_URL`: SQLite file path
+- `DATABASE_URL`: override the SQLite file path
+- `SNAPSHOT_ROOT`: override submission snapshot storage
+- `UPLOAD_ROOT`: override resumable upload storage
+- `EVALUATION_ROOT`: override prompt evaluation output
+- `CODEX_INSTALL_ROOT`: override the app-managed Codex CLI directory
 - `API_PORT`: Hono port
 - `WEB_ORIGIN`: allowed browser origin
 
 Web variable:
 
 - `NEXT_PUBLIC_API_URL`: browser-visible Hono API URL
+
+Structured generation and judging use validated JSON response schemas. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
+
+Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses three tabs, with one selected submission and review run visible at a time. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
+
+For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. If preparation fails, Create without clarification lets you proceed explicitly using your request and saved context.

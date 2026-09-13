@@ -36,3 +36,6 @@ yarn-error.log*
 
 # Local Grill-Me data
 apps/backend/.data/
+
+# Local runtime and review artifacts
+.data/

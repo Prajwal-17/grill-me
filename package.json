@@ -1,9 +1,10 @@
 {
   "name": "grill-me",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "build": "turbo run build",
+    "test": "bun test",
     "dev": "turbo run dev --filter=web --filter=backend",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint -- --fix",
@@ -12,7 +13,10 @@
     "check-types": "turbo run check-types",
     "check": "bun run format:check && bun run lint && bun run check-types",
     "db:generate": "bun run --cwd apps/backend db:generate",
-    "db:migrate": "bun run --cwd apps/backend db:migrate"
+    "db:migrate": "bun run --cwd apps/backend db:migrate",
+    "codex:setup": "bun run --cwd apps/backend codex:setup",
+    "codex:doctor": "bun run --cwd apps/backend codex:doctor",
+    "db:studio": "bun run --cwd apps/backend db:studio"
   },
   "devDependencies": {
     "@babel/core": "8.0.1",

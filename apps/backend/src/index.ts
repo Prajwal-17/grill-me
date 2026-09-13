@@ -1,8 +1,12 @@
 import { createApp } from "./app";
 import { createOpenAIModel } from "./modules/ai/openai.model";
+import { logModel } from "./modules/logs/log.model";
+import { createReviewService } from "./modules/reviews/review.service";
 import { migrateDatabase } from "./shared/database/db";
 
 migrateDatabase();
+logModel.markInterrupted();
+createReviewService(createOpenAIModel()).recover();
 
 const app = createApp({
   llm: createOpenAIModel(),
@@ -10,6 +14,7 @@ const app = createApp({
 });
 
 export default {
-  port: Number(process.env.API_PORT ?? 3001),
+  hostname: process.env.API_HOST ?? "localhost",
+  port: Number(process.env.API_PORT ?? 8017),
   fetch: app.fetch,
 };

@@ -1,5 +1,5 @@
-import { ProfileGatePage } from "../features/profile/pages/profile-gate-page";
+import { GenerationHomePage } from "@/features/chat/pages/generation-home-page";
 
 export default function Page() {
-  return <ProfileGatePage />;
+  return <GenerationHomePage />;
 }

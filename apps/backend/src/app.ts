@@ -5,14 +5,20 @@ import { createChallengeController } from "./modules/challenges/challenge.contro
 import { challengeModel } from "./modules/challenges/challenge.model";
 import { createChallengeRoutes } from "./modules/challenges/challenge.routes";
 import { createChallengeService } from "./modules/challenges/challenge.service";
+import { createLogRoutes } from "./modules/logs/log.routes";
 import { createMessageController } from "./modules/messages/message.controller";
 import { messageModel } from "./modules/messages/message.model";
 import { createMessageRoutes } from "./modules/messages/message.routes";
 import { createMessageService } from "./modules/messages/message.service";
 import { createProfileController } from "./modules/profiles/profile.controller";
-import { profileModel } from "./modules/profiles/profile.model";
+import {
+  profileModel,
+  profilePreferencesModel,
+} from "./modules/profiles/profile.model";
 import { createProfileRoutes } from "./modules/profiles/profile.routes";
 import { createProfileService } from "./modules/profiles/profile.service";
+import { createReviewRoutes } from "./modules/reviews/review.routes";
+import { createReviewService } from "./modules/reviews/review.service";
 import { handleError } from "./shared/http/error-handler";
 
 type AppDependencies = {
@@ -22,7 +28,7 @@ type AppDependencies = {
 
 export function createApp({
   llm,
-  webOrigin = "http://localhost:3000",
+  webOrigin = "http://localhost:8018",
 }: AppDependencies) {
   const app = new Hono();
 
@@ -36,8 +42,12 @@ export function createApp({
     }),
   );
 
-  const profileService = createProfileService(profileModel);
+  const profileService = createProfileService(
+    profileModel,
+    profilePreferencesModel,
+  );
 
+  const reviewService = createReviewService(llm);
   const challengeService = createChallengeService({
     challenges: challengeModel,
     messages: messageModel,
@@ -51,7 +61,9 @@ export function createApp({
     llm,
   });
 
+  app.route("/", createReviewRoutes(reviewService, profileService));
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
+  app.route("/logs", createLogRoutes(profileService));
   app.route(
     "/profiles",
     createProfileRoutes(createProfileController(profileService)),
