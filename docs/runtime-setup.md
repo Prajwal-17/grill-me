@@ -37,13 +37,20 @@ Use Connect folder to enter an absolute local project path or browse to it. Conn
 Optional Docker application profile
 -----------------------------------
 
-Set `GRILL_PROJECTS_PATH` to a host project directory, configure OmniRoute's address so it is reachable from the backend container (container localhost is not the host), then run:
+Set `GRILL_PROJECTS_PATH` to a host project directory, then run:
 
 ```bash
 docker compose up --build -d
 docker compose exec backend codex login --device-auth
 docker compose exec backend bun run codex:doctor
 ```
+
+Compose connects to OmniRoute on the host through
+`http://host.docker.internal:20128/v1` by default. On Linux, the included
+`host-gateway` mapping supplies that hostname. If OmniRoute uses another host
+or port, set `OMNIROUTE_BASE_URL` before starting Compose. OmniRoute must listen
+on an address reachable through the Docker host gateway rather than only its
+loopback interface.
 
 Web and API ports bind to host loopback. The host's `${HOME}/.config/grill-me` directory is mounted at `/root/.config/grill-me`, so native and Compose runs share the same database, submissions, uploads, evaluations, and backups. Codex authentication remains in its separate named volume, and project mounts are read-only. This profile supports project inspection. Automatic verification is intended for the native backend with Docker available; the default compose profile does not expose a host Docker socket or run privileged Docker-in-Docker. Both application profiles share the same prompts and judging contract.
 

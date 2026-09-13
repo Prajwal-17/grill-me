@@ -8,8 +8,11 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 8017
       GRILL_ME_HOME: /root/.config/grill-me
+      LLM_BASE_URL: ${OMNIROUTE_BASE_URL:-http://host.docker.internal:20128/v1}
       WEB_ORIGIN: http://localhost:8018
       CODEX_HOME: /codex-state
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:8017:8017"
     volumes:
