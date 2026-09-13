@@ -1,13 +1,4 @@
 import type { BuildDifficulty } from "../../challenges/challenge.schema";
-export const DIFFICULTY_BANDS: Record<
-  BuildDifficulty,
-  readonly [number, number]
-> = {
-  easy: [1, 3],
-  medium: [4, 6],
-  hard: [7, 8],
-  grill: [9, 10],
-};
 const policies: Record<BuildDifficulty, string> = {
   easy: "EASY: Direct application of recently learned concepts. Explicit behavior, known prerequisites, ordinary cases, no hidden trick or unrelated engineering pressure. Target estimated difficulty 1–3/10.",
   medium:

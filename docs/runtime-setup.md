@@ -58,12 +58,12 @@ bun run codex:doctor
 bun run --cwd apps/backend scripts/smoke-judge.ts
 ```
 
-The smoke command makes a real Codex request against a disposable multi-file fixture. Prompt calibration can be run with `bun run --cwd apps/backend scripts/evaluate-prompts.ts`; it requires the configured OmniRoute service and runs generation plus a separate quality assessment for each of the 12 mode/difficulty combinations, with at most one repair per challenge. Add `--regressions` to run only the two reported Codex App Server and job-processor examples. It writes inspectable results instead of treating length and score checks as proof of semantic quality.
+The smoke command makes a real Codex request against a disposable multi-file fixture. Prompt calibration can be run with `bun run --cwd apps/backend scripts/evaluate-prompts.ts`; it requires the configured OmniRoute service and makes one generation call for each of the 12 mode/difficulty combinations. Add `--regressions` to run only the two reported Codex App Server and job-processor examples. It writes inspectable results instead of treating length and score checks as proof of semantic quality.
 
 Implementation validation — 2026-09-13
 ---------------------------------------
 
-All 29 automated tests, formatting, lint, type checks, and the production build pass. The model-settings browser check verified the available model catalog, default selection, save/reload, and mobile layout. Drizzle Studio started successfully with the bundled driver. Tests cover saved context, scoring/acceptance gates, retained submissions and retries, stale reviews, uploads beyond the old limits, immutable snapshots and path boundaries, Codex transport failures/reconnection, and legacy migration preservation. The local database was backed up under `apps/backend/.data/backups/` before applying the additive migration.
+All 28 automated tests, formatting, lint, type checks, and the production build pass. The model-settings browser check verified the available model catalog, default selection, save/reload, and mobile layout. Drizzle Studio started successfully with the bundled driver. Tests cover saved context, scoring/acceptance gates, retained submissions and retries, stale reviews, uploads beyond the old limits, immutable snapshots and path boundaries, Codex transport failures/reconnection, and legacy migration preservation. The local database was backed up under `apps/backend/.data/backups/` before applying the additive migration.
 
 A browser check against the real API with a deterministic model fixture passed generation, contextual help, seven attachments, review and learner-controlled completion, topic history, preferences, and a narrow-screen layout without horizontal overflow. This checks application behavior, not live model quality.
 
@@ -86,8 +86,8 @@ After pulling changes, run `bun install` and `bun run db:migrate`, then `bun run
 Challenge quality
 -----------------
 
-Prompt version `practice-v2.2` preserves the explicitly requested subject. New briefs have at most 4/6/8 atomic criteria for focused/feature/system, 320 characters per criterion, and total prose budgets of 120 words for focused/easy, 200 for other focused tasks, 220 for feature, and 300 for system. Starter code is excluded from the prose budget; submission files remain unlimited. Historical contracts are not revalidated against these new limits.
+Prompt version `practice-v2.3` preserves the explicitly requested subject. New briefs have at most 4/6/8 atomic criteria for focused/feature/system, 320 characters per criterion, and prompt-guided prose targets of 120 words for focused/easy, 200 for other focused tasks, 220 for feature, and 300 for system. Starter code is excluded from the prose budget; submission files remain unlimited. Historical contracts are not revalidated against these new limits.
 
-After deterministic validation, a separate model call assesses required topic use, scope, prerequisites, actual difficulty, and contradictory or repeated requirements without seeing the generator's self-assigned score. At most one repair is allowed; output that still fails is not saved. This adds model latency and is a quality filter, not a guarantee of semantic correctness. Generation and assessment requests are logged separately.
+Generation uses a single model call and basic structured-response validation. There is no separate AI checker, difficulty-band rejection, total-word-count gate, or automatic repair loop. Topic relevance and easy-system calibration are handled by the generation prompt. The numeric difficulty remains the generator’s estimate, not an independently verified score. Existing code-review judges and verification are unchanged.
 
 Save for later moves a challenge into a separate list under Challenges without marking it completed or changing its contract, difficulty, submissions, or reviews. Resume moves it back into active practice. This uses a new value in the existing SQLite text status column; no additional database migration is needed.

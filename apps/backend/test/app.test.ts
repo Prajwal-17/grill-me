@@ -68,18 +68,6 @@ class FakeModel implements ModelGateway {
     learner: LearnerContext;
   }[] = [];
 
-  async assessBuild(input: BuildModelInput, _candidate: GeneratedBuildContent) {
-    return {
-      relevant: true,
-      scopeMatches: true,
-      prerequisitesMatch: true,
-      estimatedDifficultyScore: { easy: 2, medium: 5, hard: 8, grill: 10 }[
-        input.difficulty
-      ],
-      difficultyReason: "Assessed fixture reasoning.",
-      issues: [] as string[],
-    };
-  }
   async prepareBuild(input: Omit<BuildModelInput, "clarificationContext">) {
     this.prepareInputs.push(input);
     return this.preparation;
@@ -590,132 +578,49 @@ async function profileLogs(app: TestApp, id: string, query = "") {
   ).data;
 }
 
-describe("challenge quality regressions", () => {
-  test("rejects a Codex request answered with an unrelated exercise and repairs once", async () => {
+describe("single-pass challenge generation", () => {
+  test("System Easy generates once without a checker or difficulty-band rejection", async () => {
     const model = new FakeModel();
-    let checks = 0;
-    model.assessBuild = async (input, candidate) => {
-      checks++;
-      return {
-        relevant: candidate.topic === "Codex App Server",
-        scopeMatches: true,
-        prerequisitesMatch: true,
-        estimatedDifficultyScore: 5,
-        difficultyReason: "One familiar protocol interaction.",
-        issues:
-          candidate.topic === "Codex App Server"
-            ? []
-            : ["A generic grouping exercise does not use Codex App Server."],
-      };
-    };
-    const original = model.generateBuild.bind(model);
-    model.generateBuild = async (input) => {
-      if (input.calibrationFeedback)
-        model.final = {
-          ...generated,
-          title: "Stream a Codex response",
-          topic: "Codex App Server",
-          problemStatement:
-            "Build a small Codex App Server client that sends a prompt and displays its streamed response.",
-          completionCriteria: [
-            "Connects to Codex App Server and sends a prompt.",
-            "Displays streamed response text in order.",
-          ],
-        };
-      return original(input);
-    };
+    const generate = model.generateBuild.bind(model);
+    model.generateBuild = async (input) => ({
+      ...(await generate(input)),
+      estimatedDifficultyScore: 4,
+    });
     const app = createApp({ llm: model });
     const owner = await startProfile(
       app,
-      `topic-${crypto.randomUUID()}@test.dev`,
+      `single-${crypto.randomUUID()}@test.dev`,
     );
     const challenge = await createChallenge(app, owner.id, {
-      prompt: "I just learned Codex App Server; give me a challenge",
+      prompt:
+        "Give me a small complete backend system to design and implement. Keep infrastructure simple, but make me think about APIs, database schema, modules, and testing.",
+      scope: "system",
+      difficulty: "easy",
     });
-    expect(checks).toBe(2);
-    expect(model.generationInputs).toHaveLength(2);
-    expect(model.generationInputs[1]!.calibrationFeedback).toContain(
-      "explicitly requested subject",
-    );
-    expect(challenge.topic).toBe("Codex App Server");
-    expect(challenge.contextSnapshot?.currentRequest).toContain(
-      "Codex App Server",
+    expect(model.generationInputs).toHaveLength(1);
+    expect(challenge.difficulty).toBe("easy");
+    expect(challenge.estimatedDifficultyScore).toBe(4);
+    expect(generationPrompt(model.generationInputs[0]!).instructions).toContain(
+      "Easy systems use one service",
     );
   });
-  test("rejects an oversized C8 without modifying saved historical challenges", async () => {
+  test("a valid response above the suggested word budget is saved without regeneration", async () => {
     const model = new FakeModel();
-    const app = createApp({ llm: model });
-    const owner = await startProfile(
-      app,
-      `length-${crypto.randomUUID()}@test.dev`,
-    );
-    const existing = await createChallenge(app, owner.id);
-    model.generationInputs = [];
     model.final = {
       ...generated,
-      completionCriteria: [
-        ...Array.from(
-          { length: 7 },
-          (_, i) => `Behavior ${i + 1} is observable.`,
-        ),
-        "Recovery must converge. ".repeat(200),
-      ],
+      problemStatement: "ordinary behavior ".repeat(170),
     };
-    const failed = await request(app, "/challenges/generate", owner.id, {
-      prompt: "Build a background job processor",
-      scope: "system",
-      difficulty: "grill",
-    });
-    expect(failed.status).toBe(502);
-    expect(model.generationInputs).toHaveLength(2);
-    expect(model.generationInputs[1]!.calibrationFeedback).toContain(
-      "completionCriteria.7",
-    );
-    const active = await request(app, "/challenges/active", owner.id);
-    expect(
-      (await json<{ data: Challenge[] }>(active)).data.map((c) => c.id),
-    ).toEqual([existing.id]);
-  });
-  test("rejects a hard task self-labelled medium using the independent assessment", async () => {
-    const model = new FakeModel();
-    model.assessBuild = async () => ({
-      relevant: true,
-      scopeMatches: true,
-      prerequisitesMatch: true,
-      estimatedDifficultyScore: 9,
-      difficultyReason: "Requires unfamiliar concurrency and crash recovery.",
-      issues: [],
-    });
     const app = createApp({ llm: model });
     const owner = await startProfile(
       app,
-      `difficulty-${crypto.randomUUID()}@test.dev`,
+      `brief-${crypto.randomUUID()}@test.dev`,
     );
-    const failed = await request(app, "/challenges/generate", owner.id, {
-      prompt: "Practice async programming",
-      scope: "focused",
-      difficulty: "medium",
+    const challenge = await createChallenge(app, owner.id, {
+      scope: "system",
+      difficulty: "easy",
     });
-    expect(failed.status).toBe(502);
-    expect(model.generationInputs).toHaveLength(2);
-    expect(model.generationInputs[1]!.calibrationFeedback).toContain(
-      "Independent estimate is 9/10",
-    );
-  });
-  test("checks the total brief even when each individual field is within its limit", async () => {
-    const { briefIssues } =
-      await import("../src/modules/challenges/challenge-quality");
-    const candidate = {
-      ...generated,
-      problemStatement: "word ".repeat(120),
-      completionCriteria: Array(4).fill("word ".repeat(30)),
-      constraints: [],
-    };
-    expect(
-      briefIssues(candidate, "focused", "medium").some((i) =>
-        i.includes("Complete brief"),
-      ),
-    ).toBe(true);
+    expect(challenge.problemStatement).toBe(model.final.problemStatement);
+    expect(model.generationInputs).toHaveLength(1);
   });
 });
 
@@ -757,25 +662,11 @@ describe("AI request logs", () => {
 
   test("records full structured payloads, returned model, usage and redacts credentials", async () => {
     const app = createApp({
-      llm: loggedModel((body) =>
+      llm: loggedModel(() =>
         Response.json(
-          modelResponse(
-            JSON.stringify(
-              String(body.instructions).startsWith("Audit a proposed")
-                ? {
-                    relevant: true,
-                    scopeMatches: true,
-                    prerequisitesMatch: true,
-                    estimatedDifficultyScore: 5,
-                    difficultyReason: "Fixture reasoning",
-                    issues: [],
-                  }
-                : generated,
-            ),
-            {
-              debug: { api_key: "hidden-key", note: "test-log-secret" },
-            },
-          ),
+          modelResponse(JSON.stringify(generated), {
+            debug: { api_key: "hidden-key", note: "test-log-secret" },
+          }),
         ),
       ),
     });
@@ -785,10 +676,8 @@ describe("AI request logs", () => {
     );
     await createChallenge(app, owner.id, { difficulty: "medium" });
     const list = await profileLogs(app, owner.id);
-    expect(list.total).toBe(2);
-    const generationLog = list.items.find(
-      (row) => !row.preview.startsWith("Quality check:"),
-    )!;
+    expect(list.total).toBe(1);
+    const generationLog = list.items[0]!;
     expect(generationLog).toMatchObject({
       status: "success",
       operation: "generation",
@@ -856,9 +745,9 @@ describe("AI request logs", () => {
       });
       expect(response.status).toBeGreaterThanOrEqual(500);
     }
-    expect(calls).toBe(3);
+    expect(calls).toBe(2);
     const list = await profileLogs(app, owner.id, "?status=error");
-    expect(list.total).toBe(3);
+    expect(list.total).toBe(2);
     const logs = list.items.map((row) => logModel.findOwned(row.id, owner.id)!);
     expect(
       logs.some(
@@ -1198,7 +1087,7 @@ describe("structured practice reviews", () => {
       ).data[0]?.id,
     ).toBe(challenge.id);
   });
-  test("saves original context and independent numeric difficulty", async () => {
+  test("saves original context and numeric difficulty separately from review scores", async () => {
     const { app, owner, challenge } = await fixture();
     expect(challenge.estimatedDifficultyScore).toBe(5);
     expect(challenge.contextSnapshot?.selectedDifficulty).toBe("medium");
@@ -1456,7 +1345,6 @@ createInterface({input: process.stdin}).on("line", line => {
     const service = createReviewService(
       {
         ...model,
-        assessBuild: model.assessBuild.bind(model),
         prepareBuild: model.prepareBuild.bind(model),
         generateBuild: model.generateBuild.bind(model),
         respond: model.respond.bind(model),

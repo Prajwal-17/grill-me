@@ -1,5 +1,3 @@
-import { buildAssessmentSchema } from "../challenges/challenge-quality";
-import { assessmentPrompt } from "./prompts/assess-build";
 import {
   reviewResultSchema,
   reviewJsonSchema,
@@ -295,20 +293,6 @@ export function createOpenAIModel(
       });
     },
 
-    assessBuild(input, candidate) {
-      return requestStructured({
-        context: {
-          profileId: input.learner.profileId,
-          operation: "generation",
-          preview: "Quality check: " + input.prompt,
-        },
-        prompt: assessmentPrompt(input, candidate),
-        name: "challenge_assessment",
-        stage: "generation",
-        schema: zod.toJSONSchema(buildAssessmentSchema),
-        validator: buildAssessmentSchema,
-      });
-    },
     generateBuild(input) {
       return requestStructured({
         context: {

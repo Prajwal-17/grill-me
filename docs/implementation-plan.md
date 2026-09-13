@@ -24,4 +24,4 @@ The implementation passes 22 automated tests, formatting, lint, and type checks.
 
 See [runtime setup](runtime-setup.md) for setup, migration, CLI history commands, production-build validation, and remaining environmental limitations. OmniRoute generation calibration and Docker execution require those services to be available locally. Numeric difficulty bands alone do not prove semantic calibration.
 
-Challenge generation now enforces per-criterion and total brief limits, then independently assesses topic relevance, prerequisites, scope, and reasoning difficulty. At most one repair is permitted before returning an actionable error. The additive protocol-event migration preserves earlier data; Drizzle Studio uses the installed libSQL driver against the same SQLite file.
+Challenge generation uses one model call with concise, topic-specific prompts and structured-response validation. There is no separate quality checker or repair loop. Numeric difficulty is a model estimate. The additive protocol-event migration preserves earlier data; Drizzle Studio uses the installed libSQL driver against the same SQLite file.

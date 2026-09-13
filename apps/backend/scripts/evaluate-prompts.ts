@@ -48,7 +48,7 @@ for (const input of cases) {
   const result = await response.json();
   results.push({ input, status: response.status, result });
   console.log(
-    `${input.scope}/${input.difficulty}: ${response.ok ? "quality checks passed" : (result.error?.message ?? "failed")}`,
+    `${input.scope}/${input.difficulty}: ${response.ok ? "generated" : (result.error?.message ?? "failed")}`,
   );
   if (!response.ok) {
     process.exitCode = 1;
@@ -60,5 +60,5 @@ await mkdir(dir, { recursive: true });
 const path = resolve(dir, `prompts-${Date.now()}.json`);
 await writeFile(path, JSON.stringify(results, null, 2));
 console.log(
-  `Saved ${path}. Inspect semantic quality; automated assessment is not a guarantee.`,
+  `Saved ${path}. Inspect semantic quality; difficulty is a model estimate.`,
 );

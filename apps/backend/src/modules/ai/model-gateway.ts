@@ -37,7 +37,6 @@ export type BuildModelInput = {
   timeBudgetMinutes?: number | null;
   familiarity?: "new" | "practiced" | "comfortable" | null;
   emphasis?: string | null;
-  calibrationFeedback?: string | null;
   prompt: string;
   scope: BuildScope;
   difficulty: BuildDifficulty;
@@ -57,10 +56,6 @@ export type JudgeInput = {
   signal?: AbortSignal;
 };
 export interface ModelGateway {
-  assessBuild(
-    input: BuildModelInput,
-    candidate: GeneratedBuildContent,
-  ): Promise<import("../challenges/challenge-quality").BuildAssessment>;
   judge?(input: JudgeInput): Promise<ReviewResult>;
   planVerification?(input: JudgeInput): Promise<VerificationPlan>;
 
