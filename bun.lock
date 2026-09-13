@@ -16,7 +16,7 @@
     },
     "apps/backend": {
       "name": "backend",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@repo/preferences": "*",
         "drizzle-orm": "^0.44.0",
@@ -36,7 +36,7 @@
     },
     "apps/web": {
       "name": "web",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@pierre/diffs": "^1.4.2",
         "@pierre/trees": "^1.0.0-beta.6",
@@ -82,7 +82,7 @@
     },
     "packages/eslint-config": {
       "name": "@repo/eslint-config",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "devDependencies": {
         "@babel/core": "8.0.1",
         "@babel/eslint-parser": "8.0.1",
@@ -99,11 +99,11 @@
     },
     "packages/preferences": {
       "name": "@repo/preferences",
-      "version": "0.1.0",
+      "version": "0.1.1",
     },
     "packages/typescript-config": {
       "name": "@repo/typescript-config",
-      "version": "0.1.0",
+      "version": "0.1.1",
     },
   },
   "packages": {

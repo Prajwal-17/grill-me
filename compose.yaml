@@ -18,7 +18,7 @@ services:
     volumes:
       - ${HOME}/.config/grill-me:/root/.config/grill-me
       - codex-state:/codex-state
-      - ${GRILL_PROJECTS_PATH:-./workspace}:/projects:ro
+      - /mnt/hdd/code/challenges:/projects:ro # ro is read only
   web:
     build:
       context: .
