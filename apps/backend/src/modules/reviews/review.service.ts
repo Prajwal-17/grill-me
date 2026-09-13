@@ -20,6 +20,7 @@ import {
   captureSubmission,
   projectRoot,
   readSnapshot,
+  readSnapshotFile,
 } from "../projects/snapshot";
 import { validateReview, type VerificationEvidence } from "./review.schema";
 import type { JudgeInput, ModelGateway } from "../ai/model-gateway";
@@ -273,6 +274,17 @@ export function createReviewService(
             .orderBy(desc(reviewJobs.createdAt))
             .all(),
         }));
+    },
+    async file(id: string, profileId: string, path: string) {
+      const attempt = submission(id);
+      if (!attempt)
+        throw new AppError(
+          "SUBMISSION_NOT_FOUND",
+          "Submission not found.",
+          404,
+        );
+      owned(attempt.challengeId, profileId);
+      return readSnapshotFile(attempt.snapshotPath, attempt.manifest, path);
     },
     async submit(
       challengeId: string,

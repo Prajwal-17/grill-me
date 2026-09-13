@@ -46,6 +46,14 @@ const secretFile = (name: string) =>
   /(?:\.pem|\.key|\.p12|\.pfx)$/i.test(name) ||
   /^(?:credentials|auth\.json|id_rsa|id_ed25519)$/i.test(name);
 export type Manifest = { path: string; sha256: string; bytes: number }[];
+export type SnapshotFile = {
+  path: string;
+  bytes: number;
+  content: string | null;
+  binary: boolean;
+  tooLarge: boolean;
+};
+const MAX_FILE_PREVIEW_BYTES = 2 * 1024 * 1024;
 export async function projectRoot(path: string) {
   if (!isAbsolute(path))
     throw new AppError(
@@ -238,4 +246,48 @@ export async function readSnapshot(path: string, manifest: Manifest) {
       text: await readFile(join(path, file.path), "utf8"),
     })),
   );
+}
+
+export async function readSnapshotFile(
+  root: string,
+  manifest: Manifest,
+  requestedPath: string,
+): Promise<SnapshotFile> {
+  const file = manifest.find((entry) => entry.path === requestedPath);
+  if (!file)
+    throw new AppError("SUBMISSION_FILE_NOT_FOUND", "File not found.", 404);
+  if (file.bytes > MAX_FILE_PREVIEW_BYTES)
+    return {
+      path: file.path,
+      bytes: file.bytes,
+      content: null,
+      binary: false,
+      tooLarge: true,
+    };
+  const bytes = await readFile(join(root, file.path));
+  if (bytes.includes(0))
+    return {
+      path: file.path,
+      bytes: file.bytes,
+      content: null,
+      binary: true,
+      tooLarge: false,
+    };
+  try {
+    return {
+      path: file.path,
+      bytes: file.bytes,
+      content: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+      binary: false,
+      tooLarge: false,
+    };
+  } catch {
+    return {
+      path: file.path,
+      bytes: file.bytes,
+      content: null,
+      binary: true,
+      tooLarge: false,
+    };
+  }
 }

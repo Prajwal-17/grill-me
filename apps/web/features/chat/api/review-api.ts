@@ -5,6 +5,7 @@ import type {
   ConnectedProject,
   Challenge,
   TopicProgress,
+  SubmissionFile,
 } from "@/shared/types/api";
 const post = (data: unknown) => ({
   method: "POST",
@@ -13,6 +14,16 @@ const post = (data: unknown) => ({
 export const getSubmissions = (profile: string, challenge: string) =>
   apiRequest<PracticeSubmission[]>(
     `/challenges/${challenge}/submissions`,
+    {},
+    profile,
+  );
+export const getSubmissionFile = (
+  profile: string,
+  submission: string,
+  path: string,
+) =>
+  apiRequest<SubmissionFile>(
+    `/submissions/${submission}/files?path=${encodeURIComponent(path)}`,
     {},
     profile,
   );

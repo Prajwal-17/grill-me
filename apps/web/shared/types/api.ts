@@ -144,6 +144,13 @@ export type PracticeSubmission = {
   createdAt: string;
   reviews: ReviewJob[];
 };
+export type SubmissionFile = {
+  path: string;
+  bytes: number;
+  content: string | null;
+  binary: boolean;
+  tooLarge: boolean;
+};
 export type ConnectedProject = { id: string; name: string; root: string };
 export type TopicProgress = {
   challengeId: string;

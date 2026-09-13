@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
-  FileCode2,
   LoaderCircle,
   MessageSquare,
   RotateCcw,
@@ -54,12 +53,6 @@ function formatDate(value: string) {
       timeZone: "UTC",
     }).format(new Date(value)) + " UTC"
   );
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return bytes + " B";
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
-  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 export function AttemptReview({
@@ -331,25 +324,6 @@ export function AttemptReview({
                       <p className="mt-1 leading-5 text-muted">
                         {criterion.evidence}
                       </p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="text-xs font-medium">
-                  Submitted files ({attempt.manifest.length})
-                </h4>
-                <ul className="mt-2 max-h-52 space-y-1 overflow-y-auto font-mono text-[10px] text-muted">
-                  {attempt.manifest.map((file) => (
-                    <li key={file.path} className="flex gap-2">
-                      <FileCode2 size={12} className="mt-0.5 shrink-0" />
-                      <span className="min-w-0 flex-1 break-all">
-                        {file.path}
-                      </span>
-                      <span className="shrink-0">
-                        {formatBytes(file.bytes)}
-                      </span>
                     </li>
                   ))}
                 </ul>

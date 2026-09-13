@@ -1003,6 +1003,74 @@ describe("structured practice reviews", () => {
     reason: "Inspection fixture, no execution claimed.",
     checks: [],
   });
+  test("serves read-only files from owned submission snapshots", async () => {
+    const { app, owner, challenge } = await fixture();
+    const submitted = await request(
+      app,
+      `/challenges/${challenge.id}/submissions`,
+      owner.id,
+      {
+        content: "Review the attached source.",
+        attachments: [
+          {
+            filename: "answer.ts",
+            text: "export const group = (words: string[]) => words;\n",
+          },
+        ],
+      },
+    );
+    expect(submitted.status).toBe(202);
+    const submission = (
+      await json<{ data: { submission: { id: string } } }>(submitted)
+    ).data.submission;
+    const file = await request(
+      app,
+      `/submissions/${submission.id}/files?path=answer.ts`,
+      owner.id,
+    );
+    expect(file.status).toBe(200);
+    expect(
+      (
+        await json<{
+          data: {
+            path: string;
+            bytes: number;
+            content: string | null;
+            binary: boolean;
+            tooLarge: boolean;
+          };
+        }>(file)
+      ).data,
+    ).toEqual({
+      path: "answer.ts",
+      content: "export const group = (words: string[]) => words;\n",
+      binary: false,
+      tooLarge: false,
+      bytes: 49,
+    });
+    expect(
+      (
+        await request(
+          app,
+          `/submissions/${submission.id}/files?path=missing.ts`,
+          owner.id,
+        )
+      ).status,
+    ).toBe(404);
+    const other = await startProfile(
+      app,
+      `files-other-${crypto.randomUUID()}@test.dev`,
+    );
+    expect(
+      (
+        await request(
+          app,
+          `/submissions/${submission.id}/files?path=answer.ts`,
+          other.id,
+        )
+      ).status,
+    ).toBe(404);
+  });
   async function finished(
     service: ReturnType<
       typeof import("../src/modules/reviews/review.service").createReviewService

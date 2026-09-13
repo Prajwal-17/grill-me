@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import { AttemptReview } from "./attempt-review";
+import { SubmissionFiles } from "./submission-files";
 
 const verdictLabel = {
   accepted: "Accepted",
@@ -30,11 +31,13 @@ function attemptState(attempt: PracticeSubmission) {
 
 export function SubmissionHistory({
   attempts,
+  profileId,
   busy,
   onRetry,
   onCancel,
 }: {
   attempts: PracticeSubmission[];
+  profileId: string;
   busy: boolean;
   onRetry: (review: ReviewJob, response: string | null) => void;
   onCancel: (review: ReviewJob) => void;
@@ -46,9 +49,9 @@ export function SubmissionHistory({
   return (
     <section
       aria-label="Submission reviews"
-      className="flex h-full min-h-0 flex-col"
+      className="flex h-full min-h-0 flex-col overflow-y-auto xl:flex-row xl:overflow-hidden"
     >
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-10">
+      <div className="min-h-0 flex-1 px-5 py-6 md:px-10 xl:overflow-y-auto">
         {selected ? (
           <>
             {attempts.length > 1 && (
@@ -97,6 +100,13 @@ export function SubmissionHistory({
           </div>
         )}
       </div>
+      {selected && (
+        <SubmissionFiles
+          key={selected.id}
+          attempt={selected}
+          profileId={profileId}
+        />
+      )}
     </section>
   );
 }

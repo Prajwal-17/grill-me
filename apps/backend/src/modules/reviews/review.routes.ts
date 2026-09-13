@@ -84,6 +84,15 @@ export function createReviewRoutes(
   routes.get("/challenges/:id/submissions", (c) =>
     c.json({ data: service.list(id(c), profile(c)) }),
   );
+  routes.get("/submissions/:id/files", async (c) =>
+    c.json({
+      data: await service.file(
+        id(c),
+        profile(c),
+        parseInput(z.string().min(1), c.req.query("path")),
+      ),
+    }),
+  );
   routes.post("/challenges/:id/submissions", async (c) => {
     const owner = profile(c);
     const input = parseInput(

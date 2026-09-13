@@ -11,6 +11,8 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@pierre/diffs": "^1.4.2",
+    "@pierre/trees": "^1.0.0-beta.6",
     "@repo/preferences": "*",
     "@tanstack/react-query": "^5.0.0",
     "class-variance-authority": "^0.7.1",

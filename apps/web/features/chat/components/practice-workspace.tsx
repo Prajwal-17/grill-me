@@ -559,6 +559,7 @@ export function PracticeWorkspace({
           ) : (
             <SubmissionHistory
               attempts={attempts.data ?? []}
+              profileId={profile.id}
               busy={busy || Boolean(running) || !active}
               onRetry={(review, response) =>
                 reviewAction.mutate({ review, response })
