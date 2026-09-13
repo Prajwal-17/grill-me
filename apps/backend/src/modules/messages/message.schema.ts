@@ -1,8 +1,5 @@
 import { z } from "zod";
 
-export const MAX_ATTACHMENTS = 5;
-export const MAX_ATTACHMENT_BYTES = 100 * 1024;
-
 const sourceExtensions = new Set([
   "asm",
   "bash",
@@ -98,12 +95,9 @@ export const messageAttachmentSchema = z.object({
     .refine(isAcceptedAttachmentName, {
       message: "Only source-code and plain-text files are accepted.",
     }),
-  text: z
-    .string()
-    .max(MAX_ATTACHMENT_BYTES)
-    .refine((value) => !value.includes("\0"), {
-      message: "Binary files are not accepted.",
-    }),
+  text: z.string().refine((value) => !value.includes("\0"), {
+    message: "Binary files are not accepted.",
+  }),
 });
 
 export const messageModeSchema = z.enum([
@@ -125,12 +119,9 @@ export const messageSchema = z.object({
 
 export const createMessageRequestSchema = z
   .object({
-    content: z.string().trim().max(40_000).default(""),
+    content: z.string().trim().default(""),
     mode: z.enum(["clarify", "review"]),
-    attachments: z
-      .array(messageAttachmentSchema)
-      .max(MAX_ATTACHMENTS)
-      .default([]),
+    attachments: z.array(messageAttachmentSchema).default([]),
   })
   .superRefine((input, context) => {
     if (!input.content && input.attachments.length === 0) {
@@ -145,19 +136,6 @@ export const createMessageRequestSchema = z
         code: "custom",
         message: "Attachments can only be submitted for solution review.",
         path: ["mode"],
-      });
-    }
-
-    const bytes = input.attachments.reduce(
-      (total, attachment) =>
-        total + new TextEncoder().encode(attachment.text).byteLength,
-      0,
-    );
-    if (bytes > MAX_ATTACHMENT_BYTES) {
-      context.addIssue({
-        code: "custom",
-        message: "Attachments must total 100 KB or less.",
-        path: ["attachments"],
       });
     }
   });

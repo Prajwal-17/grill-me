@@ -18,9 +18,19 @@ export type DurationEstimate = {
   maxMinutes: number;
 };
 
-export type ChallengeStatus = "active" | "completed";
+export type ChallengeStatus = "active" | "paused" | "stopped" | "completed";
 
 export type Challenge = {
+  estimatedDifficultyScore: number | null;
+  difficultyReason: string | null;
+  topic: string | null;
+  implementationBoundary: string | null;
+  contextSnapshot: Record<string, unknown> | null;
+  promptVersion: string | null;
+  calibrationVersion: string | null;
+  contractVersion: number;
+  completionSource: "judge" | "legacy" | null;
+
   id: string;
   profileId: string;
   title: string;
@@ -73,8 +83,73 @@ export type ApiError = {
 export type ClarificationContext = { question: string; answer: string };
 
 export type GenerateBuildRequest = {
+  timeBudgetMinutes?: number | null;
+  familiarity?: "new" | "practiced" | "comfortable" | null;
+  emphasis?: string | null;
+
   prompt: string;
   scope: BuildScope;
   difficulty: BuildDifficulty;
   clarificationContext: ClarificationContext | null;
+};
+
+export type ScoreDimension = { score: number | null; evidence: string };
+export type ReviewResult = {
+  verdict: "accepted" | "needs_revision" | "needs_evidence";
+  summary: string;
+  criteria: {
+    id: string;
+    status: "met" | "unmet" | "unassessed";
+    evidence: string;
+  }[];
+  findings: {
+    criterionId: string;
+    location: string | null;
+    issue: string;
+    evidence: string;
+  }[];
+  optionalImprovements: string[];
+  correctness: ScoreDimension;
+  understanding: ScoreDimension;
+  judgment: ScoreDimension;
+  nextStep: string | null;
+  question: string | null;
+  verification: "checks_run" | "inspection_only" | "incomplete";
+};
+export type ReviewJob = {
+  id: string;
+  submissionId: string;
+  judge: "omniroute" | "codex";
+  routingReason: string;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  progress: string;
+  response: ReviewResult | null;
+  score: number | null;
+  error: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  followup: string | null;
+};
+export type PracticeSubmission = {
+  id: string;
+  challengeId: string;
+  sequence: number;
+  content: string;
+  manifest: { path: string; bytes: number; sha256: string }[];
+  assistance: { hints: number; guidance: boolean };
+  createdAt: string;
+  reviews: ReviewJob[];
+};
+export type ConnectedProject = { id: string; name: string; root: string };
+export type TopicProgress = {
+  challengeId: string;
+  title: string;
+  topic: string;
+  scope: BuildScope;
+  difficulty: BuildDifficulty;
+  score: number | null;
+  accepted: boolean;
+  assistance: { hints: number; guidance: boolean };
+  createdAt: string;
+  gaps: string[];
 };

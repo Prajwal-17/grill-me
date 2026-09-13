@@ -1,4 +1,9 @@
 import type {
+  ReviewResult,
+  VerificationEvidence,
+  VerificationPlan,
+} from "../reviews/review.schema";
+import type {
   BuildDifficulty,
   BuildScope,
   Challenge,
@@ -15,6 +20,9 @@ import type { ProfilePreferences } from "../profiles/profile.schema";
 export type ConversationMode = "clarify" | "review";
 
 export type LearnerContext = {
+  recentEvidence?: ReturnType<
+    typeof import("../reviews/learning-evidence").recentLearningEvidence
+  >;
   profileId: string;
   preferences: ProfilePreferences;
   recentChallenges: {
@@ -26,6 +34,10 @@ export type LearnerContext = {
 };
 
 export type BuildModelInput = {
+  timeBudgetMinutes?: number | null;
+  familiarity?: "new" | "practiced" | "comfortable" | null;
+  emphasis?: string | null;
+  calibrationFeedback?: string | null;
   prompt: string;
   scope: BuildScope;
   difficulty: BuildDifficulty;
@@ -33,7 +45,20 @@ export type BuildModelInput = {
   learner: LearnerContext;
 };
 
+export type JudgeInput = {
+  challenge: Challenge;
+  content: string;
+  attachments: MessageAttachment[];
+  evidence: VerificationEvidence;
+  assistance: { hints: number; guidance: boolean };
+  followup?: string | null;
+  previousReview?: ReviewResult | null;
+  signal?: AbortSignal;
+};
 export interface ModelGateway {
+  judge?(input: JudgeInput): Promise<ReviewResult>;
+  planVerification?(input: JudgeInput): Promise<VerificationPlan>;
+
   prepareBuild(
     input: Omit<BuildModelInput, "clarificationContext">,
   ): Promise<ChallengePreparation>;
@@ -47,6 +72,7 @@ export interface ModelGateway {
     learner: LearnerContext;
   }): AsyncIterable<string>;
   generateHint(input: {
+    helpKind?: "hint" | "approach";
     challenge: Challenge;
     messages: ChatMessage[];
     learner: LearnerContext;

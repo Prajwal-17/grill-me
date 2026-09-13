@@ -20,6 +20,16 @@ function unique<T>(values: T[]) {
   return [...new Set(values)];
 }
 export const guidedPreferencesSchema = z.object({
+  topicFamiliarity: z
+    .array(
+      z.object({
+        topic: z.string().trim().min(1).max(200),
+        familiarity: z.enum(["new", "practiced", "comfortable"]),
+      }),
+    )
+    .default([]),
+  knownConcepts: z.array(z.string().trim().min(1).max(200)).default([]),
+  learningGoal: z.string().trim().max(1000).nullable().default(null),
   experienceLevel: z.enum(optionIds(EXPERIENCE)).nullable().default(null),
   languages: z
     .array(z.enum(optionIds(LANGUAGES)))

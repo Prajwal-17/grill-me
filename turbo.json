@@ -9,7 +9,14 @@
     "LLM_MODEL",
     "NEXT_PUBLIC_API_URL",
     "WEB_ORIGIN",
-    "CI"
+    "CI",
+    "API_HOST",
+    "SNAPSHOT_ROOT",
+    "UPLOAD_ROOT",
+    "CODEX_BIN",
+    "CODEX_MODEL",
+    "DIRECT_REVIEW_CONTEXT_TOKENS",
+    "JUDGE_TIMEOUT_MS"
   ],
   "tasks": {
     "build": {

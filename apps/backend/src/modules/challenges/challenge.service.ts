@@ -1,3 +1,10 @@
+import { recentLearningEvidence } from "../reviews/learning-evidence";
+import { DIFFICULTY_BANDS } from "../ai/prompts/difficulty-policies";
+import {
+  requestPromptContext,
+  PROMPT_VERSION,
+  CALIBRATION_VERSION,
+} from "../ai/prompts/core";
 import { AppError } from "../../shared/errors/app-error";
 import type { ModelGateway } from "../ai/model-gateway";
 import type { MessageModel } from "../messages/message.model";
@@ -34,6 +41,7 @@ export function createChallengeService(dependencies: {
     return {
       profileId,
       preferences: profiles.getPreferences(profileId),
+      recentEvidence: recentLearningEvidence(profileId),
       recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
         title: row.title,
         scope: row.scope,
@@ -79,7 +87,28 @@ export function createChallengeService(dependencies: {
         ...input,
         learner: learnerContext(profileId),
       };
-      const generated = await llm.generateBuild(modelInput);
+      let generated = await llm.generateBuild(modelInput);
+      const [min, max] = DIFFICULTY_BANDS[input.difficulty];
+      if (
+        generated.estimatedDifficultyScore < min ||
+        generated.estimatedDifficultyScore > max
+      ) {
+        generated = await llm.generateBuild({
+          ...modelInput,
+          calibrationFeedback: `The previous brief was estimated at ${generated.estimatedDifficultyScore}/10. Reduce or increase the actual reasoning demands to fit ${input.difficulty} (${min}–${max}/10) while keeping the selected scope and prerequisites. Do not simply relabel it.`,
+        });
+      }
+      if (
+        generated.estimatedDifficultyScore < min ||
+        generated.estimatedDifficultyScore > max
+      ) {
+        throw new AppError(
+          "DIFFICULTY_MISMATCH",
+          "The generated task did not match your selected difficulty. Try again.",
+          502,
+          true,
+        );
+      }
       const validated = generatedBuildSchemaForScope(input.scope).safeParse(
         generated,
       );
@@ -95,38 +124,52 @@ export function createChallengeService(dependencies: {
         ...validated.data,
         scope: input.scope,
         difficulty: input.difficulty,
-        contextualDifficulty: validated.data.contextualDifficulty,
+        contextualDifficulty: input.difficulty,
       });
       return toChallenge(
-        challenges.create(profileId, finalBuild, input.prompt),
+        challenges.create(profileId, finalBuild, input.prompt, {
+          ...JSON.parse(requestPromptContext(modelInput)),
+          promptVersion: PROMPT_VERSION,
+          calibrationVersion: CALIBRATION_VERSION,
+          requestedModel: process.env.LLM_MODEL ?? "auto",
+        }),
       );
     },
 
     complete(id: string, profileId: string) {
       const challenge = owned(id, profileId);
-      return toChallenge(
-        challenge.status === "completed"
-          ? challenge
-          : challenges.complete(challenge.id),
+      if (challenge.status === "completed") return toChallenge(challenge);
+      throw new AppError(
+        "REVIEW_REQUIRED",
+        "Submit your work for review. Accepted submissions complete the challenge automatically.",
+        409,
       );
+    },
+    setStatus(
+      id: string,
+      profileId: string,
+      status: "active" | "paused" | "stopped",
+    ) {
+      const challenge = owned(id, profileId);
+      if (challenge.status === "completed")
+        throw new AppError(
+          "ALREADY_ACCEPTED",
+          "This challenge is complete. Start a new challenge for further practice.",
+          409,
+        );
+      return toChallenge(challenges.setStatus(id, status)!);
     },
 
     async generateHint(
       id: string,
       profileId: string,
       onDelta: (delta: string) => Promise<void>,
+      helpKind: "hint" | "approach" = "hint",
     ) {
       const row = requireActiveChallenge(owned(id, profileId));
-      if (row.hint) {
-        throw new AppError(
-          "HINT_ALREADY_USED",
-          "You already used the hint for this build.",
-          409,
-        );
-      }
-
       let hint = "";
       for await (const delta of llm.generateHint({
+        helpKind,
         challenge: toChallenge(row),
         messages: messages.findRowsByChallenge(row.id).map(toMessage),
         learner: learnerContext(profileId),
@@ -135,7 +178,7 @@ export function createChallengeService(dependencies: {
         await onDelta(delta);
       }
 
-      return toChallenge(challenges.saveHint(row.id, hint));
+      return toChallenge(challenges.saveHint(row.id, hint, helpKind));
     },
 
     owned,

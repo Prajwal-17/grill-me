@@ -1,3 +1,5 @@
+import { createReviewService } from "./modules/reviews/review.service";
+import { createReviewRoutes } from "./modules/reviews/review.routes";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { ModelGateway } from "./modules/ai/model-gateway";
@@ -45,6 +47,7 @@ export function createApp({
     profilePreferencesModel,
   );
 
+  const reviewService = createReviewService(llm);
   const challengeService = createChallengeService({
     challenges: challengeModel,
     messages: messageModel,
@@ -58,6 +61,7 @@ export function createApp({
     llm,
   });
 
+  app.route("/", createReviewRoutes(reviewService, profileService));
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
   app.route("/logs", createLogRoutes(profileService));
   app.route(

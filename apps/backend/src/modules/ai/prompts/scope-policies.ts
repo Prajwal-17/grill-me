@@ -1,17 +1,10 @@
 import type { BuildScope } from "../../challenges/challenge.schema";
-
-const SCOPE_POLICIES: Record<BuildScope, string> = {
-  focused: `FOCUSED SCOPE
-Create one contained implementation behavior with a concise problem statement of at most 1,600 characters.
-Keep the boundaries narrow enough to implement and verify directly. Return no implementation milestones.`,
-  feature: `FEATURE SCOPE
-Create one complete vertical feature made of several units that work together.
-The problem statement must be at most 3,000 characters. Include implementation milestones only when they materially improve sequencing; otherwise return an empty list.`,
-  system: `SYSTEM SCOPE
-Create one implemented pipeline, service, or system with realistic operational constraints.
-The problem statement must be at most 5,000 characters. Return 3–7 ordered implementation milestones that all belong to this single workspace.`,
+const policies: Record<BuildScope, string> = {
+  focused:
+    "FOCUSED: One behavior or tightly related concept. A function or small implementation. No milestones. Target 60–120 words for easy, at most 200 for other difficulties across the complete brief.",
+  feature:
+    "FEATURE: Several cooperating units implementing one bounded feature. Target 120–220 words for the complete brief. Do not expand into a complete product. No solution-revealing milestones.",
+  system:
+    "SYSTEM: A realistic whole-system scenario with a clearly bounded working core and relevant design questions. State what to implement and what only needs explanation. No deployment or full-product requirement by default. Target 180–300 words for the complete brief. No mandatory milestones.",
 };
-
-export function scopePolicy(scope: BuildScope) {
-  return SCOPE_POLICIES[scope];
-}
+export const scopePolicy = (scope: BuildScope) => policies[scope];

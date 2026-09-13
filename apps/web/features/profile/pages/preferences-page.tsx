@@ -33,7 +33,12 @@ export function PreferencesPage() {
       ? preferenceValues(preferences.data)
       : DEFAULT_PREFERENCES);
   const save = useMutation({
-    mutationFn: () => savePreferences(profile!.id, form),
+    mutationFn: () =>
+      savePreferences(profile!.id, {
+        ...form,
+        knownConcepts: form.knownConcepts.map((v) => v.trim()).filter(Boolean),
+        topicFamiliarity: form.topicFamiliarity.filter((v) => v.topic.trim()),
+      }),
     onSuccess: (value) => {
       queryClient.setQueryData(preferencesKey(profile!.id), value);
       setEdits(preferenceValues(value));

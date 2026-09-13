@@ -118,7 +118,14 @@ export const FOCUS = [
   { id: "security", label: "Security" },
   { id: "system-design", label: "System design" },
 ] as const;
+export type TopicFamiliarity = {
+  topic: string;
+  familiarity: "new" | "practiced" | "comfortable";
+};
 export type GuidedPreferences = {
+  topicFamiliarity: TopicFamiliarity[];
+  knownConcepts: string[];
+  learningGoal: string | null;
   experienceLevel: (typeof EXPERIENCE)[number]["id"] | null;
   languages: (typeof LANGUAGES)[number]["id"][];
   stack: (typeof STACK)[number]["id"][];
@@ -126,6 +133,9 @@ export type GuidedPreferences = {
   currentFocus: (typeof FOCUS)[number]["id"] | null;
 };
 export const EMPTY_GUIDED: GuidedPreferences = {
+  topicFamiliarity: [],
+  knownConcepts: [],
+  learningGoal: null,
   experienceLevel: null,
   languages: [],
   stack: [],

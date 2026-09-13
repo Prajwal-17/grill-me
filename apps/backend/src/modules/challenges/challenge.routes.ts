@@ -10,5 +10,6 @@ export function createChallengeRoutes(controller: ChallengeController) {
   routes.get("/:id", controller.getById);
   routes.post("/:id/hint", controller.hint);
   routes.post("/:id/complete", controller.complete);
+  routes.post("/:id/status", controller.status);
   return routes;
 }

@@ -1,0 +1,31 @@
+services:
+  backend:
+    build:
+      context: .
+      target: backend
+    env_file: apps/backend/.env
+    environment:
+      API_HOST: 0.0.0.0
+      DATABASE_URL: /data/grill-me.sqlite
+      SNAPSHOT_ROOT: /data/submissions
+      UPLOAD_ROOT: /data/uploads
+      CODEX_HOME: /codex-state
+    ports:
+      - "127.0.0.1:3001:3001"
+    volumes:
+      - grill-data:/data
+      - codex-state:/codex-state
+      - ${GRILL_PROJECTS_PATH:-./workspace}:/projects:ro
+  web:
+    build:
+      context: .
+      target: web
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - backend
+volumes:
+  grill-data:
+  codex-state:

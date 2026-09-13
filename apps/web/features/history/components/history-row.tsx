@@ -7,7 +7,7 @@ import { ChallengeMetadata } from "@/features/challenges/components/challenge-me
 export function HistoryRow({ challenge: c }: { challenge: Challenge }) {
   return (
     <Link
-      href={"/history?id=" + encodeURIComponent(c.id)}
+      href={"/chat?id=" + encodeURIComponent(c.id)}
       className="transition-colors hover:bg-canvas group grid grid-cols-[minmax(0,1fr)_20px] items-center gap-x-4 gap-y-2 border-b border-line px-4 py-5 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_130px_24px] md:px-5"
     >
       <span className="flex min-w-0 items-center gap-3">
@@ -19,11 +19,11 @@ export function HistoryRow({ challenge: c }: { challenge: Challenge }) {
       <div className="col-start-1 row-start-2 md:col-auto md:row-auto">
         <ChallengeMetadata challenge={c} compact />
         <span className="mt-1 block text-xs text-muted md:hidden">
-          {formatDate(c.completedAt)}
+          {c.status === "stopped" ? "Stopped" : formatDate(c.completedAt)}
         </span>
       </div>
       <span className="hidden text-xs text-muted md:block">
-        {formatDate(c.completedAt)}
+        {c.status === "stopped" ? "Stopped" : formatDate(c.completedAt)}
       </span>
       <ArrowUpRight
         size={16}

@@ -38,9 +38,10 @@ export function getHint(
   profileId: string,
   challengeId: string,
   onDelta: (delta: string) => void,
+  kind: "hint" | "approach" = "hint",
 ) {
   return streamRequest<Challenge>(
-    `/challenges/${challengeId}/hint`,
+    `/challenges/${challengeId}/hint?kind=${kind}`,
     { method: "POST", body: "{}" },
     profileId,
     onDelta,

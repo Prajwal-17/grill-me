@@ -25,7 +25,7 @@ export function requireActiveChallenge(row: ChallengeRow) {
   if (row.status !== "active") {
     throw new AppError(
       "CHALLENGE_COMPLETED",
-      "Completed builds are read-only.",
+      "Resume this challenge before submitting work or requesting help.",
       409,
     );
   }

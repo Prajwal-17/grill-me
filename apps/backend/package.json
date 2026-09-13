@@ -10,7 +10,9 @@
     "lint": "eslint src test --max-warnings 0",
     "check-types": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "bun run src/shared/database/migrate.ts"
+    "db:migrate": "bun run src/shared/database/migrate.ts",
+    "codex:setup": "bun run scripts/codex-setup.ts",
+    "codex:doctor": "bun run scripts/codex-doctor.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.44.0",

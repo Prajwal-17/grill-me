@@ -1,4 +1,5 @@
 "use client";
+import { TopicProgressView } from "./topic-progress";
 import Link from "next/link";
 import { History } from "lucide-react";
 import type { Challenge } from "@/shared/types/api";
@@ -11,12 +12,14 @@ import {
 import { HistoryRow } from "@/features/history/components/history-row";
 
 export function HistoryList({
+  profileId,
   challenges,
   search,
   setSearch,
   scope,
   setScope,
 }: {
+  profileId: string;
   challenges: Challenge[];
   search: string;
   setSearch: (value: string) => void;
@@ -41,9 +44,10 @@ export function HistoryList({
           History
         </h1>
         <span className="text-xs text-muted">
-          {challenges.length} completed
+          {challenges.filter((c) => c.status === "completed").length} completed
         </span>
       </header>
+      <TopicProgressView profileId={profileId} />
       {challenges.length ? (
         <>
           <HistoryFilters

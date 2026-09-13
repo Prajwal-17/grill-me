@@ -1,3 +1,10 @@
+import {
+  reviewResultSchema,
+  reviewJsonSchema,
+  verificationPlanSchema,
+} from "../reviews/review.schema";
+import { judgePrompt, verificationPrompt } from "./prompts/judge";
+import { z as zod } from "zod";
 import OpenAI from "openai";
 import type { z } from "zod";
 import { AppError } from "../../shared/errors/app-error";
@@ -50,7 +57,8 @@ export function createOpenAIModel(
     context: LogContext;
     prompt: StructuredPrompt;
     name: string;
-    stage: "preparation" | "generation";
+    stage: "preparation" | "generation" | "review" | "verification";
+    signal?: AbortSignal;
     schema: Record<string, unknown>;
     validator: z.ZodType<T>;
     normalize?: (value: unknown) => unknown;
@@ -79,9 +87,16 @@ export function createOpenAIModel(
       apiKey,
     );
     try {
-      const response = await client().responses.create(request);
+      const response = await client().responses.create(request, {
+        signal: input.signal,
+      });
       log.response(response);
-      const stage = input.stage === "preparation" ? "clarification" : "build";
+      const stage =
+        input.stage === "preparation"
+          ? "clarification"
+          : input.stage === "generation"
+            ? "build"
+            : input.stage;
       if (response.status === "incomplete") {
         throw new AppError(
           "MODEL_OUTPUT_INCOMPLETE",
@@ -230,6 +245,38 @@ export function createOpenAIModel(
   }
 
   return {
+    judge(input) {
+      return requestStructured({
+        context: {
+          profileId: input.challenge.profileId,
+          challengeId: input.challenge.id,
+          operation: "review",
+          preview: input.challenge.title,
+        },
+        prompt: judgePrompt(input),
+        name: "submission_review",
+        stage: "review",
+        schema: reviewJsonSchema,
+        validator: reviewResultSchema,
+        signal: input.signal,
+      });
+    },
+    planVerification(input) {
+      return requestStructured({
+        context: {
+          profileId: input.challenge.profileId,
+          challengeId: input.challenge.id,
+          operation: "review",
+          preview: "Verification: " + input.challenge.title,
+        },
+        prompt: verificationPrompt(input),
+        name: "verification_plan",
+        stage: "verification",
+        schema: zod.toJSONSchema(verificationPlanSchema),
+        validator: verificationPlanSchema,
+        signal: input.signal,
+      });
+    },
     prepareBuild(input) {
       return requestStructured({
         context: {

@@ -15,6 +15,10 @@ export function useCreateBuild(profile: Profile) {
   const queries = useQueryClient();
   const {
     prompt,
+    timeBudgetMinutes,
+    familiarity,
+    emphasis,
+    setContext,
     scope,
     difficulty,
     clarification,
@@ -40,6 +44,9 @@ export function useCreateBuild(profile: Profile) {
     mutationFn: (context: ClarificationContext | null) =>
       generateChallenge(profile.id, {
         prompt,
+        timeBudgetMinutes,
+        familiarity,
+        emphasis: emphasis || null,
         scope,
         difficulty,
         clarificationContext: context,
@@ -57,7 +64,14 @@ export function useCreateBuild(profile: Profile) {
   });
   const prepare = useMutation({
     mutationFn: () =>
-      prepareChallenge(profile.id, { prompt, scope, difficulty }),
+      prepareChallenge(profile.id, {
+        prompt,
+        scope,
+        difficulty,
+        timeBudgetMinutes,
+        familiarity,
+        emphasis: emphasis || null,
+      }),
     onSuccess: (result) => {
       if (result.question) setClarification(result);
       else {
@@ -96,6 +110,10 @@ export function useCreateBuild(profile: Profile) {
     generate.mutate(null);
   }
   return {
+    timeBudgetMinutes,
+    familiarity,
+    emphasis,
+    setContext,
     prompt,
     setPrompt,
     scope,

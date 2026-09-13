@@ -67,6 +67,7 @@ export function HistoryPage() {
         )
       ) : (
         <HistoryList
+          profileId={profile.id}
           challenges={history.data ?? []}
           search={search}
           setSearch={setSearch}

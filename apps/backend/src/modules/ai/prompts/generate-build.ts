@@ -3,17 +3,11 @@ import { CORE_INSTRUCTIONS, requestPromptContext, type Prompt } from "./core";
 import { difficultyPolicy } from "./difficulty-policies";
 import { scopePolicy } from "./scope-policies";
 
-const BUILD_REQUIREMENTS = `BUILD REQUIREMENTS
-Return one complete implementation brief ready for work in an external editor.
-Require code, independently observable behavior, verification commands or tests, relevant failure cases, completion criteria, and explicit exclusions.
-Use problemStatement for observable inputs, outputs, and failure behavior. Include explicit out-of-scope work in constraints. Include runnable verification commands or specific test cases in completionCriteria.
-State necessary interfaces, inputs, outputs, assumptions, and runtime details. Keep all sections mutually consistent.
-Provide starter code only when it removes irrelevant setup and does not leak the solution.
-Estimate a realistic duration range in minutes for this exact build. Do not treat the estimate as a guarantee.
-Assess contextualDifficulty for this exact finished brief relative to the learner's technicalContext, currentRequest, and recentBuilds. Use easy, medium, hard, or grill. The selectedDifficulty is the requested intensity used to shape the task; contextualDifficulty reports how demanding the result is likely to be for this learner and may differ. Do not copy selectedDifficulty without making that assessment. When learner context is sparse, infer conservatively from the current request.
-Difficulty changes engineering pressure, never statement length. Do not add unrelated technologies or filler.
-Recent builds discourage repetition; completion is not proof of mastery.
-Before returning, check feasibility, technical consistency, selected scope, selected difficulty, and answer leakage. Do not describe that check.`;
+const BUILD_REQUIREMENTS = `Return one feasible challenge matching the structured contract.
+problemStatement contains only the task and an example if useful. completionCriteria is the complete acceptance checklist, covering every mandatory behavior and constraint in concise observable terms; expectedOutcome says exactly what to submit. constraints contains only necessary additional constraints, with no duplication. implementationBoundary separates implemented core from design explanation. Use an empty boundary outside system mode when unnecessary. Return empty implementationMilestones; do not reveal implementation steps.
+Choose a concise topic tag. Estimate the actual brief's difficulty from 1 to 10 relative to the learner's familiarity and prerequisites, with a short reason. contextualDifficulty is the corresponding easy/medium/hard/grill band. Do not mechanically copy the requested label without assessing the task.
+Estimate duration honestly. A time budget bounds implementation breadth, not reasoning difficulty. Do not require learner-authored tests, verification commands, boilerplate, or a production system by default. Starter code is optional and must not leak the solution.
+Use recent work to avoid accidental repetition, not to infer mastery. Check feasibility, consistency, selected scope, difficulty, and answer leakage before returning; do not narrate the check.`;
 
 export function generationPrompt(input: BuildModelInput): Prompt {
   return {

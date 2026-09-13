@@ -106,6 +106,107 @@ export function PreferencesFields({
           </div>
         </div>
       </section>
+      <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
+        <h2 className="text-[15px] font-semibold">Learning context</h2>
+        <div className="grid gap-5">
+          <label className="grid gap-2 text-sm">
+            Your learning goal
+            <Textarea
+              value={values.learningGoal ?? ""}
+              disabled={disabled}
+              onChange={(e) => onChange("learningGoal", e.target.value || null)}
+              placeholder="Build backend services independently"
+              rows={2}
+            />
+          </label>
+          <label className="grid gap-2 text-sm">
+            Known concepts{" "}
+            <span className="text-xs text-muted">One per line</span>
+            <Textarea
+              value={values.knownConcepts.join("\n")}
+              disabled={disabled}
+              onChange={(e) =>
+                onChange("knownConcepts", e.target.value.split("\n"))
+              }
+              placeholder={"Functions\nMaps\nHTTP"}
+              rows={3}
+            />
+          </label>
+          <div className="grid gap-2">
+            <p className="text-sm">Familiarity by topic</p>
+            {values.topicFamiliarity.map((item, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  aria-label={"Topic " + (index + 1)}
+                  value={item.topic}
+                  disabled={disabled}
+                  onChange={(e) =>
+                    onChange(
+                      "topicFamiliarity",
+                      values.topicFamiliarity.map((v, i) =>
+                        i === index ? { ...v, topic: e.target.value } : v,
+                      ),
+                    )
+                  }
+                  placeholder="Go channels"
+                  className="min-w-0 flex-1 rounded border border-line bg-surface px-2 py-2 text-sm"
+                />
+                <select
+                  aria-label={"Familiarity " + (index + 1)}
+                  value={item.familiarity}
+                  disabled={disabled}
+                  onChange={(e) =>
+                    onChange(
+                      "topicFamiliarity",
+                      values.topicFamiliarity.map((v, i) =>
+                        i === index
+                          ? {
+                              ...v,
+                              familiarity: e.target
+                                .value as typeof item.familiarity,
+                            }
+                          : v,
+                      ),
+                    )
+                  }
+                  className="rounded border border-line bg-surface px-2 text-sm"
+                >
+                  <option value="new">New</option>
+                  <option value="practiced">Practiced</option>
+                  <option value="comfortable">Comfortable</option>
+                </select>
+                <button
+                  type="button"
+                  aria-label={"Remove topic " + (index + 1)}
+                  disabled={disabled}
+                  onClick={() =>
+                    onChange(
+                      "topicFamiliarity",
+                      values.topicFamiliarity.filter((_, i) => i !== index),
+                    )
+                  }
+                  className="px-2 text-muted"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              disabled={disabled}
+              className="justify-self-start text-sm underline underline-offset-4"
+              onClick={() =>
+                onChange("topicFamiliarity", [
+                  ...values.topicFamiliarity,
+                  { topic: "", familiarity: "new" },
+                ])
+              }
+            >
+              Add topic
+            </button>
+          </div>
+        </div>
+      </section>
       <section className="py-6">
         <button
           type="button"

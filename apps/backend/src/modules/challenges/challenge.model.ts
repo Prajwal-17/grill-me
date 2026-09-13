@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../../shared/database/db";
 import { challenges, messages } from "../../shared/database/schema";
 import type { ChallengeContent } from "./challenge.schema";
@@ -23,7 +23,7 @@ export const challengeModel = {
       .where(
         and(
           eq(challenges.profileId, profileId),
-          eq(challenges.status, "active"),
+          inArray(challenges.status, ["active", "paused"]),
         ),
       )
       .orderBy(desc(challenges.createdAt))
@@ -37,7 +37,7 @@ export const challengeModel = {
       .where(
         and(
           eq(challenges.profileId, profileId),
-          eq(challenges.status, "completed"),
+          inArray(challenges.status, ["completed", "stopped"]),
         ),
       )
       .orderBy(desc(challenges.completedAt))
@@ -52,7 +52,12 @@ export const challengeModel = {
       .get();
   },
 
-  create(profileId: string, content: ChallengeContent, prompt: string) {
+  create(
+    profileId: string,
+    content: ChallengeContent,
+    prompt: string,
+    contextSnapshot: Record<string, unknown> | null = null,
+  ) {
     const id = crypto.randomUUID();
     const now = new Date();
 
@@ -66,6 +71,14 @@ export const challengeModel = {
           scope: content.scope,
           difficulty: content.difficulty,
           contextualDifficulty: content.contextualDifficulty,
+          estimatedDifficultyScore: content.estimatedDifficultyScore,
+          difficultyReason: content.difficultyReason,
+          topic: content.topic,
+          implementationBoundary: content.implementationBoundary,
+          contextSnapshot,
+          promptVersion: "practice-v2.0",
+          calibrationVersion: "difficulty-v1",
+
           durationMinMinutes: content.durationEstimate.minMinutes,
           durationMaxMinutes: content.durationEstimate.maxMinutes,
           implementationMilestones: content.implementationMilestones,
@@ -107,6 +120,14 @@ export const challengeModel = {
     });
   },
 
+  setStatus(id: string, status: "active" | "paused" | "stopped") {
+    return db
+      .update(challenges)
+      .set({ status })
+      .where(eq(challenges.id, id))
+      .returning()
+      .get();
+  },
   complete(id: string) {
     return db
       .update(challenges)
@@ -116,7 +137,7 @@ export const challengeModel = {
       .get();
   },
 
-  saveHint(id: string, hint: string) {
+  saveHint(id: string, hint: string, helpKind: "hint" | "approach" = "hint") {
     const now = new Date();
 
     return db.transaction((tx) => {
@@ -133,7 +154,8 @@ export const challengeModel = {
           challengeId: id,
           role: "assistant",
           mode: "hint",
-          content: hint,
+          content:
+            helpKind === "approach" ? "High-level approach\n\n" + hint : hint,
           createdAt: now,
         })
         .run();

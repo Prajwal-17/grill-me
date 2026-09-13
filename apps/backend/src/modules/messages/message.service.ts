@@ -1,3 +1,4 @@
+import { recentLearningEvidence } from "../reviews/learning-evidence";
 import type { ModelGateway } from "../ai/model-gateway";
 import type { ChallengeModel } from "../challenges/challenge.model";
 import {
@@ -27,6 +28,7 @@ export function createMessageService(dependencies: {
     return {
       profileId,
       preferences: profiles.getPreferences(profileId),
+      recentEvidence: recentLearningEvidence(profileId),
       recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
         title: row.title,
         scope: row.scope,

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { Context } from "hono";
 import { AppError } from "../../shared/errors/app-error";
 import { streamNdjson } from "../../shared/http/ndjson-stream";
@@ -54,9 +55,23 @@ export function createChallengeController(service: ChallengeService) {
     complete: (c: Context) =>
       c.json({ data: service.complete(challengeId(c), profileId(c)) }),
 
+    status: async (c: Context) => {
+      const { status } = parseInput(
+        z.object({ status: z.enum(["active", "paused", "stopped"]) }),
+        await readJson(c.req.raw),
+      );
+      return c.json({
+        data: service.setStatus(challengeId(c), profileId(c), status),
+      });
+    },
     hint: (c: Context) =>
       streamNdjson(c, (onDelta) =>
-        service.generateHint(challengeId(c), profileId(c), onDelta),
+        service.generateHint(
+          challengeId(c),
+          profileId(c),
+          onDelta,
+          c.req.query("kind") === "approach" ? "approach" : "hint",
+        ),
       ),
   };
 }

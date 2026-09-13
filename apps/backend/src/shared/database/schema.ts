@@ -48,6 +48,17 @@ export const challenges = sqliteTable("challenges", {
   difficulty: text("difficulty", {
     enum: ["easy", "medium", "hard", "grill"],
   }).notNull(),
+  estimatedDifficultyScore: integer("estimated_difficulty_score"),
+  difficultyReason: text("difficulty_reason"),
+  topic: text("topic"),
+  implementationBoundary: text("implementation_boundary"),
+  contextSnapshot: text("context_snapshot", { mode: "json" }).$type<
+    Record<string, unknown>
+  >(),
+  promptVersion: text("prompt_version"),
+  calibrationVersion: text("calibration_version"),
+  contractVersion: integer("contract_version").notNull().default(1),
+  completionSource: text("completion_source", { enum: ["judge", "legacy"] }),
   contextualDifficulty: text("contextual_difficulty", {
     enum: ["easy", "medium", "hard", "grill"],
   }).notNull(),
@@ -68,7 +79,7 @@ export const challenges = sqliteTable("challenges", {
     .$type<string[]>()
     .notNull(),
   hint: text("hint"),
-  status: text("status", { enum: ["active", "completed"] })
+  status: text("status", { enum: ["active", "paused", "stopped", "completed"] })
     .notNull()
     .default("active"),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
@@ -151,3 +162,83 @@ export const aiLogs = sqliteTable(
     ),
   ],
 );
+
+export const projects = sqliteTable("projects", {
+  id: text("id").primaryKey(),
+  profileId: text("profile_id")
+    .notNull()
+    .references(() => profiles.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  root: text("root").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const submissions = sqliteTable("submissions", {
+  id: text("id").primaryKey(),
+  challengeId: text("challenge_id")
+    .notNull()
+    .references(() => challenges.id, { onDelete: "cascade" }),
+  sequence: integer("sequence").notNull(),
+  contractVersion: integer("contract_version").notNull(),
+  content: text("content").notNull(),
+  attachments: text("attachments", { mode: "json" })
+    .$type<{ filename: string; text: string }[]>()
+    .notNull(),
+  projectId: text("project_id").references(() => projects.id, {
+    onDelete: "set null",
+  }),
+  snapshotPath: text("snapshot_path").notNull(),
+  manifest: text("manifest", { mode: "json" })
+    .$type<{ path: string; sha256: string; bytes: number }[]>()
+    .notNull(),
+  gitContext: text("git_context", { mode: "json" }).$type<
+    Record<string, string | null>
+  >(),
+  assistance: text("assistance", { mode: "json" })
+    .$type<{ hints: number; guidance: boolean }>()
+    .notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+export const reviewJobs = sqliteTable("review_jobs", {
+  id: text("id").primaryKey(),
+  submissionId: text("submission_id")
+    .notNull()
+    .references(() => submissions.id, { onDelete: "cascade" }),
+  judge: text("judge", { enum: ["omniroute", "codex"] }).notNull(),
+  routingReason: text("routing_reason").notNull(),
+  status: text("status", {
+    enum: ["queued", "running", "completed", "failed", "cancelled"],
+  }).notNull(),
+  progress: text("progress").notNull(),
+  response: text("response", { mode: "json" }).$type<
+    import("../../modules/reviews/review.schema").ReviewResult
+  >(),
+  score: integer("score"),
+  error: text("error"),
+  followup: text("followup"),
+  providerThreadId: text("provider_thread_id"),
+  providerTurnId: text("provider_turn_id"),
+  promptVersion: text("prompt_version").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+});
+
+export const verificationRuns = sqliteTable("verification_runs", {
+  id: text("id").primaryKey(),
+  reviewId: text("review_id")
+    .notNull()
+    .references(() => reviewJobs.id, { onDelete: "cascade" }),
+  evidence: text("evidence", { mode: "json" })
+    .$type<import("../../modules/reviews/review.schema").VerificationEvidence>()
+    .notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});

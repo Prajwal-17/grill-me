@@ -12,7 +12,7 @@ export const buildDifficultySchema = z.enum([
 export const BUILD_SCOPE_LIMITS = {
   focused: { statement: 1_600, minMilestones: 0, maxMilestones: 0 },
   feature: { statement: 3_000, minMilestones: 0, maxMilestones: 7 },
-  system: { statement: 5_000, minMilestones: 3, maxMilestones: 7 },
+  system: { statement: 5_000, minMilestones: 0, maxMilestones: 7 },
 } as const;
 
 export const durationEstimateSchema = z
@@ -25,14 +25,25 @@ export const durationEstimateSchema = z
     message: "Maximum duration must be at least the minimum duration.",
   });
 
+export const familiaritySchema = z.enum(["new", "practiced", "comfortable"]);
+export const learningContextSchema = z.object({
+  timeBudgetMinutes: z.number().int().positive().nullable().default(null),
+  familiarity: familiaritySchema.nullable().default(null),
+  emphasis: z.string().trim().max(300).nullable().default(null),
+});
+
 const milestoneSchema = z.string().trim().min(1).max(300);
 
 export const generatedBuildContentSchema = z.object({
   title: z.string().min(3).max(120),
   contextualDifficulty: buildDifficultySchema,
+  estimatedDifficultyScore: z.number().int().min(1).max(10),
+  difficultyReason: z.string().trim().min(1).max(400),
+  topic: z.string().trim().min(1).max(200),
+  implementationBoundary: z.string().trim().max(800),
   problemStatement: z.string().min(20).max(5_000),
   expectedOutcome: z.string().min(10),
-  constraints: z.array(z.string().min(1)).min(1).max(8),
+  constraints: z.array(z.string().min(1)).max(8),
   starterCode: z.string().nullable(),
   completionCriteria: z.array(z.string().min(1)).min(1).max(8),
   durationEstimate: durationEstimateSchema,
@@ -56,15 +67,31 @@ export const challengeContentSchema = generatedBuildContentSchema.extend({
 });
 
 export const challengeSchema = challengeContentSchema.extend({
+  estimatedDifficultyScore: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .nullable()
+    .default(null),
+  difficultyReason: z.string().nullable().default(null),
+  topic: z.string().nullable().default(null),
+  implementationBoundary: z.string().nullable().default(null),
+  contextSnapshot: z.record(z.string(), z.unknown()).nullable().default(null),
+  promptVersion: z.string().nullable().default(null),
+  calibrationVersion: z.string().nullable().default(null),
+  contractVersion: z.number().int().default(1),
+  completionSource: z.enum(["judge", "legacy"]).nullable().default(null),
   id: z.string().uuid(),
   profileId: z.string().uuid(),
   hint: z.string().nullable(),
-  status: z.enum(["active", "completed"]),
+  status: z.enum(["active", "paused", "stopped", "completed"]),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
 });
 
 const buildRequestSchema = z.object({
+  ...learningContextSchema.shape,
   prompt: z.string().trim().min(3).max(4_000),
   scope: buildScopeSchema,
   difficulty: buildDifficultySchema,

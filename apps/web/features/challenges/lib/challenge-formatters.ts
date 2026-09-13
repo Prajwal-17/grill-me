@@ -35,8 +35,14 @@ export function buildMetadata(challenge: Challenge) {
     { label: "Scope", value: formatBuildScope(challenge.scope) },
     {
       label: "Difficulty",
-      value: formatBuildDifficulty(challenge.contextualDifficulty),
-      help: "This difficulty is based on your context.",
+      value:
+        formatBuildDifficulty(challenge.difficulty) +
+        (challenge.estimatedDifficultyScore !== null
+          ? ` (${challenge.estimatedDifficultyScore}/10)`
+          : ""),
+      help:
+        challenge.difficultyReason ??
+        "Historical estimate based on your context.",
     },
     {
       label: "AI-estimated duration",

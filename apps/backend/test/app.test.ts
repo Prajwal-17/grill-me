@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import type {
   BuildModelInput,
   LearnerContext,
@@ -19,6 +19,13 @@ import type { LogRow } from "../src/modules/logs/log.model";
 import { generationPrompt } from "../src/modules/ai/prompts";
 
 process.env.DATABASE_URL = ":memory:";
+const testRoot = "/tmp/grill-me-tests-" + crypto.randomUUID();
+process.env.SNAPSHOT_ROOT = testRoot + "/snapshots";
+process.env.UPLOAD_ROOT = testRoot + "/uploads";
+afterAll(async () => {
+  const { rm } = await import("node:fs/promises");
+  await rm(testRoot, { recursive: true, force: true });
+});
 
 const { createApp } = await import("../src/app");
 const { migrateDatabase } = await import("../src/shared/database/db");
@@ -29,7 +36,11 @@ const { startAiLog } = await import("../src/modules/logs/ai-log-recorder");
 
 const generated: GeneratedBuildContent = {
   title: "Group words by first letter",
-  contextualDifficulty: "easy",
+  contextualDifficulty: "medium",
+  estimatedDifficultyScore: 5,
+  difficultyReason: "Direct application of known syntax.",
+  topic: "TypeScript",
+  implementationBoundary: "",
   durationEstimate: { minMinutes: 35, maxMinutes: 50 },
   implementationMilestones: [],
   problemStatement: "Build a function that groups words by their first letter.",
@@ -65,7 +76,13 @@ class FakeModel implements ModelGateway {
   async generateBuild(input: BuildModelInput) {
     this.generationInputs.push(input);
     if (this.generationError) throw this.generationError;
-    return this.final;
+    return {
+      ...this.final,
+      contextualDifficulty: input.difficulty,
+      estimatedDifficultyScore: { easy: 2, medium: 5, hard: 8, grill: 10 }[
+        input.difficulty
+      ],
+    };
   }
 
   async *respond(input: (typeof this.responseInputs)[number]) {
@@ -251,7 +268,7 @@ describe("build quality pipeline", () => {
     expect(challenge.completionCriteria).toEqual(generated.completionCriteria);
     expect(challenge.scope).toBe("focused");
     expect(challenge.difficulty).toBe("medium");
-    expect(challenge.contextualDifficulty).toBe("easy");
+    expect(challenge.contextualDifficulty).toBe("medium");
     expect(challenge.durationEstimate).toEqual(generated.durationEstimate);
     expect(challenge.implementationMilestones).toEqual([]);
     expect(model.generationInputs).toHaveLength(1);
@@ -265,28 +282,20 @@ describe("build quality pipeline", () => {
       model.final = attemptedOverride;
       const build = await createChallenge(app, profile.id, { difficulty });
       expect(build.difficulty).toBe(difficulty);
-      expect(build.contextualDifficulty).toBe("easy");
+      expect(build.contextualDifficulty).toBe(difficulty);
       expect(build.scope).toBe("focused");
       const policy = generationPrompt(model.generationInputs.at(-1)!);
       expect(JSON.parse(policy.input).selectedDifficulty).toBe(difficulty);
       expect(policy.instructions).toContain(
-        "relative to the learner's technicalContext",
+        "relative to the learner's familiarity",
       );
-      if (difficulty === "grill") {
-        expect(policy.instructions).toContain("strictly harder than Hard");
-        expect(policy.instructions).toContain("at least two relevant sources");
+      expect(policy.instructions).toContain(
+        "Do not require learner-authored tests",
+      );
+      if (difficulty === "grill")
         expect(policy.instructions).toContain(
-          "deterministic adversarial tests",
+          "within the chosen scope and prerequisites",
         );
-        expect(policy.instructions).toContain(
-          "all constraints mutually achievable",
-        );
-        expect(policy.instructions).toContain(
-          "Do not increase the chosen scope",
-        );
-      } else {
-        expect(policy.instructions).not.toContain("GRILL DIFFICULTY");
-      }
     }
     model.final = {
       ...generated,
@@ -381,7 +390,7 @@ describe("build quality pipeline", () => {
         difficulty: "hard",
       },
     );
-    expect(missingMilestones.status).toBe(502);
+    expect(missingMilestones.status).toBe(201);
     const invalidDifficulty = await request(
       app,
       "/challenges/generate",
@@ -395,7 +404,7 @@ describe("build quality pipeline", () => {
     expect(invalidDifficulty.status).toBe(400);
 
     const after = await request(app, "/challenges/active", profile.id);
-    expect((await json<{ data: Challenge[] }>(after)).data).toHaveLength(0);
+    expect((await json<{ data: Challenge[] }>(after)).data).toHaveLength(1);
   });
 });
 
@@ -447,7 +456,7 @@ describe("solution attachments", () => {
     ).toEqual([{ filename: "solution.ts", text: "export const ok = true;" }]);
   });
 
-  test("enforces file count, type, byte limits, and challenge ownership", async () => {
+  test("accepts uncapped file counts and sizes while validating type and ownership", async () => {
     const model = new FakeModel();
     const app = createApp({ llm: model });
     const owner = await startProfile(
@@ -468,7 +477,7 @@ describe("solution attachments", () => {
         text: "x",
       })),
     });
-    expect(tooMany.status).toBe(400);
+    expect(tooMany.status).toBe(200);
 
     const wrongType = await request(app, path, owner.id, {
       mode: "review",
@@ -488,7 +497,7 @@ describe("solution attachments", () => {
         { filename: "answer.txt", text: "x".repeat(100 * 1024 + 1) },
       ],
     });
-    expect(tooLarge.status).toBe(400);
+    expect(tooLarge.status).toBe(200);
 
     const notOwned = await request(app, path, other.id, {
       mode: "review",
@@ -578,7 +587,7 @@ describe("AI request logs", () => {
       app,
       `logs-${crypto.randomUUID()}@test.dev`,
     );
-    await createChallenge(app, owner.id, { difficulty: "grill" });
+    await createChallenge(app, owner.id, { difficulty: "medium" });
     const list = await profileLogs(app, owner.id);
     expect(list.total).toBe(1);
     expect(list.items[0]).toMatchObject({
@@ -599,11 +608,11 @@ describe("AI request logs", () => {
     const log = (await json<{ data: LogRow }>(response)).data;
     expect(log.responseText).toBe(JSON.stringify(generated));
     expect(log.requestBody.instructions).toContain(
-      "rigorous implementation evaluator",
+      "senior engineer helping a developer",
     );
-    expect(log.requestBody.instructions).toContain("GRILL DIFFICULTY");
+    expect(log.requestBody.instructions).toContain("MEDIUM:");
     expect(JSON.parse(String(log.requestBody.input)).selectedDifficulty).toBe(
-      "grill",
+      "medium",
     );
     expect(log.requestBody.input).toContain(
       "Build string grouping in TypeScript",
@@ -862,5 +871,339 @@ describe("AI request logs", () => {
       "PROCESS_INTERRUPTED",
     );
     recorder.finish("cancelled");
+  });
+});
+
+describe("structured practice reviews", () => {
+  async function fixture() {
+    const model = new FakeModel();
+    const app = createApp({ llm: model });
+    const owner = await startProfile(
+      app,
+      `practice-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id);
+    return { model, app, owner, challenge };
+  }
+  function result(challenge: Challenge) {
+    return {
+      verdict: "accepted" as const,
+      summary: "The required behavior is supported by source inspection.",
+      criteria: challenge.completionCriteria.map((_, i) => ({
+        id: `C${i + 1}`,
+        status: "met" as const,
+        evidence: "The implementation handles this case.",
+      })),
+      findings: [],
+      optionalImprovements: [],
+      correctness: {
+        score: 4,
+        evidence: "Both required behaviors are implemented.",
+      },
+      understanding: {
+        score: 3,
+        evidence: "The learner explains grouping and empty inputs.",
+      },
+      judgment: { score: 2, evidence: "Simple structures suit the task." },
+      nextStep: null,
+      question: null,
+      verification: "inspection_only" as const,
+    };
+  }
+  const inspection = async () => ({
+    status: "inspection_only" as const,
+    reason: "Inspection fixture, no execution claimed.",
+    checks: [],
+  });
+  async function finished(
+    service: ReturnType<
+      typeof import("../src/modules/reviews/review.service").createReviewService
+    >,
+    id: string,
+    owner: string,
+  ) {
+    for (let i = 0; i < 100; i++) {
+      const row = service.get(id, owner);
+      if (!["queued", "running"].includes(row.status)) return row;
+      await Bun.sleep(10);
+    }
+    throw new Error("Review fixture timed out");
+  }
+  test("saves original context and independent numeric difficulty", async () => {
+    const { app, owner, challenge } = await fixture();
+    expect(challenge.estimatedDifficultyScore).toBe(5);
+    expect(challenge.contextSnapshot?.selectedDifficulty).toBe("medium");
+    const before = JSON.stringify(challenge.contextSnapshot);
+    await request(app, "/profiles/preferences", owner.id, {
+      aboutMe: "Different future context",
+    });
+    const saved = await request(app, `/challenges/${challenge.id}`, owner.id);
+    expect(
+      JSON.stringify(
+        (await json<{ data: Challenge }>(saved)).data.contextSnapshot,
+      ),
+    ).toBe(before);
+    const complete = await request(
+      app,
+      `/challenges/${challenge.id}/complete`,
+      owner.id,
+      {},
+    );
+    expect(complete.status).toBe(409);
+  });
+  test("requires exactly the original criteria, keeps missing scores null, and rejects false acceptance", async () => {
+    const { challenge } = await fixture();
+    const { validateReview } =
+      await import("../src/modules/reviews/review.schema");
+    const base = result(challenge);
+    expect(validateReview(base, challenge, await inspection()).score).toBe(9);
+    expect(
+      validateReview(
+        {
+          ...base,
+          understanding: { score: null, evidence: "Not yet explained" },
+        },
+        challenge,
+        await inspection(),
+      ).score,
+    ).toBeNull();
+    expect(() =>
+      validateReview({ ...base, criteria: base.criteria.slice(1) }, challenge, {
+        status: "inspection_only",
+        reason: "",
+        checks: [],
+      }),
+    ).toThrow();
+    expect(() =>
+      validateReview(
+        {
+          ...base,
+          findings: [
+            {
+              criterionId: "C1",
+              location: "answer.py:2",
+              issue: "Incorrect empty behavior",
+              evidence: "Returns null",
+            },
+          ],
+        },
+        challenge,
+        { status: "inspection_only", reason: "", checks: [] },
+      ),
+    ).toThrow();
+    expect(() =>
+      validateReview(
+        {
+          ...base,
+          criteria: [
+            { ...base.criteria[0]!, status: "unmet" },
+            base.criteria[1],
+          ],
+        },
+        challenge,
+        { status: "inspection_only", reason: "", checks: [] },
+      ),
+    ).toThrow();
+  });
+  test("persists attempts before judging and completes accepted current submissions", async () => {
+    const { model, app, owner, challenge } = await fixture();
+    const { createReviewService } =
+      await import("../src/modules/reviews/review.service");
+    const service = createReviewService(
+      {
+        ...model,
+        prepareBuild: model.prepareBuild.bind(model),
+        generateBuild: model.generateBuild.bind(model),
+        respond: model.respond.bind(model),
+        generateHint: model.generateHint.bind(model),
+        judge: async () => result(challenge),
+      },
+      undefined,
+      inspection,
+    );
+    const started = await service.submit(challenge.id, owner.id, {
+      content:
+        "I group words by their initial character; empty input leaves the accumulator empty.",
+      attachments: [
+        {
+          filename: "answer.py",
+          text: "def group(words):\n    result = {}\n    for word in words:\n        result.setdefault(word[0], []).append(word)\n    return result\n",
+        },
+      ],
+      projectId: null,
+      subdirectory: "",
+      baseRevision: "",
+      uploadIds: [],
+    });
+    expect(service.list(challenge.id, owner.id)).toHaveLength(1);
+    const review = await finished(service, started.review.id, owner.id);
+    expect(review.status).toBe("completed");
+    expect(review.score).toBe(9);
+    const persisted = (
+      await json<{ data: Challenge }>(
+        await request(app, `/challenges/${challenge.id}`, owner.id),
+      )
+    ).data;
+    expect(persisted.status).toBe("completed");
+    expect(persisted.completionSource).toBe("judge");
+  });
+  test("failed reviews retain the submission and can retry without duplicating attempts", async () => {
+    const { model, owner, challenge } = await fixture();
+    const { createReviewService } =
+      await import("../src/modules/reviews/review.service");
+    const gateway = Object.assign(model, {
+      judge: async () => {
+        throw new Error("Provider unavailable");
+      },
+    });
+    const service = createReviewService(gateway, undefined, inspection);
+    const started = await service.submit(challenge.id, owner.id, {
+      content: "def group(words): return {}",
+      attachments: [],
+      projectId: null,
+      subdirectory: "",
+      baseRevision: "",
+      uploadIds: [],
+    });
+    expect((await finished(service, started.review.id, owner.id)).status).toBe(
+      "failed",
+    );
+    const retried = service.retry(started.review.id, owner.id, null);
+    expect(retried.submissionId).toBe(started.submission.id);
+    expect(service.list(challenge.id, owner.id)).toHaveLength(1);
+    await finished(service, retried.id, owner.id);
+  });
+  test("stale acceptance cannot finish a newer submission", async () => {
+    const { model, app, owner, challenge } = await fixture();
+    const { createReviewService } =
+      await import("../src/modules/reviews/review.service");
+    let release!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let calls = 0;
+    const gateway = Object.assign(model, {
+      judge: async () => {
+        if (++calls === 1) {
+          await waiting;
+          return result(challenge);
+        }
+        throw new Error("Second attempt needs its own review");
+      },
+    });
+    const service = createReviewService(gateway, undefined, inspection);
+    const input = {
+      content: "Implementation",
+      attachments: [],
+      projectId: null,
+      subdirectory: "",
+      baseRevision: "",
+      uploadIds: [],
+    };
+    const first = await service.submit(challenge.id, owner.id, input);
+    const second = await service.submit(challenge.id, owner.id, input);
+    release();
+    await finished(service, first.review.id, owner.id);
+    await finished(service, second.review.id, owner.id);
+    expect(
+      (
+        await json<{ data: Challenge }>(
+          await request(app, `/challenges/${challenge.id}`, owner.id),
+        )
+      ).data.status,
+    ).toBe("active");
+  });
+  test("snapshots preserve large source files and ignore escaping symlinks without changing the original", async () => {
+    const { mkdtemp, writeFile, readFile, symlink, rm } =
+      await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { captureSubmission } =
+      await import("../src/modules/projects/snapshot");
+    const source = await mkdtemp(join(tmpdir(), "grill-snapshot-test-"));
+    let snapshot = "";
+    try {
+      const content = "# source\n".repeat(250000);
+      for (let i = 0; i < 8; i++)
+        await writeFile(
+          join(source, `source${i}.py`),
+          i ? "value = 1" : content,
+        );
+      await writeFile(join(source, ".env"), "SECRET=excluded");
+      await symlink("/etc/passwd", join(source, "outside.py"));
+      const saved = await captureSubmission({
+        id: crypto.randomUUID(),
+        root: source,
+        content: "",
+        attachments: [],
+      });
+      snapshot = saved.snapshotPath;
+      expect(saved.manifest).toHaveLength(8);
+      expect(saved.manifest.find((f) => f.path === "source0.py")?.bytes).toBe(
+        Buffer.byteLength(content),
+      );
+      await writeFile(join(source, "source0.py"), "changed afterward");
+      expect(await readFile(join(snapshot, "source0.py"), "utf8")).toBe(
+        content,
+      );
+      expect(await readFile(join(source, "source0.py"), "utf8")).toBe(
+        "changed afterward",
+      );
+    } finally {
+      await rm(source, { recursive: true, force: true });
+      if (snapshot) await rm(snapshot, { recursive: true, force: true });
+    }
+  });
+  test("chunk uploads have no file-size or count cap and are isolated by profile", async () => {
+    const { beginUpload, appendUpload, uploadInfo } =
+      await import("../src/modules/projects/uploads");
+    const owner = crypto.randomUUID();
+    const other = crypto.randomUUID();
+    const upload = await beginUpload(owner, "large.py");
+    const chunk = Buffer.alloc(256 * 1024, 65);
+    let offset = 0;
+    for (let i = 0; i < 9; i++) {
+      const saved = await appendUpload(
+        owner,
+        upload.id,
+        offset,
+        chunk.toString("base64"),
+        i === 8,
+      );
+      offset = saved.offset;
+    }
+    expect((await uploadInfo(owner, upload.id)).offset).toBe(chunk.length * 9);
+    expect((await uploadInfo(owner, upload.id)).sealed).toBe(true);
+    await expect(uploadInfo(other, upload.id)).rejects.toThrow(
+      "Upload not found",
+    );
+  });
+  test("routing uses context capacity without rejecting large projects", async () => {
+    const { routeJudge } =
+      await import("../src/modules/reviews/review.service");
+    expect(
+      routeJudge({
+        scope: "focused",
+        project: false,
+        bytes: 500,
+        contentBytes: 200,
+      }).judge,
+    ).toBe("omniroute");
+    expect(
+      routeJudge({
+        scope: "focused",
+        project: false,
+        bytes: 900000000,
+        contentBytes: 0,
+      }).judge,
+    ).toBe("codex");
+    expect(
+      routeJudge({
+        scope: "system",
+        project: true,
+        bytes: 2000,
+        contentBytes: 0,
+      }).judge,
+    ).toBe("codex");
   });
 });

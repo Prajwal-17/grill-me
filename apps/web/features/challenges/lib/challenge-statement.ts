@@ -4,6 +4,29 @@ import { buildMetadata } from "@/features/challenges/lib/challenge-formatters";
 export function statementBody(challenge: Challenge) {
   const list = (items: string[]) =>
     items.map((item) => "- " + item.replace(/\n/g, "\n  ")).join("\n");
+  const starter = challenge.starterCode;
+  const fence = "`".repeat(
+    Math.max(
+      2,
+      ...Array.from((starter ?? "").matchAll(/`+/g), (m) => m[0].length),
+    ) + 1,
+  );
+  if (challenge.promptVersion) {
+    return [
+      `## Task\n\n${challenge.problemStatement}`,
+      `## Requirements\n\n${list(challenge.completionCriteria.map((text, i) => `**C${i + 1}.** ${text}`))}`,
+      ...(challenge.constraints.length
+        ? [`## Constraints\n\n${list(challenge.constraints)}`]
+        : []),
+      ...(challenge.implementationBoundary
+        ? [`## Implementation boundary\n\n${challenge.implementationBoundary}`]
+        : []),
+      `## Submit\n\n${challenge.expectedOutcome}`,
+      ...(challenge.starterCode
+        ? [`## Starter code\n\n${fence}\n${starter}\n${fence}`]
+        : []),
+    ].join("\n\n");
+  }
   const sections = [
     `## The build\n\n${challenge.problemStatement}`,
     `## Expected outcome\n\n${challenge.expectedOutcome}`,

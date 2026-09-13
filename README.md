@@ -2,60 +2,30 @@
 
 Grill-Me is a local-first practice companion for developers. Describe what you
 want to build, choose its scope and difficulty, work in your normal editor, ask
-for a hint, paste your solution for review, and mark the build complete.
+for a hint, submit your implementation, and finish when the review accepts it.
 
-## V1 flow
+## Practice flow
 
-1. Enter an email to create or resume a local profile.
-2. Describe what you want to implement on Home; find active work under Builds.
-3. Choose Focused, Feature, or System scope and Easy, Medium, Hard, or Grill difficulty, then answer one
-   question only when essential context is missing.
-4. Work through it in your own editor.
-5. Clarify the brief, use one hint, or paste/attach a solution for review.
-6. Mark it complete and find it in History.
+1. Choose a local profile and optional stack, learning goal, topic familiarity, and known concepts.
+2. Describe the topic, choose Focused / Feature / System and Easy / Medium / Hard / Grill, and optionally set a time budget.
+3. Read a concise task with stable acceptance criteria. Each challenge saves a difficulty estimate out of 10 and the context used to generate it.
+4. Code in your editor. Paste an implementation, upload source files, or connect a local project. There are no application file-count or file-size limits; attachments upload in chunks.
+5. Submit for review. Self-contained exercises use OmniRoute; projects and submissions that need incremental exploration use the local Codex app-server judge.
+6. Revise a concrete issue, answer a relevant question, or finish when accepted. Pause or stop whenever needed. Help is contextual; there is no separate general chat, solution, hints, or reports tab.
 
-The build workspace opens on the full-width Statement tab. Solution accepts
-pasted work and attachments, Review shows streamed feedback, Reports summarizes
-saved practice activity, and Chat is reserved for optional clarification. Hints
-have their own tab, with a shortcut in the header. Solution and chat drafts stay
-separate when switching tabs. The statement includes a responsive table of contents
-and a copy action. Markdown supports tables, task lists, footnotes, and math. Code
-blocks support syntax highlighting, language detection, copying, and optional wrapping.
-Language detection is heuristic; explicitly labeled supported code fences take precedence.
+The single workspace keeps the task, submission, and review together. Reviews assess correctness (4), understanding (3), and engineering judgment (3), each with evidence. Unknown dimensions remain unassessed. Submission scores are separate from challenge difficulty; hints and retries do not reduce the score. Topic progress appears in History without a global intelligence score.
 
-The email is only a local profile selector. There is no authentication. Optional
-guided profile preferences and optional Additional context personalize future prompts.
-Experience, languages, stack, goals, and current focus use a shared option catalog.
-Recognized older preference values migrate into the guided selectors.
+System challenges request a working core plus relevant design reasoning, not a production-complete application. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews complete the matching current submission; high scores cannot override unmet requirements.
 
-The interface supports light and dark appearance, saved in this browser.
-Dark is the default; previous System selections migrate to Dark.
-The sidebar hides completely and remembers its state. Ctrl+B toggles it (or the mobile drawer); a top reopen button remains available. History supports
-search, scope filters, and linked brief/discussion views.
-IBM Plex fonts are hosted locally. All code stays in your external editor; the app
-accepts pasted solutions and text/source-file attachments for review.
+Prompts live under `apps/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one bounded retry for difficulty mismatch.
 
-Build creation checks whether one multiple-choice clarification is essential,
-then makes one generation request with scope and difficulty policies and your
-context. There is no draft revision pass or automatic malformed-output repair.
-Invalid responses return a retryable error without saving a partial build.
+Existing history is preserved. Old manual completions are labeled as legacy; historical scores and missing context are not invented. Local profile selection is not authentication; keep the app private to your machine.
 
-Each fresh composer starts at Focused + Medium. Scope and difficulty are never
-saved as preferences. The service locks them to the validated request and stores
-an AI-estimated duration range alongside the statement. System builds contain
-3–7 ordered implementation milestones in one workspace. Older records retain
-their original content and type labels; unknown metadata is left empty.
-All human-authored model prompts live under `apps/backend/src/modules/ai/prompts/`.
-
-Grill is the highest difficulty: interacting constraints, failure cases, and
-adversarial tests within the chosen scope. It does not switch the provider model
-or its reasoning-effort setting. Its composer has an animated ember border and
-sparks that intensify during generation. The supplied pixel-art grill is the
-shared logo and SVG browser icon. Both animations respect reduced motion.
+See [runtime setup](docs/runtime-setup.md) for native Codex setup, optional Docker, verification images, storage, and diagnostics.
 
 ## AI request logs
 
-Logs records each new AI operation: request checks, build generation, chat,
+Logs records each new AI operation: request checks, build generation, clarification,
 solution reviews, and hints. The paginated `/logs` page provides status and
 operation filters plus request/model search. Each `/logs/:id` detail page shows
 the complete instructions, input, response text, raw provider response, stream
@@ -155,8 +125,8 @@ Web variable:
 
 - `NEXT_PUBLIC_API_URL`: browser-visible Hono API URL
 
-Structured generation includes the JSON contract in both model instructions and the API schema. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
+Structured generation and judging use validated JSON response schemas. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
 
-Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. Each workspace tab has its own component. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
+Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The unified workspace presents submissions and reviews inline. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
 
 For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. If preparation fails, Create without clarification lets you proceed explicitly using your request and saved context.

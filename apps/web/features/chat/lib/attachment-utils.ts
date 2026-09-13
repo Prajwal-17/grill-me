@@ -1,8 +1,5 @@
 import type { MessageAttachment } from "@/shared/types/api";
 
-export const MAX_ATTACHMENTS = 5;
-export const MAX_ATTACHMENT_BYTES = 100 * 1024;
-
 const acceptedExtensions = new Set([
   "asm",
   "bash",
@@ -99,14 +96,6 @@ export async function readAttachments(
   files: File[],
   existing: MessageAttachment[],
 ) {
-  if (existing.length + files.length > MAX_ATTACHMENTS) {
-    throw new Error(`Attach up to ${MAX_ATTACHMENTS} files per submission.`);
-  }
-  const selectedBytes = files.reduce((total, file) => total + file.size, 0);
-  if (attachmentBytes(existing) + selectedBytes > MAX_ATTACHMENT_BYTES) {
-    throw new Error("Attachments must total 100 KB or less.");
-  }
-
   const next: MessageAttachment[] = [];
   for (const file of files) {
     if (!isAcceptedAttachmentName(file.name)) {
@@ -120,8 +109,5 @@ export async function readAttachments(
   }
 
   const combined = [...existing, ...next];
-  if (attachmentBytes(combined) > MAX_ATTACHMENT_BYTES) {
-    throw new Error("Attachments must total 100 KB or less.");
-  }
   return combined;
 }
