@@ -123,6 +123,7 @@ export type TopicFamiliarity = {
   familiarity: "new" | "practiced" | "comfortable";
 };
 export type GuidedPreferences = {
+  includeRecentChallenges: boolean;
   topicFamiliarity: TopicFamiliarity[];
   knownConcepts: string[];
   learningGoal: string | null;
@@ -133,6 +134,7 @@ export type GuidedPreferences = {
   currentFocus: (typeof FOCUS)[number]["id"] | null;
 };
 export const EMPTY_GUIDED: GuidedPreferences = {
+  includeRecentChallenges: false,
   topicFamiliarity: [],
   knownConcepts: [],
   learningGoal: null,

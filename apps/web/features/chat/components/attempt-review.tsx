@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
+import { CopyButton } from "@/shared/components/ui/copy-button";
 import { Check, LoaderCircle } from "lucide-react";
 import type { PracticeSubmission, ReviewJob } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
@@ -21,7 +23,9 @@ export function AttemptReview({
   onCancel: (review: ReviewJob) => void;
   busy: boolean;
 }) {
-  const review = attempt.reviews[0];
+  const [selectedReview, setSelectedReview] = useState("");
+  const review =
+    attempt.reviews.find((r) => r.id === selectedReview) ?? attempt.reviews[0];
   const [responding, setResponding] = useState(false);
   const [response, setResponse] = useState("");
   const result = review?.response;
@@ -46,6 +50,28 @@ export function AttemptReview({
               : "No hints used"}
         </span>
       </header>
+      {attempt.reviews.length > 1 && (
+        <label className="mt-4 flex flex-wrap items-center gap-3 text-xs text-muted">
+          Review run
+          <select
+            aria-label="Select review run"
+            value={review?.id ?? ""}
+            onChange={(e) => {
+              setSelectedReview(e.target.value);
+              setResponding(false);
+            }}
+            className="rounded border border-line bg-surface px-3 py-2 text-sm text-foreground"
+          >
+            {attempt.reviews.map((r, index) => (
+              <option key={r.id} value={r.id}>
+                Review {attempt.reviews.length - index}
+                {index === 0 ? " · Latest" : ""} ·{" "}
+                {r.response ? verdicts[r.response.verdict] : r.status}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {review && (
         <p className="mt-2 text-xs text-muted">
           {review.judge === "codex" ? "Project review" : "Direct review"}
@@ -154,7 +180,7 @@ export function AttemptReview({
               {(
                 [
                   ["Correctness", result.correctness, 4],
-                  ["Understanding", result.understanding, 3],
+                  ["Implementation reasoning", result.understanding, 3],
                   ["Engineering judgment", result.judgment, 3],
                 ] as const
               ).map(([label, dimension, max]) => (
@@ -230,23 +256,46 @@ export function AttemptReview({
           )}
         </div>
       )}
-      {attempt.reviews.length > 1 && (
-        <details className="mt-4 text-xs text-muted">
-          <summary className="cursor-pointer">
-            Earlier reviews ({attempt.reviews.length - 1})
-          </summary>
-          {attempt.reviews.slice(1).map((r) => (
-            <div key={r.id} className="mt-3 border-t border-line pt-3">
+      {review?.judge === "codex" && (
+        <details className="mt-5 border-t border-line pt-4 text-xs text-muted">
+          <summary className="cursor-pointer">Codex session and logs</summary>
+          <div className="mt-3 space-y-3">
+            {review.aiLogId ? (
+              <Link
+                className="inline-block text-sm text-foreground underline underline-offset-4"
+                href={"/logs/" + review.aiLogId}
+              >
+                Open saved prompt, response and tool activity
+              </Link>
+            ) : (
               <p>
-                {r.response ? verdicts[r.response.verdict] : r.status}
-                {r.score !== null ? ` · ${r.score}/10` : ""}
+                This older review has no direct log link. Its saved records may
+                be available in Logs.
               </p>
-              <p className="mt-1">{r.response?.summary ?? r.error}</p>
-              {r.followup && (
-                <p className="mt-1">Your response: {r.followup}</p>
-              )}
-            </div>
-          ))}
+            )}
+            {review.providerThreadId && (
+              <>
+                <p>
+                  View this session with the same Codex account and home used by
+                  Grill Me:
+                </p>
+                <div className="flex items-start justify-between gap-2 rounded border border-line p-3">
+                  <code className="break-all text-foreground">
+                    codex resume {review.providerThreadId}
+                  </code>
+                  <CopyButton
+                    text={"codex resume " + review.providerThreadId}
+                    label="Copy Codex resume command"
+                  />
+                </div>
+                <p>
+                  Use Grill Me for further reviews so its file tools remain
+                  available. Sessions created before persistent history was
+                  enabled cannot be resumed.
+                </p>
+              </>
+            )}
+          </div>
         </details>
       )}
     </article>

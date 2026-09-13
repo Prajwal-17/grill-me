@@ -25,11 +25,17 @@ export function createMessageService(dependencies: {
   }
 
   function learnerContext(profileId: string) {
+    const preferences = profiles.getPreferences(profileId);
     return {
       profileId,
-      preferences: profiles.getPreferences(profileId),
-      recentEvidence: recentLearningEvidence(profileId),
-      recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
+      preferences,
+      recentEvidence: preferences.includeRecentChallenges
+        ? recentLearningEvidence(profileId)
+        : [],
+      recentChallenges: (preferences.includeRecentChallenges
+        ? challenges.findRecent(profileId, 10)
+        : []
+      ).map((row) => ({
         title: row.title,
         scope: row.scope,
         contextualDifficulty: row.contextualDifficulty,

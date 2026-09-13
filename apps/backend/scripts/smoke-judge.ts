@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 process.env.DATABASE_URL = ":memory:";
 const { db, migrateDatabase } = await import("../src/shared/database/db");
 const { profiles, challenges } = await import("../src/shared/database/schema");
-const { codexJudge } = await import("../src/modules/judges/codex");
+const { codexJudge, CodexClient } = await import("../src/modules/judges/codex");
 const { toChallenge } =
   await import("../src/modules/challenges/challenge.utils");
 const { validateReview } = await import("../src/modules/reviews/review.schema");
@@ -55,19 +55,48 @@ try {
     checks: [],
   };
   const challenge = toChallenge(row);
+  let threadId = "";
+  let logId = "";
   const result = await codexJudge(
     {
       challenge,
-      content:
-        "The implementation delegates to Python sum, which handles negative integers and returns zero on an empty iterable. Inspect service.py and core.py.",
+      content: "Inspect the submitted source files.",
       attachments: [],
       assistance: { hints: 0, guidance: false },
       evidence,
     },
     workspace,
-    (progress) => console.log(progress),
+    (progress, ids) => {
+      if (ids?.threadId) threadId = ids.threadId;
+      if (ids?.logId) logId = ids.logId;
+      console.log(progress);
+    },
   );
   const checked = validateReview(result, challenge, evidence);
+  const { logModel } = await import("../src/modules/logs/log.model");
+  const savedLog = logModel.findOwned(logId, profileId);
+  if (
+    !savedLog?.requestBody.threadStart ||
+    !savedLog.requestBody.turnStart ||
+    !savedLog.responseText ||
+    !savedLog.streamEvents?.length
+  )
+    throw new Error("Codex request, response, or tool activity was not saved.");
+  const reader = new CodexClient();
+  try {
+    await reader.initialize();
+    const saved = await reader.request<{
+      thread: { id: string; turns: unknown[] };
+    }>("thread/read", { threadId, includeTurns: true });
+    if (saved.thread.id !== threadId || !saved.thread.turns.length)
+      throw new Error("Codex session history was not persisted.");
+    console.log(
+      "Codex session history and complete request/response logs verified.",
+    );
+  } finally {
+    reader.close();
+  }
+
   console.log(
     JSON.stringify(
       {

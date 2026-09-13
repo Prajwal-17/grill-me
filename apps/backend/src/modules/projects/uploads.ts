@@ -1,5 +1,6 @@
+import { submissionPath } from "./paths";
 import { mkdir, readFile, writeFile, appendFile, stat } from "node:fs/promises";
-import { resolve, join, basename } from "node:path";
+import { resolve, join } from "node:path";
 import { z } from "zod";
 import { AppError } from "../../shared/errors/app-error";
 const root = () => resolve(process.env.UPLOAD_ROOT ?? "./.data/uploads");
@@ -9,8 +10,7 @@ function directory(owner: string, id: string) {
   return join(root(), idSchema.parse(owner), idSchema.parse(id));
 }
 export async function beginUpload(owner: string, filename: string) {
-  if (!filename || basename(filename) !== filename || /[\\\r\n]/.test(filename))
-    throw new AppError("INVALID_FILENAME", "Use a plain source filename.", 400);
+  submissionPath(filename);
   const id = crypto.randomUUID();
   const dir = directory(owner, id);
   await mkdir(dir, { recursive: true });

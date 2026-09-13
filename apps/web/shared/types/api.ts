@@ -29,7 +29,7 @@ export type Challenge = {
   promptVersion: string | null;
   calibrationVersion: string | null;
   contractVersion: number;
-  completionSource: "judge" | "legacy" | null;
+  completionSource: "judge" | "legacy" | "user" | null;
 
   id: string;
   profileId: string;
@@ -117,6 +117,9 @@ export type ReviewResult = {
   verification: "checks_run" | "inspection_only" | "incomplete";
 };
 export type ReviewJob = {
+  aiLogId: string | null;
+  providerThreadId: string | null;
+  providerTurnId: string | null;
   id: string;
   submissionId: string;
   judge: "omniroute" | "codex";

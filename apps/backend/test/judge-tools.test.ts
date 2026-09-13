@@ -87,3 +87,18 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("folder upload paths preserve nested source and reject traversal and credentials", async () => {
+  const { submissionPath } = await import("../src/modules/projects/paths");
+  expect(submissionPath("project/src/main.py")).toBe("project/src/main.py");
+  for (const path of [
+    "../escape.py",
+    "/tmp/escape.py",
+    "project/../escape.py",
+    "project/.env",
+    "project/node_modules/index.js",
+    "project\\escape.py",
+    "project//file.py",
+  ])
+    expect(() => submissionPath(path)).toThrow();
+});

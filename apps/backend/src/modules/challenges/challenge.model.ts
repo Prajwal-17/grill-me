@@ -1,3 +1,4 @@
+import { PROMPT_VERSION, CALIBRATION_VERSION } from "../ai/prompts/core";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../../shared/database/db";
 import { challenges, messages } from "../../shared/database/schema";
@@ -76,8 +77,8 @@ export const challengeModel = {
           topic: content.topic,
           implementationBoundary: content.implementationBoundary,
           contextSnapshot,
-          promptVersion: "practice-v2.0",
-          calibrationVersion: "difficulty-v1",
+          promptVersion: PROMPT_VERSION,
+          calibrationVersion: CALIBRATION_VERSION,
 
           durationMinMinutes: content.durationEstimate.minMinutes,
           durationMaxMinutes: content.durationEstimate.maxMinutes,
@@ -123,7 +124,7 @@ export const challengeModel = {
   setStatus(id: string, status: "active" | "paused" | "stopped") {
     return db
       .update(challenges)
-      .set({ status })
+      .set({ status, completedAt: null, completionSource: null })
       .where(eq(challenges.id, id))
       .returning()
       .get();
@@ -131,7 +132,11 @@ export const challengeModel = {
   complete(id: string) {
     return db
       .update(challenges)
-      .set({ status: "completed", completedAt: new Date() })
+      .set({
+        status: "completed",
+        completionSource: "user",
+        completedAt: new Date(),
+      })
       .where(eq(challenges.id, id))
       .returning()
       .get();

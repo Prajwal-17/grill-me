@@ -2,22 +2,24 @@
 
 Grill-Me is a local-first practice companion for developers. Describe what you
 want to build, choose its scope and difficulty, work in your normal editor, ask
-for a hint, submit your implementation, and finish when the review accepts it.
+for a hint, submit your implementation, and mark the challenge completed when you have finished learning.
 
 ## Practice flow
 
 1. Choose a local profile and optional stack, learning goal, topic familiarity, and known concepts.
-2. Describe the topic, choose Focused / Feature / System and Easy / Medium / Hard / Grill, and optionally set a time budget.
+2. Describe the topic, choose Focused / Feature / System and Easy / Medium / Hard / Grill, and generate a challenge.
 3. Read a concise task with stable acceptance criteria. Each challenge saves a difficulty estimate out of 10 and the context used to generate it.
 4. Code in your editor. Paste an implementation, upload source files, or connect a local project. There are no application file-count or file-size limits; attachments upload in chunks.
 5. Submit for review. Self-contained exercises use OmniRoute; projects and submissions that need incremental exploration use the local Codex app-server judge.
-6. Revise a concrete issue, answer a relevant question, or finish when accepted. Pause or stop whenever needed. Help is contextual; there is no separate general chat, solution, hints, or reports tab.
+6. Use Challenge, Submit, and Reviews tabs. Submit code without a written explanation, select an earlier submission or review run when needed, and mark completed when you decide. Pause and resume anytime.
 
-The single workspace keeps the task, submission, and review together. Reviews assess correctness (4), understanding (3), and engineering judgment (3), each with evidence. Unknown dimensions remain unassessed. Submission scores are separate from challenge difficulty; hints and retries do not reduce the score. Topic progress appears in History without a global intelligence score.
+The tabbed workspace keeps the task, submission, and selected review separate. Reviews assess correctness (4), implementation reasoning (3), and engineering judgment (3), each with evidence. Unknown dimensions remain unassessed. Submission scores are separate from challenge difficulty; hints and retries do not reduce the score. Topic progress appears in History without a global intelligence score.
 
-System challenges request a working core plus relevant design reasoning, not a production-complete application. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews complete the matching current submission; high scores cannot override unmet requirements.
+System challenges request a bounded working core and assess design choices in code. No written explanation is required. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews do not complete the challenge. Mark completed records your decision independently; high scores cannot override unmet review requirements.
 
 Prompts live under `apps/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one bounded retry for difficulty mismatch.
+
+Preferences include an optional “Send recent challenges to AI” setting, off by default. Folder uploads use the native file chooser and preserve nested paths; connected projects can be chosen in the local folder browser. Codex reviews link to their saved prompts, responses, tool activity, and persistent CLI session.
 
 Existing history is preserved. Old manual completions are labeled as legacy; historical scores and missing context are not invented. Local profile selection is not authentication; keep the app private to your machine.
 
@@ -127,6 +129,6 @@ Web variable:
 
 Structured generation and judging use validated JSON response schemas. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
 
-Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The unified workspace presents submissions and reviews inline. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
+Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses three tabs, with one selected submission and review run visible at a time. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
 
 For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. If preparation fails, Create without clarification lets you proceed explicitly using your request and saved context.

@@ -55,10 +55,11 @@ export async function uploadFile(
   profile: string,
   file: File,
   progress: (percent: number) => void,
+  filename = file.name,
 ) {
   const upload = await apiRequest<{ id: string }>(
     "/uploads",
-    post({ filename: file.name }),
+    post({ filename }),
     profile,
   );
   let offset = 0;
@@ -77,5 +78,17 @@ export async function uploadFile(
     offset = next;
     progress(file.size ? Math.round((offset / file.size) * 100) : 100);
   } while (offset < file.size);
-  return { id: upload.id, filename: file.name };
+  return { id: upload.id, filename };
 }
+
+export type FolderListing = {
+  path: string;
+  parent: string | null;
+  folders: { name: string; path: string }[];
+};
+export const browseFolders = (profile: string, path = "") =>
+  apiRequest<FolderListing>(
+    "/projects/browse?path=" + encodeURIComponent(path),
+    {},
+    profile,
+  );

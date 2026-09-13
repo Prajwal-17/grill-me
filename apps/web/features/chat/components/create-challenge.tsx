@@ -89,10 +89,6 @@ const DIFFICULTIES = [
 
 export function GenerationHome({ profile }: { profile: Profile }) {
   const {
-    timeBudgetMinutes,
-    familiarity,
-    emphasis,
-    setContext,
     prompt,
     setPrompt,
     scope,
@@ -231,68 +227,7 @@ export function GenerationHome({ profile }: { profile: Profile }) {
                   }}
                 />
               </div>
-              <details className="border-t border-line/70 px-3 py-2">
-                <summary className="cursor-pointer text-xs text-muted">
-                  Practice context <span className="ml-2">Optional</span>
-                </summary>
-                <div className="grid gap-3 py-3 sm:grid-cols-3">
-                  <label className="grid gap-1 text-xs">
-                    Time available (minutes)
-                    <input
-                      aria-label="Time available"
-                      type="number"
-                      min="1"
-                      value={timeBudgetMinutes ?? ""}
-                      disabled={busy}
-                      onChange={(e) => {
-                        setContext({
-                          timeBudgetMinutes: e.target.value
-                            ? Number(e.target.value)
-                            : null,
-                        });
-                        reset();
-                      }}
-                      className="rounded border border-line bg-surface px-2 py-2 text-sm"
-                      placeholder="No time budget"
-                    />
-                  </label>
-                  <label className="grid gap-1 text-xs">
-                    Familiarity with this topic
-                    <select
-                      aria-label="Topic familiarity"
-                      value={familiarity ?? ""}
-                      disabled={busy}
-                      onChange={(e) => {
-                        setContext({
-                          familiarity: (e.target.value ||
-                            null) as typeof familiarity,
-                        });
-                        reset();
-                      }}
-                      className="rounded border border-line bg-surface px-2 py-2 text-sm"
-                    >
-                      <option value="">Use my preferences</option>
-                      <option value="new">Just learned it</option>
-                      <option value="practiced">Practiced</option>
-                      <option value="comfortable">Comfortable</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-xs">
-                    Emphasis
-                    <input
-                      aria-label="Practice emphasis"
-                      value={emphasis}
-                      disabled={busy}
-                      onChange={(e) => {
-                        setContext({ emphasis: e.target.value });
-                        reset();
-                      }}
-                      className="rounded border border-line bg-surface px-2 py-2 text-sm"
-                      placeholder="e.g. debugging"
-                    />
-                  </label>
-                </div>
-              </details>
+
               <div className="flex min-w-0 items-center justify-between gap-1.5 border-t border-line/70 px-2 py-2 sm:gap-2 sm:px-2.5">
                 <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                   <BuildOptionMenu

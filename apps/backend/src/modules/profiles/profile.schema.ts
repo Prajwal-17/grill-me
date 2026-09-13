@@ -20,6 +20,7 @@ function unique<T>(values: T[]) {
   return [...new Set(values)];
 }
 export const guidedPreferencesSchema = z.object({
+  includeRecentChallenges: z.boolean().default(false),
   topicFamiliarity: z
     .array(
       z.object({

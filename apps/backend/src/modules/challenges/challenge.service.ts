@@ -38,11 +38,17 @@ export function createChallengeService(dependencies: {
   }
 
   function learnerContext(profileId: string) {
+    const preferences = profiles.getPreferences(profileId);
     return {
       profileId,
-      preferences: profiles.getPreferences(profileId),
-      recentEvidence: recentLearningEvidence(profileId),
-      recentChallenges: challenges.findRecent(profileId, 10).map((row) => ({
+      preferences,
+      recentEvidence: preferences.includeRecentChallenges
+        ? recentLearningEvidence(profileId)
+        : [],
+      recentChallenges: (preferences.includeRecentChallenges
+        ? challenges.findRecent(profileId, 10)
+        : []
+      ).map((row) => ({
         title: row.title,
         scope: row.scope,
         contextualDifficulty: row.contextualDifficulty,
@@ -139,24 +145,14 @@ export function createChallengeService(dependencies: {
     complete(id: string, profileId: string) {
       const challenge = owned(id, profileId);
       if (challenge.status === "completed") return toChallenge(challenge);
-      throw new AppError(
-        "REVIEW_REQUIRED",
-        "Submit your work for review. Accepted submissions complete the challenge automatically.",
-        409,
-      );
+      return toChallenge(challenges.complete(id)!);
     },
     setStatus(
       id: string,
       profileId: string,
       status: "active" | "paused" | "stopped",
     ) {
-      const challenge = owned(id, profileId);
-      if (challenge.status === "completed")
-        throw new AppError(
-          "ALREADY_ACCEPTED",
-          "This challenge is complete. Start a new challenge for further practice.",
-          409,
-        );
+      owned(id, profileId);
       return toChallenge(challenges.setStatus(id, status)!);
     },
 

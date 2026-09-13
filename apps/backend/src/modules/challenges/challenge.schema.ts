@@ -81,7 +81,10 @@ export const challengeSchema = challengeContentSchema.extend({
   promptVersion: z.string().nullable().default(null),
   calibrationVersion: z.string().nullable().default(null),
   contractVersion: z.number().int().default(1),
-  completionSource: z.enum(["judge", "legacy"]).nullable().default(null),
+  completionSource: z
+    .enum(["judge", "legacy", "user"])
+    .nullable()
+    .default(null),
   id: z.string().uuid(),
   profileId: z.string().uuid(),
   hint: z.string().nullable(),

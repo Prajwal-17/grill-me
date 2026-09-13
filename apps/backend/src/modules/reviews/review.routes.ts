@@ -1,3 +1,4 @@
+import { browseFolders } from "../projects/browse";
 import { beginUpload, appendUpload } from "../projects/uploads";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
@@ -47,6 +48,10 @@ export function createReviewRoutes(
         input.finish,
       ),
     });
+  });
+  routes.get("/projects/browse", async (c) => {
+    profile(c);
+    return c.json({ data: await browseFolders(c.req.query("path")) });
   });
   routes.get("/projects", (c) =>
     c.json({ data: service.listProjects(profile(c)) }),

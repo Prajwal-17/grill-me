@@ -1,3 +1,4 @@
+import { submissionPath } from "./paths";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import {
@@ -10,7 +11,15 @@ import {
   readFile,
   rm,
 } from "node:fs/promises";
-import { basename, isAbsolute, join, relative, resolve, sep } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+  sep,
+} from "node:path";
 import type { MessageAttachment } from "../messages/message.schema";
 import { AppError } from "../../shared/errors/app-error";
 
@@ -177,16 +186,14 @@ export async function captureSubmission(input: {
       await add(attachment.filename);
     }
     for (const upload of input.uploads ?? []) {
-      if (
-        upload.filename !== basename(upload.filename) ||
-        secretFile(upload.filename) ||
-        manifest.some((f) => f.path === upload.filename)
-      )
+      submissionPath(upload.filename);
+      if (manifest.some((f) => f.path === upload.filename))
         throw new AppError(
           "INVALID_FILE",
           "Duplicate filename or credential file in submission.",
           400,
         );
+      await mkdir(dirname(join(dest, upload.filename)), { recursive: true });
       await copyFile(upload.path, join(dest, upload.filename));
       await add(upload.filename);
     }

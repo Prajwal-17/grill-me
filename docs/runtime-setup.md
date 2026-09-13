@@ -60,13 +60,32 @@ bun run --cwd apps/backend scripts/smoke-judge.ts
 
 The smoke command makes a real Codex request against a disposable multi-file fixture. Prompt calibration can be run with `bun run --cwd apps/backend scripts/evaluate-prompts.ts`; it requires the configured OmniRoute service and makes 12 generation requests. It writes inspectable results instead of treating length and score checks as proof of semantic quality.
 
-Implementation validation — 2026-09-12
+Implementation validation — 2026-09-13
 ---------------------------------------
 
-The implementation passes 21 automated tests, formatting, lint, type checks, and the production build. Tests cover saved context, scoring/acceptance gates, retained submissions and retries, stale reviews, uploads beyond the old limits, immutable snapshots and path boundaries, Codex transport failures/reconnection, and legacy migration preservation. The local database was backed up under `apps/backend/.data/backups/` before applying the additive migration.
+The implementation passes 22 automated tests, formatting, lint, type checks, and the production build. Tests cover saved context, scoring/acceptance gates, retained submissions and retries, stale reviews, uploads beyond the old limits, immutable snapshots and path boundaries, Codex transport failures/reconnection, and legacy migration preservation. The local database was backed up under `apps/backend/.data/backups/` before applying the additive migration.
 
-A browser check against the real API with a deterministic model fixture passed generation, contextual help, seven attachments, review and automatic completion, topic history, preferences, and a narrow-screen layout without horizontal overflow. This checks application behavior, not live model quality.
+A browser check against the real API with a deterministic model fixture passed generation, contextual help, seven attachments, review and learner-controlled completion, topic history, preferences, and a narrow-screen layout without horizontal overflow. This checks application behavior, not live model quality.
 
-A real Codex 0.153.4 app-server review inspected a disposable two-file Python implementation and returned accepted, 8/10, explicitly inspection-only. Its snapshot tools worked with shell execution disabled.
+A real Codex 0.153.4 app-server review inspected a disposable two-file Python implementation and returned accepted, 9/10, explicitly inspection-only. A fresh connection read its persistent session history, and its saved request, response, and tool activity were verified. Its snapshot tools worked with shell execution disabled.
 
 The existing `.env.example` connection settings were copied to the ignored backend `.env`. At validation time, OmniRoute at `localhost:20128` refused connections, and Docker was not installed. Consequently live OmniRoute generation/direct reviews, cross-judge calibration, actual isolated harness execution, and the Docker application image remain unverified. The calibration script and runner are implemented; these checks must be run once those services are available. Do not interpret numeric difficulty-band validation as proof that generated tasks are semantically calibrated.
+
+Codex review history
+--------------------
+
+Open Reviews, select a submission and review run, and expand “Codex session and logs.” The saved-log link opens the full prompt, structured request, response, and recorded tool activity. Copy the session command to inspect that conversation in the CLI:
+
+```bash
+codex resume <session-id>
+```
+
+To find review sessions in the picker with the tested CLI version:
+
+```bash
+codex resume --all --include-non-interactive
+```
+
+Run these commands with the same Codex home/login as the backend. For the Docker profile, use `docker compose exec backend codex resume <session-id>` so the CLI reads the container's persistent `/codex-state` volume. Use Grill Me to request subsequent reviews because its custom file tools are provided by its backend; the standalone CLI does not host them.
+
+Reviews created before 2026-09-13 used ephemeral sessions. Their database logs remain available, but their CLI conversation history cannot be recovered. New reviews persist their Codex session and link its log to the saved review, including unsuccessful reviews when a log was created. Changing completion state never deletes these records.

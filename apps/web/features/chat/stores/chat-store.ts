@@ -9,14 +9,6 @@ import type {
 import { create } from "zustand";
 
 export type BuildStore = {
-  timeBudgetMinutes: number | null;
-  familiarity: "new" | "practiced" | "comfortable" | null;
-  emphasis: string;
-  setContext: (
-    context: Partial<
-      Pick<BuildStore, "timeBudgetMinutes" | "familiarity" | "emphasis">
-    >,
-  ) => void;
   prompt: string;
   scope: BuildScope;
   difficulty: BuildDifficulty;
@@ -38,9 +30,6 @@ export type BuildStore = {
 };
 
 const buildDefaults = {
-  timeBudgetMinutes: null,
-  familiarity: null,
-  emphasis: "",
   prompt: "",
   scope: "focused" as BuildScope,
   difficulty: "medium" as BuildDifficulty,
@@ -61,7 +50,6 @@ const flowDefaults = {
 
 export const useBuildStore = create<BuildStore>((set) => ({
   ...buildDefaults,
-  setContext: (context) => set(context),
   setPrompt: (prompt) => set({ prompt }),
   setScope: (scope) => set({ scope }),
   setDifficulty: (difficulty) => set({ difficulty }),

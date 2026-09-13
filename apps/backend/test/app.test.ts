@@ -250,7 +250,7 @@ describe("build quality pipeline", () => {
     });
   });
 
-  test("saves the generated challenge and includes recent challenges", async () => {
+  test("saves the generated challenge and sends recent work only when enabled", async () => {
     const model = new FakeModel();
     const app = createApp({ llm: model });
     const profile = await startProfile(
@@ -325,6 +325,16 @@ describe("build quality pipeline", () => {
     }
     model.final = generated;
 
+    await createChallenge(app, profile.id, {
+      prompt: "An independent request",
+    });
+    expect(model.generationInputs.at(-1)?.learner.recentChallenges).toEqual([]);
+    expect(
+      JSON.parse(generationPrompt(model.generationInputs.at(-1)!).input),
+    ).not.toHaveProperty("recentBuilds");
+    await request(app, "/profiles/preferences", profile.id, {
+      includeRecentChallenges: true,
+    });
     await createChallenge(app, profile.id, { prompt: "A different request" });
     expect(
       model.generationInputs.at(-1)?.learner.recentChallenges[0]?.title,
@@ -949,7 +959,31 @@ describe("structured practice reviews", () => {
       owner.id,
       {},
     );
-    expect(complete.status).toBe(409);
+    expect(complete.status).toBe(200);
+    expect((await json<{ data: Challenge }>(complete)).data).toMatchObject({
+      status: "completed",
+      completionSource: "user",
+    });
+    const resumed = await request(
+      app,
+      `/challenges/${challenge.id}/status`,
+      owner.id,
+      { status: "active" },
+    );
+    expect((await json<{ data: Challenge }>(resumed)).data).toMatchObject({
+      status: "active",
+      completionSource: null,
+      completedAt: null,
+    });
+    const paused = await request(
+      app,
+      `/challenges/${challenge.id}/status`,
+      owner.id,
+      { status: "paused" },
+    );
+    expect((await json<{ data: Challenge }>(paused)).data.status).toBe(
+      "paused",
+    );
   });
   test("requires exactly the original criteria, keeps missing scores null, and rejects false acceptance", async () => {
     const { challenge } = await fixture();
@@ -1005,7 +1039,7 @@ describe("structured practice reviews", () => {
       ),
     ).toThrow();
   });
-  test("persists attempts before judging and completes accepted current submissions", async () => {
+  test("persists accepted reviews without marking the challenge complete", async () => {
     const { model, app, owner, challenge } = await fixture();
     const { createReviewService } =
       await import("../src/modules/reviews/review.service");
@@ -1044,8 +1078,8 @@ describe("structured practice reviews", () => {
         await request(app, `/challenges/${challenge.id}`, owner.id),
       )
     ).data;
-    expect(persisted.status).toBe("completed");
-    expect(persisted.completionSource).toBe("judge");
+    expect(persisted.status).toBe("active");
+    expect(persisted.completionSource).toBeNull();
   });
   test("failed reviews retain the submission and can retry without duplicating attempts", async () => {
     const { model, owner, challenge } = await fixture();

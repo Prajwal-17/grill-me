@@ -199,7 +199,7 @@ export async function codexJudge(
   workspace: string,
   progress: (
     text: string,
-    ids?: { threadId?: string; turnId?: string },
+    ids?: { threadId?: string; turnId?: string; logId?: string },
   ) => void,
 ) {
   if (!Bun.which(codexBinary()))
@@ -227,14 +227,19 @@ export async function codexJudge(
     },
     "codex://local/app-server",
   );
+  progress("Connecting to Codex", log.id ? { logId: log.id } : undefined);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let abort: (() => void) | undefined;
   try {
     input.signal?.throwIfAborted();
     await client.initialize();
     client.onTool = async (tool, args) => {
-      if (tool !== "grill_verify")
-        return callSnapshotTool(workspace, tool, args);
+      log.event({ method: "grill/tool/request", tool, arguments: args });
+      if (tool !== "grill_verify") {
+        const result = await callSnapshotTool(workspace, tool, args);
+        log.event({ method: "grill/tool/result", tool, result });
+        return result;
+      }
       const plan = verificationPlanSchema.parse(args);
       progress("Running isolated verification checks");
       const evidence = await verifySubmission(
@@ -250,6 +255,7 @@ export async function codexJudge(
         },
         workspace,
       );
+      log.event({ method: "grill/tool/result", tool, result: evidence });
       input.evidence = evidence;
       return evidence;
     };
@@ -289,7 +295,7 @@ export async function codexJudge(
       cwd: workspace,
       approvalPolicy: "never",
       sandbox: "read-only",
-      ephemeral: true,
+      ephemeral: false,
       ...(process.env.CODEX_MODEL ? { model: process.env.CODEX_MODEL } : {}),
       baseInstructions: JUDGE_INSTRUCTIONS,
       developerInstructions:
@@ -304,6 +310,7 @@ export async function codexJudge(
         ...disabledIntegrations,
       },
     };
+    log.requestDetails({ threadStart: params });
     const started = await client.request<{ thread: { id: string } }>(
       "thread/start",
       params,
@@ -376,6 +383,7 @@ export async function codexJudge(
         input: [{ type: "text", text: prompt.input, text_elements: [] }],
         outputSchema: reviewJsonSchema as TurnStartParams["outputSchema"],
       };
+      log.requestDetails({ turnStart: turn });
       void client
         .request<{ turn: { id: string } }>("turn/start", turn)
         .then((r) => {

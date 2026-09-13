@@ -15,6 +15,13 @@
       "when": 1789242916707,
       "tag": "0001_cooing_thundra",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789279932702,
+      "tag": "0002_wealthy_luke_cage",
+      "breakpoints": true
     }
   ]
 }

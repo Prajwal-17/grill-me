@@ -3,7 +3,17 @@ import Link from "next/link";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
-import { ArrowLeft, Paperclip, LoaderCircle, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Paperclip,
+  LoaderCircle,
+  X,
+  Pause,
+  Play,
+  Check,
+  Folder,
+  FolderUp,
+} from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
@@ -27,7 +37,15 @@ import {
   submitAttempt,
   uploadFile,
 } from "@/features/chat/api/review-api";
-import { AttemptReview } from "./attempt-review";
+import { SubmissionHistory } from "./submission-history";
+import { ProjectPicker } from "./project-picker";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "@/shared/components/ui/tabs";
+import { completeChallenge } from "@/features/challenges/api/challenge-api";
 
 type Draft = {
   content: string;
@@ -70,7 +88,9 @@ export function PracticeWorkspace({
   const draft = useDrafts((s) => s.drafts[key] ?? emptyDraft);
   const updateDraft = useDrafts((s) => s.update);
   const update = (patch: Partial<Draft>) => updateDraft(key, patch);
-  const [path, setPath] = useState("");
+  const [tab, setTab] = useState("challenge");
+  const [folderOpen, setFolderOpen] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [reply, setReply] = useState("");
@@ -86,17 +106,7 @@ export function PracticeWorkspace({
   };
   const attempts = useQuery({
     queryKey: ["submissions", challenge.id],
-    queryFn: async () => {
-      const data = await getSubmissions(profile.id, challenge.id);
-      if (
-        data.some((s) => s.reviews[0]?.response?.verdict === "accepted") &&
-        challenge.status === "active"
-      )
-        void queries.invalidateQueries({
-          queryKey: challengeKeys.detail(profile.id, challenge.id),
-        });
-      return data;
-    },
+    queryFn: () => getSubmissions(profile.id, challenge.id),
     refetchInterval: (query) =>
       query.state.data?.some((s) =>
         s.reviews.some((r) => r.status === "running" || r.status === "queued"),
@@ -113,22 +123,63 @@ export function PracticeWorkspace({
     queryFn: () => getMessages(profile.id, challenge.id),
   });
   const connection = useMutation({
-    mutationFn: () => connectProject(profile.id, path),
+    mutationFn: (path: string) => connectProject(profile.id, path),
     onSuccess: async (project) => {
       update({ projectId: project.id });
-      setPath("");
       await queries.invalidateQueries({ queryKey: ["projects", profile.id] });
     },
   });
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
+      let skipped = 0;
       for (const file of files) {
-        const uploaded = await uploadFile(profile.id, file, (percent) =>
-          setUploadProgress(`${file.name}: ${percent}%`),
+        const filename = file.webkitRelativePath || file.name;
+        if (
+          filename
+            .split("/")
+            .some(
+              (p) =>
+                [
+                  ".git",
+                  "node_modules",
+                  "vendor",
+                  ".next",
+                  "dist",
+                  "build",
+                  "__pycache__",
+                  ".venv",
+                  "venv",
+                  ".data",
+                  ".codex",
+                  ".ssh",
+                  ".aws",
+                  ".azure",
+                ].includes(p) ||
+                /^\.env(?:\.|$)/i.test(p) ||
+                /(?:\.pem|\.key|\.p12|\.pfx)$/i.test(p) ||
+                /^(?:credentials|auth\.json|id_rsa|id_ed25519)$/i.test(p),
+            )
+        ) {
+          skipped++;
+          continue;
+        }
+        const uploaded = await uploadFile(
+          profile.id,
+          file,
+          (percent) => setUploadProgress(`${filename}: ${percent}%`),
+          filename,
         );
         const latest = useDrafts.getState().drafts[key] ?? emptyDraft;
-        update({ uploads: [...latest.uploads, uploaded] });
+        update({
+          uploads: [
+            ...latest.uploads.filter((f) => f.filename !== uploaded.filename),
+            uploaded,
+          ],
+        });
       }
+      setUploadNotice(
+        skipped ? `${skipped} credential or generated files excluded.` : "",
+      );
     },
     onSettled: () => setUploadProgress(""),
   });
@@ -155,13 +206,16 @@ export function PracticeWorkspace({
     },
     onSuccess: async () => {
       update({ content: "", uploads: [] });
+      setTab("reviews");
       await refresh();
     },
     onSettled: () => setUploadProgress(""),
   });
   const lifecycle = useMutation({
-    mutationFn: (status: "active" | "paused" | "stopped") =>
-      setChallengeStatus(profile.id, challenge.id, status),
+    mutationFn: (status: "active" | "paused" | "completed") =>
+      status === "completed"
+        ? completeChallenge(profile.id, challenge.id)
+        : setChallengeStatus(profile.id, challenge.id, status),
     onSuccess: refresh,
   });
   const reviewAction = useMutation({
@@ -204,6 +258,7 @@ export function PracticeWorkspace({
     s.reviews.some((r) => r.status === "running" || r.status === "queued"),
   );
   const busy =
+    connection.isPending ||
     submit.isPending ||
     upload.isPending ||
     help.isPending ||
@@ -223,7 +278,7 @@ export function PracticeWorkspace({
   const legacyReviews = messages.data?.filter((m) => m.mode === "review") ?? [];
   return (
     <main className="flex h-full min-h-0 flex-col">
-      <header className="flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2 md:px-7 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3 md:px-7 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
         <Link
           href="/challenges"
           className="flex items-center gap-2 text-sm text-muted"
@@ -232,90 +287,87 @@ export function PracticeWorkspace({
           Challenges
         </Link>
         <div className="flex items-center gap-2">
-          {challenge.status === "completed" ? (
-            <>
-              <span className="text-xs text-success">
-                {challenge.completionSource === "judge"
-                  ? "Accepted"
-                  : "Previously marked complete"}
-              </span>
-              <Button asChild size="sm">
-                <Link href="/">Next challenge</Link>
-              </Button>
-            </>
-          ) : active ? (
-            <details className="relative">
-              <summary className="cursor-pointer text-xs text-muted">
-                Practice options
-              </summary>
-              <div className="absolute right-0 z-20 mt-2 grid min-w-36 gap-1 rounded-lg border border-line bg-surface p-2 shadow-lg">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={busy || running}
-                  onClick={() => lifecycle.mutate("paused")}
-                >
-                  Pause
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={busy || running}
-                  onClick={() => lifecycle.mutate("stopped")}
-                >
-                  Stop practicing
-                </Button>
-              </div>
-            </details>
+          {challenge.status === "completed" && (
+            <span className="text-xs text-success">Completed</span>
+          )}
+          {active ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => lifecycle.mutate("paused")}
+            >
+              <Pause size={14} />
+              Pause
+            </Button>
           ) : (
-            <>
-              <span className="text-xs text-muted capitalize">
-                {challenge.status}
-              </span>
-              <Button
-                size="sm"
-                disabled={busy}
-                onClick={() => lifecycle.mutate("active")}
-              >
-                Resume
-              </Button>
-            </>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => lifecycle.mutate("active")}
+            >
+              <Play size={14} />
+              Resume
+            </Button>
+          )}
+          {challenge.status !== "completed" && (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busy}
+              onClick={() => lifecycle.mutate("completed")}
+            >
+              <Check size={15} />
+              Mark completed
+            </Button>
           )}
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-7 md:px-10">
-        <div className="mx-auto max-w-[900px] space-y-8">
-          <ChallengeCard
-            challenge={challenge}
-            className="max-w-none"
-            headerAction={
-              <CopyButton
-                text={statementMarkdown(challenge)}
-                label="Copy challenge"
-              />
-            }
-          />
-          {challenge.contextSnapshot && (
-            <details className="text-xs text-muted">
-              <summary className="cursor-pointer">
-                Context used for this challenge
-              </summary>
-              <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
-                {JSON.stringify(challenge.contextSnapshot, null, 2)}
-              </pre>
-            </details>
-          )}
-          {active && (
-            <section
-              aria-labelledby="submission-heading"
-              className="border-t border-line pt-6"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <h2 id="submission-heading" className="text-lg font-semibold">
-                  Your implementation
-                </h2>
+      {error && (
+        <p
+          role="alert"
+          className="shrink-0 border-b border-line px-5 py-3 text-sm text-destructive"
+        >
+          {error.message}
+        </p>
+      )}
+      <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1 gap-0">
+        <div className="shrink-0 border-b border-line px-4 md:px-7">
+          <TabsList
+            variant="line"
+            className="h-12 w-full max-w-sm"
+            aria-label="Challenge workspace"
+          >
+            <TabsTrigger value="challenge">Challenge</TabsTrigger>
+            <TabsTrigger value="submit">Submit</TabsTrigger>
+            <TabsTrigger value="reviews">
+              Reviews
+              {running && <LoaderCircle size={13} className="animate-spin" />}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent
+          value="challenge"
+          className="min-h-0 overflow-y-auto px-5 py-7 md:px-10"
+        >
+          <div className="mx-auto max-w-[850px] space-y-6">
+            <ChallengeCard
+              challenge={challenge}
+              className="max-w-none"
+              headerAction={
+                <CopyButton
+                  text={statementMarkdown(challenge)}
+                  label="Copy challenge"
+                />
+              }
+            />
+            {active && (
+              <div className="flex gap-2">
+                <Button variant="primary" onClick={() => setTab("submit")}>
+                  Submit implementation
+                </Button>
                 <Button
-                  size="sm"
                   variant="ghost"
                   onClick={() => setHelpOpen(!helpOpen)}
                   aria-expanded={helpOpen}
@@ -323,88 +375,228 @@ export function PracticeWorkspace({
                   Help
                 </Button>
               </div>
-              <p className="mt-2 text-sm text-muted">
-                Work in your editor. Paste your code, attach files, or connect
-                your project.
-              </p>
-              <div className="mt-4 space-y-3">
-                <Textarea
-                  aria-label="Implementation or submission notes"
-                  value={draft.content}
-                  onChange={(e) => update({ content: e.target.value })}
-                  disabled={busy}
-                  placeholder={
-                    draft.projectId
-                      ? "What did you implement, and why did you choose this approach?"
-                      : "Paste your implementation and any brief reasoning here…"
-                  }
-                  rows={7}
-                  className="font-mono text-sm"
-                />
+            )}
+            {helpOpen && active && (
+              <section
+                className="space-y-4 rounded-lg border border-line p-4"
+                aria-label="Challenge help"
+              >
                 <div className="flex flex-wrap gap-2">
-                  {draft.uploads.map((file, index) => (
-                    <span
-                      key={file.id}
-                      className="flex max-w-full items-center gap-2 rounded border border-line px-2 py-1 text-xs"
-                    >
-                      <span className="truncate">{file.filename}</span>
-                      <button
-                        disabled={busy}
-                        aria-label={"Remove " + file.filename}
-                        onClick={() =>
-                          update({
-                            uploads: draft.uploads.filter(
-                              (_, i) => i !== index,
-                            ),
-                          })
-                        }
-                      >
-                        <X size={13} />
-                      </button>
-                    </span>
+                  <Button
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => help.mutate("hint")}
+                  >
+                    Give me a hint
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() => help.mutate("approach")}
+                  >
+                    High-level approach
+                  </Button>
+                </div>
+                <form
+                  className="flex items-start gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (draft.question.trim()) help.mutate("clarify");
+                  }}
+                >
+                  <Textarea
+                    aria-label="Clarify a requirement"
+                    value={draft.question}
+                    onChange={(e) => update({ question: e.target.value })}
+                    placeholder="What is unclear in the requirements?"
+                    rows={2}
+                  />
+                  <Button
+                    size="sm"
+                    type="submit"
+                    disabled={busy || !draft.question.trim()}
+                  >
+                    Clarify
+                  </Button>
+                </form>
+                {reply && (
+                  <div aria-live="polite">
+                    <Markdown>{reply}</Markdown>
+                  </div>
+                )}
+                {help.isPending && !reply && (
+                  <p role="status" className="text-xs text-muted">
+                    Preparing help…
+                  </p>
+                )}
+              </section>
+            )}
+            {!!savedHelp.length && (
+              <details className="border-t border-line pt-4 text-sm">
+                <summary className="cursor-pointer text-muted">
+                  Saved help ({savedHelp.length})
+                </summary>
+                <div className="mt-4 space-y-5">
+                  {savedHelp.map((m) => (
+                    <div key={m.id}>
+                      <p className="mb-1 text-xs text-muted">
+                        {m.role === "user" ? "You" : "Guidance"}
+                      </p>
+                      <Markdown>{m.content}</Markdown>
+                    </div>
                   ))}
                 </div>
-                <details
-                  className="rounded-lg border border-line p-3"
-                  open={Boolean(draft.projectId) || undefined}
+              </details>
+            )}
+            {challenge.contextSnapshot && (
+              <details className="text-xs text-muted">
+                <summary className="cursor-pointer">Generation details</summary>
+                <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
+                  {JSON.stringify(challenge.contextSnapshot, null, 2)}
+                </pre>
+              </details>
+            )}
+          </div>
+        </TabsContent>
+        <TabsContent
+          value="submit"
+          className="min-h-0 overflow-y-auto px-5 py-7 md:px-10"
+        >
+          <section
+            className="mx-auto max-w-[800px] space-y-6"
+            aria-label="Submit implementation"
+          >
+            <div>
+              <h2 className="text-xl font-semibold">Your implementation</h2>
+              <p className="mt-2 text-sm text-muted">
+                Attach code, upload a folder, or connect your project. No
+                explanation needed.
+              </p>
+            </div>
+            {!active && (
+              <div className="rounded border border-line p-4 text-sm text-muted">
+                {challenge.status === "completed"
+                  ? "You marked this challenge completed."
+                  : "This challenge is paused."}{" "}
+                Resume to submit another version.
+              </div>
+            )}
+            <fieldset
+              disabled={!active || busy}
+              className="space-y-5 disabled:opacity-60"
+            >
+              <div className="flex flex-wrap gap-3">
+                <label className="relative flex cursor-pointer items-center gap-2 rounded-md border border-line px-4 py-3 text-sm hover:bg-elevated focus-within:ring-2">
+                  <Paperclip size={16} />
+                  Attach files
+                  <input
+                    aria-label="Attach source files"
+                    type="file"
+                    multiple
+                    disabled={!active || busy}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      if (files.length) upload.mutate(files);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <label className="relative flex cursor-pointer items-center gap-2 rounded-md border border-line px-4 py-3 text-sm hover:bg-elevated focus-within:ring-2">
+                  <FolderUp size={16} />
+                  Upload folder
+                  <input
+                    aria-label="Upload source folder"
+                    type="file"
+                    multiple
+                    {...{ webkitdirectory: "" }}
+                    disabled={!active || busy}
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      if (files.length) upload.mutate(files);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <Button
+                  className="h-auto py-3"
+                  variant="ghost"
+                  onClick={() => setFolderOpen(true)}
                 >
-                  <summary className="cursor-pointer text-sm">
-                    {draft.projectId
-                      ? "Connected project"
-                      : "Connect a local project"}
-                  </summary>
-                  <div className="mt-3 space-y-3">
+                  <Folder size={16} />
+                  Connect project
+                </Button>
+              </div>
+              {draft.uploads.length > 0 && (
+                <div className="rounded-lg border border-line">
+                  <div className="flex items-center justify-between border-b border-line px-4 py-2">
+                    <span className="text-sm">
+                      {draft.uploads.length}{" "}
+                      {draft.uploads.length === 1 ? "file" : "files"} attached
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => update({ uploads: [] })}
+                    >
+                      Clear files
+                    </Button>
+                  </div>
+                  <ul className="max-h-44 overflow-y-auto divide-y divide-line">
+                    {draft.uploads.map((file) => (
+                      <li
+                        key={file.id}
+                        className="flex items-center justify-between gap-3 px-4 py-2 text-xs"
+                      >
+                        <span className="min-w-0 break-all">
+                          {file.filename}
+                        </span>
+                        <button
+                          aria-label={"Remove " + file.filename}
+                          onClick={() =>
+                            update({
+                              uploads: draft.uploads.filter(
+                                (f) => f.id !== file.id,
+                              ),
+                            })
+                          }
+                          className="shrink-0 rounded p-1 hover:bg-elevated"
+                        >
+                          <X size={14} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {(draft.projectId || Boolean(projects.data?.length)) && (
+                <div className="space-y-3 rounded-lg border border-line p-4">
+                  <label className="grid gap-2 text-sm">
+                    Connected project
                     <select
                       aria-label="Connected project"
                       value={draft.projectId}
                       onChange={(e) => update({ projectId: e.target.value })}
-                      className="w-full rounded border border-line bg-surface px-3 py-2 text-sm"
+                      className="w-full min-w-0 rounded border border-line bg-surface px-3 py-2 text-sm"
                     >
-                      <option value="">Use pasted code and attachments</option>
+                      <option value="">
+                        Use uploaded files or pasted code
+                      </option>
                       {projects.data?.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.name} — {p.root}
                         </option>
                       ))}
                     </select>
-                    <div className="flex gap-2">
-                      <input
-                        aria-label="Local project path"
-                        value={path}
-                        onChange={(e) => setPath(e.target.value)}
-                        placeholder="/absolute/path/to/project"
-                        className="min-w-0 flex-1 rounded border border-line bg-surface px-3 py-2 text-sm"
-                      />
-                      <Button
-                        size="sm"
-                        disabled={!path.trim() || connection.isPending}
-                        onClick={() => connection.mutate()}
-                      >
-                        Connect
-                      </Button>
-                    </div>
-                    {draft.projectId && (
-                      <div className="grid gap-2 sm:grid-cols-2">
+                  </label>
+                  {draft.projectId && (
+                    <details className="text-xs text-muted">
+                      <summary className="cursor-pointer">
+                        Project options
+                      </summary>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         <input
                           aria-label="Relevant subdirectory"
                           value={draft.subdirectory}
@@ -412,7 +604,7 @@ export function PracticeWorkspace({
                             update({ subdirectory: e.target.value })
                           }
                           placeholder="Source subfolder (optional)"
-                          className="rounded border border-line bg-surface px-3 py-2 text-sm"
+                          className="min-w-0 rounded border border-line bg-surface px-3 py-2 text-sm"
                         />
                         <input
                           aria-label="Base Git revision"
@@ -421,164 +613,93 @@ export function PracticeWorkspace({
                             update({ baseRevision: e.target.value })
                           }
                           placeholder="Base Git revision (optional)"
-                          className="rounded border border-line bg-surface px-3 py-2 text-sm"
+                          className="min-w-0 rounded border border-line bg-surface px-3 py-2 text-sm"
                         />
                       </div>
-                    )}
-                  </div>
-                </details>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <label className="relative flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm text-muted focus-within:ring-2">
-                    <Paperclip size={16} />
-                    Attach files
-                    <input
-                      aria-label="Attach source files"
-                      type="file"
-                      multiple
-                      disabled={busy}
-                      className="absolute inset-0 cursor-pointer opacity-0"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files ?? []);
-                        if (files.length) upload.mutate(files);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                  <Button
-                    variant="primary"
-                    disabled={
-                      busy ||
-                      running ||
-                      (!draft.content.trim() &&
-                        !draft.uploads.length &&
-                        !draft.projectId)
-                    }
-                    onClick={() => submit.mutate()}
-                  >
-                    {submit.isPending && (
-                      <LoaderCircle size={15} className="animate-spin" />
-                    )}
-                    Submit for review
-                  </Button>
+                    </details>
+                  )}
                 </div>
-                {uploadProgress && (
-                  <p role="status" className="text-xs text-muted">
-                    Uploading {uploadProgress}
-                  </p>
-                )}
-              </div>
-              {helpOpen && (
-                <section
-                  className="mt-5 rounded-lg border border-line p-4"
-                  aria-label="Challenge help"
-                >
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      disabled={busy}
-                      onClick={() => help.mutate("hint")}
-                    >
-                      Give me a hint
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => help.mutate("approach")}
-                    >
-                      High-level approach
-                    </Button>
-                  </div>
-                  <form
-                    className="mt-3 flex items-start gap-2"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      if (draft.question.trim()) help.mutate("clarify");
-                    }}
-                  >
-                    <Textarea
-                      aria-label="Clarify a requirement"
-                      value={draft.question}
-                      onChange={(e) => update({ question: e.target.value })}
-                      placeholder="What is unclear in the requirements?"
-                      rows={2}
-                    />
-                    <Button
-                      size="sm"
-                      type="submit"
-                      disabled={busy || !draft.question.trim()}
-                    >
-                      Clarify
-                    </Button>
-                  </form>
-                  {reply && (
-                    <div aria-live="polite" className="mt-4">
-                      <Markdown>{reply}</Markdown>
-                    </div>
-                  )}
-                  {help.isPending && !reply && (
-                    <p role="status" className="mt-3 text-xs text-muted">
-                      Preparing help…
-                    </p>
-                  )}
-                </section>
               )}
-            </section>
-          )}
-          {error && (
-            <p role="alert" className="text-sm leading-6 text-destructive">
-              {error.message}
-            </p>
-          )}
-          {!!savedHelp.length && (
-            <details className="border-t border-line pt-4 text-sm">
-              <summary className="cursor-pointer text-muted">
-                Saved help ({savedHelp.length})
-              </summary>
-              <div className="mt-4 space-y-5">
-                {savedHelp.map((m) => (
-                  <div key={m.id}>
-                    <p className="mb-1 text-xs text-muted">
-                      {m.role === "user"
-                        ? "You"
-                        : m.mode === "hint"
-                          ? "Guidance"
-                          : "Clarification"}
-                    </p>
-                    <Markdown>{m.content}</Markdown>
-                  </div>
-                ))}
-              </div>
-            </details>
-          )}
-          <section aria-label="Submission reviews">
-            {attempts.isLoading ? (
-              <p role="status" className="text-sm text-muted">
-                Loading attempts…
-              </p>
-            ) : attempts.error ? (
-              <div role="alert">
-                <p>{attempts.error.message}</p>
-                <Button onClick={() => attempts.refetch()}>Retry</Button>
-              </div>
-            ) : (
-              attempts.data?.map((attempt) => (
-                <AttemptReview
-                  key={attempt.id + ":" + attempt.reviews[0]?.id}
-                  attempt={attempt}
-                  busy={busy || Boolean(running)}
-                  onRetry={(review, response) =>
-                    reviewAction.mutate({ review, response })
-                  }
-                  onCancel={(review) =>
-                    reviewAction.mutate({ review, cancel: true })
-                  }
+              <details className="text-sm">
+                <summary className="cursor-pointer text-muted">
+                  Or paste code
+                </summary>
+                <Textarea
+                  aria-label="Implementation code"
+                  value={draft.content}
+                  onChange={(e) => update({ content: e.target.value })}
+                  placeholder="Paste code here…"
+                  rows={9}
+                  className="mt-3 font-mono text-sm"
                 />
-              ))
+              </details>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+                <p role="status" className="text-xs text-muted">
+                  {uploadProgress ||
+                    (draft.projectId
+                      ? "A fresh snapshot is saved with each submission."
+                      : "Files are saved with this submission.")}
+                </p>
+                <Button
+                  variant="primary"
+                  disabled={
+                    !active ||
+                    busy ||
+                    Boolean(running) ||
+                    (!draft.content.trim() &&
+                      !draft.uploads.length &&
+                      !draft.projectId)
+                  }
+                  onClick={() => submit.mutate()}
+                >
+                  {submit.isPending && (
+                    <LoaderCircle size={15} className="animate-spin" />
+                  )}
+                  Submit for review
+                </Button>
+              </div>
+            </fieldset>
+            {uploadNotice && (
+              <p className="text-xs text-muted">{uploadNotice}</p>
+            )}
+            {running && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setTab("reviews")}
+              >
+                View running review
+              </Button>
             )}
           </section>
+        </TabsContent>
+        <TabsContent
+          value="reviews"
+          className="min-h-0 overflow-y-auto px-5 py-7 md:px-10"
+        >
+          {attempts.isLoading ? (
+            <p role="status" className="text-sm text-muted">
+              Loading submissions…
+            </p>
+          ) : attempts.error ? (
+            <div role="alert">
+              <p>{attempts.error.message}</p>
+              <Button onClick={() => attempts.refetch()}>Retry</Button>
+            </div>
+          ) : (
+            <SubmissionHistory
+              attempts={attempts.data ?? []}
+              busy={busy || Boolean(running) || !active}
+              onRetry={(review, response) =>
+                reviewAction.mutate({ review, response })
+              }
+              onCancel={(review) =>
+                reviewAction.mutate({ review, cancel: true })
+              }
+            />
+          )}
           {!!legacyReviews.length && (
-            <details className="border-t border-line pt-4 text-sm">
+            <details className="mx-auto mt-5 max-w-[900px] border-t border-line pt-4 text-sm">
               <summary className="cursor-pointer text-muted">
                 Earlier submission feedback
               </summary>
@@ -596,8 +717,15 @@ export function PracticeWorkspace({
               </div>
             </details>
           )}
-        </div>
-      </div>
+        </TabsContent>
+      </Tabs>
+      <ProjectPicker
+        profileId={profile.id}
+        open={folderOpen}
+        onOpenChange={setFolderOpen}
+        onSelect={(path) => connection.mutate(path)}
+        onUpload={(files) => upload.mutate(files)}
+      />
     </main>
   );
 }

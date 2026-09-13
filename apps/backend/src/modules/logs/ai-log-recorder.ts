@@ -77,6 +77,17 @@ export function startAiLog(
   }
 
   return {
+    id: persisted ? id : null,
+    requestDetails(value: Record<string, unknown>) {
+      Object.assign(request, value);
+      if (persisted) {
+        try {
+          logModel.finish(id, { requestBody: safe(request) });
+        } catch {
+          console.warn("[ai-log] Could not update request details.");
+        }
+      }
+    },
     response(value: unknown) {
       response = object(value);
       if (typeof response.output_text === "string")

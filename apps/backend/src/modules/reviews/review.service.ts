@@ -165,6 +165,7 @@ export function createReviewService(
           ? await judge(input, attempt.snapshotPath, (progress, ids) => {
               update(id, {
                 progress,
+                ...(ids?.logId ? { aiLogId: ids.logId } : {}),
                 ...(ids?.threadId ? { providerThreadId: ids.threadId } : {}),
                 ...(ids?.turnId ? { providerTurnId: ids.turnId } : {}),
               });
@@ -196,31 +197,6 @@ export function createReviewService(
           })
           .where(eq(reviewJobs.id, id))
           .run();
-        const latest = tx
-          .select()
-          .from(submissions)
-          .where(eq(submissions.challengeId, challenge.id))
-          .orderBy(desc(submissions.sequence))
-          .get();
-        const current = tx
-          .select()
-          .from(challenges)
-          .where(eq(challenges.id, challenge.id))
-          .get();
-        if (
-          result.verdict === "accepted" &&
-          latest?.id === attempt.id &&
-          current?.status === "active" &&
-          current.contractVersion === attempt.contractVersion
-        )
-          tx.update(challenges)
-            .set({
-              status: "completed",
-              completionSource: "judge",
-              completedAt: new Date(),
-            })
-            .where(eq(challenges.id, challenge.id))
-            .run();
       });
     } catch (error) {
       update(id, {
@@ -383,7 +359,9 @@ export function createReviewService(
         .get();
       const route = routeJudge({
         scope: challenge.scope,
-        project: Boolean(project),
+        project:
+          Boolean(project) ||
+          uploads.some((file) => file.filename.includes("/")),
         bytes: snapshot.manifest.reduce((n, f) => n + f.bytes, 0),
         contentBytes: Buffer.byteLength(input.content),
       });

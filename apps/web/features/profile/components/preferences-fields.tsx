@@ -46,6 +46,27 @@ export function PreferencesFields({
   return (
     <div>
       <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
+        <h2 className="text-[15px] font-semibold">Challenge settings</h2>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1 accent-foreground"
+            checked={values.includeRecentChallenges}
+            disabled={disabled}
+            onChange={(e) =>
+              onChange("includeRecentChallenges", e.target.checked)
+            }
+          />
+          <span>
+            Send recent challenges to AI
+            <span className="mt-1 block text-xs leading-5 text-muted">
+              Include recent tasks and review findings when creating challenges.
+              Off keeps each new challenge independent.
+            </span>
+          </span>
+        </label>
+      </section>
+      <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
         <h2 className="text-[15px] font-semibold">Background</h2>
         <div className="grid gap-5">
           <div className="grid gap-2">

@@ -58,7 +58,9 @@ export const challenges = sqliteTable("challenges", {
   promptVersion: text("prompt_version"),
   calibrationVersion: text("calibration_version"),
   contractVersion: integer("contract_version").notNull().default(1),
-  completionSource: text("completion_source", { enum: ["judge", "legacy"] }),
+  completionSource: text("completion_source", {
+    enum: ["judge", "legacy", "user"],
+  }),
   contextualDifficulty: text("contextual_difficulty", {
     enum: ["easy", "medium", "hard", "grill"],
   }).notNull(),
@@ -221,6 +223,7 @@ export const reviewJobs = sqliteTable("review_jobs", {
   score: integer("score"),
   error: text("error"),
   followup: text("followup"),
+  aiLogId: text("ai_log_id"),
   providerThreadId: text("provider_thread_id"),
   providerTurnId: text("provider_turn_id"),
   promptVersion: text("prompt_version").notNull(),
