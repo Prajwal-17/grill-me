@@ -6,12 +6,14 @@ services:
     env_file: apps/backend/.env
     environment:
       API_HOST: 0.0.0.0
+      API_PORT: 8017
       DATABASE_URL: /data/grill-me.sqlite
       SNAPSHOT_ROOT: /data/submissions
       UPLOAD_ROOT: /data/uploads
+      WEB_ORIGIN: http://localhost:8018
       CODEX_HOME: /codex-state
     ports:
-      - "127.0.0.1:3001:3001"
+      - "127.0.0.1:8017:8017"
     volumes:
       - grill-data:/data
       - codex-state:/codex-state
@@ -21,9 +23,9 @@ services:
       context: .
       target: web
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:3001
+        NEXT_PUBLIC_API_URL: http://localhost:8017
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:8018:8018"
     depends_on:
       - backend
 volumes:

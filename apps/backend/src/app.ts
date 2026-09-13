@@ -1,5 +1,3 @@
-import { createReviewService } from "./modules/reviews/review.service";
-import { createReviewRoutes } from "./modules/reviews/review.routes";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { ModelGateway } from "./modules/ai/model-gateway";
@@ -7,6 +5,7 @@ import { createChallengeController } from "./modules/challenges/challenge.contro
 import { challengeModel } from "./modules/challenges/challenge.model";
 import { createChallengeRoutes } from "./modules/challenges/challenge.routes";
 import { createChallengeService } from "./modules/challenges/challenge.service";
+import { createLogRoutes } from "./modules/logs/log.routes";
 import { createMessageController } from "./modules/messages/message.controller";
 import { messageModel } from "./modules/messages/message.model";
 import { createMessageRoutes } from "./modules/messages/message.routes";
@@ -18,8 +17,9 @@ import {
 } from "./modules/profiles/profile.model";
 import { createProfileRoutes } from "./modules/profiles/profile.routes";
 import { createProfileService } from "./modules/profiles/profile.service";
+import { createReviewRoutes } from "./modules/reviews/review.routes";
+import { createReviewService } from "./modules/reviews/review.service";
 import { handleError } from "./shared/http/error-handler";
-import { createLogRoutes } from "./modules/logs/log.routes";
 
 type AppDependencies = {
   llm: ModelGateway;
@@ -28,7 +28,7 @@ type AppDependencies = {
 
 export function createApp({
   llm,
-  webOrigin = "http://localhost:3000",
+  webOrigin = "http://localhost:8018",
 }: AppDependencies) {
   const app = new Hono();
 

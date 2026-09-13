@@ -83,9 +83,9 @@ the app:
 bun dev
 ```
 
-- Web: http://localhost:3000
-- API: http://localhost:3001
-- Health check: http://localhost:3001/health
+- Web: http://localhost:8018
+- API: http://localhost:8017
+- Health check: http://localhost:8017/health
 
 `bun dev` starts only the web and backend workspaces. Next.js 16 uses Turbopack by
 default, including its persistent development cache.
