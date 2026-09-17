@@ -39,13 +39,14 @@ export const submissionRequestSchema = z.object({
 export type SubmissionRequest = z.infer<typeof submissionRequestSchema>;
 export type ReviewJob = typeof reviewJobs.$inferSelect;
 export type SavedSubmission = typeof submissions.$inferSelect;
-const owned = (id: string, profileId: string) =>
+const owned = async (id: string, profileId: string) =>
   requireChallenge(
-    db
-      .select()
-      .from(challenges)
-      .where(and(eq(challenges.id, id), eq(challenges.profileId, profileId)))
-      .get(),
+    (
+      await db
+        .select()
+        .from(challenges)
+        .where(and(eq(challenges.id, id), eq(challenges.profileId, profileId)))
+    )[0],
   );
 export function routeJudge(input: {
   scope: string;
@@ -85,37 +86,38 @@ export function createReviewService(
 ) {
   let chain: Promise<void> = Promise.resolve();
   const controls = new Map<string, AbortController>();
-  const job = (id: string) =>
-    db.select().from(reviewJobs).where(eq(reviewJobs.id, id)).get();
-  const submission = (id: string) =>
-    db.select().from(submissions).where(eq(submissions.id, id)).get();
-  function ownedJob(id: string, profileId: string) {
-    const row = job(id);
-    const attempt = row && submission(row.submissionId);
+  const job = async (id: string) =>
+    (await db.select().from(reviewJobs).where(eq(reviewJobs.id, id)))[0];
+  const submission = async (id: string) =>
+    (await db.select().from(submissions).where(eq(submissions.id, id)))[0];
+  async function ownedJob(id: string, profileId: string) {
+    const row = await job(id);
+    const attempt = row && (await submission(row.submissionId));
     if (!row || !attempt)
       throw new AppError("REVIEW_NOT_FOUND", "Review not found.", 404);
-    owned(attempt.challengeId, profileId);
+    await owned(attempt.challengeId, profileId);
     return { row, attempt };
   }
-  const update = (
+  const update = async (
     id: string,
     values: Partial<typeof reviewJobs.$inferInsert>,
-  ) => db.update(reviewJobs).set(values).where(eq(reviewJobs.id, id)).run();
+  ) => db.update(reviewJobs).set(values).where(eq(reviewJobs.id, id));
   async function run(id: string) {
-    const row = job(id);
+    const row = await job(id);
     if (!row || row.status !== "queued") return;
-    const attempt = submission(row.submissionId)!;
+    const attempt = (await submission(row.submissionId))!;
     const controller = new AbortController();
     controls.set(id, controller);
-    update(id, { status: "running", progress: "Preparing review" });
+    await update(id, { status: "running", progress: "Preparing review" });
     try {
       const challenge = toChallenge(
         requireChallenge(
-          db
-            .select()
-            .from(challenges)
-            .where(eq(challenges.id, attempt.challengeId))
-            .get(),
+          (
+            await db
+              .select()
+              .from(challenges)
+              .where(eq(challenges.id, attempt.challengeId))
+          )[0],
         ),
       );
       const evidence: VerificationEvidence = {
@@ -123,22 +125,24 @@ export function createReviewService(
         reason: "No execution evidence yet.",
         checks: [],
       };
-      const previousReview = db
-        .select()
-        .from(reviewJobs)
-        .where(
-          and(
-            eq(reviewJobs.submissionId, attempt.id),
-            eq(reviewJobs.status, "completed"),
-          ),
-        )
-        .orderBy(desc(reviewJobs.createdAt))
-        .get()?.response;
-      const savedPreferences = db
-        .select()
-        .from(profilePreferences)
-        .where(eq(profilePreferences.profileId, challenge.profileId))
-        .get();
+      const previousReview = (
+        await db
+          .select()
+          .from(reviewJobs)
+          .where(
+            and(
+              eq(reviewJobs.submissionId, attempt.id),
+              eq(reviewJobs.status, "completed"),
+            ),
+          )
+          .orderBy(desc(reviewJobs.createdAt))
+      )[0]?.response;
+      const savedPreferences = (
+        await db
+          .select()
+          .from(profilePreferences)
+          .where(eq(profilePreferences.profileId, challenge.profileId))
+      )[0];
       const input: JudgeInput = {
         codexModel: guidedPreferencesSchema.parse(
           savedPreferences?.guidedPreferences ?? {},
@@ -162,10 +166,10 @@ export function createReviewService(
         previousReview,
         signal: controller.signal,
       };
-      update(id, { progress: "Checking verification environment" });
+      await update(id, { progress: "Checking verification environment" });
       input.evidence = await verifier(llm, input, attempt.snapshotPath);
       controller.signal.throwIfAborted();
-      update(id, {
+      await update(id, {
         progress:
           row.judge === "codex"
             ? "Inspecting project files"
@@ -174,7 +178,7 @@ export function createReviewService(
       const raw =
         row.judge === "codex"
           ? await judge(input, attempt.snapshotPath, (progress, ids) => {
-              update(id, {
+              void update(id, {
                 progress,
                 ...(ids?.logId ? { aiLogId: ids.logId } : {}),
                 ...(ids?.threadId ? { providerThreadId: ids.threadId } : {}),
@@ -189,16 +193,15 @@ export function createReviewService(
                 );
               })();
       controller.signal.throwIfAborted();
-      db.insert(verificationRuns)
-        .values({
-          id: crypto.randomUUID(),
-          reviewId: id,
-          evidence: input.evidence,
-        })
-        .run();
+      await db.insert(verificationRuns).values({
+        id: crypto.randomUUID(),
+        reviewId: id,
+        evidence: input.evidence,
+      });
       const { result, score } = validateReview(raw, challenge, input.evidence);
-      db.transaction((tx) => {
-        tx.update(reviewJobs)
+      await db.transaction(async (tx) => {
+        await tx
+          .update(reviewJobs)
           .set({
             status: "completed",
             progress: "Review complete",
@@ -206,11 +209,10 @@ export function createReviewService(
             score,
             completedAt: new Date(),
           })
-          .where(eq(reviewJobs.id, id))
-          .run();
+          .where(eq(reviewJobs.id, id));
       });
     } catch (error) {
-      update(id, {
+      await update(id, {
         status: controller.signal.aborted ? "cancelled" : "failed",
         progress: controller.signal.aborted
           ? "Review cancelled"
@@ -222,68 +224,69 @@ export function createReviewService(
       controls.delete(id);
     }
   }
-  function enqueue(
+  async function enqueue(
     attempt: SavedSubmission,
     routing: { judge: "codex" | "omniroute"; reason: string },
     followup: string | null = null,
   ) {
     const id = crypto.randomUUID();
-    const saved = db
-      .insert(reviewJobs)
-      .values({
-        id,
-        submissionId: attempt.id,
-        judge: routing.judge,
-        routingReason: routing.reason,
-        status: "queued",
-        progress: "Queued for review",
-        promptVersion: PROMPT_VERSION,
-        followup,
-      })
-      .returning()
-      .get();
+    const saved = (
+      await db
+        .insert(reviewJobs)
+        .values({
+          id,
+          submissionId: attempt.id,
+          judge: routing.judge,
+          routingReason: routing.reason,
+          status: "queued",
+          progress: "Queued for review",
+          promptVersion: PROMPT_VERSION,
+          followup,
+        })
+        .returning()
+    )[0]!;
     chain = chain.then(() => run(id)).catch(() => {});
     return saved;
   }
   return {
-    recover() {
-      db.update(reviewJobs)
+    async recover() {
+      await db
+        .update(reviewJobs)
         .set({
           status: "failed",
           progress: "Review interrupted by restart",
           error: "The backend restarted. Retry this saved submission.",
           completedAt: new Date(),
         })
-        .where(inArray(reviewJobs.status, ["running", "queued"]))
-        .run();
+        .where(inArray(reviewJobs.status, ["running", "queued"]));
     },
-    list(challengeId: string, profileId: string) {
-      owned(challengeId, profileId);
-      return db
+    async list(challengeId: string, profileId: string) {
+      await owned(challengeId, profileId);
+      const attempts = await db
         .select()
         .from(submissions)
         .where(eq(submissions.challengeId, challengeId))
-        .orderBy(desc(submissions.sequence))
-        .all()
-        .map((attempt) => ({
+        .orderBy(desc(submissions.sequence));
+      return Promise.all(
+        attempts.map(async (attempt) => ({
           ...attempt,
-          reviews: db
+          reviews: await db
             .select()
             .from(reviewJobs)
             .where(eq(reviewJobs.submissionId, attempt.id))
-            .orderBy(desc(reviewJobs.createdAt))
-            .all(),
-        }));
+            .orderBy(desc(reviewJobs.createdAt)),
+        })),
+      );
     },
     async file(id: string, profileId: string, path: string) {
-      const attempt = submission(id);
+      const attempt = await submission(id);
       if (!attempt)
         throw new AppError(
           "SUBMISSION_NOT_FOUND",
           "Submission not found.",
           404,
         );
-      owned(attempt.challengeId, profileId);
+      await owned(attempt.challengeId, profileId);
       return readSnapshotFile(attempt.snapshotPath, attempt.manifest, path);
     },
     async submit(
@@ -291,7 +294,7 @@ export function createReviewService(
       profileId: string,
       input: SubmissionRequest,
     ) {
-      const challenge = owned(challengeId, profileId);
+      const challenge = await owned(challengeId, profileId);
       if (challenge.status !== "active")
         throw new AppError(
           "CHALLENGE_INACTIVE",
@@ -299,16 +302,17 @@ export function createReviewService(
           409,
         );
       const project = input.projectId
-        ? db
-            .select()
-            .from(projects)
-            .where(
-              and(
-                eq(projects.id, input.projectId),
-                eq(projects.profileId, profileId),
-              ),
-            )
-            .get()
+        ? (
+            await db
+              .select()
+              .from(projects)
+              .where(
+                and(
+                  eq(projects.id, input.projectId),
+                  eq(projects.profileId, profileId),
+                ),
+              )
+          )[0]
         : null;
       if (input.projectId && !project)
         throw new AppError(
@@ -338,7 +342,7 @@ export function createReviewService(
         attachments: input.attachments,
         uploads,
       });
-      if (owned(challengeId, profileId).status !== "active") {
+      if ((await owned(challengeId, profileId)).status !== "active") {
         await rm(snapshot.snapshotPath, { recursive: true, force: true });
         throw new AppError(
           "CHALLENGE_INACTIVE",
@@ -346,39 +350,40 @@ export function createReviewService(
           409,
         );
       }
-      const help = db
+      const help = await db
         .select()
         .from(messages)
         .where(
           and(eq(messages.challengeId, challengeId), eq(messages.mode, "hint")),
-        )
-        .all();
-      const latest = db
-        .select()
-        .from(submissions)
-        .where(eq(submissions.challengeId, challengeId))
-        .orderBy(desc(submissions.sequence))
-        .get();
-      const attempt = db
-        .insert(submissions)
-        .values({
-          id,
-          challengeId,
-          sequence: (latest?.sequence ?? 0) + 1,
-          contractVersion: challenge.contractVersion,
-          content: input.content,
-          attachments: [],
-          projectId: project?.id ?? null,
-          ...snapshot,
-          assistance: {
-            hints: help.length,
-            guidance: help.some((m) =>
-              m.content.startsWith("High-level approach"),
-            ),
-          },
-        })
-        .returning()
-        .get();
+        );
+      const latest = (
+        await db
+          .select()
+          .from(submissions)
+          .where(eq(submissions.challengeId, challengeId))
+          .orderBy(desc(submissions.sequence))
+      )[0];
+      const attempt = (
+        await db
+          .insert(submissions)
+          .values({
+            id,
+            challengeId,
+            sequence: (latest?.sequence ?? 0) + 1,
+            contractVersion: challenge.contractVersion,
+            content: input.content,
+            attachments: [],
+            projectId: project?.id ?? null,
+            ...snapshot,
+            assistance: {
+              hints: help.length,
+              guidance: help.some((m) =>
+                m.content.startsWith("High-level approach"),
+              ),
+            },
+          })
+          .returning()
+      )[0]!;
       const route = routeJudge({
         scope: challenge.scope,
         project:
@@ -387,11 +392,11 @@ export function createReviewService(
         bytes: snapshot.manifest.reduce((n, f) => n + f.bytes, 0),
         contentBytes: Buffer.byteLength(input.content),
       });
-      return { submission: attempt, review: enqueue(attempt, route) };
+      return { submission: attempt, review: await enqueue(attempt, route) };
     },
-    retry(id: string, profileId: string, followup: string | null) {
-      const { row, attempt } = ownedJob(id, profileId);
-      const challenge = owned(attempt.challengeId, profileId);
+    async retry(id: string, profileId: string, followup: string | null) {
+      const { row, attempt } = await ownedJob(id, profileId);
+      const challenge = await owned(attempt.challengeId, profileId);
       if (
         challenge.status === "paused" ||
         challenge.status === "stopped" ||
@@ -414,98 +419,105 @@ export function createReviewService(
         followup,
       );
     },
-    cancel(id: string, profileId: string) {
-      const { row } = ownedJob(id, profileId);
+    async cancel(id: string, profileId: string) {
+      const { row } = await ownedJob(id, profileId);
       if (row.status === "running") controls.get(id)?.abort();
       else if (row.status === "queued")
-        update(id, {
+        await update(id, {
           status: "cancelled",
           progress: "Review cancelled",
           completedAt: new Date(),
         });
       return job(id);
     },
-    get(id: string, profileId: string) {
-      const { row } = ownedJob(id, profileId);
+    async get(id: string, profileId: string) {
+      const { row } = await ownedJob(id, profileId);
       return {
         ...row,
-        verificationRuns: db
+        verificationRuns: await db
           .select()
           .from(verificationRuns)
-          .where(eq(verificationRuns.reviewId, id))
-          .all(),
+          .where(eq(verificationRuns.reviewId, id)),
       };
     },
-    listProjects(profileId: string) {
+    async listProjects(profileId: string) {
       return db
         .select()
         .from(projects)
-        .where(eq(projects.profileId, profileId))
-        .all();
+        .where(eq(projects.profileId, profileId));
     },
     async connect(profileId: string, path: string) {
       const root = await projectRoot(path);
-      const existing = db
-        .select()
-        .from(projects)
-        .where(and(eq(projects.profileId, profileId), eq(projects.root, root)))
-        .get();
+      const existing = (
+        await db
+          .select()
+          .from(projects)
+          .where(
+            and(eq(projects.profileId, profileId), eq(projects.root, root)),
+          )
+      )[0];
       return (
         existing ??
-        db
-          .insert(projects)
-          .values({
-            id: crypto.randomUUID(),
-            profileId,
-            root,
-            name: root.split("/").filter(Boolean).at(-1)!,
-          })
-          .returning()
-          .get()
+        (
+          await db
+            .insert(projects)
+            .values({
+              id: crypto.randomUUID(),
+              profileId,
+              root,
+              name: root.split("/").filter(Boolean).at(-1)!,
+            })
+            .returning()
+        )[0]!
       );
     },
-    progress(profileId: string) {
-      const history = db
+    async progress(profileId: string) {
+      const history = await db
         .select()
         .from(challenges)
-        .where(eq(challenges.profileId, profileId))
-        .all();
-      return history.flatMap((challenge) => {
-        const attempt = db
-          .select()
-          .from(submissions)
-          .where(eq(submissions.challengeId, challenge.id))
-          .orderBy(desc(submissions.sequence))
-          .get();
-        if (!attempt) return [];
-        const review = db
-          .select()
-          .from(reviewJobs)
-          .where(
-            and(
-              eq(reviewJobs.submissionId, attempt.id),
-              eq(reviewJobs.status, "completed"),
-            ),
-          )
-          .orderBy(desc(reviewJobs.createdAt))
-          .get();
-        if (!review?.response) return [];
-        return [
-          {
-            challengeId: challenge.id,
-            number: challenge.number,
-            title: challenge.title,
-            topic: challenge.topic ?? "Unspecified",
-            scope: challenge.scope,
-            difficulty: challenge.difficulty,
-            score: review.score,
-            accepted: review.response.verdict === "accepted",
-            assistance: attempt.assistance,
-            createdAt: review.createdAt,
-            gaps: review.response.findings.map((f) => f.issue),
-          },
-        ];
-      });
+        .where(eq(challenges.profileId, profileId));
+      return (
+        await Promise.all(
+          history.map(async (challenge) => {
+            const attempt = (
+              await db
+                .select()
+                .from(submissions)
+                .where(eq(submissions.challengeId, challenge.id))
+                .orderBy(desc(submissions.sequence))
+            )[0];
+            if (!attempt) return [];
+            const review = (
+              await db
+                .select()
+                .from(reviewJobs)
+                .where(
+                  and(
+                    eq(reviewJobs.submissionId, attempt.id),
+                    eq(reviewJobs.status, "completed"),
+                  ),
+                )
+                .orderBy(desc(reviewJobs.createdAt))
+            )[0];
+            if (!review?.response) return [];
+            return [
+              {
+                challengeId: challenge.id,
+                number: challenge.number,
+                title: challenge.title,
+                topic: challenge.topic ?? "Unspecified",
+                scope: challenge.scope,
+                difficulty: challenge.difficulty,
+                score: review.score,
+                accepted: review.response.verdict === "accepted",
+                assistance: attempt.assistance,
+                createdAt: review.createdAt,
+                gaps: review.response.findings.map((f) => f.issue),
+              },
+            ];
+          }),
+        )
+      ).flat();
     },
   };
 }

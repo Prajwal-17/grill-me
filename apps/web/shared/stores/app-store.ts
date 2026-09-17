@@ -18,7 +18,8 @@ type AppStore = {
   setHydrated: (hydrated: boolean) => void;
 };
 
-export const APP_STORAGE_KEY = "grill-me.app";
+const APP_ENV = process.env.NEXT_PUBLIC_APP_ENV ?? "development";
+export const APP_STORAGE_KEY = `grill-me.app.${APP_ENV}`;
 
 function isProfile(value: unknown): value is Profile {
   if (!value || typeof value !== "object") return false;

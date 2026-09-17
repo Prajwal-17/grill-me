@@ -1,1 +1,0 @@
-ALTER TABLE `review_jobs` ADD `ai_log_id` text;

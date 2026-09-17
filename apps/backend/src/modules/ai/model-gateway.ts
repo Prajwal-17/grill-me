@@ -20,8 +20,10 @@ import type { ProfilePreferences } from "../profiles/profile.schema";
 export type ConversationMode = "clarify" | "review";
 
 export type LearnerContext = {
-  recentEvidence?: ReturnType<
-    typeof import("../reviews/learning-evidence").recentLearningEvidence
+  recentEvidence?: Awaited<
+    ReturnType<
+      typeof import("../reviews/learning-evidence").recentLearningEvidence
+    >
   >;
   profileId: string;
   preferences: ProfilePreferences;

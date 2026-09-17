@@ -25,8 +25,8 @@ function challengeId(c: Context) {
 
 export function createMessageController(service: MessageService) {
   return {
-    list: (c: Context) =>
-      c.json({ data: service.list(challengeId(c), profileId(c)) }),
+    list: async (c: Context) =>
+      c.json({ data: await service.list(challengeId(c), profileId(c)) }),
 
     create: async (c: Context) => {
       const input = parseInput(

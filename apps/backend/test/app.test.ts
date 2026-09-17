@@ -18,7 +18,8 @@ import OpenAI from "openai";
 import type { LogRow } from "../src/modules/logs/log.model";
 import { generationPrompt } from "../src/modules/ai/prompts";
 
-process.env.DATABASE_URL = ":memory:";
+process.env.DATABASE_URL =
+  "postgresql://grill_me:grill_me_local@localhost:5432/grill-me-test";
 const testRoot = "/tmp/grill-me-tests-" + crypto.randomUUID();
 process.env.SNAPSHOT_ROOT = testRoot + "/snapshots";
 process.env.UPLOAD_ROOT = testRoot + "/uploads";
@@ -28,8 +29,11 @@ afterAll(async () => {
 });
 
 const { createApp } = await import("../src/app");
-const { migrateDatabase } = await import("../src/shared/database/db");
-migrateDatabase();
+const { db, migrateDatabase } = await import("../src/shared/database/db");
+await migrateDatabase();
+await db.$client.unsafe(
+  "TRUNCATE TABLE verification_runs, review_jobs, submissions, projects, ai_log_events, ai_logs, messages, challenges, profile_preferences, profiles RESTART IDENTITY CASCADE",
+);
 const { createOpenAIModel } = await import("../src/modules/ai/openai.model");
 const { logModel } = await import("../src/modules/logs/log.model");
 const { startAiLog } = await import("../src/modules/logs/ai-log-recorder");
@@ -673,7 +677,7 @@ describe("AI request logs", () => {
       app,
       `durable-${crypto.randomUUID()}@test.dev`,
     );
-    const log = startAiLog(
+    const log = await startAiLog(
       { profileId: owner.id, operation: "review", preview: "partial" },
       { model: "test", stream: true },
       "codex://local/app-server",
@@ -692,12 +696,13 @@ describe("AI request logs", () => {
       direction: "received",
       message: { id: 1, result: { text: "partial secret-value" } },
     });
-    const before = logModel.findOwned(log.id!, owner.id)!;
+    await log.flush();
+    const before = (await logModel.findOwned(log.id!, owner.id))!;
     expect(before.status).toBe("running");
     expect(before.streamEvents).toHaveLength(2);
     expect(JSON.stringify(before)).not.toContain("secret-value");
-    logModel.markInterrupted();
-    const after = logModel.findOwned(log.id!, owner.id)!;
+    await logModel.markInterrupted();
+    const after = (await logModel.findOwned(log.id!, owner.id))!;
     expect(after.status).toBe("cancelled");
     expect(after.streamEvents).toEqual(before.streamEvents);
   });
@@ -831,7 +836,9 @@ describe("AI request logs", () => {
     expect(calls).toBe(2);
     const list = await profileLogs(app, owner.id, "?status=error");
     expect(list.total).toBe(2);
-    const logs = list.items.map((row) => logModel.findOwned(row.id, owner.id)!);
+    const logs = await Promise.all(
+      list.items.map((row) => logModel.findOwned(row.id, owner.id)),
+    ).then((rows) => rows.filter((row) => row !== undefined));
     expect(
       logs.some(
         (row) =>
@@ -947,9 +954,11 @@ describe("AI request logs", () => {
       [Symbol.asyncIterator]();
     await iterator.next();
     await iterator.return?.();
-    const rows = (await profileLogs(app, owner.id)).items.map((row) =>
-      logModel.findOwned(row.id, owner.id)!,
-    );
+    const rows = await Promise.all(
+      (await profileLogs(app, owner.id)).items.map((row) =>
+        logModel.findOwned(row.id, owner.id),
+      ),
+    ).then((items) => items.filter((row) => row !== undefined));
     expect(rows).toHaveLength(6);
     expect(rows.filter((row) => row.status === "success")).toHaveLength(3);
     expect(
@@ -983,7 +992,7 @@ describe("AI request logs", () => {
       `other-logs-${crypto.randomUUID()}@test.dev`,
     );
     for (let i = 0; i < 31; i++)
-      logModel.start({
+      await logModel.start({
         id: crypto.randomUUID(),
         profileId: owner.id,
         operation: i % 2 ? "hint" : "generation",
@@ -1024,7 +1033,7 @@ describe("AI request logs", () => {
       "operation=unknown",
     ])
       expect((await request(app, `/logs?${query}`, owner.id)).status).toBe(400);
-    const recorder = startAiLog(
+    const recorder = await startAiLog(
       {
         profileId: owner.id,
         operation: "preparation",
@@ -1034,14 +1043,14 @@ describe("AI request logs", () => {
       "https://model.test/v1",
     );
     expect((await profileLogs(app, owner.id, "?status=running")).total).toBe(1);
-    logModel.markInterrupted();
+    await logModel.markInterrupted();
     expect((await profileLogs(app, owner.id, "?status=running")).total).toBe(0);
     const cancelled = (await profileLogs(app, owner.id, "?status=cancelled"))
       .items[0]!;
-    expect(logModel.findOwned(cancelled.id, owner.id)?.error?.code).toBe(
-      "PROCESS_INTERRUPTED",
-    );
-    recorder.finish("cancelled");
+    expect(
+      (await logModel.findOwned(cancelled.id, owner.id))?.error?.code,
+    ).toBe("PROCESS_INTERRUPTED");
+    await recorder.finish("cancelled");
   });
 });
 
@@ -1162,7 +1171,7 @@ describe("structured practice reviews", () => {
     owner: string,
   ) {
     for (let i = 0; i < 100; i++) {
-      const row = service.get(id, owner);
+      const row = await service.get(id, owner);
       if (!["queued", "running"].includes(row.status)) return row;
       await Bun.sleep(10);
     }
@@ -1437,7 +1446,7 @@ createInterface({input: process.stdin}).on("line", line => {
           if (ids?.logId) logId = ids.logId;
         },
       );
-      const log = logModel.findOwned(logId, owner.id)!;
+      const log = (await logModel.findOwned(logId, owner.id))!;
       expect(log.requestBody.threadStart).toMatchObject({
         ephemeral: true,
         model: "gpt-5.6-terra",
@@ -1519,7 +1528,7 @@ createInterface({input: process.stdin}).on("line", line => {
       baseRevision: "",
       uploadIds: [],
     });
-    expect(service.list(challenge.id, owner.id)).toHaveLength(1);
+    expect(await service.list(challenge.id, owner.id)).toHaveLength(1);
     const review = await finished(service, started.review.id, owner.id);
     expect(review.status).toBe("completed");
     expect(review.score).toBe(9);
@@ -1552,9 +1561,9 @@ createInterface({input: process.stdin}).on("line", line => {
     expect((await finished(service, started.review.id, owner.id)).status).toBe(
       "failed",
     );
-    const retried = service.retry(started.review.id, owner.id, null);
+    const retried = await service.retry(started.review.id, owner.id, null);
     expect(retried.submissionId).toBe(started.submission.id);
-    expect(service.list(challenge.id, owner.id)).toHaveLength(1);
+    expect(await service.list(challenge.id, owner.id)).toHaveLength(1);
     await finished(service, retried.id, owner.id);
   });
   test("stale acceptance cannot finish a newer submission", async () => {

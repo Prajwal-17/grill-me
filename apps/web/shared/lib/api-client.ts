@@ -1,8 +1,15 @@
 import type { ApiError } from "@/shared/types/api";
+import { useAppStore } from "@/shared/stores/app-store";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8017";
 
 type JsonResponse<T> = { data?: T } | ApiError;
+
+function recoverInvalidProfile(code: string) {
+  if (code === "PROFILE_NOT_FOUND" && typeof window !== "undefined") {
+    useAppStore.getState().clearProfile();
+  }
+}
 
 export class ApiClientError extends Error {
   constructor(
@@ -71,6 +78,7 @@ export async function apiRequest<T>(
             message: "The API returned an unexpected response.",
             retryable: false,
           };
+    recoverInvalidProfile(error.code);
     throw new ApiClientError(error.message, error.code, error.retryable);
   }
 
@@ -150,6 +158,7 @@ export async function streamRequest<T>(
     }
     if (event.type === "done") completed = event.data;
     if (event.type === "error") {
+      recoverInvalidProfile(event.error.code);
       throw new ApiClientError(
         event.error.message,
         event.error.code,

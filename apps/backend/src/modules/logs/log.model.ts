@@ -1,4 +1,4 @@
-import { and, count, desc, eq, getTableColumns, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, ilike, or } from "drizzle-orm";
 import { db } from "../../shared/database/db";
 import { aiLogs, aiLogEvents } from "../../shared/database/schema";
 import type { LogQuery } from "./log.schema";
@@ -16,28 +16,28 @@ const {
 const PAGE_SIZE = 25;
 
 export const logModel = {
-  start(value: LogInsert) {
-    db.insert(aiLogs).values(value).run();
+  async start(value: LogInsert) {
+    await db.insert(aiLogs).values(value);
   },
-  finish(id: string, value: Partial<LogInsert>) {
-    db.update(aiLogs).set(value).where(eq(aiLogs.id, id)).run();
+  async finish(id: string, value: Partial<LogInsert>) {
+    await db.update(aiLogs).set(value).where(eq(aiLogs.id, id));
   },
-  appendEvent(logId: string, payload: unknown) {
-    db.insert(aiLogEvents).values({ logId, payload }).run();
+  async appendEvent(logId: string, payload: unknown) {
+    await db.insert(aiLogEvents).values({ logId, payload });
   },
-  findOwned(id: string, profileId: string) {
-    const row = db
-      .select()
-      .from(aiLogs)
-      .where(and(eq(aiLogs.id, id), eq(aiLogs.profileId, profileId)))
-      .get();
+  async findOwned(id: string, profileId: string) {
+    const row = (
+      await db
+        .select()
+        .from(aiLogs)
+        .where(and(eq(aiLogs.id, id), eq(aiLogs.profileId, profileId)))
+    )[0];
     if (!row) return undefined;
-    const events = db
+    const events = await db
       .select({ payload: aiLogEvents.payload })
       .from(aiLogEvents)
       .where(eq(aiLogEvents.logId, id))
-      .orderBy(aiLogEvents.id)
-      .all();
+      .orderBy(aiLogEvents.id);
     return {
       ...row,
       streamEvents: events.length
@@ -58,31 +58,29 @@ export const logModel = {
               aiLogs.actualModel,
               aiLogs.preview,
               aiLogs.id,
-            ].map((column) => sql`instr(lower(${column}), ${search}) > 0`),
+            ].map((column) => ilike(column, `%${search}%`)),
           )
         : undefined,
     );
-    return db.transaction((tx) => {
-      const total = tx
-        .select({ count: count() })
-        .from(aiLogs)
-        .where(where)
-        .get()!.count;
+    return db.transaction(async (tx) => {
+      const total = (
+        await tx.select({ count: count() }).from(aiLogs).where(where)
+      )[0]!.count;
       const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
       const page = Math.min(query.page, totalPages);
-      const items = tx
+      const items = await tx
         .select(summaryColumns)
         .from(aiLogs)
         .where(where)
         .orderBy(desc(aiLogs.startedAt), desc(aiLogs.id))
         .limit(PAGE_SIZE)
-        .offset((page - 1) * PAGE_SIZE)
-        .all();
+        .offset((page - 1) * PAGE_SIZE);
       return { items, total, page, pageSize: PAGE_SIZE, totalPages };
     });
   },
-  markInterrupted() {
-    db.update(aiLogs)
+  async markInterrupted() {
+    await db
+      .update(aiLogs)
       .set({
         status: "cancelled",
         completedAt: new Date(),
@@ -92,7 +90,6 @@ export const logModel = {
             "The backend restarted before this request finished. A complete response was not recorded.",
         },
       })
-      .where(eq(aiLogs.status, "running"))
-      .run();
+      .where(eq(aiLogs.status, "running"));
   },
 };

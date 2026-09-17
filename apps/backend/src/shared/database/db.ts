@@ -1,30 +1,21 @@
-import { Database as BunDatabase } from "bun:sqlite";
-import { drizzle } from "drizzle-orm/bun-sqlite";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { mkdirSync } from "node:fs";
+import { drizzle } from "drizzle-orm/bun-sql";
+import { migrate } from "drizzle-orm/bun-sql/migrator";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import * as schema from "./schema";
-import {
-  databasePath,
-  migrateLegacyData,
-  usesDefaultDatabasePath,
-} from "../storage/paths";
+import { databaseUrl } from "../storage/paths";
 
-if (usesDefaultDatabasePath()) migrateLegacyData();
-const filename = databasePath();
+export const db = drizzle(databaseUrl(), { schema });
 
-if (filename !== ":memory:") {
-  mkdirSync(dirname(resolve(filename)), { recursive: true });
+export async function first<T>(query: PromiseLike<T[]>) {
+  return (await query)[0];
 }
 
-const sqlite = new BunDatabase(filename, { create: true });
-sqlite.exec("PRAGMA journal_mode = WAL;");
-sqlite.exec("PRAGMA foreign_keys = ON;");
-
-export const db = drizzle({ client: sqlite, schema });
-
-export function migrateDatabase() {
-  migrate(db, {
-    migrationsFolder: resolve(import.meta.dir, "../../../drizzle"),
+export async function migrateDatabase() {
+  await migrate(db, {
+    migrationsFolder: resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      "../../../drizzle",
+    ),
   });
 }

@@ -170,7 +170,7 @@ export function createOpenAIModel(
         },
       },
     };
-    const log = startAiLog(
+    const log = await startAiLog(
       input.context,
       request,
       options.client?.baseURL ?? baseURL,
@@ -255,10 +255,10 @@ export function createOpenAIModel(
           true,
         );
       }
-      log.finish("success");
+      await log.finish("success");
       return validated.data;
     } catch (error) {
-      log.finish("error", error);
+      await log.finish("error", error);
       return modelUnavailable(error);
     }
   }
@@ -274,7 +274,7 @@ export function createOpenAIModel(
       instructions: input.instructions,
       input: input.input,
     };
-    const log = startAiLog(
+    const log = await startAiLog(
       context,
       request,
       options.client?.baseURL ?? baseURL,
@@ -337,12 +337,12 @@ export function createOpenAIModel(
           502,
           true,
         );
-      log.finish("success");
+      await log.finish("success");
     } catch (error) {
-      log.finish("error", error);
+      await log.finish("error", error);
       return modelUnavailable(error);
     } finally {
-      log.finish(
+      await log.finish(
         "cancelled",
         new AppError(
           "STREAM_CANCELLED",

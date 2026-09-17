@@ -27,18 +27,20 @@ export function createProfileController(service: ProfileService) {
         startProfileRequestSchema,
         await readJson(c.req.raw),
       );
-      return c.json({ data: service.start(input.email) });
+      return c.json({ data: await service.start(input.email) });
     },
 
-    preferences: (c: Context) =>
-      c.json({ data: service.getPreferences(profileId(c)) }),
+    preferences: async (c: Context) =>
+      c.json({ data: await service.getPreferences(profileId(c)) }),
 
     savePreferences: async (c: Context) => {
       const input = parseInput(
         savePreferencesRequestSchema,
         await readJson(c.req.raw),
       );
-      return c.json({ data: service.savePreferences(profileId(c), input) });
+      return c.json({
+        data: await service.savePreferences(profileId(c), input),
+      });
     },
   };
 }

@@ -12,7 +12,7 @@ export function createLogRoutes(profiles: ProfileService) {
     c.header("Cache-Control", "no-store");
     await next();
   });
-  function profileId(c: Context) {
+  async function profileId(c: Context) {
     const header = c.req.header("X-Profile-Id");
     if (!header)
       throw new AppError(
@@ -21,20 +21,20 @@ export function createLogRoutes(profiles: ProfileService) {
         401,
       );
     const id = parseInput(profileIdSchema, header);
-    profiles.assertExists(id);
+    await profiles.assertExists(id);
     return id;
   }
-  routes.get("/", (c) =>
+  routes.get("/", async (c) =>
     c.json({
-      data: logModel.list(
-        profileId(c),
+      data: await logModel.list(
+        await profileId(c),
         parseInput(logQuerySchema, c.req.query()),
       ),
     }),
   );
-  routes.get("/:id", (c) => {
-    const owner = profileId(c);
-    const row = logModel.findOwned(
+  routes.get("/:id", async (c) => {
+    const owner = await profileId(c);
+    const row = await logModel.findOwned(
       parseInput(logIdSchema, c.req.param("id")),
       owner,
     );

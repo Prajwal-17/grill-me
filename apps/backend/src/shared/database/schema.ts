@@ -1,43 +1,45 @@
 import type { GuidedPreferences } from "@repo/preferences";
 import {
+  boolean,
+  doublePrecision,
   index,
   integer,
-  real,
-  sqliteTable,
+  jsonb,
+  pgTable,
+  serial,
   text,
+  timestamp,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
-export const profiles = sqliteTable("profiles", {
+export const profiles = pgTable("profiles", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+  updatedAt: timestamp("updated_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
 });
 
-export const profilePreferences = sqliteTable("profile_preferences", {
+export const profilePreferences = pgTable("profile_preferences", {
   profileId: text("profile_id")
     .primaryKey()
     .references(() => profiles.id, { onDelete: "cascade" }),
-  guidedPreferences: text("guided_preferences", {
-    mode: "json",
-  })
+  guidedPreferences: jsonb("guided_preferences")
     .$type<GuidedPreferences>()
     .notNull(),
   aboutMe: text("about_me"),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+  updatedAt: timestamp("updated_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
 });
 
-export const challenges = sqliteTable(
+export const challenges = pgTable(
   "challenges",
   {
     id: text("id").primaryKey(),
@@ -56,9 +58,7 @@ export const challenges = sqliteTable(
     difficultyReason: text("difficulty_reason"),
     topic: text("topic"),
     implementationBoundary: text("implementation_boundary"),
-    contextSnapshot: text("context_snapshot", { mode: "json" }).$type<
-      Record<string, unknown>
-    >(),
+    contextSnapshot: jsonb("context_snapshot").$type<Record<string, unknown>>(),
     promptVersion: text("prompt_version"),
     calibrationVersion: text("calibration_version"),
     contractVersion: integer("contract_version").notNull().default(1),
@@ -70,18 +70,14 @@ export const challenges = sqliteTable(
     }).notNull(),
     durationMinMinutes: integer("duration_min_minutes").notNull(),
     durationMaxMinutes: integer("duration_max_minutes").notNull(),
-    implementationMilestones: text("implementation_milestones", {
-      mode: "json",
-    })
+    implementationMilestones: jsonb("implementation_milestones")
       .$type<string[]>()
       .notNull(),
     problemStatement: text("problem_statement").notNull(),
     expectedOutcome: text("expected_outcome").notNull(),
-    constraints: text("constraints", { mode: "json" })
-      .$type<string[]>()
-      .notNull(),
+    constraints: jsonb("constraints").$type<string[]>().notNull(),
     starterCode: text("starter_code"),
-    completionCriteria: text("completion_criteria", { mode: "json" })
+    completionCriteria: jsonb("completion_criteria")
       .$type<string[]>()
       .notNull(),
     hint: text("hint"),
@@ -90,10 +86,10 @@ export const challenges = sqliteTable(
     })
       .notNull()
       .default("active"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" })
+    createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
       .$defaultFn(() => new Date()),
-    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    completedAt: timestamp("completed_at", { mode: "date" }),
   },
   (table) => [
     uniqueIndex("challenges_profile_number_unique").on(
@@ -103,7 +99,7 @@ export const challenges = sqliteTable(
   ],
 );
 
-export const messages = sqliteTable("messages", {
+export const messages = pgTable("messages", {
   id: text("id").primaryKey(),
   challengeId: text("challenge_id")
     .notNull()
@@ -113,16 +109,16 @@ export const messages = sqliteTable("messages", {
     enum: ["generate", "clarify", "review", "hint"],
   }).notNull(),
   content: text("content").notNull(),
-  attachments: text("attachments", { mode: "json" })
+  attachments: jsonb("attachments")
     .$type<{ filename: string; text: string }[]>()
     .notNull()
     .default([]),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
 });
 
-export const aiLogs = sqliteTable(
+export const aiLogs = pgTable(
   "ai_logs",
   {
     id: text("id").primaryKey(),
@@ -142,10 +138,10 @@ export const aiLogs = sqliteTable(
     actualModel: text("actual_model"),
     endpoint: text("endpoint").notNull(),
     providerRequestId: text("provider_request_id"),
-    streamed: integer("streamed", { mode: "boolean" }).notNull(),
+    streamed: boolean("streamed").notNull(),
     preview: text("preview").notNull(),
-    startedAt: integer("started_at", { mode: "timestamp_ms" }).notNull(),
-    completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+    startedAt: timestamp("started_at", { mode: "date" }).notNull(),
+    completedAt: timestamp("completed_at", { mode: "date" }),
     durationMs: integer("duration_ms"),
     firstTokenMs: integer("first_token_ms"),
     inputTokens: integer("input_tokens"),
@@ -153,16 +149,14 @@ export const aiLogs = sqliteTable(
     totalTokens: integer("total_tokens"),
     cachedTokens: integer("cached_tokens"),
     reasoningTokens: integer("reasoning_tokens"),
-    costUsd: real("cost_usd"),
-    requestBody: text("request_body", { mode: "json" })
+    costUsd: doublePrecision("cost_usd"),
+    requestBody: jsonb("request_body")
       .$type<Record<string, unknown>>()
       .notNull(),
-    responseBody: text("response_body", { mode: "json" }).$type<
-      Record<string, unknown>
-    >(),
+    responseBody: jsonb("response_body").$type<Record<string, unknown>>(),
     responseText: text("response_text").notNull().default(""),
-    streamEvents: text("stream_events", { mode: "json" }).$type<unknown[]>(),
-    error: text("error", { mode: "json" }).$type<Record<string, unknown>>(),
+    streamEvents: jsonb("stream_events").$type<unknown[]>(),
+    error: jsonb("error").$type<Record<string, unknown>>(),
   },
   (table) => [
     index("ai_logs_profile_started_idx").on(
@@ -178,19 +172,19 @@ export const aiLogs = sqliteTable(
   ],
 );
 
-export const projects = sqliteTable("projects", {
+export const projects = pgTable("projects", {
   id: text("id").primaryKey(),
   profileId: text("profile_id")
     .notNull()
     .references(() => profiles.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   root: text("root").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
 });
 
-export const submissions = sqliteTable("submissions", {
+export const submissions = pgTable("submissions", {
   id: text("id").primaryKey(),
   challengeId: text("challenge_id")
     .notNull()
@@ -198,28 +192,26 @@ export const submissions = sqliteTable("submissions", {
   sequence: integer("sequence").notNull(),
   contractVersion: integer("contract_version").notNull(),
   content: text("content").notNull(),
-  attachments: text("attachments", { mode: "json" })
+  attachments: jsonb("attachments")
     .$type<{ filename: string; text: string }[]>()
     .notNull(),
   projectId: text("project_id").references(() => projects.id, {
     onDelete: "set null",
   }),
   snapshotPath: text("snapshot_path").notNull(),
-  manifest: text("manifest", { mode: "json" })
+  manifest: jsonb("manifest")
     .$type<{ path: string; sha256: string; bytes: number }[]>()
     .notNull(),
-  gitContext: text("git_context", { mode: "json" }).$type<
-    Record<string, string | null>
-  >(),
-  assistance: text("assistance", { mode: "json" })
+  gitContext: jsonb("git_context").$type<Record<string, string | null>>(),
+  assistance: jsonb("assistance")
     .$type<{ hints: number; guidance: boolean }>()
     .notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
 });
 
-export const reviewJobs = sqliteTable("review_jobs", {
+export const reviewJobs = pgTable("review_jobs", {
   id: text("id").primaryKey(),
   submissionId: text("submission_id")
     .notNull()
@@ -230,9 +222,10 @@ export const reviewJobs = sqliteTable("review_jobs", {
     enum: ["queued", "running", "completed", "failed", "cancelled"],
   }).notNull(),
   progress: text("progress").notNull(),
-  response: text("response", { mode: "json" }).$type<
-    import("../../modules/reviews/review.schema").ReviewResult
-  >(),
+  response:
+    jsonb("response").$type<
+      import("../../modules/reviews/review.schema").ReviewResult
+    >(),
   score: integer("score"),
   error: text("error"),
   followup: text("followup"),
@@ -240,36 +233,36 @@ export const reviewJobs = sqliteTable("review_jobs", {
   providerThreadId: text("provider_thread_id"),
   providerTurnId: text("provider_turn_id"),
   promptVersion: text("prompt_version").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
-  completedAt: integer("completed_at", { mode: "timestamp_ms" }),
+  completedAt: timestamp("completed_at", { mode: "date" }),
 });
 
-export const verificationRuns = sqliteTable("verification_runs", {
+export const verificationRuns = pgTable("verification_runs", {
   id: text("id").primaryKey(),
   reviewId: text("review_id")
     .notNull()
     .references(() => reviewJobs.id, { onDelete: "cascade" }),
-  evidence: text("evidence", { mode: "json" })
+  evidence: jsonb("evidence")
     .$type<import("../../modules/reviews/review.schema").VerificationEvidence>()
     .notNull(),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
+  createdAt: timestamp("created_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
 });
 
-export const aiLogEvents = sqliteTable(
+export const aiLogEvents = pgTable(
   "ai_log_events",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     logId: text("log_id")
       .notNull()
       .references(() => aiLogs.id, { onDelete: "cascade" }),
-    recordedAt: integer("recorded_at", { mode: "timestamp_ms" })
+    recordedAt: timestamp("recorded_at", { mode: "date" })
       .notNull()
       .$defaultFn(() => new Date()),
-    payload: text("payload", { mode: "json" }).$type<unknown>().notNull(),
+    payload: jsonb("payload").$type<unknown>().notNull(),
   },
   (table) => [index("ai_log_events_log_idx").on(table.logId, table.id)],
 );

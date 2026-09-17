@@ -437,11 +437,7 @@ export function SubmissionComposer({
           <Button
             variant="primary"
             disabled={
-              !active ||
-              busy ||
-              running ||
-              !hasSource ||
-              Boolean(reviewIssue)
+              !active || busy || running || !hasSource || Boolean(reviewIssue)
             }
             onClick={onSubmit}
           >

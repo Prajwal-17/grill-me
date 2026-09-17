@@ -233,7 +233,7 @@ export async function codexJudge(
   const model =
     input.codexModel ?? process.env.CODEX_MODEL ?? DEFAULT_CODEX_MODEL;
   const prompt = judgePrompt(input);
-  const log = startAiLog(
+  const log = await startAiLog(
     {
       profileId: input.challenge.profileId,
       challengeId: input.challenge.id,
@@ -337,13 +337,20 @@ export async function codexJudge(
         ...disabledIntegrations,
       },
     };
-    log.requestDetails({ threadStart: params });
+    await log.requestDetails({ threadStart: params });
     const started = await client.request<{
       thread: { id: string };
       model?: string;
     }>("thread/start", params);
     const threadId = started.thread.id;
     progress("Inspecting project files", { threadId });
+    let turnId = "";
+    const turn: TurnStartParams = {
+      threadId,
+      input: [{ type: "text", text: prompt.input, text_elements: [] }],
+      outputSchema: reviewJsonSchema as TurnStartParams["outputSchema"],
+    };
+    await log.requestDetails({ turnStart: turn });
     const result = await new Promise<unknown>((resolve, reject) => {
       let text = "";
       client.onExit = reject;
@@ -362,7 +369,6 @@ export async function codexJudge(
           .catch(() => {});
         reject(new Error("Review cancelled."));
       };
-      let turnId = "";
       input.signal?.addEventListener("abort", abort, { once: true });
       if (input.signal?.aborted) {
         abort();
@@ -404,12 +410,6 @@ export async function codexJudge(
           }
         }
       };
-      const turn: TurnStartParams = {
-        threadId,
-        input: [{ type: "text", text: prompt.input, text_elements: [] }],
-        outputSchema: reviewJsonSchema as TurnStartParams["outputSchema"],
-      };
-      log.requestDetails({ turnStart: turn });
       void client
         .request<{ turn: { id: string } }>("turn/start", turn)
         .then((r) => {
@@ -423,10 +423,10 @@ export async function codexJudge(
       model: started.model ?? model,
       output_text: JSON.stringify(review),
     });
-    log.finish("success");
+    await log.finish("success");
     return review;
   } catch (error) {
-    log.finish(input.signal?.aborted ? "cancelled" : "error", error);
+    await log.finish(input.signal?.aborted ? "cancelled" : "error", error);
     throw error;
   } finally {
     if (timer) clearTimeout(timer);

@@ -1,5 +1,6 @@
-import { migrateDatabase } from "./db";
+import { db, migrateDatabase } from "./db";
 
-migrateDatabase();
+await migrateDatabase();
 
 console.log("Database migrations applied.");
+await db.$client.close();

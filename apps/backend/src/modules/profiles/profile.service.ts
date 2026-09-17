@@ -7,11 +7,11 @@ export function createProfileService(
   model: ProfileModel,
   preferences: ProfilePreferencesModel,
 ) {
-  function preferencesFor(profileId: string) {
+  async function preferencesFor(profileId: string) {
     const row =
-      preferences.findByProfileId(profileId) ??
-      preferences.createDefaults(profileId) ??
-      preferences.findByProfileId(profileId);
+      (await preferences.findByProfileId(profileId)) ??
+      (await preferences.createDefaults(profileId)) ??
+      (await preferences.findByProfileId(profileId));
 
     if (!row) {
       throw new AppError(
@@ -24,8 +24,8 @@ export function createProfileService(
     return toProfilePreferences(row);
   }
 
-  function assertExists(id: string) {
-    if (!model.findById(id)) {
+  async function assertExists(id: string) {
+    if (!(await model.findById(id))) {
       throw new AppError(
         "PROFILE_NOT_FOUND",
         "This local profile no longer exists. Enter your email again.",
@@ -36,24 +36,37 @@ export function createProfileService(
   }
 
   return {
-    start(email: string) {
-      const profile = toProfile(
-        model.findByEmail(email) ?? model.create(email),
-      );
-      preferencesFor(profile.id);
+    async start(email: string) {
+      const profileRow =
+        (await model.findByEmail(email)) ?? (await model.create(email));
+      if (!profileRow)
+        throw new AppError(
+          "PROFILE_UNAVAILABLE",
+          "Profile could not be created.",
+          500,
+        );
+      const profile = toProfile(profileRow);
+      await preferencesFor(profile.id);
       return profile;
     },
 
     assertExists,
 
-    getPreferences(profileId: string) {
-      assertExists(profileId);
+    async getPreferences(profileId: string) {
+      await assertExists(profileId);
       return preferencesFor(profileId);
     },
 
-    savePreferences(profileId: string, input: SavePreferencesInput) {
-      assertExists(profileId);
-      return toProfilePreferences(preferences.save(profileId, input));
+    async savePreferences(profileId: string, input: SavePreferencesInput) {
+      await assertExists(profileId);
+      const saved = await preferences.save(profileId, input);
+      if (!saved)
+        throw new AppError(
+          "PREFERENCES_UNAVAILABLE",
+          "Preferences could not be saved.",
+          500,
+        );
+      return toProfilePreferences(saved);
     },
   };
 }

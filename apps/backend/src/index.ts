@@ -4,9 +4,9 @@ import { logModel } from "./modules/logs/log.model";
 import { createReviewService } from "./modules/reviews/review.service";
 import { migrateDatabase } from "./shared/database/db";
 
-migrateDatabase();
-logModel.markInterrupted();
-createReviewService(createOpenAIModel()).recover();
+await migrateDatabase();
+await logModel.markInterrupted();
+await createReviewService(createOpenAIModel()).recover();
 
 const app = createApp({
   llm: createOpenAIModel(),

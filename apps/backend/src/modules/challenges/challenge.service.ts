@@ -31,21 +31,21 @@ export function createChallengeService(dependencies: {
 }) {
   const { challenges, messages, profiles, llm } = dependencies;
 
-  function owned(id: string, profileId: string) {
-    profiles.assertExists(profileId);
-    return requireChallenge(challenges.findOwned(id, profileId));
+  async function owned(id: string, profileId: string) {
+    await profiles.assertExists(profileId);
+    return requireChallenge(await challenges.findOwned(id, profileId));
   }
 
-  function learnerContext(profileId: string) {
-    const preferences = profiles.getPreferences(profileId);
+  async function learnerContext(profileId: string) {
+    const preferences = await profiles.getPreferences(profileId);
     return {
       profileId,
       preferences,
       recentEvidence: preferences.includeRecentChallenges
-        ? recentLearningEvidence(profileId)
+        ? await recentLearningEvidence(profileId)
         : [],
       recentChallenges: (preferences.includeRecentChallenges
-        ? challenges.findRecent(profileId, 10)
+        ? await challenges.findRecent(profileId, 10)
         : []
       ).map((row) => ({
         title: row.title,
@@ -57,23 +57,23 @@ export function createChallengeService(dependencies: {
   }
 
   return {
-    getActive(profileId: string) {
-      profiles.assertExists(profileId);
-      return challenges.findActive(profileId).map(toChallenge);
+    async getActive(profileId: string) {
+      await profiles.assertExists(profileId);
+      return (await challenges.findActive(profileId)).map(toChallenge);
     },
 
-    getSaved(profileId: string) {
-      profiles.assertExists(profileId);
-      return challenges.findSaved(profileId).map(toChallenge);
+    async getSaved(profileId: string) {
+      await profiles.assertExists(profileId);
+      return (await challenges.findSaved(profileId)).map(toChallenge);
     },
 
-    getHistory(profileId: string) {
-      profiles.assertExists(profileId);
-      return challenges.findHistory(profileId).map(toChallenge);
+    async getHistory(profileId: string) {
+      await profiles.assertExists(profileId);
+      return (await challenges.findHistory(profileId)).map(toChallenge);
     },
 
-    getById(id: string, profileId: string) {
-      return toChallenge(owned(id, profileId));
+    async getById(id: string, profileId: string) {
+      return toChallenge(await owned(id, profileId));
     },
 
     async prepare(
@@ -84,18 +84,18 @@ export function createChallengeService(dependencies: {
       },
       profileId: string,
     ) {
-      profiles.assertExists(profileId);
+      await profiles.assertExists(profileId);
       return llm.prepareBuild({
         ...input,
-        learner: learnerContext(profileId),
+        learner: await learnerContext(profileId),
       });
     },
 
     async generate(input: GenerateChallengeInput, profileId: string) {
-      profiles.assertExists(profileId);
+      await profiles.assertExists(profileId);
       const modelInput = {
         ...input,
-        learner: learnerContext(profileId),
+        learner: await learnerContext(profileId),
       };
       const generated = await llm.generateBuild(modelInput);
       const validated = generatedBuildSchemaForScope(input.scope).safeParse(
@@ -116,7 +116,7 @@ export function createChallengeService(dependencies: {
         contextualDifficulty: input.difficulty,
       });
       return toChallenge(
-        challenges.create(profileId, finalBuild, input.prompt, {
+        await challenges.create(profileId, finalBuild, input.prompt, {
           ...JSON.parse(requestPromptContext(modelInput)),
           promptVersion: PROMPT_VERSION,
           calibrationVersion: CALIBRATION_VERSION,
@@ -125,18 +125,18 @@ export function createChallengeService(dependencies: {
       );
     },
 
-    complete(id: string, profileId: string) {
-      const challenge = owned(id, profileId);
+    async complete(id: string, profileId: string) {
+      const challenge = await owned(id, profileId);
       if (challenge.status === "completed") return toChallenge(challenge);
-      return toChallenge(challenges.complete(id)!);
+      return toChallenge((await challenges.complete(id))!);
     },
-    setStatus(
+    async setStatus(
       id: string,
       profileId: string,
       status: "active" | "paused" | "saved" | "stopped",
     ) {
-      owned(id, profileId);
-      return toChallenge(challenges.setStatus(id, status)!);
+      await owned(id, profileId);
+      return toChallenge((await challenges.setStatus(id, status))!);
     },
 
     async generateHint(
@@ -145,19 +145,19 @@ export function createChallengeService(dependencies: {
       onDelta: (delta: string) => Promise<void>,
       helpKind: "hint" | "approach" = "hint",
     ) {
-      const row = requireActiveChallenge(owned(id, profileId));
+      const row = requireActiveChallenge(await owned(id, profileId));
       let hint = "";
       for await (const delta of llm.generateHint({
         helpKind,
         challenge: toChallenge(row),
-        messages: messages.findRowsByChallenge(row.id).map(toMessage),
-        learner: learnerContext(profileId),
+        messages: (await messages.findRowsByChallenge(row.id)).map(toMessage),
+        learner: await learnerContext(profileId),
       })) {
         hint += delta;
         await onDelta(delta);
       }
 
-      return toChallenge(challenges.saveHint(row.id, hint, helpKind));
+      return toChallenge(await challenges.saveHint(row.id, hint, helpKind));
     },
 
     owned,

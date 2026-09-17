@@ -43,7 +43,7 @@ on the backend console without changing the model result. Each log represents
 one application AI call; provider routing and internal retries are only visible
 when the provider includes that information in its response.
 
-Log payloads stay in the local SQLite database, scoped to the active profile.
+Log payloads stay in the local PostgreSQL database, scoped to the active profile.
 Transport credentials and known configured API keys are redacted. Full prompts,
 personal context, attached code, and responses can still contain private data:
 this local profile selector is not authentication, so do not expose the API or
@@ -58,7 +58,7 @@ Existing calls cannot be reconstructed; only new calls are logged.
 - AI interface patterns adapted from [Beautiful UI](https://www.beautifului.dev/)
 - Empty-composer suggestions adapted from [Magic UI Typing Animation](https://magicui.design/docs/components/typing-animation)
 - Hono on Bun
-- Drizzle ORM + SQLite
+- Drizzle ORM + PostgreSQL 17
 - OpenAI SDK pointed at an OpenAI-compatible endpoint such as OmniRoute
 
 ## Setup
@@ -92,23 +92,38 @@ default, including its persistent development cache.
 
 ## Local data
 
-Grill Me stores local runtime data under `~/.config/grill-me/` by default:
+PostgreSQL runs in the `primary-production` Docker container. Its data persists
+in the `primary-production-data` named volume. The cluster contains:
 
-- `grill-me.sqlite`: application database
+- `grill-me`: production/local Compose database
+- `grill-me-dev`: native development database
+- `grill-me-test`: isolated automated-test database
+
+Submission files and other runtime data use these host paths:
+
+- `/mnt/hdd/.config/grill-me/`: production submissions, uploads, evaluations, and Codex CLI
+- `/mnt/hdd/.config/grill-me-dev/`: development runtime files
 - `submissions/`: immutable submission snapshots
 - `uploads/`: resumable file uploads
 - `evaluations/`: prompt evaluation reports
-- `backups/`: local database backups
 - `codex-cli/`: the app-managed Codex CLI, when installed
 
-On first startup, missing data is copied from the legacy
-`apps/backend/.data/` directory. Existing files in the new location are never
-overwritten. Tracked database migrations are then applied normally.
+Start PostgreSQL and apply tracked migrations before native development:
 
 ```bash
+docker compose up -d postgres
 bun db:generate
 bun db:migrate
 ```
+
+The backend loads `.env.development` for `bun dev` and uses `grill-me-dev`.
+`bun db:migrate` and `bun db:studio` are development aliases. Their explicit
+production counterparts are `bun db:migrate:prod` and `bun db:studio:prod`.
+Docker always sets `APP_ENV=production` and connects to `grill-me`; it never
+uses the development database. Shared model credentials remain in ignored
+`.env`, while database/storage settings live in the ignored environment-specific
+files. Copy `.env.development.example` and `.env.production.example` when
+setting up a new checkout.
 
 ## Quality checks
 
@@ -126,12 +141,13 @@ bun run build
 
 Backend variables:
 
-- `GRILL_ME_HOME`: override the complete app data directory
+- `APP_ENV`: selects `development`, `production`, or `test` defaults
+- `GRILL_ME_HOME`: override submission/upload/evaluation/Codex storage
 - `XDG_CONFIG_HOME`: standard config root used when `GRILL_ME_HOME` is unset
 - `LLM_BASE_URL`: OpenAI-compatible base URL
 - `LLM_API_KEY`: API key expected by the model gateway
 - `LLM_MODEL`: model or OmniRoute alias
-- `DATABASE_URL`: override the SQLite file path
+- `DATABASE_URL`: PostgreSQL connection URL
 - `SNAPSHOT_ROOT`: override submission snapshot storage
 - `UPLOAD_ROOT`: override resumable upload storage
 - `EVALUATION_ROOT`: override prompt evaluation output
@@ -142,6 +158,7 @@ Backend variables:
 Web variable:
 
 - `NEXT_PUBLIC_API_URL`: browser-visible Hono API URL
+- `NEXT_PUBLIC_APP_ENV`: namespaces persisted browser state by environment
 
 Structured generation and judging use validated JSON response schemas. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
 

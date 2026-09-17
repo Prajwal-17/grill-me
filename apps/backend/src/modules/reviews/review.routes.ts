@@ -15,7 +15,7 @@ export function createReviewRoutes(
   profiles: ProfileService,
 ) {
   const routes = new Hono();
-  const profile = (c: Context) => {
+  const profile = async (c: Context) => {
     const id = c.req.header("X-Profile-Id");
     if (!id)
       throw new AppError("PROFILE_REQUIRED", "Choose your local profile.", 401);
@@ -23,7 +23,7 @@ export function createReviewRoutes(
   };
   const id = (c: Context) => parseInput(z.string().uuid(), c.req.param("id"));
   routes.post("/uploads", async (c) => {
-    const owner = profile(c);
+    const owner = await profile(c);
     const { filename } = parseInput(
       z.object({ filename: z.string().min(1) }),
       await readJson(c.req.raw),
@@ -31,7 +31,7 @@ export function createReviewRoutes(
     return c.json({ data: await beginUpload(owner, filename) }, 201);
   });
   routes.post("/uploads/:id/chunks", async (c) => {
-    const owner = profile(c);
+    const owner = await profile(c);
     const input = parseInput(
       z.object({
         offset: z.number().int().nonnegative(),
@@ -51,14 +51,14 @@ export function createReviewRoutes(
     });
   });
   routes.get("/projects/browse", async (c) => {
-    profile(c);
+    await profile(c);
     return c.json({ data: await browseFolders(c.req.query("path")) });
   });
-  routes.get("/projects", (c) =>
-    c.json({ data: service.listProjects(profile(c)) }),
+  routes.get("/projects", async (c) =>
+    c.json({ data: await service.listProjects(await profile(c)) }),
   );
   routes.post("/projects", async (c) => {
-    const owner = profile(c);
+    const owner = await profile(c);
     const input = parseInput(
       z.object({ path: z.string().min(1) }),
       await readJson(c.req.raw),
@@ -66,11 +66,11 @@ export function createReviewRoutes(
     return c.json({ data: await service.connect(owner, input.path) }, 201);
   });
   routes.get("/judges/models", async (c) => {
-    profile(c);
+    await profile(c);
     return c.json({ data: await codexModels() });
   });
   routes.get("/judges/status", async (c) => {
-    profile(c);
+    await profile(c);
     const omniroute = await omnirouteStatus();
     return c.json({
       data: {
@@ -81,42 +81,42 @@ export function createReviewRoutes(
       },
     });
   });
-  routes.get("/progress", (c) =>
-    c.json({ data: service.progress(profile(c)) }),
+  routes.get("/progress", async (c) =>
+    c.json({ data: await service.progress(await profile(c)) }),
   );
-  routes.get("/challenges/:id/submissions", (c) =>
-    c.json({ data: service.list(id(c), profile(c)) }),
+  routes.get("/challenges/:id/submissions", async (c) =>
+    c.json({ data: await service.list(id(c), await profile(c)) }),
   );
   routes.get("/submissions/:id/files", async (c) =>
     c.json({
       data: await service.file(
         id(c),
-        profile(c),
+        await profile(c),
         parseInput(z.string().min(1), c.req.query("path")),
       ),
     }),
   );
   routes.post("/challenges/:id/submissions", async (c) => {
-    const owner = profile(c);
+    const owner = await profile(c);
     const input = parseInput(
       submissionRequestSchema,
       await readJson(c.req.raw),
     );
     return c.json({ data: await service.submit(id(c), owner, input) }, 202);
   });
-  routes.get("/reviews/:id", (c) =>
-    c.json({ data: service.get(id(c), profile(c)) }),
+  routes.get("/reviews/:id", async (c) =>
+    c.json({ data: await service.get(id(c), await profile(c)) }),
   );
   routes.post("/reviews/:id/retry", async (c) => {
-    const owner = profile(c);
+    const owner = await profile(c);
     const { followup } = parseInput(
       z.object({ followup: z.string().nullable().default(null) }),
       await readJson(c.req.raw),
     );
-    return c.json({ data: service.retry(id(c), owner, followup) }, 202);
+    return c.json({ data: await service.retry(id(c), owner, followup) }, 202);
   });
-  routes.post("/reviews/:id/cancel", (c) =>
-    c.json({ data: service.cancel(id(c), profile(c)) }),
+  routes.post("/reviews/:id/cancel", async (c) =>
+    c.json({ data: await service.cancel(id(c), await profile(c)) }),
   );
   return routes;
 }

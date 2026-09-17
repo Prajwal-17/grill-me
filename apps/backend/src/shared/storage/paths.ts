@@ -7,14 +7,21 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export const APP_NAME = "grill-me";
 export const LEGACY_DATABASE_PATH = "./.data/grill-me.sqlite";
-const LEGACY_DATA_ROOT = resolve(import.meta.dir, "../../../.data");
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+const LEGACY_DATA_ROOT = resolve(MODULE_DIR, "../../../.data");
 
 function configured(name: string) {
   const value = process.env[name]?.trim();
   return value || null;
+}
+
+export function appEnvironment() {
+  const value = configured("APP_ENV") ?? configured("NODE_ENV");
+  return value === "production" || value === "test" ? value : "development";
 }
 
 export function appConfigRoot() {
@@ -25,16 +32,17 @@ export function appConfigRoot() {
   return resolve(configHome, APP_NAME);
 }
 
-export function usesDefaultDatabasePath() {
-  const value = configured("DATABASE_URL");
-  return value === null || value === LEGACY_DATABASE_PATH;
-}
-
-export function databasePath() {
-  const value = configured("DATABASE_URL");
-  return usesDefaultDatabasePath()
-    ? join(appConfigRoot(), "grill-me.sqlite")
-    : value!;
+export function databaseUrl() {
+  const database =
+    appEnvironment() === "production"
+      ? "grill-me"
+      : appEnvironment() === "test"
+        ? "grill-me-test"
+        : "grill-me-dev";
+  return (
+    configured("DATABASE_URL") ??
+    `postgresql://grill_me:grill_me_local@localhost:5432/${database}`
+  );
 }
 
 export function submissionsPath() {

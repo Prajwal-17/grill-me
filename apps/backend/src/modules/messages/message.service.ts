@@ -19,21 +19,21 @@ export function createMessageService(dependencies: {
 }) {
   const { challenges, messages, profiles, llm } = dependencies;
 
-  function owned(id: string, profileId: string) {
-    profiles.assertExists(profileId);
-    return requireChallenge(challenges.findOwned(id, profileId));
+  async function owned(id: string, profileId: string) {
+    await profiles.assertExists(profileId);
+    return requireChallenge(await challenges.findOwned(id, profileId));
   }
 
-  function learnerContext(profileId: string) {
-    const preferences = profiles.getPreferences(profileId);
+  async function learnerContext(profileId: string) {
+    const preferences = await profiles.getPreferences(profileId);
     return {
       profileId,
       preferences,
       recentEvidence: preferences.includeRecentChallenges
-        ? recentLearningEvidence(profileId)
+        ? await recentLearningEvidence(profileId)
         : [],
       recentChallenges: (preferences.includeRecentChallenges
-        ? challenges.findRecent(profileId, 10)
+        ? await challenges.findRecent(profileId, 10)
         : []
       ).map((row) => ({
         title: row.title,
@@ -45,9 +45,9 @@ export function createMessageService(dependencies: {
   }
 
   return {
-    list(challengeId: string, profileId: string) {
-      const challenge = owned(challengeId, profileId);
-      return messages.findRowsByChallenge(challenge.id).map(toMessage);
+    async list(challengeId: string, profileId: string) {
+      const challenge = await owned(challengeId, profileId);
+      return (await messages.findRowsByChallenge(challenge.id)).map(toMessage);
     },
 
     async respond(
@@ -61,11 +61,11 @@ export function createMessageService(dependencies: {
       onDelta: (delta: string) => Promise<void>,
     ) {
       const challenge = requireActiveChallenge(
-        owned(input.challengeId, input.profileId),
+        await owned(input.challengeId, input.profileId),
       );
-      const transcript = messages
-        .findRowsByChallenge(challenge.id)
-        .map(toMessage);
+      const transcript = (await messages.findRowsByChallenge(challenge.id)).map(
+        toMessage,
+      );
 
       let reply = "";
       for await (const delta of llm.respond({
@@ -74,14 +74,14 @@ export function createMessageService(dependencies: {
         content: input.content,
         mode: input.mode,
         attachments: input.attachments,
-        learner: learnerContext(input.profileId),
+        learner: await learnerContext(input.profileId),
       })) {
         reply += delta;
         await onDelta(delta);
       }
 
       return toMessage(
-        messages.saveExchange({
+        await messages.saveExchange({
           challengeId: challenge.id,
           content: input.content,
           mode: input.mode,

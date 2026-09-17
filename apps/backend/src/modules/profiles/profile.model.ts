@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { EMPTY_GUIDED } from "@repo/preferences";
-import { db } from "../../shared/database/db";
+import { db, first } from "../../shared/database/db";
 import { profilePreferences, profiles } from "../../shared/database/schema";
 import type { SavePreferencesInput } from "./profile.schema";
 
@@ -9,38 +9,41 @@ export type ProfilePreferencesRow = typeof profilePreferences.$inferSelect;
 
 export const profileModel = {
   findByEmail(email: string) {
-    return db.select().from(profiles).where(eq(profiles.email, email)).get();
+    return first(db.select().from(profiles).where(eq(profiles.email, email)));
   },
 
   findById(id: string) {
-    return db.select().from(profiles).where(eq(profiles.id, id)).get();
+    return first(db.select().from(profiles).where(eq(profiles.id, id)));
   },
 
   create(email: string) {
-    return db
-      .insert(profiles)
-      .values({ id: crypto.randomUUID(), email })
-      .returning()
-      .get();
+    return first(
+      db
+        .insert(profiles)
+        .values({ id: crypto.randomUUID(), email })
+        .returning(),
+    );
   },
 };
 
 export const profilePreferencesModel = {
   findByProfileId(profileId: string) {
-    return db
-      .select()
-      .from(profilePreferences)
-      .where(eq(profilePreferences.profileId, profileId))
-      .get();
+    return first(
+      db
+        .select()
+        .from(profilePreferences)
+        .where(eq(profilePreferences.profileId, profileId)),
+    );
   },
 
   createDefaults(profileId: string) {
-    return db
-      .insert(profilePreferences)
-      .values({ profileId, guidedPreferences: EMPTY_GUIDED })
-      .onConflictDoNothing()
-      .returning()
-      .get();
+    return first(
+      db
+        .insert(profilePreferences)
+        .values({ profileId, guidedPreferences: EMPTY_GUIDED })
+        .onConflictDoNothing()
+        .returning(),
+    );
   },
 
   save(profileId: string, input: SavePreferencesInput) {
@@ -50,15 +53,16 @@ export const profilePreferencesModel = {
       aboutMe,
       guidedPreferences,
     };
-    return db
-      .insert(profilePreferences)
-      .values({ profileId, ...values, createdAt: now, updatedAt: now })
-      .onConflictDoUpdate({
-        target: profilePreferences.profileId,
-        set: { ...values, updatedAt: now },
-      })
-      .returning()
-      .get();
+    return first(
+      db
+        .insert(profilePreferences)
+        .values({ profileId, ...values, createdAt: now, updatedAt: now })
+        .onConflictDoUpdate({
+          target: profilePreferences.profileId,
+          set: { ...values, updatedAt: now },
+        })
+        .returning(),
+    );
   },
 };
 

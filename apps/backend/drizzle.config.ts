@@ -1,15 +1,11 @@
 import { defineConfig } from "drizzle-kit";
-import { databasePath } from "./src/shared/storage/paths";
-
-const databaseFile = databasePath();
+import { databaseUrl } from "./src/shared/storage/paths";
 
 export default defineConfig({
   schema: "./src/shared/database/schema.ts",
   out: "./drizzle",
-  dialect: "sqlite",
+  dialect: "postgresql",
   dbCredentials: {
-    url: databaseFile.startsWith("file:")
-      ? databaseFile
-      : `file:${databaseFile}`,
+    url: databaseUrl(),
   },
 });

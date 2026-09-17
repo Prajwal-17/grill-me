@@ -29,14 +29,17 @@ function challengeId(c: Context) {
 
 export function createChallengeController(service: ChallengeService) {
   return {
-    active: (c: Context) => c.json({ data: service.getActive(profileId(c)) }),
+    active: async (c: Context) =>
+      c.json({ data: await service.getActive(profileId(c)) }),
 
-    saved: (c: Context) => c.json({ data: service.getSaved(profileId(c)) }),
+    saved: async (c: Context) =>
+      c.json({ data: await service.getSaved(profileId(c)) }),
 
-    history: (c: Context) => c.json({ data: service.getHistory(profileId(c)) }),
+    history: async (c: Context) =>
+      c.json({ data: await service.getHistory(profileId(c)) }),
 
-    getById: (c: Context) =>
-      c.json({ data: service.getById(challengeId(c), profileId(c)) }),
+    getById: async (c: Context) =>
+      c.json({ data: await service.getById(challengeId(c), profileId(c)) }),
 
     prepare: async (c: Context) => {
       const input = parseInput(
@@ -54,8 +57,8 @@ export function createChallengeController(service: ChallengeService) {
       return c.json({ data: await service.generate(input, profileId(c)) }, 201);
     },
 
-    complete: (c: Context) =>
-      c.json({ data: service.complete(challengeId(c), profileId(c)) }),
+    complete: async (c: Context) =>
+      c.json({ data: await service.complete(challengeId(c), profileId(c)) }),
 
     status: async (c: Context) => {
       const { status } = parseInput(
@@ -63,7 +66,7 @@ export function createChallengeController(service: ChallengeService) {
         await readJson(c.req.raw),
       );
       return c.json({
-        data: service.setStatus(challengeId(c), profileId(c), status),
+        data: await service.setStatus(challengeId(c), profileId(c), status),
       });
     },
     hint: (c: Context) =>

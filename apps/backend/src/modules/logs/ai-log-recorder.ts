@@ -39,7 +39,7 @@ function tokenCount(value: unknown) {
     : null;
 }
 
-export function startAiLog(
+export async function startAiLog(
   context: LogContext,
   request: Record<string, unknown>,
   endpoint: string,
@@ -54,11 +54,12 @@ export function startAiLog(
   let response: Record<string, unknown> | null = null;
   let responseText = "";
   const events: unknown[] = [];
+  let pendingWrite: Promise<unknown> = Promise.resolve();
   function safe<T>(value: T) {
     return redactLogValue(value, secret);
   }
   try {
-    logModel.start({
+    await logModel.start({
       id,
       ...context,
       challengeId: context.challengeId ?? null,
@@ -80,11 +81,11 @@ export function startAiLog(
 
   return {
     id: persisted ? id : null,
-    requestDetails(value: Record<string, unknown>) {
+    async requestDetails(value: Record<string, unknown>) {
       Object.assign(request, value);
       if (persisted) {
         try {
-          logModel.finish(id, { requestBody: safe(request) });
+          await logModel.finish(id, { requestBody: safe(request) });
         } catch (error) {
           if (durableEvents) throw error;
           console.warn("[ai-log] Could not update request details.");
@@ -97,7 +98,10 @@ export function startAiLog(
         responseText = response.output_text;
     },
     event(value: unknown) {
-      if (durableEvents) logModel.appendEvent(id, safe(value));
+      if (durableEvents)
+        pendingWrite = pendingWrite.then(() =>
+          logModel.appendEvent(id, safe(value)),
+        );
       else events.push(value);
       const event = object(value);
       if (event.response) response = object(event.response);
@@ -106,7 +110,10 @@ export function startAiLog(
       firstTokenMs ??= Math.round(performance.now() - started);
       responseText += value;
     },
-    finish(status: "success" | "error" | "cancelled", error?: unknown) {
+    async flush() {
+      await pendingWrite;
+    },
+    async finish(status: "success" | "error" | "cancelled", error?: unknown) {
       if (finished) return;
       finished = true;
       if (!persisted) return;
@@ -159,7 +166,8 @@ export function startAiLog(
       };
       try {
         // Keep the database Date object; payload redaction serializes JSON values.
-        logModel.finish(id, {
+        await pendingWrite;
+        await logModel.finish(id, {
           ...safe(update),
           completedAt: update.completedAt,
         });
