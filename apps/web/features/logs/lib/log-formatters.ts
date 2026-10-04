@@ -10,6 +10,7 @@ export const OPERATION_LABELS: Record<LogOperation, string> = {
   clarify: "Chat",
   review: "Solution review",
   hint: "Hint",
+  quiz_generation: "Quiz generation",
 };
 export const STATUS_LABELS: Record<LogStatus, string> = {
   running: "Running",

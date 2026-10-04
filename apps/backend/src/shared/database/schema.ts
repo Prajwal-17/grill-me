@@ -1,4 +1,8 @@
 import type { GuidedPreferences } from "@repo/preferences";
+import type {
+  QuizAnswers,
+  QuizQuestion,
+} from "../../modules/quizzes/quiz.schema";
 import {
   boolean,
   doublePrecision,
@@ -99,6 +103,70 @@ export const challenges = pgTable(
   ],
 );
 
+export const quizzes = pgTable(
+  "quizzes",
+  {
+    id: text("id").primaryKey(),
+    challengeId: text("challenge_id")
+      .notNull()
+      .references(() => challenges.id, { onDelete: "cascade" }),
+    number: integer("quiz_number").notNull(),
+    requestId: text("request_id").notNull(),
+    questionCount: integer("question_count").notNull(),
+    coverage: text("coverage", {
+      enum: ["challenge", "related", "mixed"],
+    }).notNull(),
+    questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),
+    contextSnapshot: jsonb("context_snapshot")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    promptVersion: text("prompt_version").notNull(),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("quizzes_challenge_number_unique").on(
+      table.challengeId,
+      table.number,
+    ),
+    uniqueIndex("quizzes_challenge_request_unique").on(
+      table.challengeId,
+      table.requestId,
+    ),
+  ],
+);
+
+export const quizAttempts = pgTable(
+  "quiz_attempts",
+  {
+    id: text("id").primaryKey(),
+    quizId: text("quiz_id")
+      .notNull()
+      .references(() => quizzes.id, { onDelete: "cascade" }),
+    number: integer("attempt_number").notNull(),
+    status: text("status", { enum: ["draft", "submitted"] })
+      .notNull()
+      .default("draft"),
+    answers: jsonb("answers").$type<QuizAnswers>().notNull().default({}),
+    revision: integer("revision").notNull().default(0),
+    score: integer("score"),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    submittedAt: timestamp("submitted_at", { mode: "date" }),
+  },
+  (table) => [
+    uniqueIndex("quiz_attempts_quiz_number_unique").on(
+      table.quizId,
+      table.number,
+    ),
+  ],
+);
+
 export const messages = pgTable("messages", {
   id: text("id").primaryKey(),
   challengeId: text("challenge_id")
@@ -129,7 +197,14 @@ export const aiLogs = pgTable(
       onDelete: "set null",
     }),
     operation: text("operation", {
-      enum: ["preparation", "generation", "clarify", "review", "hint"],
+      enum: [
+        "preparation",
+        "generation",
+        "clarify",
+        "review",
+        "hint",
+        "quiz_generation",
+      ],
     }).notNull(),
     status: text("status", {
       enum: ["running", "success", "error", "cancelled"],

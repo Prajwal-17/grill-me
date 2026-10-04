@@ -8,6 +8,13 @@
       "when": 1789496554911,
       "tag": "0000_late_dust",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791119411291,
+      "tag": "0001_bitter_deadpool",
+      "breakpoints": true
     }
   ]
 }

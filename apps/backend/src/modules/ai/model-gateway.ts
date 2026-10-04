@@ -16,6 +16,18 @@ import type {
   MessageAttachment,
 } from "../messages/message.schema";
 import type { ProfilePreferences } from "../profiles/profile.schema";
+import type {
+  GeneratedQuiz,
+  QuestionCount,
+  QuizCoverage,
+} from "../quizzes/quiz.schema";
+
+export type QuizModelInput = {
+  challenge: Challenge;
+  questionCount: QuestionCount;
+  coverage: QuizCoverage;
+  previousQuestions: string[];
+};
 
 export type ConversationMode = "clarify" | "review";
 
@@ -58,6 +70,7 @@ export type JudgeInput = {
   signal?: AbortSignal;
 };
 export interface ModelGateway {
+  generateQuiz?(input: QuizModelInput): Promise<GeneratedQuiz>;
   judge?(input: JudgeInput): Promise<ReviewResult>;
   planVerification?(input: JudgeInput): Promise<VerificationPlan>;
 

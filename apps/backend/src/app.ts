@@ -19,6 +19,8 @@ import { createProfileRoutes } from "./modules/profiles/profile.routes";
 import { createProfileService } from "./modules/profiles/profile.service";
 import { createReviewRoutes } from "./modules/reviews/review.routes";
 import { createReviewService } from "./modules/reviews/review.service";
+import { createQuizRoutes } from "./modules/quizzes/quiz.routes";
+import { createQuizService } from "./modules/quizzes/quiz.service";
 import { handleError } from "./shared/http/error-handler";
 
 type AppDependencies = {
@@ -75,6 +77,10 @@ export function createApp({
   app.route(
     "/challenges",
     createMessageRoutes(createMessageController(messageService)),
+  );
+  app.route(
+    "/challenges",
+    createQuizRoutes(createQuizService(llm, challengeService)),
   );
   app.onError(handleError);
 
