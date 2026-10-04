@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { MotionConfig } from "motion/react";
 import { APP_STORAGE_KEY, useAppStore } from "@/shared/stores/app-store";
 import { TooltipProvider } from "@/shared/components/ui/tooltip";
+import { ToastProvider } from "@/shared/components/ui/toast";
 
 function StoreHydrator() {
   const theme = useAppStore((state) => state.theme);
@@ -31,8 +32,10 @@ export function UIProvider({ children }: { children: ReactNode }) {
       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
     >
       <TooltipProvider delayDuration={300}>
-        <StoreHydrator />
-        {children}
+        <ToastProvider>
+          <StoreHydrator />
+          {children}
+        </ToastProvider>
       </TooltipProvider>
     </MotionConfig>
   );

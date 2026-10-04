@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
@@ -83,7 +83,27 @@ export function PracticeWorkspace({
   const updateDraft = useDrafts((s) => s.update);
   const update = (patch: Partial<Draft>) => updateDraft(key, patch);
   const router = useRouter();
-  const [tab, setTab] = useState("challenge");
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const tab =
+    requestedTab === "submit" ||
+    requestedTab === "reviews" ||
+    requestedTab === "quizzes"
+      ? requestedTab
+      : "overview";
+  const setTab = (value: string) => {
+    if (
+      value !== "overview" &&
+      value !== "submit" &&
+      value !== "reviews" &&
+      value !== "quizzes"
+    )
+      return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("tab") === value) return;
+    url.searchParams.set("tab", value);
+    window.history.pushState(null, "", url.pathname + url.search + url.hash);
+  };
   const [folderOpen, setFolderOpen] = useState(false);
   const [uploadNotice, setUploadNotice] = useState("");
   const [uploadProgress, setUploadProgress] = useState("");
@@ -404,11 +424,8 @@ export function PracticeWorkspace({
               className="h-11 min-w-max justify-start"
               aria-label="Challenge workspace"
             >
-              <TabsTrigger value="challenge" className="flex-none px-4">
+              <TabsTrigger value="overview" className="flex-none px-4">
                 Overview
-              </TabsTrigger>
-              <TabsTrigger value="quizzes" className="flex-none px-4">
-                Quizzes
               </TabsTrigger>
               <TabsTrigger value="submit" className="flex-none px-4">
                 Submit
@@ -417,10 +434,13 @@ export function PracticeWorkspace({
                 Reviews
                 {running && <LoaderCircle size={13} className="animate-spin" />}
               </TabsTrigger>
+              <TabsTrigger value="quizzes" className="flex-none px-4">
+                Quizzes
+              </TabsTrigger>
             </TabsList>
           </div>
           <TabsContent
-            value="challenge"
+            value="overview"
             className="min-h-0 flex-1 overflow-y-auto"
           >
             <div className="px-5 py-6 md:px-10">
@@ -501,12 +521,6 @@ export function PracticeWorkspace({
             </div>
           </TabsContent>
           <TabsContent
-            value="quizzes"
-            className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-10"
-          >
-            <QuizWorkspace profileId={profile.id} challengeId={challenge.id} />
-          </TabsContent>
-          <TabsContent
             value="submit"
             className="min-h-0 flex-1 overflow-y-auto"
           >
@@ -581,6 +595,12 @@ export function PracticeWorkspace({
                 }
               />
             )}
+          </TabsContent>
+          <TabsContent
+            value="quizzes"
+            className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-10"
+          >
+            <QuizWorkspace profileId={profile.id} challengeId={challenge.id} />
           </TabsContent>
         </Tabs>
       </div>

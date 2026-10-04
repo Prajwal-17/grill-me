@@ -11,12 +11,12 @@ for a hint, submit your implementation, and mark the challenge completed when yo
 3. Read a concise task with stable acceptance criteria. Each challenge saves a difficulty estimate out of 10 and the context used to generate it.
 4. Code in your editor. Paste an implementation, upload source files, or connect a local project. There are no application file-count or file-size limits; attachments upload in chunks.
 5. Submit for review. Self-contained exercises use OmniRoute; projects and submissions that need incremental exploration use the local Codex app-server judge.
-6. Use Overview, Quizzes, Submit, and Reviews tabs. Submit code without a written explanation, select an earlier submission or review run when needed, and mark completed when you decide. Pause and resume anytime.
+6. Use Overview, Submit, Reviews, and Quizzes tabs. Submit code without a written explanation, select an earlier submission or review run when needed, and mark completed when you decide. Pause and resume anytime.
 
 Quizzes generates separate sets of 5, 10, or 15 multiple-choice questions from a
 challenge, related concepts, or both. Switch between saved quizzes, answer at
-your own pace, and resume database-saved attempts. Answers autosave with a local
-recovery copy. Submit for a score and explanations, or retake while retaining
+your own pace, and resume database-saved attempts. Each choice saves immediately,
+with a local recovery copy. Submit for a score and explanations, or retake while retaining
 earlier attempts. Quizzes also work on completed challenges; their scores do not
 change implementation reviews or challenge completion.
 

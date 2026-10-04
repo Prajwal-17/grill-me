@@ -199,7 +199,7 @@ export function QuizWorkspace({
         start.reset();
       } else setAttemptId(value);
     } catch {
-      /* The current attempt displays the save error and retains its answers. */
+      /* The toast reports the save error; keep the current attempt visible. */
     } finally {
       setChanging(false);
     }

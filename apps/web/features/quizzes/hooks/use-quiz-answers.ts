@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useToastError } from "@/shared/components/ui/toast";
 import { saveQuizAnswers } from "../api/quiz-api";
 import type { Quiz, QuizAnswers, QuizAttempt } from "../types";
 
@@ -54,13 +55,8 @@ export function useQuizAnswers({
   const [answers, setAnswers] = useState(() =>
     readDraft(storageKey, attempt, quiz),
   );
-  const [saveState, setSaveState] = useState<
-    "saved" | "unsaved" | "saving" | "failed"
-  >(() =>
-    signature(answers) === signature(attempt.answers) ? "saved" : "unsaved",
-  );
-  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const showError = useToastError();
   const latest = useRef(answers);
   const revision = useRef(attempt.revision);
   const saved = useRef(signature(attempt.answers));
@@ -101,8 +97,6 @@ export function useQuizAnswers({
     const run = async () => {
       try {
         while (saved.current !== signature(latest.current)) {
-          setSaveState("saving");
-          setError("");
           const snapshot = { ...latest.current };
           pending.current = snapshot;
           backup(latest.current, revision.current);
@@ -121,13 +115,11 @@ export function useQuizAnswers({
           if (saved.current === signature(latest.current)) removeBackup();
           else backup(latest.current, revision.current);
         }
-        setSaveState("saved");
       } catch (failure) {
-        setSaveState("failed");
-        setError(
-          failure instanceof Error
+        showError(
+          failure instanceof Error && failure.message !== "Failed to fetch"
             ? failure.message
-            : "Could not save answers.",
+            : "Could not save answers. Please try again.",
         );
         throw failure;
       }
@@ -140,15 +132,20 @@ export function useQuizAnswers({
       })
       .catch(() => {});
     return promise;
-  }, [profileId, quiz.challengeId, quiz.id, attempt.id, backup, removeBackup]);
+  }, [
+    profileId,
+    quiz.challengeId,
+    quiz.id,
+    attempt.id,
+    backup,
+    removeBackup,
+    showError,
+  ]);
 
   useEffect(() => {
     if (attempt.status === "submitted") return;
-    const timer = setTimeout(() => {
-      void save().catch(() => {});
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [answers, attempt.status, save]);
+    void save().catch(() => {});
+  }, [attempt.status, save]);
   useEffect(
     () => () => {
       void save().catch(() => {});
@@ -161,15 +158,15 @@ export function useQuizAnswers({
     const next = { ...latest.current, [questionId]: option };
     latest.current = next;
     setAnswers(next);
-    setSaveState("unsaved");
-    setError("");
     backup(next, revision.current);
+    void save().catch(() => {});
   }
   async function submit() {
     setSubmitting(true);
-    setError("");
+    let answersSaved = false;
     try {
       await save();
+      answersSaved = true;
       const result = await saveQuizAnswers(
         profileId,
         quiz.challengeId,
@@ -183,28 +180,23 @@ export function useQuizAnswers({
       saved.current = signature(result.answers);
       removeBackup();
       onSavedRef.current(result);
-      setSaveState("saved");
     } catch (failure) {
-      setError(
-        failure instanceof Error ? failure.message : "Could not submit quiz.",
-      );
+      if (answersSaved)
+        showError(
+          failure instanceof Error && failure.message !== "Failed to fetch"
+            ? failure.message
+            : "Could not submit quiz. Please try again.",
+        );
     } finally {
       setSubmitting(false);
     }
-  }
-  function useSavedAnswers() {
-    removeBackup();
-    window.location.reload();
   }
 
   return {
     answers,
     choose,
     save,
-    saveState,
-    error,
     submitting,
     submit,
-    useSavedAnswers,
   };
 }

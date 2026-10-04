@@ -1,18 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Check, X } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Markdown } from "@/shared/components/markdown";
 import { cn } from "@/shared/lib/cn";
 import { useQuizAnswers } from "../hooks/use-quiz-answers";
 import type { Quiz, QuizAttempt as Attempt } from "../types";
-
-const SAVE_LABELS = {
-  saved: "Saved",
-  unsaved: "Unsaved",
-  saving: "Saving…",
-  failed: "Save failed",
-};
 
 export function QuizAttempt({
   profileId,
@@ -52,9 +46,7 @@ export function QuizAttempt({
             ? `Score: ${attempt.score}/${quiz.questionCount}`
             : `${answered}/${quiz.questionCount} answered`}
         </p>
-        <span role="status" aria-live="polite">
-          {submitted ? "Submitted" : SAVE_LABELS[state.saveState]}
-        </span>
+        {submitted && <span>Submitted</span>}
       </div>
       <nav aria-label="Quiz questions" className="flex flex-wrap gap-1.5">
         {quiz.questions.map((q, i) => (
@@ -87,58 +79,60 @@ export function QuizAttempt({
           </span>
           <Markdown>{question.question}</Markdown>
         </legend>
-        {question.options.map((option, optionIndex) => (
-          <label
-            key={optionIndex}
-            className={cn(
-              "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm leading-6",
-              state.answers[question.id] === optionIndex
-                ? "border-line-strong bg-elevated"
-                : "border-line hover:bg-elevated",
-              submitted && "cursor-default",
-            )}
-          >
-            <input
-              type="radio"
-              name={`quiz-${question.id}`}
-              value={optionIndex}
-              checked={state.answers[question.id] === optionIndex}
-              onChange={() => state.choose(question.id, optionIndex)}
-              className="mt-1.5 size-3.5 shrink-0 accent-foreground"
-            />
-            <span className="text-muted">
-              {String.fromCharCode(65 + optionIndex)}.
-            </span>
-            <div className="min-w-0 flex-1 break-words">
-              <Markdown>{option}</Markdown>
-            </div>
-          </label>
-        ))}
+        {question.options.map((option, optionIndex) => {
+          const correct = result?.correctOption === optionIndex;
+          const incorrect = result?.chosenOption === optionIndex && !correct;
+          return (
+            <label
+              key={optionIndex}
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 text-sm leading-6",
+                correct
+                  ? "border-success/50 bg-success/10"
+                  : incorrect
+                    ? "border-destructive/50 bg-destructive/10"
+                    : state.answers[question.id] === optionIndex
+                      ? "border-line-strong bg-elevated"
+                      : "border-line hover:bg-elevated",
+                submitted && "cursor-default",
+              )}
+            >
+              <input
+                type="radio"
+                name={`quiz-${question.id}`}
+                value={optionIndex}
+                checked={state.answers[question.id] === optionIndex}
+                onChange={() => state.choose(question.id, optionIndex)}
+                className={cn(
+                  "mt-1.5 size-3.5 shrink-0 accent-foreground",
+                  correct && "accent-success",
+                  incorrect && "accent-destructive",
+                )}
+              />
+              <span className="text-muted">
+                {String.fromCharCode(65 + optionIndex)}.
+              </span>
+              <div className="min-w-0 flex-1 break-words">
+                <Markdown>{option}</Markdown>
+                {correct && (
+                  <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-success">
+                    <Check size={13} aria-hidden="true" /> Correct answer
+                  </span>
+                )}
+                {incorrect && (
+                  <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-destructive">
+                    <X size={13} aria-hidden="true" /> Your answer · Incorrect
+                  </span>
+                )}
+              </div>
+            </label>
+          );
+        })}
       </fieldset>
       {result && (
         <div className="border-t border-line pt-4 text-sm leading-6">
-          <p className="mb-2 font-medium">
-            {result.chosenOption === result.correctOption
-              ? "Correct"
-              : "Incorrect"}{" "}
-            · Correct answer: {String.fromCharCode(65 + result.correctOption)}
-          </p>
+          <p className="mb-2 text-xs font-medium text-muted">Explanation</p>
           <Markdown>{result.explanation}</Markdown>
-        </div>
-      )}
-      {state.error && (
-        <div role="alert" className="text-xs text-destructive">
-          <p>{state.error}</p>
-          {state.error.includes("another tab") && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={state.useSavedAnswers}
-              className="mt-2"
-            >
-              Use saved answers
-            </Button>
-          )}
         </div>
       )}
       <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
@@ -157,29 +151,17 @@ export function QuizAttempt({
           Next
         </Button>
         {!submitted && (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="ml-auto"
-              disabled={state.saveState === "saving" || state.submitting}
-              onClick={() => {
-                void state.save().catch(() => {});
-              }}
-            >
-              Save answers
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={answered !== quiz.questionCount || state.submitting}
-              onClick={() => {
-                void state.submit();
-              }}
-            >
-              {state.submitting ? "Submitting…" : "Submit quiz"}
-            </Button>
-          </>
+          <Button
+            size="sm"
+            variant="primary"
+            className="ml-auto"
+            disabled={answered !== quiz.questionCount || state.submitting}
+            onClick={() => {
+              void state.submit();
+            }}
+          >
+            {state.submitting ? "Submitting…" : "Submit quiz"}
+          </Button>
         )}
       </div>
     </div>
