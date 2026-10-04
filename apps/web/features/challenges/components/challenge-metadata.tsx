@@ -18,16 +18,23 @@ const DIFFICULTY_ICONS: Record<Challenge["difficulty"], LucideIcon> = {
 export function ChallengeMetadata({
   challenge,
   compact = false,
+  variant = "badges",
   className,
 }: {
   challenge: Challenge;
   compact?: boolean;
+  variant?: "badges" | "columns";
   className?: string;
 }) {
   const metadata = buildMetadata(challenge);
   return (
     <div
-      className={cn("flex flex-wrap items-center gap-2", className)}
+      className={cn(
+        variant === "columns"
+          ? "grid items-center gap-x-4"
+          : "flex flex-wrap items-center gap-2",
+        className,
+      )}
       aria-label="Build details"
     >
       {metadata.map(({ label, value }) => {
@@ -44,6 +51,10 @@ export function ChallengeMetadata({
             className={cn(
               "inline-flex items-center rounded-md border border-line bg-canvas text-muted",
               compact ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs",
+              variant === "columns" && "w-fit whitespace-nowrap",
+              variant === "columns" &&
+                label !== "Scope" &&
+                "border-transparent bg-transparent px-0",
             )}
           >
             <span className="sr-only">{label}: </span>
