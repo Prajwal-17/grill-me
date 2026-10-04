@@ -16,6 +16,8 @@ import type { ModelGateway } from "./model-gateway";
 import { normalizePreparationOutput } from "./preparation-output";
 import { modelUnavailable, parseJson } from "./model.utils";
 import { startAiLog, type LogContext } from "../logs/ai-log-recorder";
+import { generatedQuizSchema, validateQuiz } from "../quizzes/quiz.schema";
+import { quizPrompt } from "./prompts/generate-quiz";
 import {
   buildJsonSchema,
   clarificationPrompt,
@@ -147,7 +149,7 @@ export function createOpenAIModel(
     context: LogContext;
     prompt: StructuredPrompt;
     name: string;
-    stage: "preparation" | "generation" | "review" | "verification";
+    stage: "preparation" | "generation" | "review" | "verification" | "quiz";
     signal?: AbortSignal;
     schema: Record<string, unknown>;
     validator: z.ZodType<T>;
@@ -354,6 +356,33 @@ export function createOpenAIModel(
   }
 
   return {
+    generateQuiz(input) {
+      return requestStructured({
+        context: {
+          profileId: input.challenge.profileId,
+          challengeId: input.challenge.id,
+          operation: "quiz_generation",
+          preview: input.challenge.title,
+        },
+        prompt: quizPrompt(input),
+        name: "challenge_quiz",
+        stage: "quiz",
+        schema: zod.toJSONSchema(generatedQuizSchema(input.questionCount)),
+        validator: generatedQuizSchema(input.questionCount),
+        normalize: (value) => {
+          try {
+            return validateQuiz(value, input.questionCount);
+          } catch {
+            throw new AppError(
+              "MODEL_OUTPUT_INVALID",
+              "The model returned an invalid quiz. Try again.",
+              502,
+              true,
+            );
+          }
+        },
+      });
+    },
     judge(input) {
       return requestStructured({
         context: {

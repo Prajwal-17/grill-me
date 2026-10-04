@@ -44,6 +44,7 @@ import {
   TabsContent,
 } from "@/shared/components/ui/tabs";
 import { completeChallenge } from "@/features/challenges/api/challenge-api";
+import { QuizWorkspace } from "@/features/quizzes/components/quiz-workspace";
 
 type Draft = {
   content: string;
@@ -397,14 +398,17 @@ export function PracticeWorkspace({
           onValueChange={setTab}
           className="min-h-0 flex-1 gap-0 overflow-hidden"
         >
-          <div className="shrink-0 border-b border-line px-4 md:px-7">
+          <div className="shrink-0 overflow-x-auto border-b border-line px-4 md:px-7">
             <TabsList
               variant="line"
-              className="h-11 w-full justify-start"
+              className="h-11 min-w-max justify-start"
               aria-label="Challenge workspace"
             >
               <TabsTrigger value="challenge" className="flex-none px-4">
                 Overview
+              </TabsTrigger>
+              <TabsTrigger value="quizzes" className="flex-none px-4">
+                Quizzes
               </TabsTrigger>
               <TabsTrigger value="submit" className="flex-none px-4">
                 Submit
@@ -495,6 +499,12 @@ export function PracticeWorkspace({
                 )}
               </div>
             </div>
+          </TabsContent>
+          <TabsContent
+            value="quizzes"
+            className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-10"
+          >
+            <QuizWorkspace profileId={profile.id} challengeId={challenge.id} />
           </TabsContent>
           <TabsContent
             value="submit"

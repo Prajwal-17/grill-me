@@ -12,6 +12,7 @@ export const logOperationSchema = z.enum([
   "clarify",
   "review",
   "hint",
+  "quiz_generation",
 ]);
 export const logQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(1_000_000).default(1),

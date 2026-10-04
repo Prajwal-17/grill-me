@@ -3,6 +3,7 @@ import type {
   BuildModelInput,
   LearnerContext,
   ModelGateway,
+  QuizModelInput,
 } from "../src/modules/ai/model-gateway";
 import type {
   Challenge,
@@ -17,6 +18,8 @@ import { AppError } from "../src/shared/errors/app-error";
 import OpenAI from "openai";
 import type { LogRow } from "../src/modules/logs/log.model";
 import { generationPrompt } from "../src/modules/ai/prompts";
+import type { GeneratedQuiz } from "../src/modules/quizzes/quiz.schema";
+import type { QuizService } from "../src/modules/quizzes/quiz.service";
 
 process.env.DATABASE_URL =
   "postgresql://grill_me:grill_me_local@localhost:5432/grill-me-test";
@@ -58,6 +61,27 @@ const generated: GeneratedBuildContent = {
 };
 
 class FakeModel implements ModelGateway {
+  quizInputs: QuizModelInput[] = [];
+  quizOutput: GeneratedQuiz | null = null;
+  async generateQuiz(input: QuizModelInput): Promise<GeneratedQuiz> {
+    this.quizInputs.push(input);
+    return (
+      this.quizOutput ?? {
+        questions: Array.from({ length: input.questionCount }, (_, index) => ({
+          question: `Question ${index + 1}: Which approach correctly meets this challenge's requirements?`,
+          options: [
+            "Preserve every input item.",
+            "Drop repeated input items.",
+            "Return only the final item.",
+            "Ignore the input entirely.",
+          ],
+          correctOption: index % 4,
+          explanation:
+            "The correct choice follows the stated behavior and preserves the required result.",
+        })),
+      }
+    );
+  }
   preparation: ChallengePreparation = { question: null, options: [] };
   final = generated;
   generationError: Error | null = null;
@@ -150,6 +174,349 @@ async function createChallenge(
   expect(response.status).toBe(201);
   return (await json<{ data: Challenge }>(response)).data;
 }
+
+describe("challenge quizzes", () => {
+  type Detail = Awaited<ReturnType<QuizService["detail"]>>;
+  type Quiz = Detail["quiz"];
+  type Attempt = Detail["attempts"][number];
+
+  async function setup() {
+    const model = new FakeModel();
+    const app = createApp({ llm: model });
+    const owner = await startProfile(
+      app,
+      `quiz-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id);
+    const path = `/challenges/${challenge.id}/quizzes`;
+    const make = async (
+      count: 5 | 10 | 15 = 5,
+      requestId = crypto.randomUUID(),
+    ) => {
+      const response = await request(app, path + "/generate", owner.id, {
+        requestId,
+        questionCount: count,
+        coverage: "mixed",
+      });
+      expect(response.status).toBe(201);
+      return (await json<{ data: Quiz }>(response)).data;
+    };
+    return { model, app, owner, challenge, path, make };
+  }
+
+  test("presets create separate generations with frozen context and no exposed answer keys", async () => {
+    const state = await setup();
+    for (const count of [5, 10, 15] as const) {
+      const quiz = await state.make(count);
+      expect(quiz.questions).toHaveLength(count);
+      expect(quiz.questions[0]).not.toHaveProperty("correctOption");
+      expect(quiz.questions[0]).not.toHaveProperty("explanation");
+    }
+    const list = await json<{ data: Quiz[] }>(
+      await request(state.app, state.path, state.owner.id),
+    );
+    expect(list.data.map((quiz) => quiz.number)).toEqual([3, 2, 1]);
+    expect(state.model.quizInputs[1]!.previousQuestions).toHaveLength(5);
+    expect(state.model.quizInputs[0]!.challenge.problemStatement).toBe(
+      state.challenge.problemStatement,
+    );
+    expect(list.data[0]).not.toHaveProperty("questions");
+  });
+
+  test("generation retry and concurrent requests return one quiz", async () => {
+    const state = await setup();
+    const requestId = crypto.randomUUID();
+    const [first, second] = await Promise.all([
+      state.make(5, requestId),
+      state.make(5, requestId),
+    ]);
+    expect(first.id).toBe(second.id);
+    expect((await state.make(5, requestId)).id).toBe(first.id);
+    expect(state.model.quizInputs).toHaveLength(1);
+    const [third, fourth] = await Promise.all([state.make(), state.make()]);
+    expect(new Set([third.number, fourth.number]).size).toBe(2);
+  });
+
+  test("rejects invalid count, duplicate choices, duplicate questions, and wrong count without saving", async () => {
+    const state = await setup();
+    expect(
+      (
+        await request(state.app, state.path + "/generate", state.owner.id, {
+          requestId: crypto.randomUUID(),
+          questionCount: 7,
+        })
+      ).status,
+    ).toBe(400);
+    const valid = await state.model.generateQuiz({
+      challenge: state.challenge,
+      questionCount: 5,
+      coverage: "mixed",
+      previousQuestions: [],
+    });
+    for (const invalid of [
+      { questions: valid.questions.slice(0, 4) },
+      {
+        questions: valid.questions.map((q) => ({
+          ...q,
+          question: valid.questions[0]!.question,
+        })),
+      },
+      {
+        questions: valid.questions.map((q) => ({
+          ...q,
+          options: ["Same choice", "same choice", "Other", "Fourth"],
+        })),
+      },
+      { questions: valid.questions.map((q) => ({ ...q, correctOption: 4 })) },
+    ]) {
+      state.model.quizOutput = invalid;
+      const response = await request(
+        state.app,
+        state.path + "/generate",
+        state.owner.id,
+        { requestId: crypto.randomUUID(), questionCount: 5 },
+      );
+      expect(response.status).toBe(502);
+    }
+    expect(
+      (
+        await json<{ data: Quiz[] }>(
+          await request(state.app, state.path, state.owner.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+  });
+
+  test("saves and resumes answers, grades on the server, and preserves retake history", async () => {
+    const state = await setup();
+    const quiz = await state.make();
+    const path = `${state.path}/${quiz.id}`;
+    const begin = () =>
+      request(state.app, path + "/attempts", state.owner.id, {});
+    const started = (await json<{ data: Attempt }>(await begin())).data;
+    expect((await json<{ data: Attempt }>(await begin())).data.id).toBe(
+      started.id,
+    );
+    expect(started.results).toBeNull();
+    const attemptPath = `${path}/attempts/${started.id}`;
+    const answers = Object.fromEntries(
+      quiz.questions.map((q, index) => [q.id, index === 1 ? 0 : index % 4]),
+    );
+    const partial = { [quiz.questions[0]!.id]: 0 };
+    const saved = (
+      await json<{ data: Attempt }>(
+        await request(state.app, attemptPath + "/answers", state.owner.id, {
+          revision: 0,
+          answers: partial,
+        }),
+      )
+    ).data;
+    expect(saved.revision).toBe(1);
+    const detail = (
+      await json<{ data: Detail }>(
+        await request(state.app, path, state.owner.id),
+      )
+    ).data;
+    expect(detail.attempts[0]!.answers).toEqual(partial);
+    expect(detail.attempts[0]!.results).toBeNull();
+    expect(
+      (
+        await request(state.app, attemptPath + "/submit", state.owner.id, {
+          revision: 1,
+          answers: partial,
+        })
+      ).status,
+    ).toBe(400);
+    const submitted = (
+      await json<{ data: Attempt }>(
+        await request(state.app, attemptPath + "/submit", state.owner.id, {
+          revision: 1,
+          answers,
+        }),
+      )
+    ).data;
+    expect(submitted.score).toBe(4);
+    expect(submitted.results).toHaveLength(5);
+    expect(submitted.results![1]!.correctOption).toBe(1);
+    expect(
+      (
+        await request(state.app, attemptPath + "/answers", state.owner.id, {
+          revision: submitted.revision,
+          answers: partial,
+        })
+      ).status,
+    ).toBe(409);
+    const repeated = (
+      await json<{ data: Attempt }>(
+        await request(state.app, attemptPath + "/submit", state.owner.id, {
+          revision: 1,
+          answers: partial,
+        }),
+      )
+    ).data;
+    expect(repeated.score).toBe(4);
+    expect(repeated.revision).toBe(submitted.revision);
+    const retake = (await json<{ data: Attempt }>(await begin())).data;
+    expect(retake.number).toBe(2);
+    expect(retake.answers).toEqual({});
+    expect(
+      (
+        await json<{ data: Detail }>(
+          await request(state.app, path, state.owner.id),
+        )
+      ).data.attempts,
+    ).toHaveLength(2);
+    expect(
+      (
+        await json<{ data: Challenge }>(
+          await request(
+            state.app,
+            `/challenges/${state.challenge.id}`,
+            state.owner.id,
+          ),
+        )
+      ).data.status,
+    ).toBe("active");
+  });
+
+  test("concurrent saves detect conflicts and reject answers or attempts from another quiz", async () => {
+    const state = await setup();
+    const [quiz, otherQuiz] = await Promise.all([state.make(), state.make()]);
+    const path = `${state.path}/${quiz.id}`;
+    const [a, b] = await Promise.all([
+      request(state.app, path + "/attempts", state.owner.id, {}),
+      request(state.app, path + "/attempts", state.owner.id, {}),
+    ]);
+    const attempt = (await json<{ data: Attempt }>(a)).data;
+    expect((await json<{ data: Attempt }>(b)).data.id).toBe(attempt.id);
+    const attemptPath = `${path}/attempts/${attempt.id}/answers`;
+    const saves = await Promise.all(
+      [0, 1].map((option) =>
+        request(state.app, attemptPath, state.owner.id, {
+          revision: 0,
+          answers: { [quiz.questions[0]!.id]: option },
+        }),
+      ),
+    );
+    expect(saves.map((response) => response.status).sort()).toEqual([200, 409]);
+    expect(
+      (
+        await request(state.app, attemptPath, state.owner.id, {
+          revision: 1,
+          answers: { [otherQuiz.questions[0]!.id]: 0 },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(state.app, attemptPath, state.owner.id, {
+          revision: 1,
+          answers: { [quiz.questions[0]!.id]: 5 },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await request(
+          state.app,
+          `${state.path}/${otherQuiz.id}/attempts/${attempt.id}/answers`,
+          state.owner.id,
+          { revision: 1, answers: {} },
+        )
+      ).status,
+    ).toBe(404);
+  });
+
+  test("quizzes remain usable on completed challenges and all operations require ownership", async () => {
+    const state = await setup();
+    await request(
+      state.app,
+      `/challenges/${state.challenge.id}/complete`,
+      state.owner.id,
+      {},
+    );
+    const quiz = await state.make();
+    const path = `${state.path}/${quiz.id}`;
+    const attempt = (
+      await json<{ data: Attempt }>(
+        await request(state.app, path + "/attempts", state.owner.id, {}),
+      )
+    ).data;
+    const other = await startProfile(
+      state.app,
+      `other-quiz-${crypto.randomUUID()}@test.dev`,
+    );
+    for (const [url, body] of [
+      [state.path, undefined],
+      [path, undefined],
+      [
+        state.path + "/generate",
+        { requestId: crypto.randomUUID(), questionCount: 5 },
+      ],
+      [path + "/attempts", {}],
+      [`${path}/attempts/${attempt.id}/answers`, { revision: 0, answers: {} }],
+      [`${path}/attempts/${attempt.id}/submit`, { revision: 0, answers: {} }],
+    ] as const)
+      expect((await request(state.app, url, other.id, body)).status).toBe(404);
+    expect((await state.app.request(state.path)).status).toBe(401);
+  });
+
+  test("quiz provider calls use validated structured output and record success and failure logs", async () => {
+    const state = await setup();
+    const output = await state.model.generateQuiz({
+      challenge: state.challenge,
+      questionCount: 5,
+      coverage: "related",
+      previousQuestions: [],
+    });
+    let providerRequest: Record<string, unknown> | undefined;
+    let valid = true;
+    const app = createApp({
+      llm: loggedModel((body) => {
+        providerRequest = body;
+        return Response.json(
+          modelResponse(JSON.stringify(valid ? output : { questions: [] })),
+        );
+      }),
+    });
+    const input = {
+      requestId: crypto.randomUUID(),
+      questionCount: 5,
+      coverage: "related",
+    };
+    expect(
+      (await request(app, state.path + "/generate", state.owner.id, input))
+        .status,
+    ).toBe(201);
+    expect(providerRequest!.instructions).toContain("Generate exactly 5");
+    expect(JSON.parse(String(providerRequest!.input)).coverage).toBe("related");
+    valid = false;
+    expect(
+      (
+        await request(app, state.path + "/generate", state.owner.id, {
+          ...input,
+          requestId: crypto.randomUUID(),
+        })
+      ).status,
+    ).toBe(502);
+    const logs = await profileLogs(
+      app,
+      state.owner.id,
+      "?operation=quiz_generation",
+    );
+    expect(logs.items.map((row) => row.status).sort()).toEqual([
+      "error",
+      "success",
+    ]);
+    expect(
+      (
+        await json<{ data: Quiz[] }>(
+          await request(app, state.path, state.owner.id),
+        )
+      ).data,
+    ).toHaveLength(1);
+  });
+});
 
 describe("profile preferences", () => {
   test("keeps technical context isolated and omits generation settings", async () => {
