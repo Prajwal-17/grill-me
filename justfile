@@ -17,6 +17,14 @@ db-migrate-prod: db-up
 db-migrate-dev: db-up
     bun db:migrate:dev
 
+# open Drizzle Studio for the production database
+db-studio-prod: db-up
+    bun db:studio:prod
+
+# open Drizzle Studio for the development database
+db-studio-dev: db-up
+    bun db:studio:dev
+
 # start production stack
 prod:
     docker compose up -d
