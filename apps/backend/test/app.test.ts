@@ -623,6 +623,73 @@ describe("standalone quizzes", () => {
     expect(state.model.quizInputs.at(-1)!.previousQuestions).toEqual([]);
   });
 
+  test("accepts one-word topics and detailed multiline quiz prompts without truncating their context", async () => {
+    const state = await setup();
+    const detailed =
+      "Compare JavaScript closures and async behavior.\nUse short code-reading examples, include common mistakes, and avoid DOM trivia.\n" +
+      "Focus on reasoning about captured variables and execution order. ".repeat(
+        8,
+      );
+    for (const prompt of ["C", "JavaScript", detailed]) {
+      const response = await request(
+        state.app,
+        "/quizzes/generate",
+        state.owner.id,
+        {
+          requestId: crypto.randomUUID(),
+          questionCount: 5,
+          difficulty: "hard",
+          prompt: `  ${prompt}  `,
+        },
+      );
+      expect(response.status).toBe(201);
+      const quiz = (await json<{ data: Quiz }>(response)).data;
+      expect(quiz.prompt).toBe(prompt.trim());
+      const modelInput = state.model.quizInputs.at(-1)!;
+      expect(modelInput).toMatchObject({
+        challenge: null,
+        prompt: prompt.trim(),
+        questionCount: 5,
+        difficulty: "hard",
+      });
+      const stored = await db.$client.unsafe(
+        "SELECT context_snapshot FROM quizzes WHERE id = $1",
+        [quiz.id],
+      );
+      const snapshot =
+        typeof stored[0].context_snapshot === "string"
+          ? JSON.parse(stored[0].context_snapshot)
+          : stored[0].context_snapshot;
+      expect(snapshot.prompt).toBe(prompt.trim());
+    }
+    expect(detailed.length).toBeGreaterThan(200);
+    const list = (
+      await json<{ data: Quiz[] }>(
+        await request(state.app, "/quizzes", state.owner.id),
+      )
+    ).data;
+    expect(list).toHaveLength(3);
+    expect(list[0]!.prompt).toBe(detailed.trim());
+  });
+
+  test("rejects missing, empty, oversized, and non-text prompts before calling the model", async () => {
+    const state = await setup();
+    for (const prompt of [undefined, null, "", "   ", "a".repeat(4001), 42]) {
+      const response = await request(
+        state.app,
+        "/quizzes/generate",
+        state.owner.id,
+        {
+          requestId: crypto.randomUUID(),
+          questionCount: 5,
+          prompt,
+        },
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(state.model.quizInputs).toHaveLength(0);
+  });
+
   test("deduplicates retries and numbers concurrent generations per profile", async () => {
     const state = await setup();
     const [first, second] = await Promise.all([state.make(), state.make()]);
@@ -879,7 +946,7 @@ describe("standalone quizzes", () => {
       "standalone multiple-choice",
     );
     expect(JSON.parse(String(providerRequest!.input))).toMatchObject({
-      topic: quiz.topic,
+      prompt: quiz.prompt,
       difficulty: "hard",
       questionCount: 5,
     });

@@ -13,12 +13,23 @@ export const generateQuizRequestSchema = z.object({
   coverage: quizCoverageSchema.default("mixed"),
 });
 
-export const generateStandaloneQuizRequestSchema = z.object({
-  requestId: z.string().uuid(),
-  questionCount: questionCountSchema,
-  topic: z.string().trim().min(1).max(200),
-  difficulty: buildDifficultySchema.default("medium"),
-});
+export const generateStandaloneQuizRequestSchema = z
+  .object({
+    requestId: z.string().uuid(),
+    questionCount: questionCountSchema,
+    prompt: z.string().trim().min(1).max(4000).optional(),
+    // Continue accepting requests from the original topic-only client.
+    topic: z.string().trim().min(1).max(200).optional(),
+    difficulty: buildDifficultySchema.default("medium"),
+  })
+  .refine((input) => input.prompt !== undefined || input.topic !== undefined, {
+    message: "Enter a topic or describe the quiz you want.",
+    path: ["prompt"],
+  })
+  .transform(({ prompt, topic, ...settings }) => ({
+    ...settings,
+    prompt: (prompt ?? topic)!,
+  }));
 
 const questionSchema = z.object({
   question: z.string().trim().min(10).max(1800),

@@ -2,9 +2,9 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
+import { Textarea } from "@/shared/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,7 @@ import {
   type QuizSummary,
 } from "../types";
 import { QuizAttempt } from "./quiz-attempt";
+import { QuizTable } from "./quiz-table";
 
 function QuizSelect({
   label,
@@ -94,7 +95,7 @@ export function QuizWorkspace({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
   const [coverage, setCoverage] = useState<QuizCoverage>("mixed");
-  const [topic, setTopic] = useState("");
+  const [prompt, setPrompt] = useState("");
   const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
   const [changing, setChanging] = useState(false);
   const saveRef = useRef<(() => Promise<void>) | null>(null);
@@ -112,7 +113,7 @@ export function QuizWorkspace({
   });
   const selectedQuizId =
     list.data?.find((quiz) => quiz.id === quizId)?.id ??
-    list.data?.[0]?.id ??
+    (challengeId === null ? "" : list.data?.[0]?.id) ??
     "";
   const detailKey = quizKeys.detail(profileId, challengeId, selectedQuizId);
   const detail = useQuery({
@@ -167,7 +168,7 @@ export function QuizWorkspace({
       const previous = requestRef.current;
       const settings =
         challengeId === null
-          ? { questionCount, topic: topic.trim(), difficulty }
+          ? { questionCount, prompt: prompt.trim(), difficulty }
           : { questionCount, coverage };
       const signature = JSON.stringify(settings);
       const request =
@@ -226,7 +227,17 @@ export function QuizWorkspace({
       className="mx-auto w-full max-w-[820px] space-y-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {selectedQuizId ? (
+        {challengeId === null && selectedQuizId ? (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              void select("", "quiz");
+            }}
+          >
+            <ArrowLeft size={14} /> All quizzes
+          </Button>
+        ) : selectedQuizId ? (
           <QuizSelect
             label="Select quiz"
             value={selectedQuizId}
@@ -274,10 +285,18 @@ export function QuizWorkspace({
             Retry
           </Button>
         </div>
+      ) : !selectedQuizId && list.data?.length ? (
+        <QuizTable
+          quizzes={list.data}
+          disabled={busy}
+          onOpen={(id) => {
+            void select(id, "quiz");
+          }}
+        />
       ) : !selectedQuizId ? (
         <p className="text-sm text-muted">
           {challengeId === null
-            ? "No quizzes yet. Generate your first quiz on a topic you want to practice."
+            ? "No quizzes yet. Generate your first quiz from a topic or a prompt."
             : "No quizzes yet."}
         </p>
       ) : detail.isLoading ? (
@@ -300,10 +319,25 @@ export function QuizWorkspace({
       ) : (
         detail.data && (
           <>
+            {challengeId === null && (
+              <div className="space-y-3">
+                <h2 className="text-sm font-medium">
+                  Quiz {detail.data.quiz.number}
+                </h2>
+                <details className="rounded-lg border border-line px-3 py-2 text-sm">
+                  <summary className="cursor-pointer text-muted">
+                    Quiz prompt
+                  </summary>
+                  <p className="mt-2 whitespace-pre-wrap leading-6 [overflow-wrap:anywhere]">
+                    {detail.data.quiz.prompt ?? detail.data.quiz.topic}
+                  </p>
+                </details>
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
               <p className="text-xs text-muted">
                 {detail.data.quiz.coverage === "topic"
-                  ? `${detail.data.quiz.topic} · ${detail.data.quiz.difficulty}`
+                  ? detail.data.quiz.difficulty
                   : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
                 ·{" "}
                 {new Intl.DateTimeFormat("en", {
@@ -366,37 +400,43 @@ export function QuizWorkspace({
         }}
       >
         <DialogContent
-          className="sm:max-w-sm"
+          className={challengeId === null ? "sm:max-w-lg" : "sm:max-w-sm"}
           showCloseButton={!generation.isPending}
         >
           <DialogTitle>Generate quiz</DialogTitle>
           <DialogDescription className="sr-only">
             {challengeId === null
-              ? "Choose a topic, difficulty, and question count for a new quiz."
+              ? "Enter a topic or prompt, then choose difficulty and question count."
               : "Choose question count and coverage for a new quiz."}
           </DialogDescription>
           <form
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              generation.mutate();
+              if (!generation.isPending) generation.mutate();
             }}
           >
             {challengeId === null && (
               <div className="space-y-1.5">
-                <label htmlFor="quiz-topic" className="text-xs text-muted">
-                  Topic
+                <label htmlFor="quiz-prompt" className="text-xs text-muted">
+                  Quiz prompt
                 </label>
-                <Input
-                  id="quiz-topic"
-                  value={topic}
-                  onChange={(event) => setTopic(event.target.value)}
-                  placeholder="e.g. JavaScript closures or SQL joins"
+                <Textarea
+                  id="quiz-prompt"
+                  aria-describedby="quiz-prompt-help"
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  className="min-h-28"
+                  placeholder="e.g. JavaScript, or: Test closures and async behavior with short code examples. Focus on common mistakes."
                   required
                   minLength={1}
-                  maxLength={200}
+                  maxLength={4000}
                   disabled={generation.isPending}
                 />
+                <p id="quiz-prompt-help" className="text-xs text-muted">
+                  One word is enough, or describe the concepts and scenarios you
+                  want to practice.
+                </p>
               </div>
             )}
             <div className="flex flex-wrap gap-3">
@@ -456,7 +496,7 @@ export function QuizWorkspace({
               variant="primary"
               disabled={
                 generation.isPending ||
-                (challengeId === null && topic.trim().length === 0)
+                (challengeId === null && prompt.trim().length === 0)
               }
             >
               {generation.isPending ? "Generating…" : "Generate quiz"}

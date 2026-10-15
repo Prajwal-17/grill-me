@@ -16,8 +16,8 @@ export function QuizzesPage() {
         <header className="mx-auto mb-8 w-full max-w-[820px] space-y-2">
           <h1 className="text-xl font-semibold tracking-[-0.02em]">Quizzes</h1>
           <p className="text-sm text-muted">
-            Practice any topic with a quiz. Choose your difficulty, save your
-            progress, and review explanations when you finish.
+            Start with one word or describe the quiz you want. Browse your saved
+            quizzes, resume your progress, and review your results.
           </p>
         </header>
         <QuizWorkspace key={profile.id} profileId={profile.id} />

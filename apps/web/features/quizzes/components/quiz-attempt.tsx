@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Markdown } from "@/shared/components/markdown";
@@ -22,6 +22,7 @@ export function QuizAttempt({
   registerSave: (save: (() => Promise<void>) | null) => void;
 }) {
   const state = useQuizAnswers({ profileId, quiz, attempt, onSaved });
+  const workspaceRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(() =>
     Math.max(
       0,
@@ -34,12 +35,74 @@ export function QuizAttempt({
   const result = attempt.results?.find((r) => r.questionId === question.id);
 
   useEffect(() => {
+    workspaceRef.current?.focus({ preventScroll: true });
+  }, [submitted]);
+
+  useEffect(() => {
     registerSave(submitted ? null : state.save);
     return () => registerSave(null);
   }, [registerSave, state.save, submitted]);
 
   return (
-    <div className="space-y-5">
+    <div
+      ref={workspaceRef}
+      role="group"
+      aria-label="Quiz attempt"
+      aria-describedby={`quiz-keys-${attempt.id}`}
+      aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
+      tabIndex={0}
+      className="space-y-5 rounded-md outline-offset-4"
+      onKeyDown={(event) => {
+        if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
+          return;
+        const target = event.target;
+        if (
+          !(target instanceof HTMLElement) ||
+          target.closest(
+            'textarea, select, input:not([type="radio"]), [contenteditable="true"], [role="combobox"], [role="listbox"], [role="dialog"], a',
+          )
+        )
+          return;
+        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+          event.preventDefault();
+          setIndex((current) =>
+            Math.max(
+              0,
+              Math.min(
+                quiz.questions.length - 1,
+                current + (event.key === "ArrowRight" ? 1 : -1),
+              ),
+            ),
+          );
+          workspaceRef.current?.focus({ preventScroll: true });
+        } else if (
+          !submitted &&
+          !state.submitting &&
+          (event.key === "ArrowUp" || event.key === "ArrowDown")
+        ) {
+          event.preventDefault();
+          const selected = state.answers[question.id];
+          const next =
+            selected === undefined
+              ? event.key === "ArrowDown"
+                ? 0
+                : question.options.length - 1
+              : (selected +
+                  (event.key === "ArrowDown" ? 1 : -1) +
+                  question.options.length) %
+                question.options.length;
+          state.choose(question.id, next);
+          workspaceRef.current
+            ?.querySelectorAll<HTMLInputElement>('input[type="radio"]')
+            [next]?.focus({ preventScroll: true });
+        }
+      }}
+    >
+      <p id={`quiz-keys-${attempt.id}`} className="text-xs text-muted">
+        {submitted
+          ? "← → move between questions"
+          : "← → questions · ↑ ↓ select an answer · Answers save automatically"}
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
         <p>
           {submitted
@@ -49,25 +112,54 @@ export function QuizAttempt({
         {submitted && <span>Submitted</span>}
       </div>
       <nav aria-label="Quiz questions" className="flex flex-wrap gap-1.5">
-        {quiz.questions.map((q, i) => (
-          <button
-            key={q.id}
-            type="button"
-            aria-label={`Question ${i + 1}${state.answers[q.id] !== undefined ? ", answered" : ", unanswered"}`}
-            aria-current={index === i ? "step" : undefined}
-            onClick={() => setIndex(i)}
-            className={cn(
-              "size-8 rounded-md border text-xs",
-              index === i
-                ? "border-foreground bg-foreground text-canvas"
-                : state.answers[q.id] !== undefined
-                  ? "border-line-strong bg-elevated text-foreground"
-                  : "border-line text-muted hover:bg-elevated",
-            )}
-          >
-            {i + 1}
-          </button>
-        ))}
+        {quiz.questions.map((q, i) => {
+          const questionResult = attempt.results?.find(
+            (item) => item.questionId === q.id,
+          );
+          const correct =
+            questionResult &&
+            questionResult.chosenOption === questionResult.correctOption;
+          return (
+            <button
+              key={q.id}
+              type="button"
+              aria-label={`Question ${i + 1}${questionResult ? (correct ? ", correct" : ", incorrect") : state.answers[q.id] !== undefined ? ", answered" : ", unanswered"}`}
+              aria-current={index === i ? "step" : undefined}
+              onClick={() => setIndex(i)}
+              className={cn(
+                "relative size-8 rounded-md border text-xs",
+                questionResult
+                  ? correct
+                    ? "border-success/50 bg-success/10 text-success"
+                    : "border-destructive/50 bg-destructive/10 text-destructive"
+                  : index === i
+                    ? "border-foreground bg-foreground text-canvas"
+                    : state.answers[q.id] !== undefined
+                      ? "border-line-strong bg-elevated text-foreground"
+                      : "border-line text-muted hover:bg-elevated",
+                questionResult &&
+                  index === i &&
+                  "ring-2 ring-foreground ring-offset-2 ring-offset-surface",
+              )}
+            >
+              {i + 1}
+              {questionResult && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -right-1 -top-1 rounded-full bg-surface p-0.5"
+                >
+                  {correct ? <Check size={10} /> : <X size={10} />}
+                </span>
+              )}
+            </button>
+          );
+        })}
+        {submitted && (
+          <span className="sr-only">
+            Check marks indicate correct answers. Crosses indicate incorrect
+            answers.
+          </span>
+        )}
       </nav>
       <fieldset
         disabled={submitted || state.submitting}

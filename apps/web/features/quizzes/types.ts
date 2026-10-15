@@ -7,6 +7,7 @@ export type QuizSummary = {
   id: string;
   challengeId: string | null;
   topic: string | null;
+  prompt: string | null;
   difficulty: QuizDifficulty | null;
   number: number;
   questionCount: number;
@@ -51,7 +52,7 @@ export type GenerateQuizRequest = {
 export type GenerateStandaloneQuizRequest = {
   requestId: string;
   questionCount: QuestionCount;
-  topic: string;
+  prompt: string;
   difficulty: QuizDifficulty;
 };
 export const COVERAGE_LABELS: Record<QuizCoverage, string> = {

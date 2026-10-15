@@ -27,6 +27,7 @@ function publicQuiz(quiz: QuizRow) {
     id: quiz.id,
     challengeId: quiz.challengeId,
     topic: quiz.topic,
+    prompt: quiz.challengeId === null ? quiz.topic : null,
     difficulty: quiz.difficulty,
     number: quiz.number,
     questionCount: quiz.questionCount,
@@ -167,7 +168,9 @@ export function createQuizService(
           .where(
             and(
               scope(challengeId, profileId),
-              "topic" in request ? eq(quizzes.topic, request.topic) : undefined,
+              "prompt" in request
+                ? eq(quizzes.topic, request.prompt)
+                : undefined,
             ),
           )
           .orderBy(desc(quizzes.number))
@@ -178,7 +181,7 @@ export function createQuizService(
         let input: QuizModelInput;
         if (challenge && "coverage" in request) {
           input = { challenge, ...request, previousQuestions };
-        } else if (!challenge && "topic" in request) {
+        } else if (!challenge && "prompt" in request) {
           input = {
             challenge: null,
             profileId,
@@ -247,7 +250,8 @@ export function createQuizService(
                 id: crypto.randomUUID(),
                 challengeId,
                 profileId,
-                topic: input.challenge ? null : input.topic,
+                // The existing text column also stores full standalone prompts.
+                topic: input.challenge ? null : input.prompt,
                 difficulty: input.challenge ? null : input.difficulty,
                 number,
                 requestId: request.requestId,

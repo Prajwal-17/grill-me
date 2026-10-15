@@ -30,7 +30,7 @@ export type QuizModelInput = {
   | {
       challenge: null;
       profileId: string;
-      topic: string;
+      prompt: string;
       difficulty: BuildDifficulty;
       preferences: ProfilePreferences;
       coverage: "topic";

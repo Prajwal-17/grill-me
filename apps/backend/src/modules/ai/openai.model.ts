@@ -364,7 +364,9 @@ export function createOpenAIModel(
             : input.profileId,
           challengeId: input.challenge?.id,
           operation: "quiz_generation",
-          preview: input.challenge ? input.challenge.title : input.topic,
+          preview: input.challenge
+            ? input.challenge.title
+            : input.prompt.slice(0, 200),
         },
         prompt: quizPrompt(input),
         name: input.challenge ? "challenge_quiz" : "standalone_quiz",
