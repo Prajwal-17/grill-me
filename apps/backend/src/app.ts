@@ -78,10 +78,9 @@ export function createApp({
     "/challenges",
     createMessageRoutes(createMessageController(messageService)),
   );
-  app.route(
-    "/challenges",
-    createQuizRoutes(createQuizService(llm, challengeService)),
-  );
+  const quizService = createQuizService(llm, challengeService, profileService);
+  app.route("/challenges", createQuizRoutes(quizService));
+  app.route("/quizzes", createQuizRoutes(quizService, true));
   app.onError(handleError);
 
   return app;

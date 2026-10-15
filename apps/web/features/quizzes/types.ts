@@ -1,13 +1,16 @@
 export type QuestionCount = 5 | 10 | 15;
 export type QuizCoverage = "challenge" | "related" | "mixed";
+export type QuizDifficulty = "easy" | "medium" | "hard" | "grill";
 export type QuizAnswers = Record<string, number>;
 export type QuizQuestion = { id: string; question: string; options: string[] };
 export type QuizSummary = {
   id: string;
-  challengeId: string;
+  challengeId: string | null;
+  topic: string | null;
+  difficulty: QuizDifficulty | null;
   number: number;
   questionCount: number;
-  coverage: QuizCoverage;
+  coverage: QuizCoverage | "topic";
   createdAt: string;
   latestAttempt: {
     number: number;
@@ -44,6 +47,12 @@ export type GenerateQuizRequest = {
   requestId: string;
   questionCount: QuestionCount;
   coverage: QuizCoverage;
+};
+export type GenerateStandaloneQuizRequest = {
+  requestId: string;
+  questionCount: QuestionCount;
+  topic: string;
+  difficulty: QuizDifficulty;
 };
 export const COVERAGE_LABELS: Record<QuizCoverage, string> = {
   challenge: "Challenge",

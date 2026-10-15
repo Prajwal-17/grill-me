@@ -1,11 +1,13 @@
-import { and, desc, eq, sql } from "drizzle-orm";
-import type { ModelGateway } from "../ai/model-gateway";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import type { ModelGateway, QuizModelInput } from "../ai/model-gateway";
+import type { ProfileService } from "../profiles/profile.service";
 import { quizPrompt, QUIZ_PROMPT_VERSION } from "../ai/prompts/generate-quiz";
 import type { ChallengeService } from "../challenges/challenge.service";
 import { toChallenge } from "../challenges/challenge.utils";
 import { db } from "../../shared/database/db";
 import {
   challenges,
+  profiles,
   quizAttempts,
   quizzes,
 } from "../../shared/database/schema";
@@ -13,6 +15,7 @@ import { AppError } from "../../shared/errors/app-error";
 import {
   validateQuiz,
   type GenerateQuizRequest,
+  type GenerateStandaloneQuizRequest,
   type SaveQuizAnswers,
 } from "./quiz.schema";
 
@@ -23,6 +26,8 @@ function publicQuiz(quiz: QuizRow) {
   return {
     id: quiz.id,
     challengeId: quiz.challengeId,
+    topic: quiz.topic,
+    difficulty: quiz.difficulty,
     number: quiz.number,
     questionCount: quiz.questionCount,
     coverage: quiz.coverage,
@@ -56,36 +61,54 @@ function publicAttempt(attempt: AttemptRow, quiz: QuizRow) {
 export function createQuizService(
   llm: ModelGateway,
   challengeService: ChallengeService,
+  profileService: ProfileService,
 ) {
   const generating = new Map<string, Promise<ReturnType<typeof publicQuiz>>>();
 
-  async function owned(challengeId: string, quizId: string, profileId: string) {
-    await challengeService.owned(challengeId, profileId);
+  function scope(challengeId: string | null, profileId: string) {
+    return and(
+      eq(quizzes.profileId, profileId),
+      challengeId === null
+        ? isNull(quizzes.challengeId)
+        : eq(quizzes.challengeId, challengeId),
+    );
+  }
+
+  async function assertScope(challengeId: string | null, profileId: string) {
+    if (challengeId !== null)
+      await challengeService.owned(challengeId, profileId);
+    else await profileService.assertExists(profileId);
+  }
+
+  async function owned(
+    challengeId: string | null,
+    quizId: string,
+    profileId: string,
+  ) {
+    await assertScope(challengeId, profileId);
     const quiz = (
       await db
         .select()
         .from(quizzes)
-        .where(
-          and(eq(quizzes.id, quizId), eq(quizzes.challengeId, challengeId)),
-        )
+        .where(and(eq(quizzes.id, quizId), scope(challengeId, profileId)))
     )[0];
     if (!quiz) throw new AppError("QUIZ_NOT_FOUND", "Quiz not found.", 404);
     return quiz;
   }
 
   return {
-    async list(challengeId: string, profileId: string) {
-      await challengeService.owned(challengeId, profileId);
+    async list(challengeId: string | null, profileId: string) {
+      await assertScope(challengeId, profileId);
       const rows = await db
         .select()
         .from(quizzes)
-        .where(eq(quizzes.challengeId, challengeId))
+        .where(scope(challengeId, profileId))
         .orderBy(desc(quizzes.number));
       const attempts = await db
         .select({ attempt: quizAttempts })
         .from(quizAttempts)
         .innerJoin(quizzes, eq(quizAttempts.quizId, quizzes.id))
-        .where(eq(quizzes.challengeId, challengeId))
+        .where(scope(challengeId, profileId))
         .orderBy(desc(quizAttempts.number));
       return rows.map((quiz) => {
         const latest = attempts.find(
@@ -107,21 +130,23 @@ export function createQuizService(
     },
 
     async generate(
-      challengeId: string,
+      challengeId: string | null,
       profileId: string,
-      request: GenerateQuizRequest,
+      request: GenerateQuizRequest | GenerateStandaloneQuizRequest,
     ) {
-      const challenge = toChallenge(
-        await challengeService.owned(challengeId, profileId),
-      );
-      const key = challengeId + ":" + request.requestId;
+      const challenge =
+        challengeId === null
+          ? null
+          : toChallenge(await challengeService.owned(challengeId, profileId));
+      if (!challenge) await profileService.assertExists(profileId);
+      const key = profileId + ":" + challengeId + ":" + request.requestId;
       const existing = (
         await db
           .select()
           .from(quizzes)
           .where(
             and(
-              eq(quizzes.challengeId, challengeId),
+              scope(challengeId, profileId),
               eq(quizzes.requestId, request.requestId),
             ),
           )
@@ -139,16 +164,36 @@ export function createQuizService(
         const earlier = await db
           .select({ questions: quizzes.questions })
           .from(quizzes)
-          .where(eq(quizzes.challengeId, challengeId))
+          .where(
+            and(
+              scope(challengeId, profileId),
+              "topic" in request ? eq(quizzes.topic, request.topic) : undefined,
+            ),
+          )
           .orderBy(desc(quizzes.number))
           .limit(3);
-        const input = {
-          challenge,
-          ...request,
-          previousQuestions: earlier.flatMap((quiz) =>
-            quiz.questions.map((q) => q.question),
-          ),
-        };
+        const previousQuestions = earlier.flatMap((quiz) =>
+          quiz.questions.map((q) => q.question),
+        );
+        let input: QuizModelInput;
+        if (challenge && "coverage" in request) {
+          input = { challenge, ...request, previousQuestions };
+        } else if (!challenge && "topic" in request) {
+          input = {
+            challenge: null,
+            profileId,
+            ...request,
+            coverage: "topic",
+            preferences: await profileService.getPreferences(profileId),
+            previousQuestions,
+          };
+        } else {
+          throw new AppError(
+            "INVALID_INPUT",
+            "Quiz settings do not match its scope.",
+            400,
+          );
+        }
         const generated = await llm.generateQuiz(input);
         let content;
         try {
@@ -162,18 +207,26 @@ export function createQuizService(
           );
         }
         return db.transaction(async (tx) => {
-          await tx
-            .select({ id: challenges.id })
-            .from(challenges)
-            .where(eq(challenges.id, challengeId))
-            .for("update");
+          if (challengeId !== null) {
+            await tx
+              .select({ id: challenges.id })
+              .from(challenges)
+              .where(eq(challenges.id, challengeId))
+              .for("update");
+          } else {
+            await tx
+              .select({ id: profiles.id })
+              .from(profiles)
+              .where(eq(profiles.id, profileId))
+              .for("update");
+          }
           const duplicate = (
             await tx
               .select()
               .from(quizzes)
               .where(
                 and(
-                  eq(quizzes.challengeId, challengeId),
+                  scope(challengeId, profileId),
                   eq(quizzes.requestId, request.requestId),
                 ),
               )
@@ -185,7 +238,7 @@ export function createQuizService(
                 value: sql<number>`coalesce(max(${quizzes.number}), 0) + 1`,
               })
               .from(quizzes)
-              .where(eq(quizzes.challengeId, challengeId))
+              .where(scope(challengeId, profileId))
           )[0]!.value;
           const quiz = (
             await tx
@@ -193,10 +246,13 @@ export function createQuizService(
               .values({
                 id: crypto.randomUUID(),
                 challengeId,
+                profileId,
+                topic: input.challenge ? null : input.topic,
+                difficulty: input.challenge ? null : input.difficulty,
                 number,
                 requestId: request.requestId,
                 questionCount: request.questionCount,
-                coverage: request.coverage,
+                coverage: input.coverage,
                 questions: content.questions.map((q) => ({
                   ...q,
                   id: crypto.randomUUID(),
@@ -217,7 +273,11 @@ export function createQuizService(
       }
     },
 
-    async detail(challengeId: string, quizId: string, profileId: string) {
+    async detail(
+      challengeId: string | null,
+      quizId: string,
+      profileId: string,
+    ) {
       const quiz = await owned(challengeId, quizId, profileId);
       const attempts = await db
         .select()
@@ -230,7 +290,7 @@ export function createQuizService(
       };
     },
 
-    async start(challengeId: string, quizId: string, profileId: string) {
+    async start(challengeId: string | null, quizId: string, profileId: string) {
       const quiz = await owned(challengeId, quizId, profileId);
       return db.transaction(async (tx) => {
         await tx
@@ -269,7 +329,7 @@ export function createQuizService(
     },
 
     async save(
-      challengeId: string,
+      challengeId: string | null,
       quizId: string,
       attemptId: string,
       profileId: string,

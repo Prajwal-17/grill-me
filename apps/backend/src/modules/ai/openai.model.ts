@@ -359,13 +359,15 @@ export function createOpenAIModel(
     generateQuiz(input) {
       return requestStructured({
         context: {
-          profileId: input.challenge.profileId,
-          challengeId: input.challenge.id,
+          profileId: input.challenge
+            ? input.challenge.profileId
+            : input.profileId,
+          challengeId: input.challenge?.id,
           operation: "quiz_generation",
-          preview: input.challenge.title,
+          preview: input.challenge ? input.challenge.title : input.topic,
         },
         prompt: quizPrompt(input),
-        name: "challenge_quiz",
+        name: input.challenge ? "challenge_quiz" : "standalone_quiz",
         stage: "quiz",
         schema: zod.toJSONSchema(generatedQuizSchema(input.questionCount)),
         validator: generatedQuizSchema(input.questionCount),

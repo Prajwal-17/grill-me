@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { buildDifficultySchema } from "../challenges/challenge.schema";
 
 export const questionCountSchema = z.union([
   z.literal(5),
@@ -10,6 +11,13 @@ export const generateQuizRequestSchema = z.object({
   requestId: z.string().uuid(),
   questionCount: questionCountSchema,
   coverage: quizCoverageSchema.default("mixed"),
+});
+
+export const generateStandaloneQuizRequestSchema = z.object({
+  requestId: z.string().uuid(),
+  questionCount: questionCountSchema,
+  topic: z.string().trim().min(1).max(200),
+  difficulty: buildDifficultySchema.default("medium"),
 });
 
 const questionSchema = z.object({
@@ -54,4 +62,7 @@ export type GeneratedQuiz = { questions: z.infer<typeof questionSchema>[] };
 export type QuizQuestion = z.infer<typeof questionSchema> & { id: string };
 export type QuizAnswers = Record<string, number>;
 export type GenerateQuizRequest = z.infer<typeof generateQuizRequestSchema>;
+export type GenerateStandaloneQuizRequest = z.infer<
+  typeof generateStandaloneQuizRequestSchema
+>;
 export type SaveQuizAnswers = z.infer<typeof saveQuizAnswersSchema>;

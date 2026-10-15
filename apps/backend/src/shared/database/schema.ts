@@ -1,10 +1,12 @@
 import type { GuidedPreferences } from "@repo/preferences";
+import { sql } from "drizzle-orm";
 import type {
   QuizAnswers,
   QuizQuestion,
 } from "../../modules/quizzes/quiz.schema";
 import {
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -107,14 +109,21 @@ export const quizzes = pgTable(
   "quizzes",
   {
     id: text("id").primaryKey(),
-    challengeId: text("challenge_id")
+    profileId: text("profile_id")
       .notNull()
-      .references(() => challenges.id, { onDelete: "cascade" }),
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    challengeId: text("challenge_id").references(() => challenges.id, {
+      onDelete: "cascade",
+    }),
+    topic: text("topic"),
+    difficulty: text("difficulty", {
+      enum: ["easy", "medium", "hard", "grill"],
+    }),
     number: integer("quiz_number").notNull(),
     requestId: text("request_id").notNull(),
     questionCount: integer("question_count").notNull(),
     coverage: text("coverage", {
-      enum: ["challenge", "related", "mixed"],
+      enum: ["challenge", "related", "mixed", "topic"],
     }).notNull(),
     questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),
     contextSnapshot: jsonb("context_snapshot")
@@ -133,6 +142,16 @@ export const quizzes = pgTable(
     uniqueIndex("quizzes_challenge_request_unique").on(
       table.challengeId,
       table.requestId,
+    ),
+    uniqueIndex("quizzes_profile_number_unique")
+      .on(table.profileId, table.number)
+      .where(sql`${table.challengeId} is null`),
+    uniqueIndex("quizzes_profile_request_unique")
+      .on(table.profileId, table.requestId)
+      .where(sql`${table.challengeId} is null`),
+    check(
+      "quizzes_scope_check",
+      sql`(${table.challengeId} is not null and ${table.coverage} in ('challenge', 'related', 'mixed')) or (${table.challengeId} is null and ${table.coverage} = 'topic' and ${table.topic} is not null and ${table.difficulty} is not null)`,
     ),
   ],
 );

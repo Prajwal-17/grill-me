@@ -23,11 +23,19 @@ import type {
 } from "../quizzes/quiz.schema";
 
 export type QuizModelInput = {
-  challenge: Challenge;
   questionCount: QuestionCount;
-  coverage: QuizCoverage;
   previousQuestions: string[];
-};
+} & (
+  | { challenge: Challenge; coverage: QuizCoverage }
+  | {
+      challenge: null;
+      profileId: string;
+      topic: string;
+      difficulty: BuildDifficulty;
+      preferences: ProfilePreferences;
+      coverage: "topic";
+    }
+);
 
 export type ConversationMode = "clarify" | "review";
 

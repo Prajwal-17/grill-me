@@ -5,6 +5,7 @@ import { parseInput, readJson } from "../../shared/http/validation";
 import { profileIdSchema } from "../profiles/profile.schema";
 import {
   generateQuizRequestSchema,
+  generateStandaloneQuizRequestSchema,
   saveQuizAnswersSchema,
 } from "./quiz.schema";
 import type { QuizService } from "./quiz.service";
@@ -23,19 +24,25 @@ function id(c: Context, name: string) {
   return parseInput(z.string().uuid(), c.req.param(name));
 }
 
-export function createQuizRoutes(service: QuizService) {
+export function createQuizRoutes(service: QuizService, standalone = false) {
   const routes = new Hono();
-  const path = "/:id/quizzes";
-  routes.get(path, async (c) =>
-    c.json({ data: await service.list(id(c, "id"), profileId(c)) }),
+  const path = standalone ? "" : "/:id/quizzes";
+  const challengeId = (c: Context) => (standalone ? null : id(c, "id"));
+  routes.get(path || "/", async (c) =>
+    c.json({ data: await service.list(challengeId(c), profileId(c)) }),
   );
   routes.post(path + "/generate", async (c) =>
     c.json(
       {
         data: await service.generate(
-          id(c, "id"),
+          challengeId(c),
           profileId(c),
-          parseInput(generateQuizRequestSchema, await readJson(c.req.raw)),
+          standalone
+            ? parseInput(
+                generateStandaloneQuizRequestSchema,
+                await readJson(c.req.raw),
+              )
+            : parseInput(generateQuizRequestSchema, await readJson(c.req.raw)),
         ),
       },
       201,
@@ -43,12 +50,18 @@ export function createQuizRoutes(service: QuizService) {
   );
   routes.get(path + "/:quizId", async (c) =>
     c.json({
-      data: await service.detail(id(c, "id"), id(c, "quizId"), profileId(c)),
+      data: await service.detail(challengeId(c), id(c, "quizId"), profileId(c)),
     }),
   );
   routes.post(path + "/:quizId/attempts", async (c) =>
     c.json(
-      { data: await service.start(id(c, "id"), id(c, "quizId"), profileId(c)) },
+      {
+        data: await service.start(
+          challengeId(c),
+          id(c, "quizId"),
+          profileId(c),
+        ),
+      },
       201,
     ),
   );
@@ -56,7 +69,7 @@ export function createQuizRoutes(service: QuizService) {
     routes.post(path + "/:quizId/attempts/:attemptId/" + action, async (c) =>
       c.json({
         data: await service.save(
-          id(c, "id"),
+          challengeId(c),
           id(c, "quizId"),
           id(c, "attemptId"),
           profileId(c),

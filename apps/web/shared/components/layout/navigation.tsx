@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
+  ListChecks,
   History,
   ScrollText,
   House,
@@ -144,6 +145,12 @@ export function Navigation({
             label: "Challenges",
             icon: BookOpen,
             active: pathname === "/challenges" || pathname === "/chat",
+          },
+          {
+            href: "/quizzes",
+            label: "Quizzes",
+            icon: ListChecks,
+            active: pathname === "/quizzes",
           },
           {
             href: "/history",

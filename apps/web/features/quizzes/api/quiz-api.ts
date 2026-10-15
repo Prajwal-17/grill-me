@@ -1,6 +1,7 @@
 import { apiRequest } from "@/shared/lib/api-client";
 import type {
   GenerateQuizRequest,
+  GenerateStandaloneQuizRequest,
   Quiz,
   QuizAnswers,
   QuizAttempt,
@@ -9,28 +10,30 @@ import type {
 } from "../types";
 
 export const quizKeys = {
-  list: (profileId: string, challengeId: string) =>
+  list: (profileId: string, challengeId: string | null) =>
     ["quizzes", profileId, challengeId] as const,
-  detail: (profileId: string, challengeId: string, quizId: string) =>
+  detail: (profileId: string, challengeId: string | null, quizId: string) =>
     ["quiz", profileId, challengeId, quizId] as const,
 };
-function path(challengeId: string, quizId?: string) {
-  return `/challenges/${challengeId}/quizzes${quizId ? "/" + quizId : ""}`;
+function path(challengeId: string | null, quizId?: string) {
+  const base =
+    challengeId === null ? "/quizzes" : `/challenges/${challengeId}/quizzes`;
+  return base + (quizId ? "/" + quizId : "");
 }
-export function getQuizzes(profileId: string, challengeId: string) {
+export function getQuizzes(profileId: string, challengeId: string | null) {
   return apiRequest<QuizSummary[]>(path(challengeId), {}, profileId);
 }
 export function getQuiz(
   profileId: string,
-  challengeId: string,
+  challengeId: string | null,
   quizId: string,
 ) {
   return apiRequest<QuizDetail>(path(challengeId, quizId), {}, profileId);
 }
 export function generateQuiz(
   profileId: string,
-  challengeId: string,
-  input: GenerateQuizRequest,
+  challengeId: string | null,
+  input: GenerateQuizRequest | GenerateStandaloneQuizRequest,
 ) {
   return apiRequest<Quiz>(
     path(challengeId) + "/generate",
@@ -40,7 +43,7 @@ export function generateQuiz(
 }
 export function startQuizAttempt(
   profileId: string,
-  challengeId: string,
+  challengeId: string | null,
   quizId: string,
 ) {
   return apiRequest<QuizAttempt>(
@@ -51,7 +54,7 @@ export function startQuizAttempt(
 }
 export function saveQuizAnswers(
   profileId: string,
-  challengeId: string,
+  challengeId: string | null,
   quizId: string,
   attemptId: string,
   revision: number,

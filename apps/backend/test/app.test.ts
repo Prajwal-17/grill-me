@@ -217,7 +217,7 @@ describe("challenge quizzes", () => {
     );
     expect(list.data.map((quiz) => quiz.number)).toEqual([3, 2, 1]);
     expect(state.model.quizInputs[1]!.previousQuestions).toHaveLength(5);
-    expect(state.model.quizInputs[0]!.challenge.problemStatement).toBe(
+    expect(state.model.quizInputs[0]!.challenge!.problemStatement).toBe(
       state.challenge.problemStatement,
     );
     expect(list.data[0]).not.toHaveProperty("questions");
@@ -515,6 +515,396 @@ describe("challenge quizzes", () => {
         )
       ).data,
     ).toHaveLength(1);
+  });
+});
+
+describe("standalone quizzes", () => {
+  type Detail = Awaited<ReturnType<QuizService["detail"]>>;
+  type Quiz = Detail["quiz"];
+  type Attempt = Detail["attempts"][number];
+
+  async function setup() {
+    const model = new FakeModel();
+    const app = createApp({ llm: model });
+    const owner = await startProfile(
+      app,
+      `standalone-${crypto.randomUUID()}@test.dev`,
+    );
+    const input = {
+      requestId: crypto.randomUUID(),
+      topic: "TypeScript generics",
+      difficulty: "hard",
+      questionCount: 5,
+    };
+    const make = async (settings = input) => {
+      const response = await request(
+        app,
+        "/quizzes/generate",
+        owner.id,
+        settings,
+      );
+      expect(response.status).toBe(201);
+      return (await json<{ data: Quiz }>(response)).data;
+    };
+    return { model, app, owner, input, make };
+  }
+
+  test("generates without a challenge, freezes learner context, and separates scopes", async () => {
+    const state = await setup();
+    const preferences = await request(
+      state.app,
+      "/profiles/preferences",
+      state.owner.id,
+      {
+        aboutMe: "I work with TypeScript daily.",
+        knownConcepts: ["Mapped types"],
+      },
+    );
+    expect(preferences.status).toBe(200);
+    for (const questionCount of [5, 10, 15]) {
+      const quiz = await state.make({
+        ...state.input,
+        questionCount,
+        requestId: crypto.randomUUID(),
+      });
+      expect(quiz.challengeId).toBeNull();
+      expect(quiz.topic).toBe(state.input.topic);
+      expect(quiz.difficulty).toBe("hard");
+      expect(quiz.coverage).toBe("topic");
+      expect(quiz.questions).toHaveLength(questionCount);
+      expect(quiz.questions[0]).not.toHaveProperty("correctOption");
+      expect(quiz.questions[0]).not.toHaveProperty("explanation");
+    }
+    expect(state.model.quizInputs[0]!.challenge).toBeNull();
+    const context = state.model.quizInputs[0]!;
+    if (context.challenge !== null)
+      throw new Error("Expected standalone context");
+    expect(context.preferences.aboutMe).toBe("I work with TypeScript daily.");
+    expect(state.model.quizInputs[1]!.previousQuestions).toHaveLength(5);
+    const challenge = await createChallenge(state.app, state.owner.id);
+    const challengePath = `/challenges/${challenge.id}/quizzes`;
+    const challengeQuiz = (
+      await json<{ data: Quiz }>(
+        await request(state.app, challengePath + "/generate", state.owner.id, {
+          requestId: state.input.requestId,
+          questionCount: 5,
+          coverage: "mixed",
+        }),
+      )
+    ).data;
+    const list = (
+      await json<{ data: Quiz[] }>(
+        await request(state.app, "/quizzes", state.owner.id),
+      )
+    ).data;
+    expect(list.map((quiz) => quiz.number)).toEqual([3, 2, 1]);
+    expect(list[0]).not.toHaveProperty("questions");
+    expect(
+      (
+        await json<{ data: Quiz[] }>(
+          await request(state.app, challengePath, state.owner.id),
+        )
+      ).data,
+    ).toHaveLength(1);
+    expect(
+      (await request(state.app, `/quizzes/${challengeQuiz.id}`, state.owner.id))
+        .status,
+    ).toBe(404);
+    expect(
+      (
+        await request(
+          state.app,
+          `${challengePath}/${list[0]!.id}`,
+          state.owner.id,
+        )
+      ).status,
+    ).toBe(404);
+    await state.make({ ...state.input, topic: "SQL joins" });
+    expect(state.model.quizInputs.at(-1)!.previousQuestions).toEqual([]);
+  });
+
+  test("deduplicates retries and numbers concurrent generations per profile", async () => {
+    const state = await setup();
+    const [first, second] = await Promise.all([state.make(), state.make()]);
+    expect(first.id).toBe(second.id);
+    const restarted = createApp({ llm: state.model });
+    const retry = await json<{ data: Quiz }>(
+      await request(
+        restarted,
+        "/quizzes/generate",
+        state.owner.id,
+        state.input,
+      ),
+    );
+    expect(retry.data.id).toBe(first.id);
+    expect(state.model.quizInputs).toHaveLength(1);
+    const next = await Promise.all([
+      state.make({ ...state.input, requestId: crypto.randomUUID() }),
+      state.make({ ...state.input, requestId: crypto.randomUUID() }),
+    ]);
+    expect(next.map((quiz) => quiz.number).sort()).toEqual([2, 3]);
+  });
+
+  test("resumes drafts, rejects conflicts and incomplete submissions, and preserves scored retakes", async () => {
+    const state = await setup();
+    const quiz = await state.make();
+    const path = `/quizzes/${quiz.id}`;
+    const begin = async () =>
+      (
+        await json<{ data: Attempt }>(
+          await request(state.app, path + "/attempts", state.owner.id, {}),
+        )
+      ).data;
+    const attempt = await begin();
+    expect((await begin()).id).toBe(attempt.id);
+    const answers = { [quiz.questions[0]!.id]: 0 };
+    const saved = (
+      await json<{ data: Attempt }>(
+        await request(
+          state.app,
+          `${path}/attempts/${attempt.id}/answers`,
+          state.owner.id,
+          { revision: 0, answers },
+        ),
+      )
+    ).data;
+    expect(saved.results).toBeNull();
+    const restarted = createApp({ llm: state.model });
+    expect(
+      (
+        await json<{ data: Detail }>(
+          await request(restarted, path, state.owner.id),
+        )
+      ).data.attempts[0]!.answers,
+    ).toEqual(answers);
+    const submitPath = `${path}/attempts/${attempt.id}/submit`;
+    expect(
+      (
+        await request(state.app, submitPath, state.owner.id, {
+          revision: 0,
+          answers,
+        })
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(state.app, submitPath, state.owner.id, {
+          revision: saved.revision,
+          answers,
+        })
+      ).status,
+    ).toBe(400);
+    const allAnswers = Object.fromEntries(
+      quiz.questions.map((question, index) => [question.id, index % 4]),
+    );
+    const submitted = (
+      await json<{ data: Attempt }>(
+        await request(state.app, submitPath, state.owner.id, {
+          revision: saved.revision,
+          answers: allAnswers,
+        }),
+      )
+    ).data;
+    expect(submitted.score).toBe(5);
+    expect(submitted.results).toHaveLength(5);
+    expect(submitted.results![0]!.explanation.length).toBeGreaterThan(10);
+    expect(
+      (
+        await request(
+          state.app,
+          `${path}/attempts/${attempt.id}/answers`,
+          state.owner.id,
+          { revision: submitted.revision, answers },
+        )
+      ).status,
+    ).toBe(409);
+    const retake = await begin();
+    expect(retake.number).toBe(2);
+    expect(retake.answers).toEqual({});
+    expect(
+      (
+        await json<{ data: Detail }>(
+          await request(state.app, path, state.owner.id),
+        )
+      ).data.attempts,
+    ).toHaveLength(2);
+    const otherQuiz = await state.make({
+      ...state.input,
+      requestId: crypto.randomUUID(),
+    });
+    expect(
+      (
+        await request(
+          state.app,
+          `/quizzes/${otherQuiz.id}/attempts/${retake.id}/answers`,
+          state.owner.id,
+          { revision: 0, answers: {} },
+        )
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await request(
+          state.app,
+          `${path}/attempts/${retake.id}/answers`,
+          state.owner.id,
+          { revision: 0, answers: { [crypto.randomUUID()]: 1 } },
+        )
+      ).status,
+    ).toBe(400);
+  });
+
+  test("requires a real profile and prevents access through every other profile's endpoint", async () => {
+    const state = await setup();
+    const quiz = await state.make();
+    const path = `/quizzes/${quiz.id}`;
+    const attempt = (
+      await json<{ data: Attempt }>(
+        await request(state.app, path + "/attempts", state.owner.id, {}),
+      )
+    ).data;
+    const other = await startProfile(
+      state.app,
+      `other-standalone-${crypto.randomUUID()}@test.dev`,
+    );
+    expect(
+      (
+        await json<{ data: Quiz[] }>(
+          await request(state.app, "/quizzes", other.id),
+        )
+      ).data,
+    ).toEqual([]);
+    for (const [url, body] of [
+      [path, undefined],
+      [path + "/attempts", {}],
+      [`${path}/attempts/${attempt.id}/answers`, { revision: 0, answers: {} }],
+      [`${path}/attempts/${attempt.id}/submit`, { revision: 0, answers: {} }],
+    ] as const) {
+      expect((await request(state.app, url, other.id, body)).status).toBe(404);
+      expect(
+        (
+          await state.app.request(
+            url,
+            body ? { method: "POST", body: JSON.stringify(body) } : {},
+          )
+        ).status,
+      ).toBe(401);
+    }
+    expect((await state.app.request("/quizzes")).status).toBe(401);
+    expect(
+      (
+        await request(
+          state.app,
+          "/quizzes/generate",
+          crypto.randomUUID(),
+          state.input,
+        )
+      ).status,
+    ).toBe(401);
+    const otherQuiz = (
+      await json<{ data: Quiz }>(
+        await request(state.app, "/quizzes/generate", other.id, state.input),
+      )
+    ).data;
+    expect(otherQuiz.number).toBe(1);
+    expect(otherQuiz.id).not.toBe(quiz.id);
+  });
+
+  test("validates settings and model output without saving failed generations", async () => {
+    const state = await setup();
+    for (const overrides of [
+      { topic: "   " },
+      { topic: "a".repeat(201) },
+      { difficulty: "expert" },
+      { questionCount: 7 },
+      { topic: null },
+    ]) {
+      expect(
+        (
+          await request(state.app, "/quizzes/generate", state.owner.id, {
+            ...state.input,
+            ...overrides,
+          })
+        ).status,
+      ).toBe(400);
+    }
+    expect(state.model.quizInputs).toHaveLength(0);
+    state.model.quizOutput = { questions: [] };
+    expect(
+      (
+        await request(
+          state.app,
+          "/quizzes/generate",
+          state.owner.id,
+          state.input,
+        )
+      ).status,
+    ).toBe(502);
+    expect(
+      (
+        await json<{ data: Quiz[] }>(
+          await request(state.app, "/quizzes", state.owner.id),
+        )
+      ).data,
+    ).toEqual([]);
+    state.model.quizOutput = null;
+    const quiz = await state.make({ ...state.input, topic: " Go " });
+    expect(quiz.number).toBe(1);
+    expect(quiz.topic).toBe("Go");
+  });
+
+  test("logs standalone structured generation against its profile without a challenge", async () => {
+    const state = await setup();
+    const quiz = await state.make();
+    let providerRequest: Record<string, unknown> | undefined;
+    let valid = true;
+    const output = await state.model.generateQuiz(state.model.quizInputs[0]!);
+    const app = createApp({
+      llm: loggedModel((body) => {
+        providerRequest = body;
+        return Response.json(
+          modelResponse(JSON.stringify(valid ? output : { questions: [] })),
+        );
+      }),
+    });
+    expect(
+      (
+        await request(app, "/quizzes/generate", state.owner.id, {
+          ...state.input,
+          requestId: crypto.randomUUID(),
+        })
+      ).status,
+    ).toBe(201);
+    expect(providerRequest!.instructions).toContain(
+      "standalone multiple-choice",
+    );
+    expect(JSON.parse(String(providerRequest!.input))).toMatchObject({
+      topic: quiz.topic,
+      difficulty: "hard",
+      questionCount: 5,
+    });
+    expect(JSON.parse(String(providerRequest!.input))).not.toHaveProperty(
+      "challenge",
+    );
+    valid = false;
+    expect(
+      (
+        await request(app, "/quizzes/generate", state.owner.id, {
+          ...state.input,
+          requestId: crypto.randomUUID(),
+        })
+      ).status,
+    ).toBe(502);
+    const logs = await profileLogs(
+      app,
+      state.owner.id,
+      "?operation=quiz_generation",
+    );
+    expect(logs.items.map((row) => row.status).sort()).toEqual([
+      "error",
+      "success",
+    ]);
+    expect(logs.items.every((row) => row.challengeId === null)).toBe(true);
   });
 });
 
