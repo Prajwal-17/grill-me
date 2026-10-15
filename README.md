@@ -20,6 +20,19 @@ with a local recovery copy. Submit for a score and explanations, or retake while
 earlier attempts. Quizzes also work on completed challenges; their scores do not
 change implementation reviews or challenge completion.
 
+The standalone **Quizzes** page in the main navigation lists all your saved
+quizzes with difficulty, question count, progress, scores, and dates. Enter one
+word or a detailed prompt describing the subjects, scenarios, and emphasis you
+want, select Easy / Medium / Hard / Grill and 5, 10, or 15 questions, then generate
+a quiz without creating a challenge. Use Up / Down to browse the table and Enter
+to open a quiz. While taking a quiz, Left / Right moves between questions and
+Up / Down selects and saves an answer. Submitted attempts show correct and
+incorrect markers in the question-number bar. Each local profile has its own
+saved quizzes, resumable attempts, scores, explanations, and retake history.
+Standalone quizzes use your saved learner preferences and stay separate from
+challenge quizzes and challenge progress. Apply tracked migrations with
+`bun db:migrate` when updating an existing installation.
+
 The tabbed workspace keeps the task, submission, and selected review separate. Reviews assess correctness (4), implementation reasoning (3), and engineering judgment (3), each with evidence. Unknown dimensions remain unassessed. Submission scores are separate from challenge difficulty; hints and retries do not reduce the score. Topic progress appears in History without a global intelligence score.
 
 System challenges request a bounded working core and assess design choices in code. No written explanation is required. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews do not complete the challenge. Mark completed records your decision independently; high scores cannot override unmet review requirements.

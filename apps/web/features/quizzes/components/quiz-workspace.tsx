@@ -2,8 +2,9 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
+import { Textarea } from "@/shared/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -27,13 +28,16 @@ import {
 import {
   COVERAGE_LABELS,
   type GenerateQuizRequest,
+  type GenerateStandaloneQuizRequest,
   type QuestionCount,
   type QuizAttempt as Attempt,
   type QuizCoverage,
+  type QuizDifficulty,
   type QuizDetail,
   type QuizSummary,
 } from "../types";
 import { QuizAttempt } from "./quiz-attempt";
+import { QuizTable } from "./quiz-table";
 
 function QuizSelect({
   label,
@@ -75,15 +79,15 @@ function quizLabel(quiz: QuizSummary) {
       ? ` · ${attempt.score}/${quiz.questionCount}`
       : ` · ${attempt.answered}/${quiz.questionCount} answered`
     : " · Not started";
-  return `Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
+  return `${quiz.topic ? `${quiz.topic} · ` : ""}Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
 }
 
 export function QuizWorkspace({
   profileId,
-  challengeId,
+  challengeId = null,
 }: {
   profileId: string;
-  challengeId: string;
+  challengeId?: string | null;
 }) {
   const queries = useQueryClient();
   const [quizId, setQuizId] = useState("");
@@ -91,9 +95,14 @@ export function QuizWorkspace({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
   const [coverage, setCoverage] = useState<QuizCoverage>("mixed");
+  const [prompt, setPrompt] = useState("");
+  const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
   const [changing, setChanging] = useState(false);
   const saveRef = useRef<(() => Promise<void>) | null>(null);
-  const requestRef = useRef<GenerateQuizRequest | null>(null);
+  const requestRef = useRef<{
+    settings: string;
+    request: GenerateQuizRequest | GenerateStandaloneQuizRequest;
+  } | null>(null);
   const registerSave = useCallback((save: (() => Promise<void>) | null) => {
     saveRef.current = save;
   }, []);
@@ -104,7 +113,7 @@ export function QuizWorkspace({
   });
   const selectedQuizId =
     list.data?.find((quiz) => quiz.id === quizId)?.id ??
-    list.data?.[0]?.id ??
+    (challengeId === null ? "" : list.data?.[0]?.id) ??
     "";
   const detailKey = quizKeys.detail(profileId, challengeId, selectedQuizId);
   const detail = useQuery({
@@ -157,12 +166,16 @@ export function QuizWorkspace({
     mutationFn: async () => {
       await saveRef.current?.();
       const previous = requestRef.current;
+      const settings =
+        challengeId === null
+          ? { questionCount, prompt: prompt.trim(), difficulty }
+          : { questionCount, coverage };
+      const signature = JSON.stringify(settings);
       const request =
-        previous?.questionCount === questionCount &&
-        previous.coverage === coverage
-          ? previous
-          : { requestId: crypto.randomUUID(), questionCount, coverage };
-      requestRef.current = request;
+        previous?.settings === signature
+          ? previous.request
+          : { requestId: crypto.randomUUID(), ...settings };
+      requestRef.current = { settings: signature, request };
       return generateQuiz(profileId, challengeId, request);
     },
     onSuccess: (quiz) => {
@@ -208,11 +221,23 @@ export function QuizWorkspace({
 
   return (
     <section
-      aria-label="Challenge quizzes"
+      aria-label={
+        challengeId === null ? "Standalone quizzes" : "Challenge quizzes"
+      }
       className="mx-auto w-full max-w-[820px] space-y-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {selectedQuizId ? (
+        {challengeId === null && selectedQuizId ? (
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              void select("", "quiz");
+            }}
+          >
+            <ArrowLeft size={14} /> All quizzes
+          </Button>
+        ) : selectedQuizId ? (
           <QuizSelect
             label="Select quiz"
             value={selectedQuizId}
@@ -226,7 +251,9 @@ export function QuizWorkspace({
             }))}
           />
         ) : (
-          <h2 className="text-sm font-medium">Quizzes</h2>
+          <h2 className="text-sm font-medium">
+            {challengeId === null ? "Your quizzes" : "Quizzes"}
+          </h2>
         )}
         <Button
           size="sm"
@@ -258,8 +285,20 @@ export function QuizWorkspace({
             Retry
           </Button>
         </div>
+      ) : !selectedQuizId && list.data?.length ? (
+        <QuizTable
+          quizzes={list.data}
+          disabled={busy}
+          onOpen={(id) => {
+            void select(id, "quiz");
+          }}
+        />
       ) : !selectedQuizId ? (
-        <p className="text-sm text-muted">No quizzes yet.</p>
+        <p className="text-sm text-muted">
+          {challengeId === null
+            ? "No quizzes yet. Generate your first quiz from a topic or a prompt."
+            : "No quizzes yet."}
+        </p>
       ) : detail.isLoading ? (
         <p role="status" className="text-sm text-muted">
           Loading quiz…
@@ -280,9 +319,27 @@ export function QuizWorkspace({
       ) : (
         detail.data && (
           <>
+            {challengeId === null && (
+              <div className="space-y-3">
+                <h2 className="text-sm font-medium">
+                  Quiz {detail.data.quiz.number}
+                </h2>
+                <details className="rounded-lg border border-line px-3 py-2 text-sm">
+                  <summary className="cursor-pointer text-muted">
+                    Quiz prompt
+                  </summary>
+                  <p className="mt-2 whitespace-pre-wrap leading-6 [overflow-wrap:anywhere]">
+                    {detail.data.quiz.prompt ?? detail.data.quiz.topic}
+                  </p>
+                </details>
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
               <p className="text-xs text-muted">
-                {COVERAGE_LABELS[detail.data.quiz.coverage]} ·{" "}
+                {detail.data.quiz.coverage === "topic"
+                  ? detail.data.quiz.difficulty
+                  : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
+                ·{" "}
                 {new Intl.DateTimeFormat("en", {
                   month: "short",
                   day: "numeric",
@@ -343,54 +400,108 @@ export function QuizWorkspace({
         }}
       >
         <DialogContent
-          className="sm:max-w-sm"
+          className={challengeId === null ? "sm:max-w-lg" : "sm:max-w-sm"}
           showCloseButton={!generation.isPending}
         >
           <DialogTitle>Generate quiz</DialogTitle>
           <DialogDescription className="sr-only">
-            Choose question count and coverage for a new quiz.
+            {challengeId === null
+              ? "Enter a topic or prompt, then choose difficulty and question count."
+              : "Choose question count and coverage for a new quiz."}
           </DialogDescription>
-          <div className="flex flex-wrap gap-3">
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted">Questions</p>
-              <QuizSelect
-                label="Question count"
-                value={String(questionCount)}
-                disabled={generation.isPending}
-                onChange={(value) =>
-                  setQuestionCount(Number(value) as QuestionCount)
-                }
-                options={[5, 10, 15].map((count) => ({
-                  value: String(count),
-                  label: String(count),
-                }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted">Coverage</p>
-              <QuizSelect
-                label="Quiz coverage"
-                value={coverage}
-                disabled={generation.isPending}
-                onChange={(value) => setCoverage(value as QuizCoverage)}
-                options={Object.entries(COVERAGE_LABELS).map(
-                  ([value, label]) => ({ value, label }),
-                )}
-              />
-            </div>
-          </div>
-          {generation.error && (
-            <p role="alert" className="text-xs text-destructive">
-              {generation.error.message}
-            </p>
-          )}
-          <Button
-            variant="primary"
-            disabled={generation.isPending}
-            onClick={() => generation.mutate()}
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!generation.isPending) generation.mutate();
+            }}
           >
-            {generation.isPending ? "Generating…" : "Generate quiz"}
-          </Button>
+            {challengeId === null && (
+              <div className="space-y-1.5">
+                <label htmlFor="quiz-prompt" className="text-xs text-muted">
+                  Quiz prompt
+                </label>
+                <Textarea
+                  id="quiz-prompt"
+                  aria-describedby="quiz-prompt-help"
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.target.value)}
+                  className="min-h-28"
+                  placeholder="e.g. JavaScript, or: Test closures and async behavior with short code examples. Focus on common mistakes."
+                  required
+                  minLength={1}
+                  maxLength={4000}
+                  disabled={generation.isPending}
+                />
+                <p id="quiz-prompt-help" className="text-xs text-muted">
+                  One word is enough, or describe the concepts and scenarios you
+                  want to practice.
+                </p>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-3">
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted">Questions</p>
+                <QuizSelect
+                  label="Question count"
+                  value={String(questionCount)}
+                  disabled={generation.isPending}
+                  onChange={(value) =>
+                    setQuestionCount(Number(value) as QuestionCount)
+                  }
+                  options={[5, 10, 15].map((count) => ({
+                    value: String(count),
+                    label: String(count),
+                  }))}
+                />
+              </div>
+              {challengeId === null ? (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted">Difficulty</p>
+                  <QuizSelect
+                    label="Quiz difficulty"
+                    value={difficulty}
+                    disabled={generation.isPending}
+                    onChange={(value) => setDifficulty(value as QuizDifficulty)}
+                    options={[
+                      { value: "easy", label: "Easy" },
+                      { value: "medium", label: "Medium" },
+                      { value: "hard", label: "Hard" },
+                      { value: "grill", label: "Grill" },
+                    ]}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs text-muted">Coverage</p>
+                  <QuizSelect
+                    label="Quiz coverage"
+                    value={coverage}
+                    disabled={generation.isPending}
+                    onChange={(value) => setCoverage(value as QuizCoverage)}
+                    options={Object.entries(COVERAGE_LABELS).map(
+                      ([value, label]) => ({ value, label }),
+                    )}
+                  />
+                </div>
+              )}
+            </div>
+            {generation.error && (
+              <p role="alert" className="text-xs text-destructive">
+                {generation.error.message}
+              </p>
+            )}
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={
+                generation.isPending ||
+                (challengeId === null && prompt.trim().length === 0)
+              }
+            >
+              {generation.isPending ? "Generating…" : "Generate quiz"}
+            </Button>
+          </form>
         </DialogContent>
       </Dialog>
     </section>

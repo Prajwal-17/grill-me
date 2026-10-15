@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { buildDifficultySchema } from "../challenges/challenge.schema";
 
 export const questionCountSchema = z.union([
   z.literal(5),
@@ -11,6 +12,24 @@ export const generateQuizRequestSchema = z.object({
   questionCount: questionCountSchema,
   coverage: quizCoverageSchema.default("mixed"),
 });
+
+export const generateStandaloneQuizRequestSchema = z
+  .object({
+    requestId: z.string().uuid(),
+    questionCount: questionCountSchema,
+    prompt: z.string().trim().min(1).max(4000).optional(),
+    // Continue accepting requests from the original topic-only client.
+    topic: z.string().trim().min(1).max(200).optional(),
+    difficulty: buildDifficultySchema.default("medium"),
+  })
+  .refine((input) => input.prompt !== undefined || input.topic !== undefined, {
+    message: "Enter a topic or describe the quiz you want.",
+    path: ["prompt"],
+  })
+  .transform(({ prompt, topic, ...settings }) => ({
+    ...settings,
+    prompt: (prompt ?? topic)!,
+  }));
 
 const questionSchema = z.object({
   question: z.string().trim().min(10).max(1800),
@@ -54,4 +73,7 @@ export type GeneratedQuiz = { questions: z.infer<typeof questionSchema>[] };
 export type QuizQuestion = z.infer<typeof questionSchema> & { id: string };
 export type QuizAnswers = Record<string, number>;
 export type GenerateQuizRequest = z.infer<typeof generateQuizRequestSchema>;
+export type GenerateStandaloneQuizRequest = z.infer<
+  typeof generateStandaloneQuizRequestSchema
+>;
 export type SaveQuizAnswers = z.infer<typeof saveQuizAnswersSchema>;
