@@ -227,7 +227,7 @@ export function QuizWorkspace({
   const generateButton = (
     <Button
       size={showLibrary ? "default" : "sm"}
-      className="ml-auto"
+      className={showLibrary ? "ml-auto h-11 md:h-10" : "ml-auto"}
       variant={selectedQuizId ? "secondary" : "primary"}
       disabled={busy || list.isLoading}
       onClick={() => {

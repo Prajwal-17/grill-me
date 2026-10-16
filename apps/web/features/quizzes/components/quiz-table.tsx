@@ -35,7 +35,7 @@ import type { QuizSummary } from "../types";
 
 const PAGE_SIZE = 8;
 const statuses = [
-  ["all", "All quizzes"],
+  ["all", "All statuses"],
   ["draft", "In progress"],
   ["submitted", "Submitted"],
   ["new", "Not started"],
@@ -257,53 +257,10 @@ export function QuizTable({
 
   return (
     <div className="space-y-4 @container/quiz-list">
-      <div className="flex items-center justify-between gap-3">
-        <div
-          role="group"
-          aria-label="Filter quizzes by status"
-          className="hidden min-w-0 flex-wrap items-center gap-x-5 @[640px]/quiz-list:flex"
-        >
-          {statuses.map(([value, label]) => (
-            <Button
-              variant="ghost"
-              key={value}
-              type="button"
-              aria-pressed={settings.status === value}
-              disabled={disabled}
-              onClick={() => update({ status: value, page: 1 })}
-              className={cn(
-                "h-11 rounded-none border-0 border-b-2 px-0 py-2 text-xs font-normal outline-offset-4 hover:bg-transparent",
-                settings.status === value
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted hover:text-foreground",
-              )}
-            >
-              {label}
-              <span className="ml-2 text-xs text-muted tabular-nums">
-                {value === "all"
-                  ? matching.length
-                  : matching.filter((quiz) => status(quiz) === value).length}
-              </span>
-            </Button>
-          ))}
-        </div>
-        <div className="w-36 @[640px]/quiz-list:hidden">
-          <ListSelect
-            label="Quiz status"
-            value={settings.status}
-            disabled={disabled}
-            onChange={(value) =>
-              update({ status: value as typeof settings.status, page: 1 })
-            }
-            options={statuses}
-          />
-        </div>
-        {actions}
-      </div>
-      <div className="grid grid-cols-2 gap-2 @[640px]/quiz-list:grid-cols-[minmax(0,1fr)_148px_164px]">
+      <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_132px_148px_164px_auto]">
         <div
           role="search"
-          className="relative col-span-2 min-w-0 @[640px]/quiz-list:col-span-1"
+          className="relative col-span-2 min-w-0 @[900px]/quiz-list:col-span-1"
         >
           <Search
             size={16}
@@ -345,35 +302,56 @@ export function QuizTable({
             </button>
           )}
         </div>
-        <ListSelect
-          label="Filter by difficulty"
-          value={settings.difficulty}
-          disabled={disabled}
-          onChange={(value) =>
-            update({ difficulty: value as typeof settings.difficulty, page: 1 })
-          }
-          options={[
-            ["all", "Any difficulty"],
-            ["easy", "Easy"],
-            ["medium", "Medium"],
-            ["hard", "Hard"],
-            ["grill", "Grill"],
-          ]}
-        />
-        <ListSelect
-          label="Sort quizzes"
-          value={settings.sort}
-          disabled={disabled}
-          onChange={(value) =>
-            update({ sort: value as typeof settings.sort, page: 1 })
-          }
-          options={[
-            ["newest", "Newest first"],
-            ["oldest", "Oldest first"],
-            ["name", "Name A–Z"],
-            ["score", "Highest score"],
-          ]}
-        />
+        <div className="min-w-0">
+          <ListSelect
+            label="Quiz status"
+            value={settings.status}
+            disabled={disabled}
+            onChange={(value) =>
+              update({ status: value as typeof settings.status, page: 1 })
+            }
+            options={statuses}
+          />
+        </div>
+        <div className="min-w-0">
+          <ListSelect
+            label="Filter by difficulty"
+            value={settings.difficulty}
+            disabled={disabled}
+            onChange={(value) =>
+              update({
+                difficulty: value as typeof settings.difficulty,
+                page: 1,
+              })
+            }
+            options={[
+              ["all", "Any difficulty"],
+              ["easy", "Easy"],
+              ["medium", "Medium"],
+              ["hard", "Hard"],
+              ["grill", "Grill"],
+            ]}
+          />
+        </div>
+        <div className="min-w-0 @[640px]/quiz-list:col-span-2 @[900px]/quiz-list:col-span-1">
+          <ListSelect
+            label="Sort quizzes"
+            value={settings.sort}
+            disabled={disabled}
+            onChange={(value) =>
+              update({ sort: value as typeof settings.sort, page: 1 })
+            }
+            options={[
+              ["newest", "Newest first"],
+              ["oldest", "Oldest first"],
+              ["name", "Name A–Z"],
+              ["score", "Highest score"],
+            ]}
+          />
+        </div>
+        <div className="flex justify-end @[640px]/quiz-list:col-span-2 @[900px]/quiz-list:col-span-1">
+          {actions}
+        </div>
       </div>
       <div
         id="quiz-list-results"
