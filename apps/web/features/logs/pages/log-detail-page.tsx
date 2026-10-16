@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpRight, CircleAlert } from "lucide-react";
+import { ArrowUpRight, CircleAlert } from "lucide-react";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
@@ -39,15 +39,28 @@ export function LogDetailPage({ id }: { id: string }) {
   if (!profile) return null;
   const log = query.data;
   return (
-    <AppShell profile={profile}>
+    <AppShell
+      profile={profile}
+      title={log ? OPERATION_LABELS[log.operation] : "Request details"}
+      breadcrumbs={[{ label: "Logs", href: logHref(filters) }]}
+      actions={
+        log ? (
+          <>
+            <LogStatusBadge status={log.status} />
+            {log.challengeId && (
+              <Link
+                href={`/chat?id=${log.challengeId}`}
+                className="inline-flex items-center gap-1.5 rounded-sm text-sm text-muted hover:text-foreground"
+              >
+                Open build
+                <ArrowUpRight size={15} />
+              </Link>
+            )}
+          </>
+        ) : undefined
+      }
+    >
       <main className="mx-auto w-full max-w-[1160px] px-5 py-8 md:px-10 md:py-10">
-        <Link
-          href={logHref(filters)}
-          className="mb-7 inline-flex items-center gap-2 text-sm text-muted hover:text-foreground"
-        >
-          <ArrowLeft size={15} />
-          Back to logs
-        </Link>
         {query.isLoading ? (
           <LoadingScreen label="Loading request…" />
         ) : query.error ? (
@@ -59,28 +72,11 @@ export function LogDetailPage({ id }: { id: string }) {
         ) : (
           log && (
             <>
-              <header className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-                      {OPERATION_LABELS[log.operation]}
-                    </h1>
-                    <LogStatusBadge status={log.status} />
-                  </div>
-                  <p className="mt-3 break-words text-sm leading-6 text-muted">
-                    {log.preview}
-                  </p>
-                </div>
-                {log.challengeId && (
-                  <Link
-                    href={`/chat?id=${log.challengeId}`}
-                    className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground"
-                  >
-                    Open build
-                    <ArrowUpRight size={15} />
-                  </Link>
-                )}
-              </header>
+              {log.preview && (
+                <p className="break-words text-sm leading-6 text-muted">
+                  {log.preview}
+                </p>
+              )}
               <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
                 <time dateTime={log.startedAt}>
                   {formatLogDate(log.startedAt)}

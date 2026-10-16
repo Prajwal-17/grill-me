@@ -14,8 +14,22 @@ export function ChatPage({ challengeId }: { challengeId: string }) {
   });
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
+  if (!state.loading && !state.error && state.challenge) {
+    return (
+      <PracticeWorkspace
+        key={state.challenge.id}
+        profile={profile}
+        challenge={state.challenge}
+      />
+    );
+  }
   return (
-    <AppShell profile={profile}>
+    <AppShell
+      profile={profile}
+      title="Build"
+      breadcrumbs={[{ label: "Challenges", href: "/challenges" }]}
+      contentScrollable={false}
+    >
       {state.loading ? (
         <LoadingScreen />
       ) : state.error ? (
@@ -23,12 +37,6 @@ export function ChatPage({ challengeId }: { challengeId: string }) {
           title="Could not load this build"
           message={state.error.message}
           onRetry={state.retry}
-        />
-      ) : state.challenge ? (
-        <PracticeWorkspace
-          key={state.challenge.id}
-          profile={profile}
-          challenge={state.challenge}
         />
       ) : null}
     </AppShell>

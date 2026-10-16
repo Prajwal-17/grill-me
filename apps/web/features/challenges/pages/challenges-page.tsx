@@ -41,7 +41,17 @@ export function ChallengesPage() {
   if (!profile) return null;
   const error = active.error ?? saved.error ?? history.error;
   return (
-    <AppShell profile={profile} contentScrollable={false}>
+    <AppShell
+      profile={profile}
+      title="Challenges"
+      contentScrollable={false}
+      actions={
+        <Link className={buttonStyles("primary")} href="/">
+          <Plus size={16} />
+          New build
+        </Link>
+      }
+    >
       {active.isLoading || saved.isLoading || history.isLoading ? (
         <LoadingScreen />
       ) : error ? (
@@ -56,17 +66,6 @@ export function ChallengesPage() {
         />
       ) : (
         <main className="flex h-full min-h-0 flex-col overflow-hidden">
-          <header className="shrink-0 border-b border-line px-5 py-4 md:px-10">
-            <div className="mx-auto flex w-full max-w-[1100px] items-center justify-between gap-4">
-              <h1 className="text-xl font-semibold tracking-[-0.02em]">
-                Challenges
-              </h1>
-              <Link className={buttonStyles("primary")} href="/">
-                <Plus size={16} />
-                New build
-              </Link>
-            </div>
-          </header>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 md:px-10">
             <Tabs
               defaultValue="active"

@@ -5,13 +5,15 @@ import { cn } from "@/shared/lib/cn";
 import { Tooltip as TooltipPrimitive } from "radix-ui";
 
 function TooltipProvider({
-  delayDuration = 0,
+  delayDuration = 300,
+  skipDelayDuration = 400,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (
     <TooltipPrimitive.Provider
       data-slot="tooltip-provider"
       delayDuration={delayDuration}
+      skipDelayDuration={skipDelayDuration}
       {...props}
     />
   );

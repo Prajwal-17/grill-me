@@ -75,7 +75,29 @@ export function PreferencesPage() {
     save.mutate();
   }
   return (
-    <AppShell profile={profile}>
+    <AppShell
+      profile={profile}
+      title="Preferences"
+      actions={
+        <Button
+          type="submit"
+          form="preferences-form"
+          variant="primary"
+          disabled={
+            save.isPending ||
+            preferences.isLoading ||
+            Boolean(preferences.error && !preferences.data)
+          }
+        >
+          {save.isPending ? (
+            <LoaderCircle size={15} className="animate-spin" />
+          ) : saved ? (
+            <Check size={15} />
+          ) : null}
+          {save.isPending ? "Saving…" : saved ? "Saved" : "Save preferences"}
+        </Button>
+      }
+    >
       {preferences.isLoading ? (
         <LoadingScreen />
       ) : preferences.error && !preferences.data ? (
@@ -86,24 +108,7 @@ export function PreferencesPage() {
         />
       ) : (
         <main className="mx-auto w-full max-w-[850px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
-          <form onSubmit={submit}>
-            <header className="sticky top-0 z-10 -mx-1 flex items-center justify-between gap-4 border-b border-line bg-surface px-1 pb-6 pt-1 md:top-0">
-              <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-                Preferences
-              </h1>
-              <Button type="submit" variant="primary" disabled={save.isPending}>
-                {save.isPending ? (
-                  <LoaderCircle size={15} className="animate-spin" />
-                ) : saved ? (
-                  <Check size={15} />
-                ) : null}
-                {save.isPending
-                  ? "Saving…"
-                  : saved
-                    ? "Saved"
-                    : "Save preferences"}
-              </Button>
-            </header>
+          <form id="preferences-form" onSubmit={submit}>
             <fieldset disabled={save.isPending}>
               <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
                 <h2 className="text-[15px] font-semibold">Code reviews</h2>

@@ -32,7 +32,7 @@ export function ErrorState({
     <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
       <div className="mx-auto max-w-md py-16">
         <AlertCircle size={22} className="mb-4 text-muted" />
-        <h1 className="text-xl font-semibold">{title}</h1>
+        <h2 className="text-xl font-semibold">{title}</h2>
         <p className="mt-2 text-sm text-muted">{message}</p>
         <Button className="mt-5" onClick={onRetry}>
           Try again

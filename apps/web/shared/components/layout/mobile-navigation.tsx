@@ -1,7 +1,5 @@
 "use client";
-import Link from "next/link";
 import { Menu } from "lucide-react";
-import { BrandLockup } from "@/shared/components/brand";
 import { Button } from "@/shared/components/ui/button";
 import {
   Sheet,
@@ -23,13 +21,15 @@ export function MobileNavigation({
   setOpen: (open: boolean) => void;
 }) {
   return (
-    <header className="z-30 flex h-14 shrink-0 items-center justify-between border-b border-line bg-canvas px-4 md:hidden">
-      <Link href="/" aria-label="Grill Me home" className="rounded-lg">
-        <BrandLockup markClassName="size-10" wordmarkClassName="text-[17px]" />
-      </Link>
+    <div className="shrink-0 md:hidden">
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" aria-label="Open navigation">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Open navigation"
+            aria-keyshortcuts="Control+b"
+          >
             <Menu size={19} />
           </Button>
         </SheetTrigger>
@@ -45,6 +45,6 @@ export function MobileNavigation({
           <Navigation profile={profile} close={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
-    </header>
+    </div>
   );
 }

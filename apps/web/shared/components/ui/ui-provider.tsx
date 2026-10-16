@@ -22,6 +22,21 @@ function StoreHydrator() {
     if (hydrated) document.documentElement.dataset.theme = theme;
   }, [hydrated, theme]);
 
+  useEffect(() => {
+    const keyboard = () => {
+      document.documentElement.dataset.input = "keyboard";
+    };
+    const pointer = () => {
+      document.documentElement.dataset.input = "pointer";
+    };
+    window.addEventListener("keydown", keyboard, true);
+    window.addEventListener("pointerdown", pointer, true);
+    return () => {
+      window.removeEventListener("keydown", keyboard, true);
+      window.removeEventListener("pointerdown", pointer, true);
+    };
+  }, []);
+
   return null;
 }
 

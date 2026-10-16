@@ -22,12 +22,12 @@ export function ProfileGatePage() {
   }
   return (
     <main className="flex min-h-dvh flex-col gap-12 px-5 pb-16">
-      <div className="flex items-center justify-between py-6">
+      <header className="-mx-5 flex min-h-16 items-center justify-between gap-4 border-b border-line px-5 py-2">
         <BrandLockup />
-        <div className="w-48">
+        <div className="w-40">
           <ThemeSelect />
         </div>
-      </div>
+      </header>
       <section className="mx-auto my-auto w-full max-w-[400px] rounded-2xl border border-line bg-surface p-7 shadow-xs sm:p-8">
         <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
           Ready to build?
