@@ -31,8 +31,26 @@ export function HistoryPage() {
   );
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
+  if (!history.isLoading && !history.error && selectedId && selected) {
+    return (
+      <HistoryDetail key={selected.id} profile={profile} selected={selected} />
+    );
+  }
   return (
-    <AppShell profile={profile} contentScrollable={false}>
+    <AppShell
+      profile={profile}
+      title={selectedId ? "Build details" : "History"}
+      breadcrumbs={selectedId ? [{ label: "History", href: "/history" }] : []}
+      contentScrollable={false}
+      actions={
+        !selectedId && history.data ? (
+          <span className="text-xs tabular-nums text-muted">
+            {history.data.filter((c) => c.status === "completed").length}{" "}
+            completed
+          </span>
+        ) : undefined
+      }
+    >
       {history.isLoading ? (
         <LoadingScreen label="Loading history…" />
       ) : history.error ? (
@@ -42,29 +60,16 @@ export function HistoryPage() {
           onRetry={() => void history.refetch()}
         />
       ) : selectedId ? (
-        selected ? (
-          <HistoryDetail
-            key={selected.id}
-            profile={profile}
-            selected={selected}
-          />
-        ) : (
-          <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
-            <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-              Build not found
-            </h1>
-            <p className="mt-3 text-sm text-muted">
-              This build is not in your completed history.
-            </p>
-            <Link
-              href="/history"
-              className={buttonStyles("secondary") + " mt-5"}
-            >
-              <ArrowLeft size={15} />
-              Back to history
-            </Link>
-          </main>
-        )
+        <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
+          <h2 className="text-xl font-semibold">Build not found</h2>
+          <p className="mt-3 text-sm text-muted">
+            This build is not in your completed history.
+          </p>
+          <Link href="/history" className={buttonStyles("secondary") + " mt-5"}>
+            <ArrowLeft size={15} />
+            Back to history
+          </Link>
+        </main>
       ) : (
         <HistoryList
           profileId={profile.id}

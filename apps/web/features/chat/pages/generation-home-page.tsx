@@ -10,7 +10,7 @@ export function GenerationHomePage() {
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return <ProfileGatePage />;
   return (
-    <AppShell profile={profile}>
+    <AppShell profile={profile} title="Home" contentScrollable={false}>
       <GenerationHome profile={profile} />
     </AppShell>
   );

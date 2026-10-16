@@ -1,11 +1,9 @@
 "use client";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import {
-  ArrowLeft,
   LoaderCircle,
   Lightbulb,
   Pause,
@@ -15,6 +13,7 @@ import {
   Files,
 } from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
+import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
 import { Markdown } from "@/shared/components/markdown";
 import { ChallengeCard } from "@/features/challenges/components/challenge-card";
@@ -73,9 +72,11 @@ const useDrafts = create<{
 export function PracticeWorkspace({
   profile,
   challenge,
+  backTo = { label: "Challenges", href: "/challenges" },
 }: {
   profile: Profile;
   challenge: Challenge;
+  backTo?: { label: string; href: string };
 }) {
   const queries = useQueryClient();
   const key = profile.id + ":" + challenge.id;
@@ -312,314 +313,301 @@ export function PracticeWorkspace({
     hint.error;
   const savedHints = messages.data?.filter((m) => m.mode === "hint") ?? [];
   return (
-    <main className="relative flex h-full min-h-0 overflow-hidden">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-4 py-3 md:px-7 md:group-data-[sidebar-collapsed=true]/shell:pl-14">
-          <div className="flex min-w-0 items-center gap-3">
+    <AppShell
+      profile={profile}
+      title={`#${challenge.number} ${challenge.title}`}
+      breadcrumbs={[backTo]}
+      contentScrollable={false}
+      actions={
+        <>
+          {selectedAttempt && (
             <Button
-              asChild
-              size="icon-sm"
-              variant="ghost"
-              className="border border-line"
+              size="sm"
+              variant={filesOpen ? "secondary" : "ghost"}
+              aria-pressed={filesOpen}
+              onClick={() => setFilesOpen((open) => !open)}
             >
-              <Link href="/challenges" aria-label="Back to challenges">
-                <ArrowLeft size={15} />
-              </Link>
+              <Files size={14} />
+              Files
             </Button>
-            <div className="min-w-0">
-              <nav
-                aria-label="Breadcrumb"
-                className="flex items-center gap-1 text-[11px] text-muted"
-              >
-                <Link href="/challenges" className="hover:text-foreground">
-                  Challenges
-                </Link>
-              </nav>
-              <h1 className="mt-0.5 truncate text-base font-semibold">
-                <span className="mr-2 font-normal text-muted">
-                  #{challenge.number}
-                </span>
-                {challenge.title}
-              </h1>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedAttempt && (
-              <Button
-                size="sm"
-                variant={filesOpen ? "secondary" : "ghost"}
-                aria-pressed={filesOpen}
-                onClick={() => setFilesOpen((open) => !open)}
-              >
-                <Files size={14} />
-                Files
-              </Button>
-            )}
-            {challenge.status === "completed" && (
-              <span className="text-xs text-success">Completed</span>
-            )}
-            {challenge.status === "saved" && (
-              <span className="text-xs text-muted">Saved for later</span>
-            )}
-            {(active || challenge.status === "paused") && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy || lifecycle.isPending}
-                onClick={() => lifecycle.mutate("saved")}
-              >
-                <Bookmark size={14} /> Save for later
-              </Button>
-            )}
-            {active ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => lifecycle.mutate("paused")}
-              >
-                <Pause size={14} />
-                Pause
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => lifecycle.mutate("active")}
-              >
-                <Play size={14} />
-                Resume
-              </Button>
-            )}
-            {challenge.status !== "completed" && (
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={busy}
-                onClick={() => lifecycle.mutate("completed")}
-              >
-                <Check size={15} />
-                Mark completed
-              </Button>
-            )}
-          </div>
-        </header>
-        {error && (
-          <p
-            role="alert"
-            className="shrink-0 border-b border-line px-5 py-3 text-sm text-destructive"
-          >
-            {error.message}
-          </p>
-        )}
-        <Tabs
-          value={tab}
-          onValueChange={setTab}
-          className="min-h-0 flex-1 gap-0 overflow-hidden"
-        >
-          <div className="shrink-0 overflow-x-auto border-b border-line px-4 md:px-7">
-            <TabsList
-              variant="line"
-              className="h-11 min-w-max justify-start"
-              aria-label="Challenge workspace"
+          )}
+          {challenge.status === "completed" && (
+            <span className="text-xs text-success">Completed</span>
+          )}
+          {challenge.status === "saved" && (
+            <span className="text-xs text-muted">Saved for later</span>
+          )}
+          {(active || challenge.status === "paused") && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy || lifecycle.isPending}
+              onClick={() => lifecycle.mutate("saved")}
             >
-              <TabsTrigger value="overview" className="flex-none px-4">
-                Overview
-              </TabsTrigger>
-              <TabsTrigger value="submit" className="flex-none px-4">
-                Submit
-              </TabsTrigger>
-              <TabsTrigger value="reviews" className="flex-none px-4">
-                Reviews
-                {running && <LoaderCircle size={13} className="animate-spin" />}
-              </TabsTrigger>
-              <TabsTrigger value="quizzes" className="flex-none px-4">
-                Quizzes
-              </TabsTrigger>
-            </TabsList>
-          </div>
-          <TabsContent
-            value="overview"
-            className="min-h-0 flex-1 overflow-y-auto"
+              <Bookmark size={14} /> Save for later
+            </Button>
+          )}
+          {active ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => lifecycle.mutate("paused")}
+            >
+              <Pause size={14} />
+              Pause
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => lifecycle.mutate("active")}
+            >
+              <Play size={14} />
+              Resume
+            </Button>
+          )}
+          {challenge.status !== "completed" && (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busy}
+              onClick={() => lifecycle.mutate("completed")}
+            >
+              <Check size={15} />
+              Mark completed
+            </Button>
+          )}
+        </>
+      }
+    >
+      <main className="relative flex h-full min-h-0 overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col">
+          {error && (
+            <p
+              role="alert"
+              className="shrink-0 border-b border-line px-5 py-3 text-sm text-destructive"
+            >
+              {error.message}
+            </p>
+          )}
+          <Tabs
+            value={tab}
+            onValueChange={setTab}
+            className="min-h-0 flex-1 gap-0 overflow-hidden"
           >
-            <div className="px-5 py-6 md:px-10">
-              <div className="mx-auto max-w-[850px] space-y-6">
-                <ChallengeCard
-                  challenge={challenge}
-                  className="max-w-none"
-                  showTitle={false}
-                  headerAction={
-                    <CopyButton
-                      text={statementMarkdown(challenge)}
-                      label="Copy challenge"
-                    />
-                  }
-                />
-                {active && (
-                  <div className="flex gap-2">
-                    <Button variant="primary" onClick={() => setTab("submit")}>
-                      Submit implementation
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => hint.mutate()}
-                    >
-                      {hint.isPending ? (
-                        <LoaderCircle size={14} className="animate-spin" />
-                      ) : (
-                        <Lightbulb size={14} />
-                      )}
-                      Hint
-                    </Button>
-                  </div>
-                )}
-                {(reply || hint.isPending) && active && (
-                  <section
-                    className="border-l-2 border-[var(--grill-accent)] py-1 pl-4"
-                    aria-label="Challenge hint"
-                    aria-live="polite"
-                  >
-                    {reply && (
-                      <div className="text-sm leading-6">
-                        <Markdown>{reply}</Markdown>
-                      </div>
-                    )}
-                    {hint.isPending && !reply && (
-                      <p role="status" className="text-xs text-muted">
-                        Preparing a hint…
-                      </p>
-                    )}
-                  </section>
-                )}
-                {!!savedHints.length && (
-                  <details className="border-t border-line pt-4 text-sm">
-                    <summary className="cursor-pointer text-muted">
-                      Previous hints ({savedHints.length})
-                    </summary>
-                    <div className="mt-4 space-y-5">
-                      {savedHints.map((m) => (
-                        <div key={m.id}>
-                          <Markdown>{m.content}</Markdown>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-                {challenge.contextSnapshot && (
-                  <details className="text-xs text-muted">
-                    <summary className="cursor-pointer">
-                      Generation details
-                    </summary>
-                    <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
-                      {JSON.stringify(challenge.contextSnapshot, null, 2)}
-                    </pre>
-                  </details>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent
-            value="submit"
-            className="min-h-0 flex-1 overflow-y-auto"
-          >
-            <div className="px-5 py-6 md:px-10">
-              <section
-                className="mx-auto max-w-[900px] space-y-5"
-                aria-label="Submit implementation"
+            <div className="shrink-0 overflow-x-auto border-b border-line px-4 md:px-7">
+              <TabsList
+                variant="line"
+                className="h-11 min-w-max justify-start"
+                aria-label="Challenge workspace"
               >
-                {!active && (
-                  <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
-                    {challenge.status === "completed"
-                      ? "You marked this challenge completed."
-                      : challenge.status === "saved"
-                        ? "This challenge is saved for later."
-                        : "This challenge is paused."}{" "}
-                    Resume to submit another version.
-                  </div>
-                )}
-                <SubmissionComposer
-                  active={active}
-                  busy={busy}
-                  running={Boolean(running)}
-                  projects={projects.data ?? []}
-                  projectsLoading={projects.isLoading}
-                  projectsError={Boolean(projects.error)}
-                  projectId={draft.projectId}
-                  uploads={draft.uploads}
-                  content={draft.content}
-                  uploadProgress={uploadProgress}
-                  uploadNotice={uploadNotice}
-                  onProjectChange={(projectId) => update({ projectId })}
-                  onConnectFolder={() => setFolderOpen(true)}
-                  onUpload={(files) => upload.mutate(files)}
-                  onRemoveUpload={(id) =>
-                    update({
-                      uploads: draft.uploads.filter((file) => file.id !== id),
-                    })
-                  }
-                  onClearUploads={() => update({ uploads: [] })}
-                  onContentChange={(content) => update({ content })}
-                  onSubmit={() => submit.mutate()}
-                  onViewReview={() => setTab("reviews")}
-                  reviewIssue={reviewIssue}
-                  reviewStatusLoading={judgeStatus.isLoading}
-                  reviewStatusError={Boolean(judgeStatus.error)}
-                  onRetryReviewStatus={() => judgeStatus.refetch()}
-                />
-              </section>
+                <TabsTrigger value="overview" className="flex-none px-4">
+                  Overview
+                </TabsTrigger>
+                <TabsTrigger value="submit" className="flex-none px-4">
+                  Submit
+                </TabsTrigger>
+                <TabsTrigger value="reviews" className="flex-none px-4">
+                  Reviews
+                  {running && (
+                    <LoaderCircle size={13} className="animate-spin" />
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="quizzes" className="flex-none px-4">
+                  Quizzes
+                </TabsTrigger>
+              </TabsList>
             </div>
-          </TabsContent>
-          <TabsContent value="reviews" className="min-h-0 overflow-hidden">
-            {attempts.isLoading ? (
-              <p role="status" className="text-sm text-muted">
-                Loading submissions…
-              </p>
-            ) : attempts.error ? (
-              <div role="alert">
-                <p>{attempts.error.message}</p>
-                <Button onClick={() => attempts.refetch()}>Retry</Button>
+            <TabsContent
+              value="overview"
+              className="min-h-0 flex-1 overflow-y-auto"
+            >
+              <div className="px-5 py-6 md:px-10">
+                <div className="mx-auto max-w-[850px] space-y-6">
+                  <ChallengeCard
+                    challenge={challenge}
+                    className="max-w-none"
+                    showTitle={false}
+                    headerAction={
+                      <CopyButton
+                        text={statementMarkdown(challenge)}
+                        label="Copy challenge"
+                      />
+                    }
+                  />
+                  {active && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="primary"
+                        onClick={() => setTab("submit")}
+                      >
+                        Submit implementation
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        disabled={busy}
+                        onClick={() => hint.mutate()}
+                      >
+                        {hint.isPending ? (
+                          <LoaderCircle size={14} className="animate-spin" />
+                        ) : (
+                          <Lightbulb size={14} />
+                        )}
+                        Hint
+                      </Button>
+                    </div>
+                  )}
+                  {(reply || hint.isPending) && active && (
+                    <section
+                      className="border-l-2 border-[var(--grill-accent)] py-1 pl-4"
+                      aria-label="Challenge hint"
+                      aria-live="polite"
+                    >
+                      {reply && (
+                        <div className="text-sm leading-6">
+                          <Markdown>{reply}</Markdown>
+                        </div>
+                      )}
+                      {hint.isPending && !reply && (
+                        <p role="status" className="text-xs text-muted">
+                          Preparing a hint…
+                        </p>
+                      )}
+                    </section>
+                  )}
+                  {!!savedHints.length && (
+                    <details className="border-t border-line pt-4 text-sm">
+                      <summary className="cursor-pointer text-muted">
+                        Previous hints ({savedHints.length})
+                      </summary>
+                      <div className="mt-4 space-y-5">
+                        {savedHints.map((m) => (
+                          <div key={m.id}>
+                            <Markdown>{m.content}</Markdown>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                  {challenge.contextSnapshot && (
+                    <details className="text-xs text-muted">
+                      <summary className="cursor-pointer">
+                        Generation details
+                      </summary>
+                      <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
+                        {JSON.stringify(challenge.contextSnapshot, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                </div>
               </div>
-            ) : (
-              <SubmissionHistory
-                attempts={attempts.data ?? []}
-                selectedId={selectedSubmissionId}
-                onSelectedChange={setSelectedSubmissionId}
-                busy={busy || Boolean(running) || !active}
-                onRetry={(review, response) =>
-                  reviewAction.mutate({ review, response })
-                }
-                onCancel={(review) =>
-                  reviewAction.mutate({ review, cancel: true })
-                }
+            </TabsContent>
+            <TabsContent
+              value="submit"
+              className="min-h-0 flex-1 overflow-y-auto"
+            >
+              <div className="px-5 py-6 md:px-10">
+                <section
+                  className="mx-auto max-w-[900px] space-y-5"
+                  aria-label="Submit implementation"
+                >
+                  {!active && (
+                    <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
+                      {challenge.status === "completed"
+                        ? "You marked this challenge completed."
+                        : challenge.status === "saved"
+                          ? "This challenge is saved for later."
+                          : "This challenge is paused."}{" "}
+                      Resume to submit another version.
+                    </div>
+                  )}
+                  <SubmissionComposer
+                    active={active}
+                    busy={busy}
+                    running={Boolean(running)}
+                    projects={projects.data ?? []}
+                    projectsLoading={projects.isLoading}
+                    projectsError={Boolean(projects.error)}
+                    projectId={draft.projectId}
+                    uploads={draft.uploads}
+                    content={draft.content}
+                    uploadProgress={uploadProgress}
+                    uploadNotice={uploadNotice}
+                    onProjectChange={(projectId) => update({ projectId })}
+                    onConnectFolder={() => setFolderOpen(true)}
+                    onUpload={(files) => upload.mutate(files)}
+                    onRemoveUpload={(id) =>
+                      update({
+                        uploads: draft.uploads.filter((file) => file.id !== id),
+                      })
+                    }
+                    onClearUploads={() => update({ uploads: [] })}
+                    onContentChange={(content) => update({ content })}
+                    onSubmit={() => submit.mutate()}
+                    onViewReview={() => setTab("reviews")}
+                    reviewIssue={reviewIssue}
+                    reviewStatusLoading={judgeStatus.isLoading}
+                    reviewStatusError={Boolean(judgeStatus.error)}
+                    onRetryReviewStatus={() => judgeStatus.refetch()}
+                  />
+                </section>
+              </div>
+            </TabsContent>
+            <TabsContent value="reviews" className="min-h-0 overflow-hidden">
+              {attempts.isLoading ? (
+                <p role="status" className="text-sm text-muted">
+                  Loading submissions…
+                </p>
+              ) : attempts.error ? (
+                <div role="alert">
+                  <p>{attempts.error.message}</p>
+                  <Button onClick={() => attempts.refetch()}>Retry</Button>
+                </div>
+              ) : (
+                <SubmissionHistory
+                  attempts={attempts.data ?? []}
+                  selectedId={selectedSubmissionId}
+                  onSelectedChange={setSelectedSubmissionId}
+                  busy={busy || Boolean(running) || !active}
+                  onRetry={(review, response) =>
+                    reviewAction.mutate({ review, response })
+                  }
+                  onCancel={(review) =>
+                    reviewAction.mutate({ review, cancel: true })
+                  }
+                />
+              )}
+            </TabsContent>
+            <TabsContent
+              value="quizzes"
+              className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-10"
+            >
+              <QuizWorkspace
+                profileId={profile.id}
+                challengeId={challenge.id}
               />
-            )}
-          </TabsContent>
-          <TabsContent
-            value="quizzes"
-            className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-10"
-          >
-            <QuizWorkspace profileId={profile.id} challengeId={challenge.id} />
-          </TabsContent>
-        </Tabs>
-      </div>
-      {filesOpen && selectedAttempt && (
-        <SubmissionFiles
-          key={selectedAttempt.id}
-          attempt={selectedAttempt}
+            </TabsContent>
+          </Tabs>
+        </div>
+        {filesOpen && selectedAttempt && (
+          <SubmissionFiles
+            key={selectedAttempt.id}
+            attempt={selectedAttempt}
+            profileId={profile.id}
+            projectPath={selectedProject?.root ?? null}
+            submissionCount={attempts.data?.length ?? 0}
+            onClose={() => setFilesOpen(false)}
+          />
+        )}
+        <ProjectPicker
           profileId={profile.id}
-          projectPath={selectedProject?.root ?? null}
-          submissionCount={attempts.data?.length ?? 0}
-          onClose={() => setFilesOpen(false)}
+          open={folderOpen}
+          onOpenChange={setFolderOpen}
+          onSelect={(path) => connection.mutate(path)}
         />
-      )}
-      <ProjectPicker
-        profileId={profile.id}
-        open={folderOpen}
-        onOpenChange={setFolderOpen}
-        onSelect={(path) => connection.mutate(path)}
-      />
-    </main>
+      </main>
+    </AppShell>
   );
 }

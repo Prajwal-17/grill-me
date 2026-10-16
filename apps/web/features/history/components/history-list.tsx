@@ -40,15 +40,6 @@ export function HistoryList({
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
-      <header className="shrink-0 border-b border-line px-5 py-4 md:px-10">
-        <div className="mx-auto flex w-full max-w-[1100px] items-end justify-between gap-4">
-          <h1 className="text-xl font-semibold tracking-[-0.02em]">History</h1>
-          <span className="text-xs text-muted">
-            {challenges.filter((c) => c.status === "completed").length}{" "}
-            completed
-          </span>
-        </div>
-      </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-8">
         <div className="mx-auto w-full max-w-[1100px]">
           <TopicProgressView profileId={profileId} />

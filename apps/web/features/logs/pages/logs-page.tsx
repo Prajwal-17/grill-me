@@ -39,29 +39,30 @@ export function LogsPage() {
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
   return (
-    <AppShell profile={profile}>
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-3 py-3 md:px-5 md:py-4">
-        <header className="mb-3 flex shrink-0 items-center justify-between gap-4">
-          <div className="flex min-w-0 items-baseline gap-3">
-            <h1 className="text-xl font-semibold tracking-[-0.02em]">Logs</h1>
-            <p className="hidden truncate text-xs text-muted sm:block">
-              AI requests, responses, and timing.
-            </p>
-          </div>
-          <Button
-            aria-label="Refresh logs"
-            title="Refresh logs"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => void logs.refetch()}
-            disabled={logs.isFetching}
-          >
-            <RefreshCw
-              size={15}
-              className={logs.isFetching ? "animate-spin" : undefined}
-            />
-          </Button>
-        </header>
+    <AppShell
+      profile={profile}
+      title="Logs"
+      contentScrollable={false}
+      actions={
+        <Button
+          aria-label="Refresh logs"
+          title="Refresh logs"
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => void logs.refetch()}
+          disabled={logs.isFetching}
+        >
+          <RefreshCw
+            size={15}
+            className={logs.isFetching ? "animate-spin" : undefined}
+          />
+        </Button>
+      }
+    >
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-4 py-5 md:px-6 md:py-6">
+        <p className="mb-4 shrink-0 text-xs text-muted">
+          AI requests, responses, and timing.
+        </p>
         {logs.isLoading ? (
           <div className="min-h-0 flex-1 overflow-y-auto">
             <LoadingScreen label="Loading logs…" />

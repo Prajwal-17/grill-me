@@ -8,5 +8,11 @@ export function HistoryDetail({
   profile: Profile;
   selected: Challenge;
 }) {
-  return <PracticeWorkspace profile={profile} challenge={selected} />;
+  return (
+    <PracticeWorkspace
+      profile={profile}
+      challenge={selected}
+      backTo={{ label: "History", href: "/history" }}
+    />
+  );
 }

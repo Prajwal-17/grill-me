@@ -1,7 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
-import { motion, useReducedMotion } from "motion/react";
-import { PanelLeftOpen } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 import {
@@ -14,73 +14,73 @@ import type { Profile } from "@/shared/types/api";
 import { Navigation } from "@/shared/components/layout/navigation";
 import { MobileNavigation } from "@/shared/components/layout/mobile-navigation";
 import { useAppNavigation } from "@/shared/components/layout/use-app-navigation";
+
 export function AppShell({
   profile,
+  title,
+  breadcrumbs = [],
+  actions,
   children,
   contentScrollable = true,
 }: {
   profile: Profile;
+  title: string;
+  breadcrumbs?: { label: string; href: string }[];
+  actions?: ReactNode;
   children: ReactNode;
   contentScrollable?: boolean;
 }) {
   const { collapsed, toggle, open, setOpen } = useAppNavigation();
-  const reduced = useReducedMotion();
+  const sidebarLabel = collapsed ? "Open sidebar" : "Collapse sidebar";
   return (
-    <div
-      className="group/shell flex h-dvh overflow-hidden"
-      data-sidebar-collapsed={collapsed}
-    >
-      <motion.aside
-        initial={false}
-        animate={{ width: collapsed ? 0 : 232 }}
-        transition={
-          reduced
-            ? { duration: 0 }
-            : { duration: 0.22, ease: [0.22, 1, 0.36, 1] }
-        }
-        className="sticky top-0 hidden h-dvh shrink-0 overflow-x-clip md:block"
+    <div className="flex h-dvh overflow-hidden bg-surface">
+      <a
+        href="#app-content"
+        className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-lg bg-foreground px-4 py-2 text-sm text-canvas focus:translate-y-0"
+      >
+        Skip to content
+      </a>
+      <aside
+        id="desktop-sidebar"
+        className={cn(
+          "hidden h-full w-[232px] shrink-0 border-r border-line bg-canvas md:block",
+          collapsed && "md:hidden",
+        )}
         aria-label="Sidebar"
         inert={collapsed}
-        aria-hidden={collapsed}
       >
-        <div className="h-full w-[232px]">
-          <Navigation profile={profile} />
-        </div>
-      </motion.aside>
-      <div
-        className={cn(
-          "flex min-h-0 min-w-0 flex-1 flex-col md:py-2 md:pr-2",
-          collapsed && "md:pl-2",
-        )}
-      >
-        <MobileNavigation profile={profile} open={open} setOpen={setOpen} />
-        <div
-          data-slot="app-content"
-          className={cn(
-            "relative min-h-0 flex-1 bg-surface md:rounded-xl md:border md:border-line",
-            contentScrollable ? "overflow-y-auto" : "overflow-hidden",
-          )}
+        <Navigation profile={profile} />
+      </aside>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header
+          data-slot="page-header"
+          className="z-30 flex min-h-16 shrink-0 flex-wrap items-center gap-x-4 gap-y-3 border-b border-line bg-surface px-4 py-3 md:px-6"
         >
-          {collapsed && (
-            <div className="absolute left-2 top-2 z-40 hidden md:block">
+          <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
+            <div className="hidden shrink-0 md:block">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     onClick={toggle}
-                    aria-label="Open sidebar"
+                    aria-label={sidebarLabel}
+                    aria-expanded={!collapsed}
+                    aria-controls="desktop-sidebar"
                     aria-keyshortcuts="Control+b"
-                    className="bg-surface/90 shadow-xs backdrop-blur-sm"
                   >
-                    <PanelLeftOpen size={16} />
+                    {collapsed ? (
+                      <PanelLeftOpen size={17} />
+                    ) : (
+                      <PanelLeftClose size={17} />
+                    )}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent
-                  side="right"
+                  side="bottom"
                   className="flex items-center gap-2"
                 >
-                  <span>Open sidebar</span>
+                  <span>{sidebarLabel}</span>
                   <KbdGroup aria-label="Control plus B">
                     <Kbd>Ctrl</Kbd>
                     <span aria-hidden="true">+</span>
@@ -89,7 +89,52 @@ export function AppShell({
                 </TooltipContent>
               </Tooltip>
             </div>
+            <MobileNavigation profile={profile} open={open} setOpen={setOpen} />
+            <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
+              <ol className="flex min-w-0 items-center gap-2 text-sm">
+                {breadcrumbs.map(({ label, href }) => (
+                  <li key={href} className="flex shrink-0 items-center gap-2">
+                    <Link
+                      href={href}
+                      className="rounded-sm text-muted transition-colors duration-100 hover:text-foreground"
+                    >
+                      {label}
+                    </Link>
+                    <ChevronRight
+                      size={14}
+                      className="text-muted"
+                      aria-hidden="true"
+                    />
+                  </li>
+                ))}
+                <li className="min-w-0" aria-current="page">
+                  <h1
+                    className="truncate font-medium tracking-[-0.01em]"
+                    title={title}
+                  >
+                    {title}
+                  </h1>
+                </li>
+              </ol>
+            </nav>
+          </div>
+          {actions && (
+            <div className="flex max-w-full flex-wrap items-center gap-2">
+              {actions}
+            </div>
           )}
+        </header>
+        <div
+          id="app-content"
+          tabIndex={-1}
+          data-slot="app-content"
+          className={cn(
+            "relative min-h-0 flex-1 outline-none",
+            contentScrollable
+              ? "overflow-y-auto overscroll-contain"
+              : "overflow-hidden",
+          )}
+        >
           {children}
         </div>
       </div>
