@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, RotateCcw } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import {
@@ -218,56 +218,63 @@ export function QuizWorkspace({
     }
   }
   const busy = changing || generation.isPending || start.isPending;
+  const showLibrary =
+    challengeId === null &&
+    !selectedQuizId &&
+    list.data !== undefined &&
+    !list.isLoading &&
+    !list.error;
+  const generateButton = (
+    <Button
+      size={showLibrary ? "default" : "sm"}
+      className={showLibrary ? "ml-auto h-11 md:h-10" : "ml-auto"}
+      variant={selectedQuizId ? "secondary" : "primary"}
+      disabled={busy || list.isLoading}
+      onClick={() => {
+        generation.reset();
+        setDialogOpen(true);
+      }}
+    >
+      <Plus size={14} /> Generate quiz
+    </Button>
+  );
 
   return (
     <section
       aria-label={
         challengeId === null ? "Standalone quizzes" : "Challenge quizzes"
       }
-      className="mx-auto w-full max-w-[820px] space-y-5"
+      className="mx-auto w-full space-y-6 @container/quiz"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {challengeId === null && selectedQuizId ? (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => {
-              void select("", "quiz");
-            }}
-          >
-            <ArrowLeft size={14} /> All quizzes
-          </Button>
-        ) : selectedQuizId ? (
-          <QuizSelect
-            label="Select quiz"
-            value={selectedQuizId}
-            disabled={busy}
-            onChange={(value) => {
-              void select(value, "quiz");
-            }}
-            options={(list.data ?? []).map((quiz) => ({
-              value: quiz.id,
-              label: quizLabel(quiz),
-            }))}
-          />
-        ) : (
-          <h2 className="text-sm font-medium">
-            {challengeId === null ? "Your quizzes" : "Quizzes"}
-          </h2>
-        )}
-        <Button
-          size="sm"
-          variant="primary"
-          disabled={busy || list.isLoading}
-          onClick={() => {
-            generation.reset();
-            setDialogOpen(true);
-          }}
-        >
-          <Plus size={14} />
-          Generate quiz
-        </Button>
-      </div>
+      {!showLibrary && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {challengeId === null && selectedQuizId ? (
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                void select("", "quiz");
+              }}
+            >
+              <ArrowLeft size={14} /> All quizzes
+            </Button>
+          ) : selectedQuizId ? (
+            <QuizSelect
+              label="Select quiz"
+              value={selectedQuizId}
+              disabled={busy}
+              onChange={(value) => {
+                void select(value, "quiz");
+              }}
+              options={(list.data ?? []).map((quiz) => ({
+                value: quiz.id,
+                label: quizLabel(quiz),
+              }))}
+            />
+          ) : null}
+          {generateButton}
+        </div>
+      )}
       {list.isLoading ? (
         <p role="status" className="text-sm text-muted">
           Loading quizzes…
@@ -285,20 +292,18 @@ export function QuizWorkspace({
             Retry
           </Button>
         </div>
-      ) : !selectedQuizId && list.data?.length ? (
+      ) : showLibrary ? (
         <QuizTable
+          profileId={profileId}
           quizzes={list.data}
+          actions={generateButton}
           disabled={busy}
           onOpen={(id) => {
             void select(id, "quiz");
           }}
         />
       ) : !selectedQuizId ? (
-        <p className="text-sm text-muted">
-          {challengeId === null
-            ? "No quizzes yet. Generate your first quiz from a topic or a prompt."
-            : "No quizzes yet."}
-        </p>
+        <p className="text-sm text-muted">No quizzes yet.</p>
       ) : detail.isLoading ? (
         <p role="status" className="text-sm text-muted">
           Loading quiz…
@@ -319,32 +324,21 @@ export function QuizWorkspace({
       ) : (
         detail.data && (
           <>
-            {challengeId === null && (
-              <div className="space-y-3">
-                <h2 className="text-sm font-medium">
-                  Quiz {detail.data.quiz.number}
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0 flex-1 basis-64">
+                <h2 className="text-xl font-medium tracking-tight md:text-2xl [overflow-wrap:anywhere]">
+                  {detail.data.quiz.topic ?? `Quiz ${detail.data.quiz.number}`}
                 </h2>
-                <details className="rounded-lg border border-line px-3 py-2 text-sm">
-                  <summary className="cursor-pointer text-muted">
-                    Quiz prompt
-                  </summary>
-                  <p className="mt-2 whitespace-pre-wrap leading-6 [overflow-wrap:anywhere]">
-                    {detail.data.quiz.prompt ?? detail.data.quiz.topic}
-                  </p>
-                </details>
+                <p className="mt-1.5 text-sm text-muted">
+                  <span className="capitalize">
+                    {detail.data.quiz.coverage === "topic"
+                      ? detail.data.quiz.difficulty
+                      : COVERAGE_LABELS[detail.data.quiz.coverage]}
+                  </span>
+                  {" · "}
+                  {detail.data.quiz.questionCount} questions
+                </p>
               </div>
-            )}
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-4">
-              <p className="text-xs text-muted">
-                {detail.data.quiz.coverage === "topic"
-                  ? detail.data.quiz.difficulty
-                  : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
-                ·{" "}
-                {new Intl.DateTimeFormat("en", {
-                  month: "short",
-                  day: "numeric",
-                }).format(new Date(detail.data.quiz.createdAt))}
-              </p>
               <div className="flex max-w-full flex-wrap items-center gap-2">
                 {selectedAttempt && (
                   <QuizSelect
@@ -366,11 +360,35 @@ export function QuizWorkspace({
                     disabled={busy}
                     onClick={() => start.mutate()}
                   >
+                    <RotateCcw size={14} />
                     {start.isPending ? "Starting…" : "Retake quiz"}
                   </Button>
                 )}
               </div>
             </div>
+            <details className="group text-sm">
+              <summary className="w-fit cursor-pointer rounded-sm text-xs text-muted outline-offset-4 hover:text-foreground">
+                Quiz details
+              </summary>
+              <div className="mt-3 space-y-3 rounded-lg border border-line bg-canvas p-4">
+                <p className="text-xs text-muted">
+                  Quiz {detail.data.quiz.number} · Created{" "}
+                  {new Intl.DateTimeFormat("en", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }).format(new Date(detail.data.quiz.createdAt))}
+                </p>
+                {challengeId === null && (
+                  <div>
+                    <h3 className="mb-1 text-xs font-medium">Quiz prompt</h3>
+                    <p className="whitespace-pre-wrap leading-6 [overflow-wrap:anywhere]">
+                      {detail.data.quiz.prompt ?? detail.data.quiz.topic}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </details>
             {start.error && (
               <p role="alert" className="text-xs text-destructive">
                 {start.error.message}

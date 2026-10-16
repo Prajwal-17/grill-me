@@ -12,13 +12,7 @@ export function QuizzesPage() {
 
   return (
     <AppShell profile={profile} title="Quizzes">
-      <main className="px-5 py-6 md:px-10 md:py-8">
-        <div className="mx-auto mb-8 w-full max-w-[820px]">
-          <p className="text-sm text-muted">
-            Start with one word or describe the quiz you want. Browse your saved
-            quizzes, resume your progress, and review your results.
-          </p>
-        </div>
+      <main className="mx-auto w-full max-w-[1180px] px-5 py-6 md:px-10 md:py-8">
         <QuizWorkspace key={profile.id} profileId={profile.id} />
       </main>
     </AppShell>
