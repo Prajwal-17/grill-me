@@ -218,6 +218,26 @@ export function QuizWorkspace({
     }
   }
   const busy = changing || generation.isPending || start.isPending;
+  const showLibrary =
+    challengeId === null &&
+    !selectedQuizId &&
+    list.data !== undefined &&
+    !list.isLoading &&
+    !list.error;
+  const generateButton = (
+    <Button
+      size={showLibrary ? "default" : "sm"}
+      className="ml-auto"
+      variant={selectedQuizId ? "secondary" : "primary"}
+      disabled={busy || list.isLoading}
+      onClick={() => {
+        generation.reset();
+        setDialogOpen(true);
+      }}
+    >
+      <Plus size={14} /> Generate quiz
+    </Button>
+  );
 
   return (
     <section
@@ -226,48 +246,35 @@ export function QuizWorkspace({
       }
       className="mx-auto w-full space-y-6 @container/quiz"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {challengeId === null && selectedQuizId ? (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => {
-              void select("", "quiz");
-            }}
-          >
-            <ArrowLeft size={14} /> All quizzes
-          </Button>
-        ) : selectedQuizId ? (
-          <QuizSelect
-            label="Select quiz"
-            value={selectedQuizId}
-            disabled={busy}
-            onChange={(value) => {
-              void select(value, "quiz");
-            }}
-            options={(list.data ?? []).map((quiz) => ({
-              value: quiz.id,
-              label: quizLabel(quiz),
-            }))}
-          />
-        ) : (
-          <h2 className="text-sm font-medium">
-            {challengeId === null ? "Your quizzes" : "Quizzes"}
-          </h2>
-        )}
-        <Button
-          size="sm"
-          variant={selectedQuizId ? "secondary" : "primary"}
-          disabled={busy || list.isLoading}
-          onClick={() => {
-            generation.reset();
-            setDialogOpen(true);
-          }}
-        >
-          <Plus size={14} />
-          Generate quiz
-        </Button>
-      </div>
+      {!showLibrary && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {challengeId === null && selectedQuizId ? (
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                void select("", "quiz");
+              }}
+            >
+              <ArrowLeft size={14} /> All quizzes
+            </Button>
+          ) : selectedQuizId ? (
+            <QuizSelect
+              label="Select quiz"
+              value={selectedQuizId}
+              disabled={busy}
+              onChange={(value) => {
+                void select(value, "quiz");
+              }}
+              options={(list.data ?? []).map((quiz) => ({
+                value: quiz.id,
+                label: quizLabel(quiz),
+              }))}
+            />
+          ) : null}
+          {generateButton}
+        </div>
+      )}
       {list.isLoading ? (
         <p role="status" className="text-sm text-muted">
           Loading quizzes…
@@ -285,20 +292,18 @@ export function QuizWorkspace({
             Retry
           </Button>
         </div>
-      ) : !selectedQuizId && list.data?.length ? (
+      ) : showLibrary ? (
         <QuizTable
+          profileId={profileId}
           quizzes={list.data}
+          actions={generateButton}
           disabled={busy}
           onOpen={(id) => {
             void select(id, "quiz");
           }}
         />
       ) : !selectedQuizId ? (
-        <p className="text-sm text-muted">
-          {challengeId === null
-            ? "No quizzes yet. Generate your first quiz from a topic or a prompt."
-            : "No quizzes yet."}
-        </p>
+        <p className="text-sm text-muted">No quizzes yet.</p>
       ) : detail.isLoading ? (
         <p role="status" className="text-sm text-muted">
           Loading quiz…
