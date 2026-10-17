@@ -133,7 +133,7 @@ function ListSelect({
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         aria-label={label}
-        className="w-full min-w-0 gap-1 bg-surface px-3 text-sm shadow-none data-[size=default]:h-11 md:data-[size=default]:h-10"
+        className="w-full min-w-0 gap-1 bg-surface px-3 text-sm shadow-none data-[size=default]:h-11 md:data-[size=default]:h-9"
       >
         <SelectValue />
       </SelectTrigger>
@@ -238,7 +238,7 @@ export function QuizTable({
         className={cn(
           "rounded-sm outline-offset-4 disabled:opacity-40",
           isAction
-            ? "pressable inline-flex min-h-11 shrink-0 items-center gap-1.5 text-xs text-muted hover:text-foreground"
+            ? "pressable inline-flex min-h-11 shrink-0 items-center gap-1.5 text-xs text-muted hover:text-foreground md:min-h-8"
             : "line-clamp-2 text-left text-sm font-medium [overflow-wrap:anywhere] hover:underline hover:underline-offset-4",
           isAction && status(quiz) === "draft" && "text-foreground",
         )}
@@ -256,8 +256,8 @@ export function QuizTable({
   }
 
   return (
-    <div className="space-y-4 @container/quiz-list">
-      <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_132px_148px_164px_auto]">
+    <div className="space-y-3 @container/quiz-list">
+      <div className="grid grid-cols-2 items-center gap-1.5 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_124px_136px_148px_auto]">
         <div
           role="search"
           className="relative col-span-2 min-w-0 @[900px]/quiz-list:col-span-1"
@@ -285,7 +285,7 @@ export function QuizTable({
                 update({ search: "", page: 1 });
               }
             }}
-            className="h-11 bg-canvas pr-10 pl-9 shadow-none md:h-10 [&::-webkit-search-cancel-button]:appearance-none"
+            className="h-11 bg-canvas pr-10 pl-9 shadow-none md:h-9 [&::-webkit-search-cancel-button]:appearance-none"
           />
           {settings.search && (
             <button
@@ -401,25 +401,25 @@ export function QuizTable({
               </colgroup>
               <TableHeader className="border-b border-line bg-canvas text-muted">
                 <TableRow>
-                  <TableHead scope="col" className="px-4 py-3 font-normal">
+                  <TableHead scope="col" className="h-8 px-4 py-2 font-normal">
                     Quiz
                   </TableHead>
-                  <TableHead scope="col" className="px-2 py-3 font-normal">
+                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
                     Difficulty
                   </TableHead>
-                  <TableHead scope="col" className="px-2 py-3 font-normal">
+                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
                     Progress
                   </TableHead>
-                  <TableHead scope="col" className="px-2 py-3 font-normal">
+                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
                     Score
                   </TableHead>
                   <TableHead
                     scope="col"
-                    className="hidden px-2 py-3 font-normal @[850px]/quiz-list:table-cell"
+                    className="hidden h-8 px-2 py-2 font-normal @[850px]/quiz-list:table-cell"
                   >
                     Created
                   </TableHead>
-                  <TableHead scope="col">
+                  <TableHead scope="col" className="h-8">
                     <span className="sr-only">Open quiz</span>
                   </TableHead>
                 </TableRow>
@@ -432,23 +432,23 @@ export function QuizTable({
                   >
                     <TableHead
                       scope="row"
-                      className="px-4 py-4 font-normal whitespace-normal"
+                      className="px-4 py-2 font-normal whitespace-normal"
                     >
                       {openButton(quiz)}
                       <p className="mt-1 text-xs text-muted">
                         Quiz {quiz.number} · {quiz.questionCount} questions
                       </p>
                     </TableHead>
-                    <TableCell className="px-2 py-4 text-muted capitalize">
+                    <TableCell className="px-2 py-2 text-muted capitalize">
                       {quiz.difficulty ?? "—"}
                     </TableCell>
-                    <TableCell className="px-2 py-4">
+                    <TableCell className="px-2 py-2">
                       <Progress quiz={quiz} />
                     </TableCell>
-                    <TableCell className="px-2 py-4">
+                    <TableCell className="px-2 py-2">
                       <Score quiz={quiz} />
                     </TableCell>
-                    <TableCell className="hidden px-2 py-4 text-muted @[850px]/quiz-list:table-cell">
+                    <TableCell className="hidden px-2 py-2 text-muted @[850px]/quiz-list:table-cell">
                       <time
                         dateTime={quiz.createdAt}
                         title={new Date(quiz.createdAt).toLocaleDateString()}
@@ -468,7 +468,7 @@ export function QuizTable({
             </Table>
             <div className="divide-y divide-line @[640px]/quiz-list:hidden">
               {visible.map((quiz) => (
-                <article key={quiz.id} className="px-4 py-3.5">
+                <article key={quiz.id} className="px-3 py-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       {openButton(quiz)}
@@ -487,7 +487,7 @@ export function QuizTable({
                     </div>
                     {openButton(quiz, true)}
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="mt-2 flex items-center justify-between gap-3">
                     <Progress quiz={quiz} compact />
                     {quiz.latestAttempt?.score != null && (
                       <span className="text-xs">
@@ -510,7 +510,7 @@ export function QuizTable({
           </div>
         )}
       </div>
-      <div className="flex min-h-9 items-center justify-between gap-3 text-xs text-muted">
+      <div className="flex min-h-8 items-center justify-between gap-3 text-xs text-muted">
         <p role="status" aria-live="polite">
           {filtered.length
             ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, filtered.length)} of ${filtered.length}`

@@ -14,6 +14,8 @@ export function useAppNavigation() {
   }, []);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.isComposing) return;
+
       if (
         event.ctrlKey &&
         !event.altKey &&
@@ -21,6 +23,15 @@ export function useAppNavigation() {
         !event.shiftKey &&
         event.key.toLowerCase() === "b"
       ) {
+        const target = event.target;
+        if (
+          target instanceof HTMLElement &&
+          (target.isContentEditable ||
+            target.closest("input, textarea, select, [role='textbox']"))
+        ) {
+          return;
+        }
+
         event.preventDefault();
         if (matchMedia("(min-width: 768px)").matches) {
           // Move focus out of the sidebar before the shortcut hides it.
