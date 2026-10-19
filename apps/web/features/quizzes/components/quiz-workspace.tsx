@@ -12,6 +12,11 @@ import {
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -336,25 +341,31 @@ export function QuizWorkspace({
     !list.isLoading &&
     !list.error;
   const generateButton = (
-    <Button
-      size={showLibrary ? "default" : "icon-sm"}
-      className={showLibrary ? "ml-auto h-11 md:h-9" : "ml-auto shrink-0"}
-      variant={selectedQuizId ? "secondary" : "primary"}
-      disabled={busy || list.isLoading}
-      aria-label={showLibrary ? undefined : "Generate quiz"}
-      title={showLibrary ? undefined : "Generate quiz"}
-      onClick={() => {
-        generation.reset();
-        setDialogOpen(true);
-      }}
-    >
-      <Plus size={14} />
-      {showLibrary ? (
-        "Generate quiz"
-      ) : (
-        <span className="sr-only">Generate quiz</span>
-      )}
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size={showLibrary ? "default" : "icon-sm"}
+          className={showLibrary ? "ml-auto h-11 md:h-9" : "ml-auto shrink-0"}
+          variant={selectedQuizId ? "secondary" : "primary"}
+          disabled={busy || list.isLoading}
+          aria-label="Generate quiz"
+          onClick={() => {
+            generation.reset();
+            setDialogOpen(true);
+          }}
+        >
+          <Plus size={14} />
+          {showLibrary ? (
+            "Generate quiz"
+          ) : (
+            <span className="sr-only">Generate quiz</span>
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={6}>
+        Generate quiz
+      </TooltipContent>
+    </Tooltip>
   );
 
   return (
@@ -371,17 +382,23 @@ export function QuizWorkspace({
       {!showLibrary && !detail.data && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {challengeId === null && selectedQuizId ? (
-            <Button
-              size="icon-sm"
-              disabled={busy}
-              aria-label="All quizzes"
-              title="All quizzes"
-              onClick={() => {
-                void select("", "quiz");
-              }}
-            >
-              <ArrowLeft size={14} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  disabled={busy}
+                  aria-label="All quizzes"
+                  onClick={() => {
+                    void select("", "quiz");
+                  }}
+                >
+                  <ArrowLeft size={14} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={6}>
+                All quizzes
+              </TooltipContent>
+            </Tooltip>
           ) : selectedQuizId ? (
             <QuizSelect
               label="Select quiz"
@@ -447,18 +464,24 @@ export function QuizWorkspace({
             <div className="relative flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line pb-1.5">
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
                 {challengeId === null ? (
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    disabled={busy}
-                    aria-label="All quizzes"
-                    title="All quizzes"
-                    onClick={() => {
-                      void select("", "quiz");
-                    }}
-                  >
-                    <ArrowLeft size={14} />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        disabled={busy}
+                        aria-label="All quizzes"
+                        onClick={() => {
+                          void select("", "quiz");
+                        }}
+                      >
+                        <ArrowLeft size={14} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={6}>
+                      All quizzes
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
                   <QuizSelect
                     label="Select quiz"
@@ -487,24 +510,32 @@ export function QuizWorkspace({
                     · {detail.data.quiz.questionCount} questions
                   </span>
                 </div>
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  className="shrink-0 text-muted"
-                  disabled={busy}
-                  aria-label={
-                    titleGeneration.isPending
-                      ? "Regenerating quiz title"
-                      : "Regenerate quiz title"
-                  }
-                  title="Regenerate quiz title"
-                  onClick={() => {
-                    titleGeneration.reset();
-                    titleGeneration.mutate(selectedQuizId);
-                  }}
-                >
-                  <Sparkles size={14} />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      className="shrink-0 text-muted"
+                      disabled={busy}
+                      aria-label={
+                        titleGeneration.isPending
+                          ? "Regenerating quiz title"
+                          : "Regenerate quiz title"
+                      }
+                      onClick={() => {
+                        titleGeneration.reset();
+                        titleGeneration.mutate(selectedQuizId);
+                      }}
+                    >
+                      <Sparkles size={14} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    {titleGeneration.isPending
+                      ? "Regenerating title…"
+                      : "Regenerate quiz title"}
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <div className="ml-auto flex w-full max-w-full shrink-0 items-center justify-end gap-1 @[500px]/quiz:w-auto">
                 {selectedAttempt && (
@@ -523,18 +554,27 @@ export function QuizWorkspace({
                   />
                 )}
                 {selectedAttempt?.status === "submitted" && (
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    disabled={busy}
-                    aria-label={
-                      start.isPending ? "Starting quiz" : "Retake quiz"
-                    }
-                    title="Retake quiz"
-                    onClick={() => start.mutate()}
-                  >
-                    <RotateCcw size={14} />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busy}
+                        aria-label={
+                          start.isPending ? "Starting quiz" : "Retake quiz"
+                        }
+                        onClick={() => start.mutate()}
+                      >
+                        <RotateCcw size={14} />
+                        {start.isPending ? "Starting…" : "Retake"}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={6}>
+                      {start.isPending
+                        ? "Starting a new attempt…"
+                        : "Start a new attempt"}
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {generateButton}
               </div>
@@ -575,7 +615,9 @@ export function QuizWorkspace({
       >
         <DialogContent
           className={challengeId === null ? "sm:max-w-lg" : "sm:max-w-sm"}
-          showCloseButton={!generation.isPending && !promptEnhancement.isPending}
+          showCloseButton={
+            !generation.isPending && !promptEnhancement.isPending
+          }
         >
           <DialogTitle>Generate quiz</DialogTitle>
           <DialogDescription className="sr-only">
@@ -597,25 +639,59 @@ export function QuizWorkspace({
                   <label htmlFor="quiz-prompt" className="text-xs text-muted">
                     Quiz prompt
                   </label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    disabled={
-                      generation.isPending ||
-                      promptEnhancement.isPending ||
-                      prompt.trim().length === 0
-                    }
-                    onClick={() => {
-                      setPromptEnhanced(false);
-                      promptEnhancement.mutate();
-                    }}
-                  >
-                    <Sparkles size={14} aria-hidden="true" />
-                    {promptEnhancement.isPending
-                      ? "Enhancing…"
-                      : "Enhance prompt"}
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span
+                        className="inline-flex"
+                        tabIndex={
+                          generation.isPending ||
+                          promptEnhancement.isPending ||
+                          prompt.trim().length === 0
+                            ? 0
+                            : undefined
+                        }
+                      >
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="secondary"
+                          disabled={
+                            generation.isPending ||
+                            promptEnhancement.isPending ||
+                            prompt.trim().length === 0
+                          }
+                          aria-label={
+                            promptEnhancement.isPending
+                              ? "Enhancing prompt with AI"
+                              : "Enhance prompt with AI"
+                          }
+                          onClick={() => {
+                            setPromptEnhanced(false);
+                            promptEnhancement.mutate();
+                          }}
+                        >
+                          {promptEnhancement.isPending ? (
+                            <LoaderCircle
+                              size={14}
+                              aria-hidden="true"
+                              className="animate-spin motion-reduce:animate-none"
+                            />
+                          ) : (
+                            <Sparkles size={14} aria-hidden="true" />
+                          )}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={6}>
+                      {promptEnhancement.isPending
+                        ? "Enhancing prompt…"
+                        : prompt.trim().length === 0
+                          ? "Enter a prompt to enable AI enhancement"
+                          : generation.isPending
+                            ? "Wait for quiz generation to finish"
+                            : "Enhance prompt with AI"}
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
                 <Textarea
                   id="quiz-prompt"
@@ -672,7 +748,9 @@ export function QuizWorkspace({
                   <QuizSelect
                     label="Quiz difficulty"
                     value={difficulty}
-                    disabled={generation.isPending || promptEnhancement.isPending}
+                    disabled={
+                      generation.isPending || promptEnhancement.isPending
+                    }
                     onChange={(value) => setDifficulty(value as QuizDifficulty)}
                     options={[
                       { value: "easy", label: "Easy" },
@@ -688,7 +766,9 @@ export function QuizWorkspace({
                   <QuizSelect
                     label="Quiz coverage"
                     value={coverage}
-                    disabled={generation.isPending || promptEnhancement.isPending}
+                    disabled={
+                      generation.isPending || promptEnhancement.isPending
+                    }
                     onChange={(value) => setCoverage(value as QuizCoverage)}
                     options={Object.entries(COVERAGE_LABELS).map(
                       ([value, label]) => ({ value, label }),
