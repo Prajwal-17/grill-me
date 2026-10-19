@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NODE_ENV=development APP_ENV=development bun run --hot src/index.ts",
+    "dev": "NODE_ENV=development APP_ENV=development API_PORT=8027 WEB_ORIGIN=http://localhost:8028 bun run --hot src/index.ts",
     "build": "tsc --noEmit",
     "start": "NODE_ENV=production APP_ENV=production bun run src/index.ts",
     "lint": "eslint src test --max-warnings 0",
