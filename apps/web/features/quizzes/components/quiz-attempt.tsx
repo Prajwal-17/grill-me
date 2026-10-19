@@ -122,7 +122,7 @@ export function QuizAttempt({
           ? "Left and right arrows move between questions."
           : "Left and right arrows change questions. Up and down arrows select an answer. Answers save automatically."}
       </p>
-      <div className="mb-2 flex items-center justify-between gap-4 text-xs sm:text-sm">
+      <div className="mb-3 flex items-center justify-between gap-4 text-sm sm:text-base">
         <p
           className="font-medium group-focus-visible/attempt:underline group-focus-visible/attempt:underline-offset-4"
           aria-live="polite"
@@ -135,31 +135,13 @@ export function QuizAttempt({
           </p>
         )}
       </div>
-      {!submitted && (
-        <div aria-hidden="true" className="mb-3 flex h-1 gap-1">
-          {quiz.questions.map((item, questionIndex) => {
-            const isAnswered = state.answers[item.id] !== undefined;
-            return (
-              <span
-                key={item.id}
-                className={cn(
-                  "min-w-0 flex-1 rounded-full",
-                  isAnswered || index === questionIndex
-                    ? "bg-foreground"
-                    : "bg-line",
-                )}
-              />
-            );
-          })}
-        </div>
-      )}
       <div className="grid min-w-0 items-start gap-4 @[850px]/quiz:grid-cols-[minmax(0,74ch)_196px] @[850px]/quiz:gap-5">
         <div className="min-w-0">
           <fieldset
             disabled={submitted || readOnly || state.submitting}
             className="min-w-0 space-y-2"
           >
-            <legend className="mb-3 w-full text-lg font-medium leading-[1.45] tracking-tight @[850px]/quiz:text-xl">
+            <legend className="mb-3 w-full text-xl font-medium leading-[1.45] tracking-tight @[850px]/quiz:text-2xl">
               <Markdown>{question.question}</Markdown>
             </legend>
             {question.options.map((option, optionIndex) => {
@@ -171,7 +153,7 @@ export function QuizAttempt({
                 <label
                   key={optionIndex}
                   className={cn(
-                    "relative flex min-h-12 cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 text-base leading-6 transition-colors duration-100 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-foreground",
+                    "relative flex min-h-12 cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 text-lg leading-7 transition-colors duration-100 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-foreground",
                     correct
                       ? "border-success/50 bg-success/10"
                       : incorrect
@@ -234,7 +216,7 @@ export function QuizAttempt({
           {result && (
             <section
               aria-label="Answer explanation"
-              className="mt-4 border-t border-line pt-3 text-base leading-6"
+              className="mt-4 border-t border-line pt-3 text-lg leading-7"
             >
               <h3 className="mb-1 text-sm font-semibold">Explanation</h3>
               <div className="text-muted">
@@ -267,7 +249,6 @@ export function QuizAttempt({
                 size="sm"
                 variant="primary"
                 disabled={answered !== quiz.questionCount || state.submitting}
-                aria-describedby={`submit-help-${attempt.id}`}
                 onClick={() => {
                   void state.submit();
                 }}
@@ -276,35 +257,6 @@ export function QuizAttempt({
               </Button>
             )}
           </div>
-          {!submitted && !readOnly && (
-            <p
-              id={`submit-help-${attempt.id}`}
-              className="mt-1.5 text-xs leading-4 text-muted"
-            >
-              {answered < quiz.questionCount ? (
-                <>
-                  {quiz.questionCount - answered} unanswered ·{" "}
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="link"
-                    className="h-auto min-h-0 px-0 py-0 text-xs font-normal underline underline-offset-4 hover:text-foreground"
-                    onClick={() =>
-                      setIndex(
-                        quiz.questions.findIndex(
-                          (q) => state.answers[q.id] === undefined,
-                        ),
-                      )
-                    }
-                  >
-                    Go to next unanswered question
-                  </Button>
-                </>
-              ) : (
-                "All questions answered. Ready to submit."
-              )}
-            </p>
-          )}
         </div>
         <aside
           aria-label="Question overview"
