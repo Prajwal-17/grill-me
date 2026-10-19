@@ -9,6 +9,8 @@ import {
   Circle,
   Clock3,
   Search,
+  RotateCcw,
+  Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -29,6 +31,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/cn";
 import { useQuizListState } from "../hooks/use-quiz-list-state";
 import type { QuizSummary } from "../types";
@@ -39,10 +46,16 @@ const statuses = [
   ["draft", "In progress"],
   ["submitted", "Submitted"],
   ["new", "Not started"],
+  ["deleted", "Deleted"],
 ] as const;
 
 function title(quiz: QuizSummary) {
-  return quiz.topic?.trim() || quiz.prompt?.trim() || `Quiz ${quiz.number}`;
+  return (
+    quiz.title?.trim() ||
+    quiz.topic?.trim() ||
+    quiz.prompt?.trim() ||
+    `Quiz ${quiz.number}`
+  );
 }
 
 function status(quiz: QuizSummary) {
@@ -71,24 +84,32 @@ function Progress({
   compact?: boolean;
 }) {
   const current = status(quiz);
-  const Icon =
-    current === "draft" ? Clock3 : current === "submitted" ? Check : Circle;
+  const deleted = Boolean(quiz.deletedAt);
+  const Icon = deleted
+    ? Trash2
+    : current === "draft"
+      ? Clock3
+      : current === "submitted"
+        ? Check
+        : Circle;
   return (
     <div className={compact ? "flex flex-wrap items-center gap-2" : undefined}>
       <span
         className={cn(
           "inline-flex items-center gap-1.5 whitespace-nowrap text-xs",
-          current === "draft" ? "text-warning" : "text-muted",
+          current === "draft" && !deleted ? "text-warning" : "text-muted",
         )}
       >
         <Icon size={13} aria-hidden="true" />
-        {current === "draft"
-          ? "In progress"
-          : current === "submitted"
-            ? "Submitted"
-            : "Not started"}
+        {deleted
+          ? "Deleted"
+          : current === "draft"
+            ? "In progress"
+            : current === "submitted"
+              ? "Submitted"
+              : "Not started"}
       </span>
-      {current === "draft" && (
+      {!deleted && current === "draft" && (
         <span
           className={cn(
             "text-xs text-muted tabular-nums",
@@ -133,7 +154,7 @@ function ListSelect({
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         aria-label={label}
-        className="w-full min-w-0 gap-1 bg-surface px-3 text-sm shadow-none data-[size=default]:h-11 md:data-[size=default]:h-10"
+        className="w-full min-w-0 gap-1 bg-surface px-3 text-sm shadow-none data-[size=default]:h-11 md:data-[size=default]:h-9"
       >
         <SelectValue />
       </SelectTrigger>
@@ -154,12 +175,16 @@ export function QuizTable({
   disabled,
   actions,
   onOpen,
+  onDelete,
+  onRestore,
 }: {
   profileId: string;
   quizzes: QuizSummary[];
   disabled: boolean;
   actions: ReactNode;
   onOpen: (id: string) => void;
+  onDelete: (quiz: QuizSummary) => void;
+  onRestore: (quiz: QuizSummary) => void;
 }) {
   const [settings, update] = useQuizListState(profileId);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -169,12 +194,15 @@ export function QuizTable({
       (settings.difficulty === "all" ||
         quiz.difficulty === settings.difficulty) &&
       (!query ||
-        `quiz ${quiz.number} #${quiz.number} ${quiz.topic ?? ""} ${quiz.prompt ?? ""}`
+        `quiz ${quiz.number} #${quiz.number} ${quiz.title ?? ""} ${quiz.topic ?? ""} ${quiz.prompt ?? ""}`
           .toLowerCase()
           .includes(query)),
   );
-  const filtered = matching.filter(
-    (quiz) => settings.status === "all" || status(quiz) === settings.status,
+  const filtered = matching.filter((quiz) =>
+    settings.status === "deleted"
+      ? Boolean(quiz.deletedAt)
+      : !quiz.deletedAt &&
+        (settings.status === "all" || status(quiz) === settings.status),
   );
   filtered.sort((a, b) => {
     const newest =
@@ -227,8 +255,10 @@ export function QuizTable({
 
   function openButton(quiz: QuizSummary, isAction = false) {
     return (
-      <button
+      <Button
         type="button"
+        variant={isAction ? "ghost" : "link"}
+        size="sm"
         data-quiz-open={isAction ? undefined : quiz.id}
         aria-label={`${isAction ? action(quiz) : "Open"} quiz ${quiz.number}`}
         aria-keyshortcuts={isAction ? undefined : "ArrowUp ArrowDown"}
@@ -236,10 +266,13 @@ export function QuizTable({
         onClick={() => onOpen(quiz.id)}
         title={isAction ? undefined : title(quiz)}
         className={cn(
-          "rounded-sm outline-offset-4 disabled:opacity-40",
+          "rounded-sm",
           isAction
-            ? "pressable inline-flex min-h-11 shrink-0 items-center gap-1.5 text-xs text-muted hover:text-foreground"
-            : "line-clamp-2 text-left text-sm font-medium [overflow-wrap:anywhere] hover:underline hover:underline-offset-4",
+            ? "h-11 shrink-0 justify-start px-1.5 text-xs text-muted hover:text-foreground md:h-8"
+            : cn(
+                "h-auto w-full justify-start px-0 py-0 text-left text-sm font-medium whitespace-normal",
+                quiz.deletedAt && "text-muted",
+              ),
           isAction && status(quiz) === "draft" && "text-foreground",
         )}
       >
@@ -249,15 +282,55 @@ export function QuizTable({
             <ArrowRight size={13} aria-hidden="true" />
           </>
         ) : (
-          title(quiz)
+          <span className="line-clamp-2 [overflow-wrap:anywhere]">
+            {title(quiz)}
+          </span>
         )}
-      </button>
+      </Button>
+    );
+  }
+
+  function deleteButton(quiz: QuizSummary) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Delete quiz ${quiz.number}`}
+            disabled={disabled}
+            onClick={() => onDelete(quiz)}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          Move to Deleted
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  function restoreButton(quiz: QuizSummary) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        disabled={disabled}
+        aria-label={`Restore quiz ${quiz.number}`}
+        onClick={() => onRestore(quiz)}
+      >
+        <RotateCcw size={13} aria-hidden="true" />
+        Restore
+      </Button>
     );
   }
 
   return (
-    <div className="space-y-4 @container/quiz-list">
-      <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_132px_148px_164px_auto]">
+    <div className="space-y-3 @container/quiz-list">
+      <div className="grid grid-cols-2 items-center gap-1.5 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_124px_136px_148px_auto]">
         <div
           role="search"
           className="relative col-span-2 min-w-0 @[900px]/quiz-list:col-span-1"
@@ -285,21 +358,30 @@ export function QuizTable({
                 update({ search: "", page: 1 });
               }
             }}
-            className="h-11 bg-canvas pr-10 pl-9 shadow-none md:h-10 [&::-webkit-search-cancel-button]:appearance-none"
+            className="h-11 bg-canvas pr-10 pl-9 shadow-none md:h-9 [&::-webkit-search-cancel-button]:appearance-none"
           />
           {settings.search && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              disabled={disabled}
-              onClick={() => {
-                update({ search: "", page: 1 });
-                searchRef.current?.focus();
-              }}
-              className="absolute top-1/2 right-1 grid size-9 -translate-y-1/2 place-items-center rounded-md text-muted hover:text-foreground"
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Clear search"
+                  disabled={disabled}
+                  onClick={() => {
+                    update({ search: "", page: 1 });
+                    searchRef.current?.focus();
+                  }}
+                  className="absolute top-1/2 right-1 size-9 -translate-y-1/2 rounded-md text-muted hover:text-foreground"
+                >
+                  <X size={14} aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                Clear search
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
         <div className="min-w-0">
@@ -397,29 +479,29 @@ export function QuizTable({
                 <col className="w-32" />
                 <col className="w-16" />
                 <col className="hidden w-20 @[850px]/quiz-list:table-column" />
-                <col className="w-20" />
+                <col className="w-28" />
               </colgroup>
               <TableHeader className="border-b border-line bg-canvas text-muted">
                 <TableRow>
-                  <TableHead scope="col" className="px-4 py-3 font-normal">
+                  <TableHead scope="col" className="h-8 px-4 py-2 font-normal">
                     Quiz
                   </TableHead>
-                  <TableHead scope="col" className="px-2 py-3 font-normal">
+                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
                     Difficulty
                   </TableHead>
-                  <TableHead scope="col" className="px-2 py-3 font-normal">
+                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
                     Progress
                   </TableHead>
-                  <TableHead scope="col" className="px-2 py-3 font-normal">
+                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
                     Score
                   </TableHead>
                   <TableHead
                     scope="col"
-                    className="hidden px-2 py-3 font-normal @[850px]/quiz-list:table-cell"
+                    className="hidden h-8 px-2 py-2 font-normal @[850px]/quiz-list:table-cell"
                   >
                     Created
                   </TableHead>
-                  <TableHead scope="col">
+                  <TableHead scope="col" className="h-8">
                     <span className="sr-only">Open quiz</span>
                   </TableHead>
                 </TableRow>
@@ -432,23 +514,23 @@ export function QuizTable({
                   >
                     <TableHead
                       scope="row"
-                      className="px-4 py-4 font-normal whitespace-normal"
+                      className="px-4 py-2 font-normal whitespace-normal"
                     >
                       {openButton(quiz)}
                       <p className="mt-1 text-xs text-muted">
                         Quiz {quiz.number} · {quiz.questionCount} questions
                       </p>
                     </TableHead>
-                    <TableCell className="px-2 py-4 text-muted capitalize">
+                    <TableCell className="px-2 py-2 text-muted capitalize">
                       {quiz.difficulty ?? "—"}
                     </TableCell>
-                    <TableCell className="px-2 py-4">
+                    <TableCell className="px-2 py-2">
                       <Progress quiz={quiz} />
                     </TableCell>
-                    <TableCell className="px-2 py-4">
+                    <TableCell className="px-2 py-2">
                       <Score quiz={quiz} />
                     </TableCell>
-                    <TableCell className="hidden px-2 py-4 text-muted @[850px]/quiz-list:table-cell">
+                    <TableCell className="hidden px-2 py-2 text-muted @[850px]/quiz-list:table-cell">
                       <time
                         dateTime={quiz.createdAt}
                         title={new Date(quiz.createdAt).toLocaleDateString()}
@@ -460,7 +542,16 @@ export function QuizTable({
                       </time>
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      {openButton(quiz, true)}
+                      <div className="flex items-center justify-end gap-1">
+                        {quiz.deletedAt ? (
+                          restoreButton(quiz)
+                        ) : (
+                          <>
+                            {openButton(quiz, true)}
+                            {deleteButton(quiz)}
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -468,7 +559,7 @@ export function QuizTable({
             </Table>
             <div className="divide-y divide-line @[640px]/quiz-list:hidden">
               {visible.map((quiz) => (
-                <article key={quiz.id} className="px-4 py-3.5">
+                <article key={quiz.id} className="px-3 py-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       {openButton(quiz)}
@@ -485,9 +576,18 @@ export function QuizTable({
                         )}
                       </p>
                     </div>
-                    {openButton(quiz, true)}
+                    <div className="flex shrink-0 items-center gap-1">
+                      {quiz.deletedAt ? (
+                        restoreButton(quiz)
+                      ) : (
+                        <>
+                          {openButton(quiz, true)}
+                          {deleteButton(quiz)}
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="mt-2 flex items-center justify-between gap-3">
                     <Progress quiz={quiz} compact />
                     {quiz.latestAttempt?.score != null && (
                       <span className="text-xs">
@@ -510,7 +610,7 @@ export function QuizTable({
           </div>
         )}
       </div>
-      <div className="flex min-h-9 items-center justify-between gap-3 text-xs text-muted">
+      <div className="flex min-h-8 items-center justify-between gap-3 text-xs text-muted">
         <p role="status" aria-live="polite">
           {filtered.length
             ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, filtered.length)} of ${filtered.length}`
@@ -519,27 +619,41 @@ export function QuizTable({
         </p>
         {pageCount > 1 && (
           <nav aria-label="Quiz pages" className="flex items-center gap-2">
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Previous page"
-              disabled={disabled || page === 1}
-              onClick={() => update({ page: page - 1 })}
-            >
-              <ChevronLeft size={15} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Previous page"
+                  disabled={disabled || page === 1}
+                  onClick={() => update({ page: page - 1 })}
+                >
+                  <ChevronLeft size={15} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                Previous page
+              </TooltipContent>
+            </Tooltip>
             <span className="tabular-nums">
               {page}/{pageCount}
             </span>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Next page"
-              disabled={disabled || page === pageCount}
-              onClick={() => update({ page: page + 1 })}
-            >
-              <ChevronRight size={15} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Next page"
+                  disabled={disabled || page === pageCount}
+                  onClick={() => update({ page: page + 1 })}
+                >
+                  <ChevronRight size={15} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                Next page
+              </TooltipContent>
+            </Tooltip>
           </nav>
         )}
       </div>

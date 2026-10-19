@@ -43,18 +43,21 @@ export function AppShell({
       <aside
         id="desktop-sidebar"
         className={cn(
-          "hidden h-full w-[232px] shrink-0 border-r border-line bg-canvas md:block",
-          collapsed && "md:hidden",
+          "hidden h-full w-[232px] shrink-0 overflow-hidden border-r border-line bg-canvas transition-[width] duration-200 ease-out motion-reduce:transition-none md:block",
+          collapsed && "md:w-0 md:border-r-0",
         )}
         aria-label="Sidebar"
+        aria-hidden={collapsed || undefined}
         inert={collapsed}
       >
-        <Navigation profile={profile} />
+        <div className="h-full w-[232px]">
+          <Navigation profile={profile} />
+        </div>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header
           data-slot="page-header"
-          className="z-30 flex min-h-16 shrink-0 flex-wrap items-center gap-x-4 gap-y-3 border-b border-line bg-surface px-4 py-3 md:px-6"
+          className="z-30 flex min-h-12 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-4 py-1"
         >
           <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
             <div className="hidden shrink-0 md:block">

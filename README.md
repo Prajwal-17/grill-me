@@ -103,12 +103,16 @@ the app:
 bun dev
 ```
 
-- Web: http://localhost:8018
-- API: http://localhost:8017
-- Health check: http://localhost:8017/health
+- Web: http://localhost:8028
+- API: http://localhost:8027
+- Health check: http://localhost:8027/health
 
 `bun dev` starts only the web and backend workspaces. Next.js 16 uses Turbopack by
 default, including its persistent development cache.
+
+Native development uses ports `8028` (web) and `8027` (API). The production-mode
+Compose services keep `8018` (web) and `8017` (API), so both environments can run
+at the same time without competing for ports.
 
 ## Local data
 

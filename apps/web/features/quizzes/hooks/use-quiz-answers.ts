@@ -45,11 +45,13 @@ export function useQuizAnswers({
   quiz,
   attempt,
   onSaved,
+  readOnly = false,
 }: {
   profileId: string;
   quiz: Quiz;
   attempt: QuizAttempt;
   onSaved: (attempt: QuizAttempt) => void;
+  readOnly?: boolean;
 }) {
   const storageKey = `grill-me.quiz.${process.env.NEXT_PUBLIC_APP_ENV ?? "development"}.${profileId}.${attempt.id}`;
   const [answers, setAnswers] = useState(() =>
@@ -93,6 +95,7 @@ export function useQuizAnswers({
   }, [storageKey]);
 
   const save = useCallback((): Promise<void> => {
+    if (readOnly) return Promise.resolve();
     if (inFlight.current) return inFlight.current;
     const run = async () => {
       try {
@@ -140,21 +143,23 @@ export function useQuizAnswers({
     backup,
     removeBackup,
     showError,
+    readOnly,
   ]);
 
   useEffect(() => {
-    if (attempt.status === "submitted") return;
+    if (attempt.status === "submitted" || readOnly) return;
     void save().catch(() => {});
-  }, [attempt.status, save]);
+  }, [attempt.status, readOnly, save]);
   useEffect(
     () => () => {
+      if (readOnly) return;
       void save().catch(() => {});
     },
-    [save],
+    [readOnly, save],
   );
 
   function choose(questionId: string, option: number) {
-    if (submitting || attempt.status === "submitted") return;
+    if (readOnly || submitting || attempt.status === "submitted") return;
     const next = { ...latest.current, [questionId]: option };
     latest.current = next;
     setAnswers(next);
@@ -162,6 +167,7 @@ export function useQuizAnswers({
     void save().catch(() => {});
   }
   async function submit() {
+    if (readOnly) return;
     setSubmitting(true);
     let answersSaved = false;
     try {

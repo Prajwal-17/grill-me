@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 8018",
+    "dev": "NEXT_PUBLIC_API_URL=http://localhost:8027 NEXT_PUBLIC_APP_ENV=development next dev --port 8028",
     "build": "next build",
     "start": "next start --port 8018",
     "lint": "eslint --max-warnings 0",

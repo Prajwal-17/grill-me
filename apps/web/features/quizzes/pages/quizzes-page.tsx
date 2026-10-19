@@ -7,12 +7,12 @@ import { QuizWorkspace } from "../components/quiz-workspace";
 
 export function QuizzesPage() {
   const profile = useProfile();
-  if (profile === undefined) return <LoadingScreen />;
+  if (profile === undefined) return <LoadingScreen label="Loading quizzes…" />;
   if (!profile) return null;
 
   return (
-    <AppShell profile={profile} title="Quizzes">
-      <main className="mx-auto w-full max-w-[1180px] px-5 py-6 md:px-10 md:py-8">
+    <AppShell profile={profile} title="Quizzes" contentScrollable={false}>
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-4 py-2 md:px-8 md:py-3">
         <QuizWorkspace key={profile.id} profileId={profile.id} />
       </main>
     </AppShell>

@@ -14,14 +14,22 @@ export function QuizAttempt({
   attempt,
   onSaved,
   registerSave,
+  readOnly = false,
 }: {
   profileId: string;
   quiz: Quiz;
   attempt: Attempt;
   onSaved: (attempt: Attempt) => void;
   registerSave: (save: (() => Promise<void>) | null) => void;
+  readOnly?: boolean;
 }) {
-  const state = useQuizAnswers({ profileId, quiz, attempt, onSaved });
+  const state = useQuizAnswers({
+    profileId,
+    quiz,
+    attempt,
+    onSaved,
+    readOnly,
+  });
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(() =>
     Math.max(
@@ -33,15 +41,25 @@ export function QuizAttempt({
   const submitted = attempt.status === "submitted";
   const answered = Object.keys(state.answers).length;
   const result = attempt.results?.find((r) => r.questionId === question.id);
+  const correctCount =
+    attempt.results?.filter((item) => item.chosenOption === item.correctOption)
+      .length ?? 0;
+  const incorrectCount =
+    attempt.results?.filter((item) => item.chosenOption !== item.correctOption)
+      .length ?? 0;
 
   useEffect(() => {
     workspaceRef.current?.focus({ preventScroll: true });
   }, [submitted]);
 
   useEffect(() => {
-    registerSave(submitted ? null : state.save);
+    if (workspaceRef.current) workspaceRef.current.scrollTop = 0;
+  }, [index]);
+
+  useEffect(() => {
+    registerSave(submitted || readOnly ? null : state.save);
     return () => registerSave(null);
-  }, [registerSave, state.save, submitted]);
+  }, [registerSave, state.save, submitted, readOnly]);
 
   return (
     <div
@@ -51,7 +69,7 @@ export function QuizAttempt({
       aria-describedby={`quiz-keys-${attempt.id}`}
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
       tabIndex={0}
-      className="group/attempt rounded-md outline-none"
+      className="group/attempt min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-md outline-none"
       onKeyDown={(event) => {
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
           return;
@@ -77,6 +95,7 @@ export function QuizAttempt({
           workspaceRef.current?.focus({ preventScroll: true });
         } else if (
           !submitted &&
+          !readOnly &&
           !state.submitting &&
           (event.key === "ArrowUp" || event.key === "ArrowDown")
         ) {
@@ -99,54 +118,30 @@ export function QuizAttempt({
       }}
     >
       <p id={`quiz-keys-${attempt.id}`} className="sr-only">
-        {submitted
+        {submitted || readOnly
           ? "Left and right arrows move between questions."
           : "Left and right arrows change questions. Up and down arrows select an answer. Answers save automatically."}
       </p>
-      <div className="mb-3 flex items-center justify-between gap-4 text-sm">
+      <div className="mb-3 flex items-center justify-between gap-4 text-sm sm:text-base">
         <p
           className="font-medium group-focus-visible/attempt:underline group-focus-visible/attempt:underline-offset-4"
           aria-live="polite"
         >
           Question {index + 1} of {quiz.questionCount}
         </p>
-        <p className="text-muted tabular-nums">
-          {submitted ? (
-            <>
-              <strong className="font-medium text-foreground">
-                {attempt.score}/{quiz.questionCount}
-              </strong>{" "}
-              correct
-            </>
-          ) : (
-            `${answered}/${quiz.questionCount} answered`
-          )}
-        </p>
+        {!submitted && (
+          <p className="text-muted tabular-nums">
+            {answered}/{quiz.questionCount} answered
+          </p>
+        )}
       </div>
-      <div className="mb-7 flex gap-1.5" aria-hidden="true">
-        {quiz.questions.map((q, i) => (
-          <span
-            key={q.id}
-            className={cn(
-              "h-[3px] flex-1 rounded-full",
-              submitted
-                ? "bg-line"
-                : state.answers[q.id] !== undefined
-                  ? "bg-foreground"
-                  : i === index
-                    ? "bg-muted"
-                    : "bg-line",
-            )}
-          />
-        ))}
-      </div>
-      <div className="grid min-w-0 gap-7 @[850px]/quiz:grid-cols-[minmax(0,1fr)_170px] @[850px]/quiz:gap-8">
+      <div className="grid min-w-0 items-start gap-4 @[850px]/quiz:grid-cols-[minmax(0,74ch)_196px] @[850px]/quiz:gap-5">
         <div className="min-w-0">
           <fieldset
-            disabled={submitted || state.submitting}
-            className="min-w-0 space-y-3"
+            disabled={submitted || readOnly || state.submitting}
+            className="min-w-0 space-y-2"
           >
-            <legend className="mb-6 w-full text-xl font-medium leading-relaxed tracking-tight md:text-2xl">
+            <legend className="mb-3 w-full text-xl font-medium leading-[1.45] tracking-tight @[850px]/quiz:text-2xl">
               <Markdown>{question.question}</Markdown>
             </legend>
             {question.options.map((option, optionIndex) => {
@@ -158,7 +153,7 @@ export function QuizAttempt({
                 <label
                   key={optionIndex}
                   className={cn(
-                    "relative flex min-h-16 cursor-pointer items-start gap-3 rounded-lg border p-4 text-base leading-relaxed transition-colors duration-100 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-foreground",
+                    "relative flex min-h-12 cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 text-lg leading-7 transition-colors duration-100 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-foreground",
                     correct
                       ? "border-success/50 bg-success/10"
                       : incorrect
@@ -180,7 +175,7 @@ export function QuizAttempt({
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "mt-0.5 grid size-7 shrink-0 place-items-center rounded-md border font-mono text-xs",
+                      "mt-0.5 grid size-7 shrink-0 place-items-center rounded border font-mono text-xs",
                       correct
                         ? "border-success/50 text-success"
                         : incorrect
@@ -221,17 +216,18 @@ export function QuizAttempt({
           {result && (
             <section
               aria-label="Answer explanation"
-              className="mt-6 border-t border-line pt-5 text-base leading-7"
+              className="mt-4 border-t border-line pt-3 text-lg leading-7"
             >
-              <h3 className="mb-2 text-sm font-medium">Explanation</h3>
+              <h3 className="mb-1 text-sm font-semibold">Explanation</h3>
               <div className="text-muted">
                 <Markdown>{result.explanation}</Markdown>
               </div>
             </section>
           )}
-          <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2">
             <div className="flex gap-2">
               <Button
+                size="sm"
                 disabled={index === 0}
                 onClick={() => setIndex(index - 1)}
               >
@@ -239,6 +235,7 @@ export function QuizAttempt({
                 Previous
               </Button>
               <Button
+                size="sm"
                 variant={submitted ? "primary" : "secondary"}
                 disabled={index === quiz.questions.length - 1}
                 onClick={() => setIndex(index + 1)}
@@ -247,11 +244,11 @@ export function QuizAttempt({
                 <ArrowRight size={15} />
               </Button>
             </div>
-            {!submitted && (
+            {!submitted && !readOnly && (
               <Button
+                size="sm"
                 variant="primary"
                 disabled={answered !== quiz.questionCount || state.submitting}
-                aria-describedby={`submit-help-${attempt.id}`}
                 onClick={() => {
                   void state.submit();
                 }}
@@ -260,49 +257,22 @@ export function QuizAttempt({
               </Button>
             )}
           </div>
-          {!submitted && (
-            <p
-              id={`submit-help-${attempt.id}`}
-              className="mt-3 text-xs text-muted"
-            >
-              {answered < quiz.questionCount ? (
-                <>
-                  {quiz.questionCount - answered} unanswered ·{" "}
-                  <button
-                    type="button"
-                    className="min-h-8 underline underline-offset-4 hover:text-foreground"
-                    onClick={() =>
-                      setIndex(
-                        quiz.questions.findIndex(
-                          (q) => state.answers[q.id] === undefined,
-                        ),
-                      )
-                    }
-                  >
-                    Go to next unanswered question
-                  </button>
-                </>
-              ) : (
-                "All questions answered. Ready to submit."
-              )}
-            </p>
-          )}
         </div>
         <aside
           aria-label="Question overview"
-          className="order-first border-b border-line pb-6 @[850px]/quiz:order-last @[850px]/quiz:border-b-0 @[850px]/quiz:border-l @[850px]/quiz:pb-0 @[850px]/quiz:pl-6"
+          className="border-t border-line pt-3 @[850px]/quiz:border-t-0 @[850px]/quiz:border-l @[850px]/quiz:pt-0 @[850px]/quiz:pl-5"
         >
-          <div className="mb-4 flex items-center justify-between gap-2 @[850px]/quiz:block">
-            <h3 className="text-sm font-medium">Overview</h3>
-            <p className="text-xs text-muted @[850px]/quiz:mt-1">
+          <div className="mb-3 flex items-center justify-between gap-2 @[850px]/quiz:block">
+            <h3 className="text-sm font-semibold">Answer overview</h3>
+            <p className="text-xs leading-5 text-muted tabular-nums @[850px]/quiz:mt-1">
               {submitted
-                ? "Submitted"
+                ? `${correctCount} correct · ${incorrectCount} incorrect`
                 : `${answered}/${quiz.questionCount} answered`}
             </p>
           </div>
           <nav
             aria-label="Quiz questions"
-            className="grid grid-cols-5 gap-2 sm:grid-cols-10 @[850px]/quiz:grid-cols-3"
+            className="grid grid-cols-5 gap-2 sm:grid-cols-10 @[850px]/quiz:grid-cols-2"
           >
             {quiz.questions.map((q, i) => {
               const questionResult = submitted
@@ -313,18 +283,20 @@ export function QuizAttempt({
                 questionResult.chosenOption === questionResult.correctOption;
               const isAnswered = state.answers[q.id] !== undefined;
               return (
-                <button
+                <Button
                   key={q.id}
                   type="button"
+                  variant="outline"
+                  size="sm"
                   aria-label={`Question ${i + 1}, ${questionResult ? (correct ? "correct" : "incorrect") : isAnswered ? "answered" : "unanswered"}`}
                   aria-current={index === i ? "step" : undefined}
                   onClick={() => setIndex(i)}
                   className={cn(
-                    "pressable relative flex min-h-11 items-center justify-center gap-1 rounded-md border text-xs tabular-nums focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-foreground",
+                    "relative h-11 w-full min-w-0 justify-center rounded-md border px-0 text-sm font-medium tabular-nums shadow-none",
                     questionResult
                       ? correct
-                        ? "border-success/50 bg-success/10 text-success"
-                        : "border-destructive/50 bg-destructive/10 text-destructive"
+                        ? "border-success/60 bg-success/10 text-success hover:bg-success/15"
+                        : "border-destructive/60 bg-destructive/10 text-destructive hover:bg-destructive/15"
                       : isAnswered
                         ? "border-line-strong bg-elevated text-foreground"
                         : "border-line text-muted hover:bg-elevated",
@@ -337,9 +309,9 @@ export function QuizAttempt({
                   <span>{i + 1}</span>
                   {questionResult ? (
                     correct ? (
-                      <Check size={12} aria-hidden="true" />
+                      <Check size={15} strokeWidth={2.5} aria-hidden="true" />
                     ) : (
-                      <X size={12} aria-hidden="true" />
+                      <X size={15} strokeWidth={2.5} aria-hidden="true" />
                     )
                   ) : (
                     isAnswered && (
@@ -349,27 +321,13 @@ export function QuizAttempt({
                       />
                     )
                   )}
-                </button>
+                </Button>
               );
             })}
           </nav>
-          {submitted ? (
-            <div className="mt-4 flex flex-wrap gap-3 text-xs">
-              <span className="inline-flex items-center gap-1 text-success">
-                <Check size={12} aria-hidden="true" />
-                Correct
-              </span>
-              <span className="inline-flex items-center gap-1 text-destructive">
-                <X size={12} aria-hidden="true" />
-                Incorrect
-              </span>
-            </div>
-          ) : (
-            <p className="mt-4 hidden text-xs leading-5 text-muted @[850px]/quiz:block">
-              ← → questions
-              <br />↑ ↓ choose an answer
-              <br />
-              Answers save automatically
+          {!submitted && (
+            <p className="mt-3 hidden text-xs leading-5 text-muted @[850px]/quiz:block">
+              ← → questions · ↑ ↓ choose · Answers save automatically
             </p>
           )}
         </aside>

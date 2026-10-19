@@ -31,6 +31,14 @@ export const generateStandaloneQuizRequestSchema = z
     prompt: (prompt ?? topic)!,
   }));
 
+export const enhanceQuizPromptRequestSchema = z.object({
+  prompt: z.string().trim().min(1).max(4000),
+});
+
+export const enhancedQuizPromptSchema = z.object({
+  prompt: z.string().trim().min(1).max(4000),
+});
+
 const questionSchema = z.object({
   question: z.string().trim().min(10).max(1800),
   options: z.array(z.string().trim().min(1).max(800)).length(4),
@@ -38,12 +46,26 @@ const questionSchema = z.object({
   explanation: z.string().trim().min(10).max(1200),
 });
 
+export const quizTitleSchema = z.string().trim().min(1).max(72);
+
 export function generatedQuizSchema(count: QuestionCount) {
-  return z.object({ questions: z.array(questionSchema).length(count) });
+  return z.object({
+    title: quizTitleSchema,
+    questions: z.array(questionSchema).length(count),
+  });
 }
 
+export const generatedQuizTitleSchema = z.object({ title: quizTitleSchema });
+
 export function validateQuiz(value: unknown, count: QuestionCount) {
-  const parsed = generatedQuizSchema(count).parse(value);
+  // Keep accepting question-only output from existing model adapters while the
+  // structured OpenAI response schema requires a title for new quiz generation.
+  const parsed = z
+    .object({
+      title: quizTitleSchema.optional(),
+      questions: z.array(questionSchema).length(count),
+    })
+    .parse(value);
   const normalized = (text: string) =>
     text.toLowerCase().replace(/\s+/g, " ").trim();
   if (
@@ -69,11 +91,17 @@ export const saveQuizAnswersSchema = z.object({
 
 export type QuestionCount = z.infer<typeof questionCountSchema>;
 export type QuizCoverage = z.infer<typeof quizCoverageSchema>;
-export type GeneratedQuiz = { questions: z.infer<typeof questionSchema>[] };
+export type GeneratedQuiz = {
+  title?: string;
+  questions: z.infer<typeof questionSchema>[];
+};
 export type QuizQuestion = z.infer<typeof questionSchema> & { id: string };
 export type QuizAnswers = Record<string, number>;
 export type GenerateQuizRequest = z.infer<typeof generateQuizRequestSchema>;
 export type GenerateStandaloneQuizRequest = z.infer<
   typeof generateStandaloneQuizRequestSchema
+>;
+export type EnhanceQuizPromptRequest = z.infer<
+  typeof enhanceQuizPromptRequestSchema
 >;
 export type SaveQuizAnswers = z.infer<typeof saveQuizAnswersSchema>;

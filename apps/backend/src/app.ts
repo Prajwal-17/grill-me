@@ -39,7 +39,7 @@ export function createApp({
     cors({
       origin: webOrigin,
       allowHeaders: ["Content-Type", "X-Profile-Id"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
       maxAge: 600,
     }),
   );

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const STATUSES = ["all", "draft", "submitted", "new"] as const;
+const STATUSES = ["all", "draft", "submitted", "new", "deleted"] as const;
 const DIFFICULTIES = ["all", "easy", "medium", "hard", "grill"] as const;
 const SORTS = ["newest", "oldest", "name", "score"] as const;
 
