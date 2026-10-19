@@ -14,14 +14,22 @@ export function QuizAttempt({
   attempt,
   onSaved,
   registerSave,
+  readOnly = false,
 }: {
   profileId: string;
   quiz: Quiz;
   attempt: Attempt;
   onSaved: (attempt: Attempt) => void;
   registerSave: (save: (() => Promise<void>) | null) => void;
+  readOnly?: boolean;
 }) {
-  const state = useQuizAnswers({ profileId, quiz, attempt, onSaved });
+  const state = useQuizAnswers({
+    profileId,
+    quiz,
+    attempt,
+    onSaved,
+    readOnly,
+  });
   const workspaceRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(() =>
     Math.max(
@@ -49,9 +57,9 @@ export function QuizAttempt({
   }, [index]);
 
   useEffect(() => {
-    registerSave(submitted ? null : state.save);
+    registerSave(submitted || readOnly ? null : state.save);
     return () => registerSave(null);
-  }, [registerSave, state.save, submitted]);
+  }, [registerSave, state.save, submitted, readOnly]);
 
   return (
     <div
@@ -87,6 +95,7 @@ export function QuizAttempt({
           workspaceRef.current?.focus({ preventScroll: true });
         } else if (
           !submitted &&
+          !readOnly &&
           !state.submitting &&
           (event.key === "ArrowUp" || event.key === "ArrowDown")
         ) {
@@ -109,7 +118,7 @@ export function QuizAttempt({
       }}
     >
       <p id={`quiz-keys-${attempt.id}`} className="sr-only">
-        {submitted
+        {submitted || readOnly
           ? "Left and right arrows move between questions."
           : "Left and right arrows change questions. Up and down arrows select an answer. Answers save automatically."}
       </p>
@@ -147,7 +156,7 @@ export function QuizAttempt({
       <div className="grid min-w-0 items-start gap-4 @[850px]/quiz:grid-cols-[minmax(0,74ch)_196px] @[850px]/quiz:gap-5">
         <div className="min-w-0">
           <fieldset
-            disabled={submitted || state.submitting}
+            disabled={submitted || readOnly || state.submitting}
             className="min-w-0 space-y-2"
           >
             <legend className="mb-3 w-full text-lg font-medium leading-[1.45] tracking-tight @[850px]/quiz:text-xl">
@@ -253,7 +262,7 @@ export function QuizAttempt({
                 <ArrowRight size={15} />
               </Button>
             </div>
-            {!submitted && (
+            {!submitted && !readOnly && (
               <Button
                 size="sm"
                 variant="primary"
@@ -267,7 +276,7 @@ export function QuizAttempt({
               </Button>
             )}
           </div>
-          {!submitted && (
+          {!submitted && !readOnly && (
             <p
               id={`submit-help-${attempt.id}`}
               className="mt-1.5 text-xs leading-4 text-muted"

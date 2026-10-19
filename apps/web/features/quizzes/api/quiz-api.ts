@@ -20,8 +20,16 @@ function path(challengeId: string | null, quizId?: string) {
     challengeId === null ? "/quizzes" : `/challenges/${challengeId}/quizzes`;
   return base + (quizId ? "/" + quizId : "");
 }
-export function getQuizzes(profileId: string, challengeId: string | null) {
-  return apiRequest<QuizSummary[]>(path(challengeId), {}, profileId);
+export function getQuizzes(
+  profileId: string,
+  challengeId: string | null,
+  includeDeleted = false,
+) {
+  return apiRequest<QuizSummary[]>(
+    path(challengeId) + (includeDeleted ? "?includeDeleted=true" : ""),
+    {},
+    profileId,
+  );
 }
 export function getQuiz(
   profileId: string,
@@ -48,6 +56,28 @@ export function regenerateQuizTitle(
 ) {
   return apiRequest<{ title: string }>(
     path(challengeId, quizId) + "/title/regenerate",
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+export function deleteQuiz(
+  profileId: string,
+  challengeId: string | null,
+  quizId: string,
+) {
+  return apiRequest<{ deletedAt: string }>(
+    path(challengeId, quizId),
+    { method: "DELETE" },
+    profileId,
+  );
+}
+export function restoreQuiz(
+  profileId: string,
+  challengeId: string | null,
+  quizId: string,
+) {
+  return apiRequest<{ deletedAt: null }>(
+    path(challengeId, quizId) + "/restore",
     { method: "POST", body: "{}" },
     profileId,
   );

@@ -29,6 +29,13 @@
       "when": 1792228675128,
       "tag": "0003_smart_quiz_titles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792405250358,
+      "tag": "0004_soft_delete_quizzes",
+      "breakpoints": true
     }
   ]
 }

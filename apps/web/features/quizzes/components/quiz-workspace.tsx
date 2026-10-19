@@ -8,7 +8,17 @@ import {
   Plus,
   RotateCcw,
   Sparkles,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import {
@@ -31,11 +41,13 @@ import {
 } from "@/shared/components/ui/select";
 import {
   enhanceQuizPrompt,
+  deleteQuiz,
   generateQuiz,
   getQuiz,
   getQuizzes,
   quizKeys,
   regenerateQuizTitle,
+  restoreQuiz,
   startQuizAttempt,
 } from "../api/quiz-api";
 import {
@@ -94,7 +106,7 @@ function quizLabel(quiz: QuizSummary) {
       ? ` · ${attempt.score}/${quiz.questionCount}`
       : ` · ${attempt.answered}/${quiz.questionCount} answered`
     : " · Not started";
-  return `${quiz.title} · Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
+  return `${quiz.deletedAt ? "Deleted · " : ""}${quiz.title} · Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
 }
 
 function QuizLoadingState({ detail = false }: { detail?: boolean }) {
@@ -177,7 +189,9 @@ export function QuizWorkspace({
   const queries = useQueryClient();
   const [quizId, setQuizId] = useState("");
   const [attemptId, setAttemptId] = useState("");
+  const [allQuizzesOpen, setAllQuizzesOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<QuizSummary | null>(null);
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
   const [coverage, setCoverage] = useState<QuizCoverage>("mixed");
   const [prompt, setPrompt] = useState("");
@@ -195,12 +209,15 @@ export function QuizWorkspace({
   const listKey = quizKeys.list(profileId, challengeId);
   const list = useQuery({
     queryKey: listKey,
-    queryFn: () => getQuizzes(profileId, challengeId),
+    queryFn: () => getQuizzes(profileId, challengeId, true),
   });
-  const selectedQuizId =
-    list.data?.find((quiz) => quiz.id === quizId)?.id ??
-    (challengeId === null ? "" : list.data?.[0]?.id) ??
-    "";
+  const selectedQuizId = allQuizzesOpen
+    ? ""
+    : (list.data?.find((quiz) => quiz.id === quizId)?.id ??
+      (challengeId === null
+        ? ""
+        : list.data?.find((quiz) => !quiz.deletedAt)?.id) ??
+      "");
   const detailKey = quizKeys.detail(profileId, challengeId, selectedQuizId);
   const detail = useQuery({
     queryKey: detailKey,
@@ -211,6 +228,7 @@ export function QuizWorkspace({
   const selectedAttempt =
     detail.data?.attempts.find((attempt) => attempt.id === attemptId) ??
     detail.data?.attempts[0];
+  const selectedSummary = list.data?.find((quiz) => quiz.id === selectedQuizId);
 
   function updateAttempt(attempt: Attempt) {
     queries.setQueryData<QuizDetail>(
@@ -276,6 +294,7 @@ export function QuizWorkspace({
         ...(current ?? []).filter((item) => item.id !== quiz.id),
       ]);
       setQuizId(quiz.id);
+      setAllQuizzesOpen(false);
       setAttemptId("");
       setDialogOpen(false);
       void queries.invalidateQueries({ queryKey: listKey });
@@ -311,12 +330,59 @@ export function QuizWorkspace({
       setAttemptId(attempt.id);
     },
   });
+  const deletion = useMutation({
+    mutationFn: async (targetQuizId: string) => {
+      if (targetQuizId === selectedQuizId) await saveRef.current?.();
+      return deleteQuiz(profileId, challengeId, targetQuizId);
+    },
+    onSuccess: async ({ deletedAt }, targetQuizId) => {
+      queries.setQueryData<QuizSummary[]>(listKey, (current) =>
+        current?.map((quiz) =>
+          quiz.id === targetQuizId ? { ...quiz, deletedAt } : quiz,
+        ),
+      );
+      queries.setQueryData<QuizDetail>(
+        quizKeys.detail(profileId, challengeId, targetQuizId),
+        (current) =>
+          current
+            ? { ...current, quiz: { ...current.quiz, deletedAt } }
+            : current,
+      );
+      if (quizId === targetQuizId) {
+        setQuizId("");
+        setAttemptId("");
+        setAllQuizzesOpen(true);
+      }
+      setDeleteTarget(null);
+      await queries.invalidateQueries({ queryKey: listKey });
+    },
+  });
+  const restoration = useMutation({
+    mutationFn: (targetQuizId: string) =>
+      restoreQuiz(profileId, challengeId, targetQuizId),
+    onSuccess: async ({ deletedAt }, targetQuizId) => {
+      queries.setQueryData<QuizSummary[]>(listKey, (current) =>
+        current?.map((quiz) =>
+          quiz.id === targetQuizId ? { ...quiz, deletedAt } : quiz,
+        ),
+      );
+      queries.setQueryData<QuizDetail>(
+        quizKeys.detail(profileId, challengeId, targetQuizId),
+        (current) =>
+          current
+            ? { ...current, quiz: { ...current.quiz, deletedAt } }
+            : current,
+      );
+      await queries.invalidateQueries({ queryKey: listKey });
+    },
+  });
   async function select(value: string, kind: "quiz" | "attempt") {
     setChanging(true);
     try {
       await saveRef.current?.();
       if (kind === "quiz") {
         setQuizId(value);
+        setAllQuizzesOpen(value === "");
         setAttemptId("");
         start.reset();
         titleGeneration.reset();
@@ -333,9 +399,10 @@ export function QuizWorkspace({
     generation.isPending ||
     titleGeneration.isPending ||
     promptEnhancement.isPending ||
-    start.isPending;
+    start.isPending ||
+    deletion.isPending ||
+    restoration.isPending;
   const showLibrary =
-    challengeId === null &&
     !selectedQuizId &&
     list.data !== undefined &&
     !list.isLoading &&
@@ -381,38 +448,45 @@ export function QuizWorkspace({
     >
       {!showLibrary && !detail.data && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          {challengeId === null && selectedQuizId ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon-sm"
+          {selectedQuizId && (
+            <div className="flex items-center gap-1.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon-sm"
+                    disabled={busy}
+                    aria-label="All quizzes"
+                    onClick={() => {
+                      void select("", "quiz");
+                    }}
+                  >
+                    <ArrowLeft size={14} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={6}>
+                  All quizzes
+                </TooltipContent>
+              </Tooltip>
+              {challengeId !== null && (
+                <QuizSelect
+                  label="Select quiz"
+                  value={selectedQuizId}
                   disabled={busy}
-                  aria-label="All quizzes"
-                  onClick={() => {
-                    void select("", "quiz");
+                  onChange={(value) => {
+                    void select(value, "quiz");
                   }}
-                >
-                  <ArrowLeft size={14} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" sideOffset={6}>
-                All quizzes
-              </TooltipContent>
-            </Tooltip>
-          ) : selectedQuizId ? (
-            <QuizSelect
-              label="Select quiz"
-              value={selectedQuizId}
-              disabled={busy}
-              onChange={(value) => {
-                void select(value, "quiz");
-              }}
-              options={(list.data ?? []).map((quiz) => ({
-                value: quiz.id,
-                label: quizLabel(quiz),
-              }))}
-            />
-          ) : null}
+                  options={(list.data ?? [])
+                    .filter(
+                      (quiz) => !quiz.deletedAt || quiz.id === selectedQuizId,
+                    )
+                    .map((quiz) => ({
+                      value: quiz.id,
+                      label: quizLabel(quiz),
+                    }))}
+                />
+              )}
+            </div>
+          )}
           {generateButton}
         </div>
       )}
@@ -432,15 +506,30 @@ export function QuizWorkspace({
           </Button>
         </div>
       ) : showLibrary ? (
-        <QuizTable
-          profileId={profileId}
-          quizzes={list.data}
-          actions={generateButton}
-          disabled={busy}
-          onOpen={(id) => {
-            void select(id, "quiz");
-          }}
-        />
+        <>
+          <QuizTable
+            profileId={profileId}
+            quizzes={list.data}
+            actions={generateButton}
+            disabled={busy}
+            onDelete={(quiz) => {
+              deletion.reset();
+              setDeleteTarget(quiz);
+            }}
+            onRestore={(quiz) => {
+              restoration.reset();
+              restoration.mutate(quiz.id);
+            }}
+            onOpen={(id) => {
+              void select(id, "quiz");
+            }}
+          />
+          {restoration.error && (
+            <p role="alert" className="text-xs text-destructive">
+              {restoration.error.message}
+            </p>
+          )}
+        </>
       ) : !selectedQuizId ? (
         <p className="text-sm text-muted">No quizzes yet.</p>
       ) : detail.isLoading ? (
@@ -463,26 +552,25 @@ export function QuizWorkspace({
           <>
             <div className="relative flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line pb-1.5">
               <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                {challengeId === null ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        disabled={busy}
-                        aria-label="All quizzes"
-                        onClick={() => {
-                          void select("", "quiz");
-                        }}
-                      >
-                        <ArrowLeft size={14} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={6}>
-                      All quizzes
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      disabled={busy}
+                      aria-label="All quizzes"
+                      onClick={() => {
+                        void select("", "quiz");
+                      }}
+                    >
+                      <ArrowLeft size={14} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    All quizzes
+                  </TooltipContent>
+                </Tooltip>
+                {challengeId !== null && (
                   <QuizSelect
                     label="Select quiz"
                     value={selectedQuizId}
@@ -490,10 +578,14 @@ export function QuizWorkspace({
                     onChange={(value) => {
                       void select(value, "quiz");
                     }}
-                    options={(list.data ?? []).map((quiz) => ({
-                      value: quiz.id,
-                      label: quizLabel(quiz),
-                    }))}
+                    options={(list.data ?? [])
+                      .filter(
+                        (quiz) => !quiz.deletedAt || quiz.id === selectedQuizId,
+                      )
+                      .map((quiz) => ({
+                        value: quiz.id,
+                        label: quizLabel(quiz),
+                      }))}
                   />
                 )}
                 <div className="flex min-w-0 flex-1 items-baseline gap-2">
@@ -503,39 +595,47 @@ export function QuizWorkspace({
                   >
                     {detail.data.quiz.title}
                   </h2>
+                  {detail.data.quiz.deletedAt && (
+                    <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">
+                      Deleted
+                    </span>
+                  )}
                   <span className="hidden shrink-0 text-xs text-muted @[600px]/quiz:inline">
+                    Quiz {detail.data.quiz.number} ·{" "}
                     {detail.data.quiz.coverage === "topic"
                       ? detail.data.quiz.difficulty
                       : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
                     · {detail.data.quiz.questionCount} questions
                   </span>
                 </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="icon-sm"
-                      variant="ghost"
-                      className="shrink-0 text-muted"
-                      disabled={busy}
-                      aria-label={
-                        titleGeneration.isPending
-                          ? "Regenerating quiz title"
-                          : "Regenerate quiz title"
-                      }
-                      onClick={() => {
-                        titleGeneration.reset();
-                        titleGeneration.mutate(selectedQuizId);
-                      }}
-                    >
-                      <Sparkles size={14} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={6}>
-                    {titleGeneration.isPending
-                      ? "Regenerating title…"
-                      : "Regenerate quiz title"}
-                  </TooltipContent>
-                </Tooltip>
+                {!detail.data.quiz.deletedAt && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        className="shrink-0 text-muted"
+                        disabled={busy}
+                        aria-label={
+                          titleGeneration.isPending
+                            ? "Regenerating quiz title"
+                            : "Regenerate quiz title"
+                        }
+                        onClick={() => {
+                          titleGeneration.reset();
+                          titleGeneration.mutate(selectedQuizId);
+                        }}
+                      >
+                        <Sparkles size={14} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={6}>
+                      {titleGeneration.isPending
+                        ? "Regenerating title…"
+                        : "Regenerate quiz title"}
+                    </TooltipContent>
+                  </Tooltip>
+                )}
               </div>
               <div className="ml-auto flex w-full max-w-full shrink-0 items-center justify-end gap-1 @[500px]/quiz:w-auto">
                 {selectedAttempt && (
@@ -553,30 +653,69 @@ export function QuizWorkspace({
                     }))}
                   />
                 )}
-                {selectedAttempt?.status === "submitted" && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={busy}
-                        aria-label={
-                          start.isPending ? "Starting quiz" : "Retake quiz"
-                        }
-                        onClick={() => start.mutate()}
-                      >
-                        <RotateCcw size={14} />
-                        {start.isPending ? "Starting…" : "Retake"}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={6}>
-                      {start.isPending
-                        ? "Starting a new attempt…"
-                        : "Start a new attempt"}
-                    </TooltipContent>
-                  </Tooltip>
+                {detail.data.quiz.deletedAt ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy}
+                    aria-label={`Restore quiz ${detail.data.quiz.number}`}
+                    onClick={() => {
+                      restoration.reset();
+                      restoration.mutate(selectedQuizId);
+                    }}
+                  >
+                    <RotateCcw size={14} />
+                    Restore
+                  </Button>
+                ) : (
+                  <>
+                    {selectedAttempt?.status === "submitted" && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={busy}
+                            aria-label={
+                              start.isPending ? "Starting quiz" : "Retake quiz"
+                            }
+                            onClick={() => start.mutate()}
+                          >
+                            <RotateCcw size={14} />
+                            {start.isPending ? "Starting…" : "Retake"}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" sideOffset={6}>
+                          {start.isPending
+                            ? "Starting a new attempt…"
+                            : "Start a new attempt"}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {selectedSummary && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            disabled={busy}
+                            aria-label={`Delete quiz ${detail.data.quiz.number}`}
+                            onClick={() => {
+                              deletion.reset();
+                              setDeleteTarget(selectedSummary);
+                            }}
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" sideOffset={6}>
+                          Move to Deleted
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {generateButton}
+                  </>
                 )}
-                {generateButton}
               </div>
             </div>
             {titleGeneration.error && (
@@ -589,6 +728,11 @@ export function QuizWorkspace({
                 {start.error.message}
               </p>
             )}
+            {restoration.error && (
+              <p role="alert" className="text-xs text-destructive">
+                {restoration.error.message}
+              </p>
+            )}
             {selectedAttempt ? (
               <QuizAttempt
                 key={selectedAttempt.id}
@@ -597,7 +741,14 @@ export function QuizWorkspace({
                 attempt={selectedAttempt}
                 onSaved={updateAttempt}
                 registerSave={registerSave}
+                readOnly={
+                  Boolean(detail.data.quiz.deletedAt) || deletion.isPending
+                }
               />
+            ) : detail.data.quiz.deletedAt ? (
+              <p className="text-sm text-muted">
+                This quiz is deleted. Restore it to start an attempt.
+              </p>
             ) : (
               <Button size="sm" disabled={busy} onClick={() => start.mutate()}>
                 {start.isPending ? "Starting…" : "Start quiz"}
@@ -796,6 +947,45 @@ export function QuizWorkspace({
           </form>
         </DialogContent>
       </Dialog>
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deletion.isPending) {
+            setDeleteTarget(null);
+            deletion.reset();
+          }
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move quiz to Deleted?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget &&
+                `Quiz ${deleteTarget.number} will be hidden from the active list. You can find it under Deleted and restore it later. Its number will stay the same.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deletion.error && (
+            <p role="alert" className="text-xs text-destructive">
+              {deletion.error.message}
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" disabled={deletion.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={!deleteTarget || deletion.isPending}
+              onClick={() => {
+                if (deleteTarget) deletion.mutate(deleteTarget.id);
+              }}
+            >
+              {deletion.isPending ? "Moving…" : "Move to Deleted"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

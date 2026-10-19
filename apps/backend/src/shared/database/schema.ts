@@ -134,6 +134,7 @@ export const quizzes = pgTable(
     createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
       .$defaultFn(() => new Date()),
+    deletedAt: timestamp("deleted_at", { mode: "date" }),
   },
   (table) => [
     uniqueIndex("quizzes_challenge_number_unique").on(
@@ -150,6 +151,16 @@ export const quizzes = pgTable(
     uniqueIndex("quizzes_profile_request_unique")
       .on(table.profileId, table.requestId)
       .where(sql`${table.challengeId} is null`),
+    index("quizzes_profile_deleted_number_idx").on(
+      table.profileId,
+      table.deletedAt,
+      table.number,
+    ),
+    index("quizzes_challenge_deleted_number_idx").on(
+      table.challengeId,
+      table.deletedAt,
+      table.number,
+    ),
     check(
       "quizzes_scope_check",
       sql`(${table.challengeId} is not null and ${table.coverage} in ('challenge', 'related', 'mixed')) or (${table.challengeId} is null and ${table.coverage} = 'topic' and ${table.topic} is not null and ${table.difficulty} is not null)`,

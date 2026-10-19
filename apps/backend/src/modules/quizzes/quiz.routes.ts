@@ -30,7 +30,13 @@ export function createQuizRoutes(service: QuizService, standalone = false) {
   const path = standalone ? "" : "/:id/quizzes";
   const challengeId = (c: Context) => (standalone ? null : id(c, "id"));
   routes.get(path || "/", async (c) =>
-    c.json({ data: await service.list(challengeId(c), profileId(c)) }),
+    c.json({
+      data: await service.list(
+        challengeId(c),
+        profileId(c),
+        c.req.query("includeDeleted") === "true",
+      ),
+    }),
   );
   if (standalone)
     routes.post("/enhance-prompt", async (c) =>
@@ -61,6 +67,20 @@ export function createQuizRoutes(service: QuizService, standalone = false) {
   routes.get(path + "/:quizId", async (c) =>
     c.json({
       data: await service.detail(challengeId(c), id(c, "quizId"), profileId(c)),
+    }),
+  );
+  routes.delete(path + "/:quizId", async (c) =>
+    c.json({
+      data: await service.delete(challengeId(c), id(c, "quizId"), profileId(c)),
+    }),
+  );
+  routes.post(path + "/:quizId/restore", async (c) =>
+    c.json({
+      data: await service.restore(
+        challengeId(c),
+        id(c, "quizId"),
+        profileId(c),
+      ),
     }),
   );
   routes.post(path + "/:quizId/title/regenerate", async (c) =>

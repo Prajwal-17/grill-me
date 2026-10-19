@@ -14,6 +14,7 @@ export type QuizSummary = {
   questionCount: number;
   coverage: QuizCoverage | "topic";
   createdAt: string;
+  deletedAt?: string | null;
   latestAttempt: {
     number: number;
     status: "draft" | "submitted";

@@ -9,6 +9,8 @@ import {
   Circle,
   Clock3,
   Search,
+  RotateCcw,
+  Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -44,6 +46,7 @@ const statuses = [
   ["draft", "In progress"],
   ["submitted", "Submitted"],
   ["new", "Not started"],
+  ["deleted", "Deleted"],
 ] as const;
 
 function title(quiz: QuizSummary) {
@@ -81,24 +84,32 @@ function Progress({
   compact?: boolean;
 }) {
   const current = status(quiz);
-  const Icon =
-    current === "draft" ? Clock3 : current === "submitted" ? Check : Circle;
+  const deleted = Boolean(quiz.deletedAt);
+  const Icon = deleted
+    ? Trash2
+    : current === "draft"
+      ? Clock3
+      : current === "submitted"
+        ? Check
+        : Circle;
   return (
     <div className={compact ? "flex flex-wrap items-center gap-2" : undefined}>
       <span
         className={cn(
           "inline-flex items-center gap-1.5 whitespace-nowrap text-xs",
-          current === "draft" ? "text-warning" : "text-muted",
+          current === "draft" && !deleted ? "text-warning" : "text-muted",
         )}
       >
         <Icon size={13} aria-hidden="true" />
-        {current === "draft"
-          ? "In progress"
-          : current === "submitted"
-            ? "Submitted"
-            : "Not started"}
+        {deleted
+          ? "Deleted"
+          : current === "draft"
+            ? "In progress"
+            : current === "submitted"
+              ? "Submitted"
+              : "Not started"}
       </span>
-      {current === "draft" && (
+      {!deleted && current === "draft" && (
         <span
           className={cn(
             "text-xs text-muted tabular-nums",
@@ -164,12 +175,16 @@ export function QuizTable({
   disabled,
   actions,
   onOpen,
+  onDelete,
+  onRestore,
 }: {
   profileId: string;
   quizzes: QuizSummary[];
   disabled: boolean;
   actions: ReactNode;
   onOpen: (id: string) => void;
+  onDelete: (quiz: QuizSummary) => void;
+  onRestore: (quiz: QuizSummary) => void;
 }) {
   const [settings, update] = useQuizListState(profileId);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -183,8 +198,11 @@ export function QuizTable({
           .toLowerCase()
           .includes(query)),
   );
-  const filtered = matching.filter(
-    (quiz) => settings.status === "all" || status(quiz) === settings.status,
+  const filtered = matching.filter((quiz) =>
+    settings.status === "deleted"
+      ? Boolean(quiz.deletedAt)
+      : !quiz.deletedAt &&
+        (settings.status === "all" || status(quiz) === settings.status),
   );
   filtered.sort((a, b) => {
     const newest =
@@ -251,7 +269,10 @@ export function QuizTable({
           "rounded-sm",
           isAction
             ? "h-11 shrink-0 justify-start px-1.5 text-xs text-muted hover:text-foreground md:h-8"
-            : "h-auto w-full justify-start px-0 py-0 text-left text-sm font-medium whitespace-normal",
+            : cn(
+                "h-auto w-full justify-start px-0 py-0 text-left text-sm font-medium whitespace-normal",
+                quiz.deletedAt && "text-muted",
+              ),
           isAction && status(quiz) === "draft" && "text-foreground",
         )}
       >
@@ -265,6 +286,44 @@ export function QuizTable({
             {title(quiz)}
           </span>
         )}
+      </Button>
+    );
+  }
+
+  function deleteButton(quiz: QuizSummary) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Delete quiz ${quiz.number}`}
+            disabled={disabled}
+            onClick={() => onDelete(quiz)}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          Move to Deleted
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  function restoreButton(quiz: QuizSummary) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        disabled={disabled}
+        aria-label={`Restore quiz ${quiz.number}`}
+        onClick={() => onRestore(quiz)}
+      >
+        <RotateCcw size={13} aria-hidden="true" />
+        Restore
       </Button>
     );
   }
@@ -420,7 +479,7 @@ export function QuizTable({
                 <col className="w-32" />
                 <col className="w-16" />
                 <col className="hidden w-20 @[850px]/quiz-list:table-column" />
-                <col className="w-20" />
+                <col className="w-28" />
               </colgroup>
               <TableHeader className="border-b border-line bg-canvas text-muted">
                 <TableRow>
@@ -483,7 +542,16 @@ export function QuizTable({
                       </time>
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      {openButton(quiz, true)}
+                      <div className="flex items-center justify-end gap-1">
+                        {quiz.deletedAt ? (
+                          restoreButton(quiz)
+                        ) : (
+                          <>
+                            {openButton(quiz, true)}
+                            {deleteButton(quiz)}
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -508,7 +576,16 @@ export function QuizTable({
                         )}
                       </p>
                     </div>
-                    {openButton(quiz, true)}
+                    <div className="flex shrink-0 items-center gap-1">
+                      {quiz.deletedAt ? (
+                        restoreButton(quiz)
+                      ) : (
+                        <>
+                          {openButton(quiz, true)}
+                          {deleteButton(quiz)}
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <Progress quiz={quiz} compact />
