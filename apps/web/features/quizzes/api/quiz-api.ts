@@ -41,6 +41,24 @@ export function generateQuiz(
     profileId,
   );
 }
+export function regenerateQuizTitle(
+  profileId: string,
+  challengeId: string | null,
+  quizId: string,
+) {
+  return apiRequest<{ title: string }>(
+    path(challengeId, quizId) + "/title/regenerate",
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+export function enhanceQuizPrompt(profileId: string, prompt: string) {
+  return apiRequest<{ prompt: string }>(
+    "/quizzes/enhance-prompt",
+    { method: "POST", body: JSON.stringify({ prompt }) },
+    profileId,
+  );
+}
 export function startQuizAttempt(
   profileId: string,
   challengeId: string | null,

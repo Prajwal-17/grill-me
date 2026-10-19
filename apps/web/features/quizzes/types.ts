@@ -6,6 +6,7 @@ export type QuizQuestion = { id: string; question: string; options: string[] };
 export type QuizSummary = {
   id: string;
   challengeId: string | null;
+  title: string;
   topic: string | null;
   prompt: string | null;
   difficulty: QuizDifficulty | null;

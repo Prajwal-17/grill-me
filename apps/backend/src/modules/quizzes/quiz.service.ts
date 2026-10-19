@@ -13,6 +13,7 @@ import {
 } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
 import {
+  type EnhanceQuizPromptRequest,
   validateQuiz,
   type GenerateQuizRequest,
   type GenerateStandaloneQuizRequest,
@@ -22,10 +23,43 @@ import {
 type QuizRow = typeof quizzes.$inferSelect;
 type AttemptRow = typeof quizAttempts.$inferSelect;
 
+const QUIZ_TITLE_MAX_LENGTH = 72;
+
+function normalizeQuizTitle(value: string | null | undefined, number: number) {
+  const title = value?.replace(/\s+/g, " ").trim();
+  if (!title) return `Quiz ${number}`;
+  if (title.length <= QUIZ_TITLE_MAX_LENGTH) return title;
+  return title.slice(0, QUIZ_TITLE_MAX_LENGTH - 1).trimEnd() + "…";
+}
+
+function challengeTitle(quiz: QuizRow) {
+  const challenge = quiz.contextSnapshot.challenge;
+  if (!challenge || typeof challenge !== "object" || Array.isArray(challenge))
+    return null;
+  const title = (challenge as Record<string, unknown>).title;
+  return typeof title === "string" ? title : null;
+}
+
+function titleSource(quiz: QuizRow) {
+  if (quiz.challengeId === null) return quiz.topic ?? "";
+  const challenge = quiz.contextSnapshot.challenge;
+  if (!challenge || typeof challenge !== "object" || Array.isArray(challenge))
+    return "";
+  const details = challenge as Record<string, unknown>;
+  return [details.title, details.topic, details.problemStatement]
+    .filter((value): value is string => typeof value === "string" && !!value)
+    .join("\n");
+}
+
 function publicQuiz(quiz: QuizRow) {
   return {
     id: quiz.id,
     challengeId: quiz.challengeId,
+    title: normalizeQuizTitle(
+      quiz.title ??
+        (quiz.challengeId === null ? quiz.topic : challengeTitle(quiz)),
+      quiz.number,
+    ),
     topic: quiz.topic,
     prompt: quiz.challengeId === null ? quiz.topic : null,
     difficulty: quiz.difficulty,
@@ -98,6 +132,17 @@ export function createQuizService(
   }
 
   return {
+    async enhancePrompt(profileId: string, request: EnhanceQuizPromptRequest) {
+      await profileService.assertExists(profileId);
+      if (!llm.enhanceQuizPrompt)
+        throw new AppError(
+          "QUIZ_UNAVAILABLE",
+          "This model does not support prompt enhancement.",
+          503,
+        );
+      return llm.enhanceQuizPrompt({ profileId, prompt: request.prompt });
+    },
+
     async list(challengeId: string | null, profileId: string) {
       await assertScope(challengeId, profileId);
       const rows = await db
@@ -250,6 +295,11 @@ export function createQuizService(
                 id: crypto.randomUUID(),
                 challengeId,
                 profileId,
+                title: normalizeQuizTitle(
+                  content.title ??
+                    (input.challenge ? input.challenge.title : input.prompt),
+                  number,
+                ),
                 // The existing text column also stores full standalone prompts.
                 topic: input.challenge ? null : input.prompt,
                 difficulty: input.challenge ? null : input.difficulty,
@@ -292,6 +342,49 @@ export function createQuizService(
         quiz: publicQuiz(quiz),
         attempts: attempts.map((attempt) => publicAttempt(attempt, quiz)),
       };
+    },
+
+    async regenerateTitle(
+      challengeId: string | null,
+      quizId: string,
+      profileId: string,
+    ) {
+      const quiz = await owned(challengeId, quizId, profileId);
+      if (!llm.generateQuizTitle)
+        throw new AppError(
+          "QUIZ_TITLE_UNAVAILABLE",
+          "This model does not support quiz title generation.",
+          503,
+        );
+      const title = normalizeQuizTitle(
+        await llm.generateQuizTitle({
+          profileId,
+          challengeId,
+          source: titleSource(quiz),
+          currentTitle: normalizeQuizTitle(
+            quiz.title ??
+              (quiz.challengeId === null ? quiz.topic : challengeTitle(quiz)),
+            quiz.number,
+          ),
+          questionCount: quiz.questionCount as 5 | 10 | 15,
+          difficulty: quiz.difficulty,
+          coverage: quiz.coverage,
+          questions: quiz.questions
+            .slice(0, 5)
+            .map((question) => question.question.slice(0, 240)),
+        }),
+        quiz.number,
+      );
+      const saved = (
+        await db
+          .update(quizzes)
+          .set({ title })
+          .where(and(eq(quizzes.id, quizId), scope(challengeId, profileId)))
+          .returning({ title: quizzes.title })
+      )[0];
+      if (!saved)
+        throw new AppError("QUIZ_NOT_FOUND", "Quiz not found.", 404);
+      return { title: normalizeQuizTitle(saved.title, quiz.number) };
     },
 
     async start(challengeId: string | null, quizId: string, profileId: string) {

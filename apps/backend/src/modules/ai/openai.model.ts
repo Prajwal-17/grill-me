@@ -16,8 +16,15 @@ import type { ModelGateway } from "./model-gateway";
 import { normalizePreparationOutput } from "./preparation-output";
 import { modelUnavailable, parseJson } from "./model.utils";
 import { startAiLog, type LogContext } from "../logs/ai-log-recorder";
-import { generatedQuizSchema, validateQuiz } from "../quizzes/quiz.schema";
+import {
+  enhancedQuizPromptSchema,
+  generatedQuizSchema,
+  generatedQuizTitleSchema,
+  validateQuiz,
+} from "../quizzes/quiz.schema";
 import { quizPrompt } from "./prompts/generate-quiz";
+import { quizTitlePrompt } from "./prompts/generate-quiz-title";
+import { enhanceQuizPromptPrompt } from "./prompts/enhance-quiz-prompt";
 import {
   buildJsonSchema,
   clarificationPrompt,
@@ -149,7 +156,13 @@ export function createOpenAIModel(
     context: LogContext;
     prompt: StructuredPrompt;
     name: string;
-    stage: "preparation" | "generation" | "review" | "verification" | "quiz";
+    stage:
+      | "preparation"
+      | "generation"
+      | "review"
+      | "verification"
+      | "quiz"
+      | "quiz_title";
     signal?: AbortSignal;
     schema: Record<string, unknown>;
     validator: z.ZodType<T>;
@@ -188,7 +201,9 @@ export function createOpenAIModel(
           ? "clarification"
           : input.stage === "generation"
             ? "build"
-            : input.stage;
+            : input.stage === "quiz_title"
+              ? "quiz title"
+              : input.stage;
       if (response.status === "incomplete") {
         throw new AppError(
           "MODEL_OUTPUT_INCOMPLETE",
@@ -356,6 +371,20 @@ export function createOpenAIModel(
   }
 
   return {
+    enhanceQuizPrompt(input) {
+      return requestStructured({
+        context: {
+          profileId: input.profileId,
+          operation: "quiz_generation",
+          preview: "Enhance quiz prompt: " + input.prompt.slice(0, 180),
+        },
+        prompt: enhanceQuizPromptPrompt(input.prompt),
+        name: "enhanced_quiz_prompt",
+        stage: "quiz",
+        schema: zod.toJSONSchema(enhancedQuizPromptSchema),
+        validator: enhancedQuizPromptSchema,
+      });
+    },
     generateQuiz(input) {
       return requestStructured({
         context: {
@@ -386,6 +415,23 @@ export function createOpenAIModel(
           }
         },
       });
+    },
+    async generateQuizTitle(input) {
+      const schema = generatedQuizTitleSchema;
+      const result = await requestStructured({
+        context: {
+          profileId: input.profileId,
+          challengeId: input.challengeId ?? undefined,
+          operation: "quiz_title_generation",
+          preview: input.currentTitle,
+        },
+        prompt: quizTitlePrompt(input),
+        name: "quiz_title",
+        stage: "quiz_title",
+        schema: zod.toJSONSchema(schema),
+        validator: schema,
+      });
+      return result.title;
     },
     judge(input) {
       return requestStructured({

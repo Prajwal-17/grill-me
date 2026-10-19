@@ -116,6 +116,7 @@ export const quizzes = pgTable(
       onDelete: "cascade",
     }),
     topic: text("topic"),
+    title: text("title"),
     difficulty: text("difficulty", {
       enum: ["easy", "medium", "hard", "grill"],
     }),
@@ -223,6 +224,7 @@ export const aiLogs = pgTable(
         "review",
         "hint",
         "quiz_generation",
+        "quiz_title_generation",
       ],
     }).notNull(),
     status: text("status", {

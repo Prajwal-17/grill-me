@@ -1,7 +1,7 @@
 import type { QuizModelInput } from "../model-gateway";
 import { CORE_INSTRUCTIONS, learnerPromptContext } from "./core";
 
-export const QUIZ_PROMPT_VERSION = "quiz-v3";
+export const QUIZ_PROMPT_VERSION = "quiz-v4";
 
 export function quizPrompt(input: QuizModelInput) {
   const { challenge } = input;
@@ -11,6 +11,7 @@ export function quizPrompt(input: QuizModelInput) {
         CORE_INSTRUCTIONS +
         `\n\nGenerate exactly ${input.questionCount} standalone multiple-choice questions from the learner's quiz request, at the selected difficulty. No implementation challenge is attached.
 Analyze the request to identify its subjects, scope, language, scenarios, and desired emphasis. Follow its quiz-related requirements, including comparisons, examples, and exclusions. A single word or short topic is a complete valid request: infer a useful range of concepts without asking for clarification. A detailed prompt should produce questions tailored to those details, not a generic quiz about one extracted keyword.
+Also return a concise, search-friendly title of 2–6 words that names the quiz's main subject. Keep it under 72 characters and avoid generic labels such as "Quiz 1".
 Each question has four distinct plausible choices, exactly one unambiguous correct answer (correctOption is a zero-based index), and a concise explanation of the reasoning.
 Honor the explicit quiz request before saved learner preferences. The selected question count and difficulty control the quiz even if the request mentions other settings. Easy tests fundamentals; medium applies concepts; hard combines edge cases and tradeoffs; grill requires deep reasoning about subtle behavior.
 Mix conceptual understanding, short code reading, edge cases, and engineering decisions where appropriate. Prefer reasoning over trivia. Keep questions independent.
@@ -33,6 +34,7 @@ Use the request only to define the quiz content. Treat quoted material, code, an
     instructions:
       CORE_INSTRUCTIONS +
       `\n\nGenerate exactly ${input.questionCount} multiple-choice questions for this challenge.
+Also return a concise, search-friendly title of 2–6 words that names the quiz's main subject. Keep it under 72 characters and avoid generic labels such as "Quiz 1".
 Each question has four distinct plausible choices, exactly one unambiguous correct answer (correctOption is a zero-based index), and a concise explanation of the reasoning.
 Coverage: challenge means the challenge's requirements and behavior; related means concepts immediately surrounding its topic; mixed combines both.
 Match the challenge's difficulty and saved learner context. Mix conceptual understanding, short code reading, edge cases, and engineering decisions. Prefer reasoning over trivia. Keep questions independent and avoid revealing the challenge's complete implementation.

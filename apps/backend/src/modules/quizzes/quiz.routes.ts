@@ -4,6 +4,7 @@ import { AppError } from "../../shared/errors/app-error";
 import { parseInput, readJson } from "../../shared/http/validation";
 import { profileIdSchema } from "../profiles/profile.schema";
 import {
+  enhanceQuizPromptRequestSchema,
   generateQuizRequestSchema,
   generateStandaloneQuizRequestSchema,
   saveQuizAnswersSchema,
@@ -31,6 +32,15 @@ export function createQuizRoutes(service: QuizService, standalone = false) {
   routes.get(path || "/", async (c) =>
     c.json({ data: await service.list(challengeId(c), profileId(c)) }),
   );
+  if (standalone)
+    routes.post("/enhance-prompt", async (c) =>
+      c.json({
+        data: await service.enhancePrompt(
+          profileId(c),
+          parseInput(enhanceQuizPromptRequestSchema, await readJson(c.req.raw)),
+        ),
+      }),
+    );
   routes.post(path + "/generate", async (c) =>
     c.json(
       {
@@ -51,6 +61,15 @@ export function createQuizRoutes(service: QuizService, standalone = false) {
   routes.get(path + "/:quizId", async (c) =>
     c.json({
       data: await service.detail(challengeId(c), id(c, "quizId"), profileId(c)),
+    }),
+  );
+  routes.post(path + "/:quizId/title/regenerate", async (c) =>
+    c.json({
+      data: await service.regenerateTitle(
+        challengeId(c),
+        id(c, "quizId"),
+        profileId(c),
+      ),
     }),
   );
   routes.post(path + "/:quizId/attempts", async (c) =>

@@ -2,7 +2,13 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Plus, RotateCcw } from "lucide-react";
+import {
+  ArrowLeft,
+  LoaderCircle,
+  Plus,
+  RotateCcw,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
 import {
@@ -19,10 +25,12 @@ import {
   SelectValue,
 } from "@/shared/components/ui/select";
 import {
+  enhanceQuizPrompt,
   generateQuiz,
   getQuiz,
   getQuizzes,
   quizKeys,
+  regenerateQuizTitle,
   startQuizAttempt,
 } from "../api/quiz-api";
 import {
@@ -45,21 +53,23 @@ function QuizSelect({
   onChange,
   options,
   disabled,
+  displayValue,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
   disabled?: boolean;
+  displayValue?: string;
 }) {
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         aria-label={label}
         size="sm"
-        className="max-w-full border-line bg-surface shadow-none"
+        className="h-8 w-[150px] max-w-[42vw] border-line bg-surface shadow-none"
       >
-        <SelectValue />
+        <SelectValue>{displayValue}</SelectValue>
       </SelectTrigger>
       <SelectContent position="popper" align="start">
         {options.map((option) => (
@@ -79,7 +89,77 @@ function quizLabel(quiz: QuizSummary) {
       ? ` · ${attempt.score}/${quiz.questionCount}`
       : ` · ${attempt.answered}/${quiz.questionCount} answered`
     : " · Not started";
-  return `${quiz.topic ? `${quiz.topic} · ` : ""}Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
+  return `${quiz.title} · Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
+}
+
+function QuizLoadingState({ detail = false }: { detail?: boolean }) {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+    >
+      <p className="mb-4 inline-flex items-center gap-2 text-sm text-muted">
+        <LoaderCircle
+          size={15}
+          aria-hidden="true"
+          className="animate-spin motion-reduce:animate-none"
+        />
+        {detail ? "Loading quiz…" : "Loading quizzes…"}
+      </p>
+      {detail ? (
+        <div className="animate-pulse space-y-4 motion-reduce:animate-none">
+          <div aria-hidden="true" className="flex h-1 gap-1">
+            {Array.from({ length: 5 }, (_, index) => (
+              <span key={index} className="h-1 flex-1 rounded-full bg-line" />
+            ))}
+          </div>
+          <div className="grid min-w-0 items-start gap-4 @[850px]/quiz:grid-cols-[minmax(0,74ch)_196px] @[850px]/quiz:gap-5">
+            <div className="max-w-[74ch] space-y-3" aria-hidden="true">
+              <div className="h-6 w-full rounded bg-elevated" />
+              <div className="h-6 w-4/5 rounded bg-elevated" />
+              <div className="space-y-2 pt-2">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div
+                    key={index}
+                    className="h-[3.75rem] rounded-md bg-elevated"
+                  />
+                ))}
+              </div>
+            </div>
+            <div
+              aria-hidden="true"
+              className="space-y-3 border-t border-line pt-3 @[850px]/quiz:border-t-0 @[850px]/quiz:border-l @[850px]/quiz:pt-0 @[850px]/quiz:pl-5"
+            >
+              <div className="h-4 w-28 rounded bg-elevated" />
+              <div className="grid grid-cols-5 gap-2 sm:grid-cols-10 @[850px]/quiz:grid-cols-2">
+                {Array.from({ length: 5 }, (_, index) => (
+                  <div key={index} className="h-11 rounded-md bg-elevated" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="animate-pulse space-y-2 motion-reduce:animate-none">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div
+              key={index}
+              aria-hidden="true"
+              className="flex min-h-14 items-center gap-3 border-b border-line py-3"
+            >
+              <span className="size-8 shrink-0 rounded bg-elevated" />
+              <span className="min-w-0 flex-1 space-y-2">
+                <span className="block h-4 w-2/5 rounded bg-elevated" />
+                <span className="block h-3 w-3/5 rounded bg-elevated" />
+              </span>
+              <span className="h-4 w-12 rounded bg-elevated" />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function QuizWorkspace({
@@ -96,6 +176,7 @@ export function QuizWorkspace({
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
   const [coverage, setCoverage] = useState<QuizCoverage>("mixed");
   const [prompt, setPrompt] = useState("");
+  const [promptEnhanced, setPromptEnhanced] = useState(false);
   const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
   const [changing, setChanging] = useState(false);
   const saveRef = useRef<(() => Promise<void>) | null>(null);
@@ -195,6 +276,29 @@ export function QuizWorkspace({
       void queries.invalidateQueries({ queryKey: listKey });
     },
   });
+  const titleGeneration = useMutation({
+    mutationFn: (targetQuizId: string) =>
+      regenerateQuizTitle(profileId, challengeId, targetQuizId),
+    onSuccess: ({ title }, targetQuizId) => {
+      queries.setQueryData<QuizDetail>(
+        quizKeys.detail(profileId, challengeId, targetQuizId),
+        (current) =>
+          current ? { ...current, quiz: { ...current.quiz, title } } : current,
+      );
+      queries.setQueryData<QuizSummary[]>(listKey, (current) =>
+        current?.map((quiz) =>
+          quiz.id === targetQuizId ? { ...quiz, title } : quiz,
+        ),
+      );
+    },
+  });
+  const promptEnhancement = useMutation({
+    mutationFn: () => enhanceQuizPrompt(profileId, prompt.trim()),
+    onSuccess: (result) => {
+      setPrompt(result.prompt);
+      setPromptEnhanced(true);
+    },
+  });
   const start = useMutation({
     mutationFn: () => startQuizAttempt(profileId, challengeId, selectedQuizId),
     onSuccess: (attempt) => {
@@ -210,6 +314,8 @@ export function QuizWorkspace({
         setQuizId(value);
         setAttemptId("");
         start.reset();
+        titleGeneration.reset();
+        promptEnhancement.reset();
       } else setAttemptId(value);
     } catch {
       /* The toast reports the save error; keep the current attempt visible. */
@@ -217,7 +323,12 @@ export function QuizWorkspace({
       setChanging(false);
     }
   }
-  const busy = changing || generation.isPending || start.isPending;
+  const busy =
+    changing ||
+    generation.isPending ||
+    titleGeneration.isPending ||
+    promptEnhancement.isPending ||
+    start.isPending;
   const showLibrary =
     challengeId === null &&
     !selectedQuizId &&
@@ -226,16 +337,23 @@ export function QuizWorkspace({
     !list.error;
   const generateButton = (
     <Button
-      size={showLibrary ? "default" : "sm"}
-      className={showLibrary ? "ml-auto h-11 md:h-9" : "ml-auto"}
+      size={showLibrary ? "default" : "icon-sm"}
+      className={showLibrary ? "ml-auto h-11 md:h-9" : "ml-auto shrink-0"}
       variant={selectedQuizId ? "secondary" : "primary"}
       disabled={busy || list.isLoading}
+      aria-label={showLibrary ? undefined : "Generate quiz"}
+      title={showLibrary ? undefined : "Generate quiz"}
       onClick={() => {
         generation.reset();
         setDialogOpen(true);
       }}
     >
-      <Plus size={14} /> Generate quiz
+      <Plus size={14} />
+      {showLibrary ? (
+        "Generate quiz"
+      ) : (
+        <span className="sr-only">Generate quiz</span>
+      )}
     </Button>
   );
 
@@ -244,19 +362,25 @@ export function QuizWorkspace({
       aria-label={
         challengeId === null ? "Standalone quizzes" : "Challenge quizzes"
       }
-      className="mx-auto w-full space-y-6 @container/quiz"
+      className={`mx-auto w-full @container/quiz ${
+        showLibrary
+          ? "min-h-full space-y-4 overflow-y-auto overscroll-contain"
+          : "flex h-full min-h-0 flex-col gap-2 overflow-hidden"
+      }`}
     >
-      {!showLibrary && (
+      {!showLibrary && !detail.data && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           {challengeId === null && selectedQuizId ? (
             <Button
-              size="sm"
+              size="icon-sm"
               disabled={busy}
+              aria-label="All quizzes"
+              title="All quizzes"
               onClick={() => {
                 void select("", "quiz");
               }}
             >
-              <ArrowLeft size={14} /> All quizzes
+              <ArrowLeft size={14} />
             </Button>
           ) : selectedQuizId ? (
             <QuizSelect
@@ -276,9 +400,7 @@ export function QuizWorkspace({
         </div>
       )}
       {list.isLoading ? (
-        <p role="status" className="text-sm text-muted">
-          Loading quizzes…
-        </p>
+        <QuizLoadingState />
       ) : list.error ? (
         <div role="alert" className="text-sm text-muted">
           <p>{list.error.message}</p>
@@ -305,9 +427,7 @@ export function QuizWorkspace({
       ) : !selectedQuizId ? (
         <p className="text-sm text-muted">No quizzes yet.</p>
       ) : detail.isLoading ? (
-        <p role="status" className="text-sm text-muted">
-          Loading quiz…
-        </p>
+        <QuizLoadingState detail />
       ) : detail.error ? (
         <div role="alert" className="text-sm text-muted">
           <p>{detail.error.message}</p>
@@ -324,26 +444,74 @@ export function QuizWorkspace({
       ) : (
         detail.data && (
           <>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="min-w-0 flex-1 basis-64">
-                <h2 className="text-xl font-medium tracking-tight md:text-2xl [overflow-wrap:anywhere]">
-                  {detail.data.quiz.topic ?? `Quiz ${detail.data.quiz.number}`}
-                </h2>
-                <p className="mt-1.5 text-sm text-muted">
-                  <span className="capitalize">
+            <div className="relative flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line pb-1.5">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                {challengeId === null ? (
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={busy}
+                    aria-label="All quizzes"
+                    title="All quizzes"
+                    onClick={() => {
+                      void select("", "quiz");
+                    }}
+                  >
+                    <ArrowLeft size={14} />
+                  </Button>
+                ) : (
+                  <QuizSelect
+                    label="Select quiz"
+                    value={selectedQuizId}
+                    disabled={busy}
+                    onChange={(value) => {
+                      void select(value, "quiz");
+                    }}
+                    options={(list.data ?? []).map((quiz) => ({
+                      value: quiz.id,
+                      label: quizLabel(quiz),
+                    }))}
+                  />
+                )}
+                <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                  <h2
+                    className="min-w-0 truncate text-base font-medium tracking-tight"
+                    title={detail.data.quiz.title}
+                  >
+                    {detail.data.quiz.title}
+                  </h2>
+                  <span className="hidden shrink-0 text-xs text-muted @[600px]/quiz:inline">
                     {detail.data.quiz.coverage === "topic"
                       ? detail.data.quiz.difficulty
-                      : COVERAGE_LABELS[detail.data.quiz.coverage]}
+                      : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
+                    · {detail.data.quiz.questionCount} questions
                   </span>
-                  {" · "}
-                  {detail.data.quiz.questionCount} questions
-                </p>
+                </div>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="shrink-0 text-muted"
+                  disabled={busy}
+                  aria-label={
+                    titleGeneration.isPending
+                      ? "Regenerating quiz title"
+                      : "Regenerate quiz title"
+                  }
+                  title="Regenerate quiz title"
+                  onClick={() => {
+                    titleGeneration.reset();
+                    titleGeneration.mutate(selectedQuizId);
+                  }}
+                >
+                  <Sparkles size={14} />
+                </Button>
               </div>
-              <div className="flex max-w-full flex-wrap items-center gap-2">
+              <div className="ml-auto flex w-full max-w-full shrink-0 items-center justify-end gap-1 @[500px]/quiz:w-auto">
                 {selectedAttempt && (
                   <QuizSelect
                     label="Select quiz attempt"
                     value={selectedAttempt.id}
+                    displayValue={`Attempt ${selectedAttempt.number}`}
                     disabled={busy}
                     onChange={(value) => {
                       void select(value, "attempt");
@@ -356,39 +524,26 @@ export function QuizWorkspace({
                 )}
                 {selectedAttempt?.status === "submitted" && (
                   <Button
-                    size="sm"
+                    size="icon-sm"
+                    variant="ghost"
                     disabled={busy}
+                    aria-label={
+                      start.isPending ? "Starting quiz" : "Retake quiz"
+                    }
+                    title="Retake quiz"
                     onClick={() => start.mutate()}
                   >
                     <RotateCcw size={14} />
-                    {start.isPending ? "Starting…" : "Retake quiz"}
                   </Button>
                 )}
+                {generateButton}
               </div>
             </div>
-            <details className="group text-sm">
-              <summary className="w-fit cursor-pointer rounded-sm text-xs text-muted outline-offset-4 hover:text-foreground">
-                Quiz details
-              </summary>
-              <div className="mt-3 space-y-3 rounded-lg border border-line bg-canvas p-4">
-                <p className="text-xs text-muted">
-                  Quiz {detail.data.quiz.number} · Created{" "}
-                  {new Intl.DateTimeFormat("en", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  }).format(new Date(detail.data.quiz.createdAt))}
-                </p>
-                {challengeId === null && (
-                  <div>
-                    <h3 className="mb-1 text-xs font-medium">Quiz prompt</h3>
-                    <p className="whitespace-pre-wrap leading-6 [overflow-wrap:anywhere]">
-                      {detail.data.quiz.prompt ?? detail.data.quiz.topic}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </details>
+            {titleGeneration.error && (
+              <p role="alert" className="text-xs text-destructive">
+                {titleGeneration.error.message}
+              </p>
+            )}
             {start.error && (
               <p role="alert" className="text-xs text-destructive">
                 {start.error.message}
@@ -414,12 +569,13 @@ export function QuizWorkspace({
       <Dialog
         open={dialogOpen}
         onOpenChange={(open) => {
-          if (!generation.isPending) setDialogOpen(open);
+          if (!generation.isPending && !promptEnhancement.isPending)
+            setDialogOpen(open);
         }}
       >
         <DialogContent
           className={challengeId === null ? "sm:max-w-lg" : "sm:max-w-sm"}
-          showCloseButton={!generation.isPending}
+          showCloseButton={!generation.isPending && !promptEnhancement.isPending}
         >
           <DialogTitle>Generate quiz</DialogTitle>
           <DialogDescription className="sr-only">
@@ -431,30 +587,67 @@ export function QuizWorkspace({
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              if (!generation.isPending) generation.mutate();
+              if (!generation.isPending && !promptEnhancement.isPending)
+                generation.mutate();
             }}
           >
             {challengeId === null && (
               <div className="space-y-1.5">
-                <label htmlFor="quiz-prompt" className="text-xs text-muted">
-                  Quiz prompt
-                </label>
+                <div className="flex items-center justify-between gap-2">
+                  <label htmlFor="quiz-prompt" className="text-xs text-muted">
+                    Quiz prompt
+                  </label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    disabled={
+                      generation.isPending ||
+                      promptEnhancement.isPending ||
+                      prompt.trim().length === 0
+                    }
+                    onClick={() => {
+                      setPromptEnhanced(false);
+                      promptEnhancement.mutate();
+                    }}
+                  >
+                    <Sparkles size={14} aria-hidden="true" />
+                    {promptEnhancement.isPending
+                      ? "Enhancing…"
+                      : "Enhance prompt"}
+                  </Button>
+                </div>
                 <Textarea
                   id="quiz-prompt"
                   aria-describedby="quiz-prompt-help"
                   value={prompt}
-                  onChange={(event) => setPrompt(event.target.value)}
+                  onChange={(event) => {
+                    setPrompt(event.target.value);
+                    setPromptEnhanced(false);
+                    promptEnhancement.reset();
+                  }}
                   className="min-h-28"
                   placeholder="e.g. JavaScript, or: Test closures and async behavior with short code examples. Focus on common mistakes."
                   required
                   minLength={1}
                   maxLength={4000}
-                  disabled={generation.isPending}
+                  disabled={generation.isPending || promptEnhancement.isPending}
                 />
                 <p id="quiz-prompt-help" className="text-xs text-muted">
-                  One word is enough, or describe the concepts and scenarios you
-                  want to practice.
+                  Start with a topic or rough idea. The enhanced prompt stays
+                  editable before you generate the quiz.
                 </p>
+                {promptEnhancement.isError && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {promptEnhancement.error.message} Try again or edit the
+                    prompt yourself.
+                  </p>
+                )}
+                {promptEnhanced && (
+                  <p role="status" className="text-xs text-muted">
+                    Prompt enhanced. Review and edit it before generating.
+                  </p>
+                )}
               </div>
             )}
             <div className="flex flex-wrap gap-3">
@@ -463,7 +656,7 @@ export function QuizWorkspace({
                 <QuizSelect
                   label="Question count"
                   value={String(questionCount)}
-                  disabled={generation.isPending}
+                  disabled={generation.isPending || promptEnhancement.isPending}
                   onChange={(value) =>
                     setQuestionCount(Number(value) as QuestionCount)
                   }
@@ -479,7 +672,7 @@ export function QuizWorkspace({
                   <QuizSelect
                     label="Quiz difficulty"
                     value={difficulty}
-                    disabled={generation.isPending}
+                    disabled={generation.isPending || promptEnhancement.isPending}
                     onChange={(value) => setDifficulty(value as QuizDifficulty)}
                     options={[
                       { value: "easy", label: "Easy" },
@@ -495,7 +688,7 @@ export function QuizWorkspace({
                   <QuizSelect
                     label="Quiz coverage"
                     value={coverage}
-                    disabled={generation.isPending}
+                    disabled={generation.isPending || promptEnhancement.isPending}
                     onChange={(value) => setCoverage(value as QuizCoverage)}
                     options={Object.entries(COVERAGE_LABELS).map(
                       ([value, label]) => ({ value, label }),
@@ -514,6 +707,7 @@ export function QuizWorkspace({
               variant="primary"
               disabled={
                 generation.isPending ||
+                promptEnhancement.isPending ||
                 (challengeId === null && prompt.trim().length === 0)
               }
             >

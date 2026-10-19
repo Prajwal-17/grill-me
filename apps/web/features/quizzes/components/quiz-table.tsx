@@ -42,7 +42,12 @@ const statuses = [
 ] as const;
 
 function title(quiz: QuizSummary) {
-  return quiz.topic?.trim() || quiz.prompt?.trim() || `Quiz ${quiz.number}`;
+  return (
+    quiz.title?.trim() ||
+    quiz.topic?.trim() ||
+    quiz.prompt?.trim() ||
+    `Quiz ${quiz.number}`
+  );
 }
 
 function status(quiz: QuizSummary) {
@@ -169,7 +174,7 @@ export function QuizTable({
       (settings.difficulty === "all" ||
         quiz.difficulty === settings.difficulty) &&
       (!query ||
-        `quiz ${quiz.number} #${quiz.number} ${quiz.topic ?? ""} ${quiz.prompt ?? ""}`
+        `quiz ${quiz.number} #${quiz.number} ${quiz.title ?? ""} ${quiz.topic ?? ""} ${quiz.prompt ?? ""}`
           .toLowerCase()
           .includes(query)),
   );

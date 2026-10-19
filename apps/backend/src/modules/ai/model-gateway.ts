@@ -37,6 +37,17 @@ export type QuizModelInput = {
     }
 );
 
+export type QuizTitleModelInput = {
+  profileId: string;
+  challengeId: string | null;
+  source: string;
+  currentTitle: string;
+  questionCount: QuestionCount;
+  difficulty: BuildDifficulty | null;
+  coverage: QuizCoverage | "topic";
+  questions: string[];
+};
+
 export type ConversationMode = "clarify" | "review";
 
 export type LearnerContext = {
@@ -79,6 +90,11 @@ export type JudgeInput = {
 };
 export interface ModelGateway {
   generateQuiz?(input: QuizModelInput): Promise<GeneratedQuiz>;
+  generateQuizTitle?(input: QuizTitleModelInput): Promise<string>;
+  enhanceQuizPrompt?(input: {
+    profileId: string;
+    prompt: string;
+  }): Promise<{ prompt: string }>;
   judge?(input: JudgeInput): Promise<ReviewResult>;
   planVerification?(input: JudgeInput): Promise<VerificationPlan>;
 
