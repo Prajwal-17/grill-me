@@ -29,6 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/cn";
 import { useQuizListState } from "../hooks/use-quiz-list-state";
 import type { QuizSummary } from "../types";
@@ -232,8 +237,10 @@ export function QuizTable({
 
   function openButton(quiz: QuizSummary, isAction = false) {
     return (
-      <button
+      <Button
         type="button"
+        variant={isAction ? "ghost" : "link"}
+        size="sm"
         data-quiz-open={isAction ? undefined : quiz.id}
         aria-label={`${isAction ? action(quiz) : "Open"} quiz ${quiz.number}`}
         aria-keyshortcuts={isAction ? undefined : "ArrowUp ArrowDown"}
@@ -241,10 +248,10 @@ export function QuizTable({
         onClick={() => onOpen(quiz.id)}
         title={isAction ? undefined : title(quiz)}
         className={cn(
-          "rounded-sm outline-offset-4 disabled:opacity-40",
+          "rounded-sm",
           isAction
-            ? "pressable inline-flex min-h-11 shrink-0 items-center gap-1.5 text-xs text-muted hover:text-foreground md:min-h-8"
-            : "line-clamp-2 text-left text-sm font-medium [overflow-wrap:anywhere] hover:underline hover:underline-offset-4",
+            ? "h-11 shrink-0 justify-start px-1.5 text-xs text-muted hover:text-foreground md:h-8"
+            : "h-auto w-full justify-start px-0 py-0 text-left text-sm font-medium whitespace-normal",
           isAction && status(quiz) === "draft" && "text-foreground",
         )}
       >
@@ -254,9 +261,11 @@ export function QuizTable({
             <ArrowRight size={13} aria-hidden="true" />
           </>
         ) : (
-          title(quiz)
+          <span className="line-clamp-2 [overflow-wrap:anywhere]">
+            {title(quiz)}
+          </span>
         )}
-      </button>
+      </Button>
     );
   }
 
@@ -293,18 +302,27 @@ export function QuizTable({
             className="h-11 bg-canvas pr-10 pl-9 shadow-none md:h-9 [&::-webkit-search-cancel-button]:appearance-none"
           />
           {settings.search && (
-            <button
-              type="button"
-              aria-label="Clear search"
-              disabled={disabled}
-              onClick={() => {
-                update({ search: "", page: 1 });
-                searchRef.current?.focus();
-              }}
-              className="absolute top-1/2 right-1 grid size-9 -translate-y-1/2 place-items-center rounded-md text-muted hover:text-foreground"
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Clear search"
+                  disabled={disabled}
+                  onClick={() => {
+                    update({ search: "", page: 1 });
+                    searchRef.current?.focus();
+                  }}
+                  className="absolute top-1/2 right-1 size-9 -translate-y-1/2 rounded-md text-muted hover:text-foreground"
+                >
+                  <X size={14} aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                Clear search
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
         <div className="min-w-0">
@@ -524,27 +542,41 @@ export function QuizTable({
         </p>
         {pageCount > 1 && (
           <nav aria-label="Quiz pages" className="flex items-center gap-2">
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Previous page"
-              disabled={disabled || page === 1}
-              onClick={() => update({ page: page - 1 })}
-            >
-              <ChevronLeft size={15} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Previous page"
+                  disabled={disabled || page === 1}
+                  onClick={() => update({ page: page - 1 })}
+                >
+                  <ChevronLeft size={15} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                Previous page
+              </TooltipContent>
+            </Tooltip>
             <span className="tabular-nums">
               {page}/{pageCount}
             </span>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Next page"
-              disabled={disabled || page === pageCount}
-              onClick={() => update({ page: page + 1 })}
-            >
-              <ChevronRight size={15} />
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Next page"
+                  disabled={disabled || page === pageCount}
+                  onClick={() => update({ page: page + 1 })}
+                >
+                  <ChevronRight size={15} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                Next page
+              </TooltipContent>
+            </Tooltip>
           </nav>
         )}
       </div>

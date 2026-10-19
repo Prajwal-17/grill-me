@@ -275,9 +275,11 @@ export function QuizAttempt({
               {answered < quiz.questionCount ? (
                 <>
                   {quiz.questionCount - answered} unanswered ·{" "}
-                  <button
+                  <Button
                     type="button"
-                    className="min-h-0 underline underline-offset-4 hover:text-foreground"
+                    size="sm"
+                    variant="link"
+                    className="h-auto min-h-0 px-0 py-0 text-xs font-normal underline underline-offset-4 hover:text-foreground"
                     onClick={() =>
                       setIndex(
                         quiz.questions.findIndex(
@@ -287,7 +289,7 @@ export function QuizAttempt({
                     }
                   >
                     Go to next unanswered question
-                  </button>
+                  </Button>
                 </>
               ) : (
                 "All questions answered. Ready to submit."
@@ -320,14 +322,16 @@ export function QuizAttempt({
                 questionResult.chosenOption === questionResult.correctOption;
               const isAnswered = state.answers[q.id] !== undefined;
               return (
-                <button
+                <Button
                   key={q.id}
                   type="button"
+                  variant="outline"
+                  size="sm"
                   aria-label={`Question ${i + 1}, ${questionResult ? (correct ? "correct" : "incorrect") : isAnswered ? "answered" : "unanswered"}`}
                   aria-current={index === i ? "step" : undefined}
                   onClick={() => setIndex(i)}
                   className={cn(
-                    "pressable relative flex min-h-11 items-center justify-center gap-1.5 rounded-md border text-sm font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-foreground",
+                    "relative h-11 w-full min-w-0 justify-center rounded-md border px-0 text-sm font-medium tabular-nums shadow-none",
                     questionResult
                       ? correct
                         ? "border-success/60 bg-success/10 text-success hover:bg-success/15"
@@ -356,7 +360,7 @@ export function QuizAttempt({
                       />
                     )
                   )}
-                </button>
+                </Button>
               );
             })}
           </nav>
