@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { File as CodeFile } from "@pierre/diffs/react";
+import { getFiletypeFromFileName, preloadHighlighter } from "@pierre/diffs";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import {
   Braces,
@@ -45,6 +46,8 @@ import {
 } from "@/shared/components/ui/context-menu";
 import { useAppStore } from "@/shared/stores/app-store";
 import { cn } from "@/shared/lib/cn";
+import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
+import { useWideWorkspace } from "../hooks/use-wide-workspace";
 
 type CustomProperties = CSSProperties & Record<`--${string}`, string | number>;
 
@@ -266,7 +269,22 @@ function SubmissionFilesSurface({
   );
   const file = useQuery({
     queryKey: ["submission-file", profileId, attempt.id, selectedPath],
-    queryFn: () => getSubmissionFile(profileId, attempt.id, selectedPath),
+    queryFn: async () => {
+      const source = await getSubmissionFile(
+        profileId,
+        attempt.id,
+        selectedPath,
+      );
+      // Initialize before mounting: a cold highlighter can leave the custom
+      // element empty until the viewer is remounted.
+      if (source.content != null) {
+        await preloadHighlighter({
+          themes: ["github-dark", "github-light"],
+          langs: [getFiletypeFromFileName(source.path)],
+        });
+      }
+      return source;
+    },
     enabled: Boolean(selectedPath),
     staleTime: Infinity,
   });
@@ -388,7 +406,7 @@ function SubmissionFilesSurface({
         )}
       </header>
 
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col bg-canvas/35">
           <FileTabs
             paths={openPaths}
@@ -476,7 +494,7 @@ function SubmissionFilesSurface({
         </div>
 
         {treeOpen && (
-          <aside className="flex w-[230px] shrink-0 flex-col border-l border-line bg-surface sm:w-[260px]">
+          <aside className="absolute inset-0 z-10 flex shrink-0 flex-col border-l border-line bg-surface sm:static sm:w-[260px]">
             <div className="relative shrink-0 border-b border-line p-2">
               <Search
                 aria-hidden="true"
@@ -498,6 +516,33 @@ function SubmissionFilesSurface({
                 model={model}
                 aria-label="Submission file tree"
                 style={treeStyles}
+                onClick={(event) => {
+                  // Reopening the selected file does not emit a selection
+                  // change, so handle row activation as well.
+                  const rowClicked = event.nativeEvent
+                    .composedPath()
+                    .some(
+                      (target) =>
+                        target instanceof Element &&
+                        target.getAttribute("role") === "treeitem",
+                    );
+                  const path = model.getSelectedPaths().at(-1);
+                  if (
+                    rowClicked &&
+                    path &&
+                    attempt.manifest.some((file) => file.path === path)
+                  )
+                    onSelect(path);
+                }}
+                onKeyDown={(event) => {
+                  const path = model.getSelectedPaths().at(-1);
+                  if (
+                    event.key === "Enter" &&
+                    path &&
+                    attempt.manifest.some((file) => file.path === path)
+                  )
+                    onSelect(path);
+                }}
               />
             </div>
           </aside>
@@ -513,13 +558,16 @@ export function SubmissionFiles({
   projectPath,
   submissionCount,
   onClose,
+  returnFocusRef,
 }: {
   attempt: PracticeSubmission;
   profileId: string;
   projectPath: string | null;
   submissionCount: number;
   onClose: () => void;
+  returnFocusRef: RefObject<HTMLButtonElement | null>;
 }) {
+  const wide = useWideWorkspace();
   const [selectedPath, setSelectedPath] = useState(
     attempt.manifest[0]?.path ?? "",
   );
@@ -527,12 +575,14 @@ export function SubmissionFiles({
     attempt.manifest[0]?.path ? [attempt.manifest[0].path] : [],
   );
   const [expanded, setExpanded] = useState(false);
-  const [treeOpen, setTreeOpen] = useState(true);
+  const [treePreference, setTreePreference] = useState<boolean | null>(null);
+  const treeOpen = treePreference ?? wide;
   const openFile = (path: string) => {
     setOpenPaths((current) =>
       current.includes(path) ? current : [...current, path],
     );
     setSelectedPath(path);
+    if (!wide) setTreePreference(false);
   };
   const closeFile = (path: string) => {
     const index = openPaths.indexOf(path);
@@ -569,7 +619,7 @@ export function SubmissionFiles({
       expanded={fullScreen}
       onExpandedChange={setExpanded}
       treeOpen={treeOpen}
-      onTreeOpenChange={setTreeOpen}
+      onTreeOpenChange={setTreePreference}
       projectPath={projectPath}
       submissionCount={submissionCount}
       onClose={onClose}
@@ -578,11 +628,36 @@ export function SubmissionFiles({
 
   return (
     <>
-      {!expanded && (
-        <aside className="absolute inset-y-0 right-0 z-30 min-h-0 w-[min(94vw,760px)] shrink-0 overflow-hidden border-l border-line shadow-[-12px_0_30px_rgb(0_0_0/0.18)] xl:static xl:w-[58%] xl:min-w-[560px] xl:max-w-[920px] xl:shadow-none">
+      {!expanded && wide && (
+        <aside
+          className="min-h-0 w-[58%] min-w-[560px] max-w-[920px] shrink-0 overflow-hidden border-l border-line"
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.stopPropagation();
+              onClose();
+            }
+          }}
+        >
           {surface(false)}
         </aside>
       )}
+      <Sheet
+        open={!expanded && !wide}
+        onOpenChange={(open) => !open && onClose()}
+      >
+        <SheetContent
+          showCloseButton={false}
+          aria-describedby={undefined}
+          className="w-full gap-0 p-0 sm:max-w-[760px]"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            if (!expanded) returnFocusRef.current?.focus();
+          }}
+        >
+          <SheetTitle className="sr-only">Submission files</SheetTitle>
+          {surface(false)}
+        </SheetContent>
+      </Sheet>
       <Dialog open={expanded} onOpenChange={setExpanded}>
         <DialogContent
           showCloseButton={false}

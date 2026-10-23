@@ -16,7 +16,7 @@ export function BrandMark({ className }: { className?: string }) {
         height={160}
         alt=""
         unoptimized
-        className="size-full scale-[1.12] object-contain drop-shadow-[0_0_6px_rgb(245_123_66/0.16)]"
+        className="size-full object-contain"
       />
     </span>
   );
@@ -41,7 +41,7 @@ export function BrandLockup({
       <BrandMark className={cn("size-11", markClassName)} />
       <span
         className={cn(
-          "font-mono text-[18px] font-medium leading-none tracking-[-0.055em] text-foreground",
+          "font-sans text-[18px] font-semibold leading-none tracking-[-0.025em] text-foreground",
           wordmarkClassName,
         )}
       >

@@ -47,7 +47,7 @@ export default function RootLayout({
         {isDevelopment && (
           <div
             aria-label="Development environment"
-            className="pointer-events-none fixed bottom-3 right-3 z-[100] rounded-md border border-amber-500/50 bg-amber-400 px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wider text-amber-950 shadow-lg shadow-black/15"
+            className="pointer-events-none fixed bottom-3 right-3 z-[100] rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wider text-muted"
           >
             DEV
           </div>

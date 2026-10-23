@@ -23,7 +23,8 @@ import {
 import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
 import { useCreateBuild } from "@/features/chat/hooks/use-create-challenge";
 import { BuildOptionMenu } from "@/features/chat/components/build-option-menu";
-import { GrillHeat } from "@/features/chat/components/grill-heat";
+import Link from "next/link";
+import { ArrowUpRight, BookOpen, ListChecks } from "lucide-react";
 
 const EXAMPLES = [
   "Build a React command palette with keyboard navigation",
@@ -122,43 +123,21 @@ export function GenerationHome({ profile }: { profile: Profile }) {
   }
 
   return (
-    <main className="mx-auto flex h-full min-h-0 w-full max-w-[820px] flex-col gap-6 overflow-hidden px-5 pb-[max(16px,env(safe-area-inset-bottom))] pt-6 sm:px-8 md:px-10 md:pb-4 md:pt-[min(8vh,80px)]">
+    <main className="mx-auto flex h-full min-h-0 w-full max-w-[880px] flex-col gap-7 overflow-y-auto px-5 pb-10 pt-8 sm:px-8 md:px-12 md:pt-16">
       <header className="shrink-0">
         <h2
           id="generation-heading"
-          className="text-balance text-[clamp(2rem,4vw,2.5rem)] font-semibold leading-[1.12] tracking-[-0.035em]"
+          className="text-balance text-[clamp(1.75rem,3vw,2.25rem)] font-semibold leading-[1.12] tracking-[-0.035em]"
         >
-          Stop consuming. Start building.
+          What do you want to practice?
         </h2>
+        <p className="mt-3 max-w-[55ch] text-sm leading-6 text-muted">
+          Turn a topic into a coding challenge. Build in your editor, then bring
+          your implementation back for a review.
+        </p>
       </header>
-      <section
-        aria-labelledby="generation-heading"
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-      >
-        {!clarification?.question && (
-          <div
-            className="grid gap-x-8 sm:grid-cols-2"
-            aria-label="Example builds"
-          >
-            {EXAMPLES.map((example) => (
-              <button
-                key={example}
-                type="button"
-                disabled={busy}
-                onClick={() => fillExample(example)}
-                className="group border-b border-line py-3 text-left text-sm leading-5 text-muted transition-colors hover:text-foreground focus-visible:border-foreground disabled:opacity-50"
-              >
-                {example}
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
 
-      <section
-        aria-label="Create a build"
-        className="mt-auto flex min-h-0 max-h-full shrink-0 flex-col"
-      >
+      <section aria-label="Create a build" className="flex shrink-0 flex-col">
         {error && (
           <p
             role="alert"
@@ -179,7 +158,6 @@ export function GenerationHome({ profile }: { profile: Profile }) {
           data-grill={difficulty === "grill" || undefined}
           data-working={busy || undefined}
         >
-          {difficulty === "grill" && <GrillHeat />}
           {clarification?.question ? (
             <ClarificationCard
               key={clarification.question}
@@ -289,6 +267,50 @@ export function GenerationHome({ profile }: { profile: Profile }) {
           </p>
         )}
       </section>
+      <section aria-labelledby="generation-heading" className="shrink-0">
+        {!clarification?.question && (
+          <div
+            className="grid gap-x-6 sm:grid-cols-2"
+            aria-label="Example builds"
+          >
+            {EXAMPLES.map((example) => (
+              <button
+                key={example}
+                type="button"
+                disabled={busy}
+                onClick={() => fillExample(example)}
+                className="group flex items-center justify-between border-b border-line py-3 text-left text-sm leading-5 text-muted transition-colors hover:text-foreground focus-visible:border-foreground disabled:opacity-50"
+              >
+                <span>{example}</span>
+                <ArrowUpRight
+                  size={14}
+                  className="ml-3 shrink-0"
+                  aria-hidden="true"
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <div className="flex shrink-0 flex-wrap gap-5 border-t border-line pt-5 text-sm">
+        <Link
+          href="/challenges"
+          className="inline-flex items-center gap-2 text-muted hover:text-foreground"
+        >
+          <BookOpen size={16} />
+          Continue a challenge
+          <ArrowUpRight size={14} />
+        </Link>
+        <Link
+          href="/quizzes"
+          className="inline-flex items-center gap-2 text-muted hover:text-foreground"
+        >
+          <ListChecks size={16} />
+          Practice with a quiz
+          <ArrowUpRight size={14} />
+        </Link>
+      </div>
     </main>
   );
 }

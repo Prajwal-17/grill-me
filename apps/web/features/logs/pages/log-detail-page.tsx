@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, CircleAlert } from "lucide-react";
 import { useProfile } from "@/features/profile/hooks/use-profile";
+import { PageIntro } from "@/shared/components/layout/page-intro";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
 import { CopyButton } from "@/shared/components/ui/copy-button";
@@ -72,6 +73,10 @@ export function LogDetailPage({ id }: { id: string }) {
         ) : (
           log && (
             <>
+              <PageIntro
+                title={OPERATION_LABELS[log.operation]}
+                description="Request details, provider usage, and the complete saved response."
+              />
               {log.preview && (
                 <p className="break-words text-sm leading-6 text-muted">
                   {log.preview}

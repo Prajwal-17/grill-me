@@ -1,6 +1,6 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import {
@@ -11,8 +11,14 @@ import {
   Check,
   Bookmark,
   Files,
+  BookOpen,
+  FileCode2,
+  ScanLine,
+  ListChecks,
+  PanelRight,
 } from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
+import { PageIntro } from "@/shared/components/layout/page-intro";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
 import { Markdown } from "@/shared/components/markdown";
@@ -44,6 +50,10 @@ import {
 } from "@/shared/components/ui/tabs";
 import { completeChallenge } from "@/features/challenges/api/challenge-api";
 import { QuizWorkspace } from "@/features/quizzes/components/quiz-workspace";
+
+import { ChallengeReference } from "./challenge-reference";
+import { useWideWorkspace } from "../hooks/use-wide-workspace";
+import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
 
 type Draft = {
   content: string;
@@ -110,7 +120,15 @@ export function PracticeWorkspace({
   const [uploadProgress, setUploadProgress] = useState("");
   const [reply, setReply] = useState("");
   const [selectedSubmissionId, setSelectedSubmissionId] = useState("");
-  const [filesOpen, setFilesOpen] = useState(true);
+  const [sidePanel, setSidePanel] = useState<"task" | "files" | null>(null);
+  const wide = useWideWorkspace();
+  const taskToggle = useRef<HTMLButtonElement>(null);
+  const filesToggle = useRef<HTMLButtonElement>(null);
+  const referenceOpen = sidePanel === "task" && tab !== "overview";
+  const closeReference = () => {
+    setSidePanel(null);
+    taskToggle.current?.focus();
+  };
   const refresh = async () => {
     await Promise.all([
       queries.invalidateQueries({ queryKey: ["submissions", challenge.id] }),
@@ -231,7 +249,7 @@ export function PracticeWorkspace({
     onSuccess: async () => {
       update({ content: "", uploads: [] });
       setSelectedSubmissionId("");
-      setFilesOpen(true);
+      setSidePanel(null);
       setTab("reviews");
       await refresh();
     },
@@ -320,17 +338,6 @@ export function PracticeWorkspace({
       contentScrollable={false}
       actions={
         <>
-          {selectedAttempt && (
-            <Button
-              size="sm"
-              variant={filesOpen ? "secondary" : "ghost"}
-              aria-pressed={filesOpen}
-              onClick={() => setFilesOpen((open) => !open)}
-            >
-              <Files size={14} />
-              Files
-            </Button>
-          )}
           {challenge.status === "completed" && (
             <span className="text-xs text-success">Completed</span>
           )}
@@ -371,7 +378,7 @@ export function PracticeWorkspace({
           {challenge.status !== "completed" && (
             <Button
               size="sm"
-              variant="primary"
+              variant="secondary"
               disabled={busy}
               onClick={() => lifecycle.mutate("completed")}
             >
@@ -397,28 +404,68 @@ export function PracticeWorkspace({
             onValueChange={setTab}
             className="min-h-0 flex-1 gap-0 overflow-hidden"
           >
-            <div className="shrink-0 overflow-x-auto border-b border-line px-4 md:px-7">
-              <TabsList
-                variant="line"
-                className="h-11 min-w-max justify-start"
-                aria-label="Challenge workspace"
-              >
-                <TabsTrigger value="overview" className="flex-none px-4">
-                  Overview
-                </TabsTrigger>
-                <TabsTrigger value="submit" className="flex-none px-4">
-                  Submit
-                </TabsTrigger>
-                <TabsTrigger value="reviews" className="flex-none px-4">
-                  Reviews
-                  {running && (
-                    <LoaderCircle size={13} className="animate-spin" />
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="quizzes" className="flex-none px-4">
-                  Quizzes
-                </TabsTrigger>
-              </TabsList>
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b border-line bg-panel px-3 md:px-5">
+              <div className="min-w-0 overflow-x-auto">
+                <TabsList
+                  variant="line"
+                  className="h-11 min-w-max justify-start"
+                  aria-label="Challenge workspace"
+                >
+                  <TabsTrigger
+                    value="overview"
+                    className="flex-none gap-2 px-3"
+                  >
+                    <BookOpen size={14} className="hidden sm:block" />
+                    Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="submit" className="flex-none gap-2 px-3">
+                    <FileCode2 size={14} className="hidden sm:block" />
+                    Submit
+                  </TabsTrigger>
+                  <TabsTrigger value="reviews" className="flex-none gap-2 px-3">
+                    <ScanLine size={14} className="hidden sm:block" />
+                    Reviews
+                    {running && (
+                      <LoaderCircle size={13} className="animate-spin" />
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="quizzes" className="flex-none gap-2 px-3">
+                    <ListChecks size={14} className="hidden sm:block" />
+                    Quizzes
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+              <div className="ml-auto flex items-center gap-1 py-1.5">
+                {selectedAttempt && (
+                  <Button
+                    ref={filesToggle}
+                    size="sm"
+                    variant={sidePanel === "files" ? "secondary" : "ghost"}
+                    aria-pressed={sidePanel === "files"}
+                    onClick={() =>
+                      setSidePanel(sidePanel === "files" ? null : "files")
+                    }
+                  >
+                    <Files size={14} />
+                    Files
+                  </Button>
+                )}
+                {tab !== "overview" && (
+                  <Button
+                    ref={taskToggle}
+                    size="sm"
+                    variant={referenceOpen ? "secondary" : "ghost"}
+                    aria-expanded={referenceOpen}
+                    aria-controls={
+                      referenceOpen ? "challenge-reference" : undefined
+                    }
+                    onClick={() => setSidePanel(referenceOpen ? null : "task")}
+                  >
+                    <PanelRight size={14} />
+                    {referenceOpen ? "Hide task" : "Show task"}
+                  </Button>
+                )}
+              </div>
             </div>
             <TabsContent
               value="overview"
@@ -461,7 +508,7 @@ export function PracticeWorkspace({
                   )}
                   {(reply || hint.isPending) && active && (
                     <section
-                      className="border-l-2 border-[var(--grill-accent)] py-1 pl-4"
+                      className="rounded-lg border border-line bg-panel p-4"
                       aria-label="Challenge hint"
                       aria-live="polite"
                     >
@@ -513,6 +560,10 @@ export function PracticeWorkspace({
                   className="mx-auto max-w-[900px] space-y-5"
                   aria-label="Submit implementation"
                 >
+                  <PageIntro
+                    title="Submit your implementation"
+                    description="Connect a local project, attach source files, or paste your code for review."
+                  />
                   {!active && (
                     <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
                       {challenge.status === "completed"
@@ -557,7 +608,7 @@ export function PracticeWorkspace({
             </TabsContent>
             <TabsContent value="reviews" className="min-h-0 overflow-hidden">
               {attempts.isLoading ? (
-                <p role="status" className="text-sm text-muted">
+                <p role="status" className="p-6 text-sm text-muted">
                   Loading submissions…
                 </p>
               ) : attempts.error ? (
@@ -591,14 +642,59 @@ export function PracticeWorkspace({
             </TabsContent>
           </Tabs>
         </div>
-        {filesOpen && selectedAttempt && (
+        {referenceOpen && wide && (
+          <aside
+            id="challenge-reference"
+            aria-label="Challenge reference"
+            className="w-[340px] min-w-[300px] max-w-[35%] shrink-0 border-l border-line"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                closeReference();
+              }
+            }}
+          >
+            <ChallengeReference
+              challenge={challenge}
+              onClose={closeReference}
+            />
+          </aside>
+        )}
+        <Sheet
+          open={referenceOpen && !wide}
+          onOpenChange={(open) => {
+            if (!open) closeReference();
+          }}
+        >
+          <SheetContent
+            id="challenge-reference"
+            className="w-[min(100%,440px)] gap-0 p-0 sm:max-w-[440px]"
+            showCloseButton={false}
+            aria-describedby={undefined}
+            onCloseAutoFocus={(event) => {
+              event.preventDefault();
+              taskToggle.current?.focus();
+            }}
+          >
+            <SheetTitle className="sr-only">Challenge reference</SheetTitle>
+            <ChallengeReference
+              challenge={challenge}
+              onClose={closeReference}
+            />
+          </SheetContent>
+        </Sheet>
+        {sidePanel === "files" && selectedAttempt && (
           <SubmissionFiles
             key={selectedAttempt.id}
             attempt={selectedAttempt}
             profileId={profile.id}
             projectPath={selectedProject?.root ?? null}
             submissionCount={attempts.data?.length ?? 0}
-            onClose={() => setFilesOpen(false)}
+            returnFocusRef={filesToggle}
+            onClose={() => {
+              setSidePanel(null);
+              filesToggle.current?.focus();
+            }}
           />
         )}
         <ProjectPicker

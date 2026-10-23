@@ -28,13 +28,17 @@ export function ProfileGatePage() {
           <ThemeSelect />
         </div>
       </header>
-      <section className="mx-auto my-auto w-full max-w-[400px] rounded-2xl border border-line bg-surface p-7 shadow-xs sm:p-8">
+      <section className="mx-auto my-auto w-full max-w-[400px] rounded-xl border border-line bg-surface p-7 sm:p-8">
         <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-          Ready to build?
+          Your practice workspace
         </h1>
-        <form onSubmit={submit} className="mt-8 grid gap-4">
+        <p className="mt-3 text-sm leading-6 text-muted">
+          Build, review, and revisit what you learn. Choose your local profile
+          to get started.
+        </p>
+        <form onSubmit={submit} className="mt-7 grid gap-4">
           <label className="grid gap-2 text-sm font-medium" htmlFor="email">
-            Email
+            Profile email
             <Input
               id="email"
               name="email"

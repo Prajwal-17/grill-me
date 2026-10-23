@@ -122,7 +122,7 @@ export function QuizAttempt({
           ? "Left and right arrows move between questions."
           : "Left and right arrows change questions. Up and down arrows select an answer. Answers save automatically."}
       </p>
-      <div className="mb-3 flex items-center justify-between gap-4 text-sm sm:text-base">
+      <div className="mb-3 flex items-center justify-between gap-4 text-sm">
         <p
           className="font-medium group-focus-visible/attempt:underline group-focus-visible/attempt:underline-offset-4"
           aria-live="polite"
@@ -135,13 +135,13 @@ export function QuizAttempt({
           </p>
         )}
       </div>
-      <div className="grid min-w-0 items-start gap-4 @[850px]/quiz:grid-cols-[minmax(0,74ch)_196px] @[850px]/quiz:gap-5">
+      <div className="grid min-w-0 items-start gap-6 @[850px]/quiz:grid-cols-[minmax(0,1fr)_180px] @[850px]/quiz:gap-8">
         <div className="min-w-0">
           <fieldset
             disabled={submitted || readOnly || state.submitting}
-            className="min-w-0 space-y-2"
+            className="min-w-0 space-y-3"
           >
-            <legend className="mb-3 w-full text-xl font-medium leading-[1.45] tracking-tight @[850px]/quiz:text-2xl">
+            <legend className="mb-5 w-full text-xl font-medium leading-[1.45] tracking-tight">
               <Markdown>{question.question}</Markdown>
             </legend>
             {question.options.map((option, optionIndex) => {
@@ -153,13 +153,13 @@ export function QuizAttempt({
                 <label
                   key={optionIndex}
                   className={cn(
-                    "relative flex min-h-12 cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 text-lg leading-7 transition-colors duration-100 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-foreground",
+                    "relative flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 text-base leading-7 transition-colors duration-100 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-ring",
                     correct
                       ? "border-success/50 bg-success/10"
                       : incorrect
                         ? "border-destructive/50 bg-destructive/10"
                         : chosen
-                          ? "border-foreground bg-elevated"
+                          ? "border-brand/60 bg-brand-soft"
                           : "border-line hover:border-line-strong hover:bg-elevated",
                     (submitted || state.submitting) && "cursor-default",
                   )}
@@ -181,7 +181,7 @@ export function QuizAttempt({
                         : incorrect
                           ? "border-destructive/50 text-destructive"
                           : chosen
-                            ? "border-foreground bg-foreground text-canvas"
+                            ? "border-brand/40 bg-brand-soft text-brand"
                             : "border-line-strong text-muted",
                     )}
                   >
@@ -216,7 +216,7 @@ export function QuizAttempt({
           {result && (
             <section
               aria-label="Answer explanation"
-              className="mt-4 border-t border-line pt-3 text-lg leading-7"
+              className="mt-6 rounded-lg border border-line bg-panel p-5 text-base leading-7"
             >
               <h3 className="mb-1 text-sm font-semibold">Explanation</h3>
               <div className="text-muted">
@@ -224,7 +224,7 @@ export function QuizAttempt({
               </div>
             </section>
           )}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-2">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
             <div className="flex gap-2">
               <Button
                 size="sm"
@@ -260,7 +260,7 @@ export function QuizAttempt({
         </div>
         <aside
           aria-label="Question overview"
-          className="border-t border-line pt-3 @[850px]/quiz:border-t-0 @[850px]/quiz:border-l @[850px]/quiz:pt-0 @[850px]/quiz:pl-5"
+          className="rounded-lg border border-line bg-panel p-4"
         >
           <div className="mb-3 flex items-center justify-between gap-2 @[850px]/quiz:block">
             <h3 className="text-sm font-semibold">Answer overview</h3>
@@ -272,7 +272,7 @@ export function QuizAttempt({
           </div>
           <nav
             aria-label="Quiz questions"
-            className="grid grid-cols-5 gap-2 sm:grid-cols-10 @[850px]/quiz:grid-cols-2"
+            className="grid grid-cols-5 gap-2 sm:grid-cols-10 @[850px]/quiz:grid-cols-3"
           >
             {quiz.questions.map((q, i) => {
               const questionResult = submitted
@@ -302,8 +302,8 @@ export function QuizAttempt({
                         : "border-line text-muted hover:bg-elevated",
                     index === i &&
                       (questionResult
-                        ? "outline-2 outline-offset-3 outline-foreground"
-                        : "border-foreground text-foreground"),
+                        ? "outline-2 outline-offset-3 outline-ring"
+                        : "border-brand bg-brand-soft text-brand"),
                   )}
                 >
                   <span>{i + 1}</span>

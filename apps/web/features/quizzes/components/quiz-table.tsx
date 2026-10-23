@@ -13,6 +13,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { PageIntro } from "@/shared/components/layout/page-intro";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -329,8 +330,13 @@ export function QuizTable({
   }
 
   return (
-    <div className="space-y-3 @container/quiz-list">
-      <div className="grid grid-cols-2 items-center gap-1.5 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_124px_136px_148px_auto]">
+    <div className="shrink-0 space-y-4 @container/quiz-list">
+      <PageIntro
+        title="Your quizzes"
+        description="Explore a topic, pick up an unfinished attempt, or revisit your answers."
+        actions={actions}
+      />
+      <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_140px_148px_160px]">
         <div
           role="search"
           className="relative col-span-2 min-w-0 @[900px]/quiz-list:col-span-1"
@@ -430,9 +436,6 @@ export function QuizTable({
               ["score", "Highest score"],
             ]}
           />
-        </div>
-        <div className="flex justify-end @[640px]/quiz-list:col-span-2 @[900px]/quiz-list:col-span-1">
-          {actions}
         </div>
       </div>
       <div

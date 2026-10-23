@@ -411,7 +411,7 @@ export function QuizWorkspace({
       <TooltipTrigger asChild>
         <Button
           size={showLibrary ? "default" : "icon-sm"}
-          className={showLibrary ? "ml-auto h-11 md:h-9" : "ml-auto shrink-0"}
+          className={showLibrary ? "h-11 md:h-9" : "ml-auto shrink-0"}
           variant={selectedQuizId ? "secondary" : "primary"}
           disabled={busy || list.isLoading}
           aria-label="Generate quiz"
@@ -441,8 +441,8 @@ export function QuizWorkspace({
       }
       className={`mx-auto w-full @container/quiz ${
         showLibrary
-          ? "min-h-full space-y-4 overflow-y-auto overscroll-contain"
-          : "flex h-full min-h-0 flex-col gap-2 overflow-hidden"
+          ? "flex h-full min-h-0 flex-col gap-5 overflow-y-auto overscroll-contain"
+          : "flex h-full min-h-0 flex-col gap-5 overflow-hidden"
       }`}
     >
       {!showLibrary && !detail.data && (
@@ -549,8 +549,30 @@ export function QuizWorkspace({
       ) : (
         detail.data && (
           <>
-            <div className="relative flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-line pb-2">
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            {selectedAttempt && (
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                <h2
+                  className="min-w-0 break-words text-xl font-semibold tracking-tight [overflow-wrap:anywhere]"
+                  title={detail.data.quiz.title}
+                >
+                  {detail.data.quiz.title}
+                </h2>
+                {detail.data.quiz.deletedAt && (
+                  <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">
+                    Deleted
+                  </span>
+                )}
+                <span className="text-xs text-muted">
+                  Quiz {detail.data.quiz.number} ·{" "}
+                  {detail.data.quiz.coverage === "topic"
+                    ? detail.data.quiz.difficulty
+                    : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
+                  · {detail.data.quiz.questionCount} questions
+                </span>
+              </div>
+            )}
+            <div className="relative flex shrink-0 flex-wrap items-center gap-x-3 gap-y-3 border-b border-line pb-4">
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -589,28 +611,6 @@ export function QuizWorkspace({
                       }))}
                   />
                 )}
-                {selectedAttempt && (
-                  <div className="flex min-w-0 flex-1 items-baseline gap-2">
-                    <h2
-                      className="min-w-0 truncate text-base font-medium tracking-tight"
-                      title={detail.data.quiz.title}
-                    >
-                      {detail.data.quiz.title}
-                    </h2>
-                    {detail.data.quiz.deletedAt && (
-                      <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">
-                        Deleted
-                      </span>
-                    )}
-                    <span className="hidden shrink-0 text-xs text-muted @[600px]/quiz:inline">
-                      Quiz {detail.data.quiz.number} ·{" "}
-                      {detail.data.quiz.coverage === "topic"
-                        ? detail.data.quiz.difficulty
-                        : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
-                      · {detail.data.quiz.questionCount} questions
-                    </span>
-                  </div>
-                )}
                 {!detail.data.quiz.deletedAt && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -640,7 +640,7 @@ export function QuizWorkspace({
                   </Tooltip>
                 )}
               </div>
-              <div className="ml-auto flex w-auto max-w-full shrink-0 items-center justify-end gap-1">
+              <div className="ml-auto flex w-auto max-w-full flex-wrap items-center justify-end gap-1">
                 {selectedAttempt && (
                   <QuizSelect
                     label="Select quiz attempt"

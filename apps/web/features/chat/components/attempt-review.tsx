@@ -195,7 +195,7 @@ export function AttemptReview({
           </section>
 
           {result.nextStep && (
-            <section className="border-b border-line py-5">
+            <section className="my-5 rounded-lg border border-line bg-panel p-4">
               <h4 className="text-sm font-semibold">Next step</h4>
               <p className="mt-2 text-sm leading-6">{result.nextStep}</p>
             </section>
@@ -209,7 +209,7 @@ export function AttemptReview({
                   <div key={index} className="py-4 first:pt-0 last:pb-0">
                     <p className="text-sm font-medium">{finding.issue}</p>
                     {finding.location && (
-                      <code className="mt-1 block break-all font-mono text-[11px] text-muted">
+                      <code className="mt-2 block break-all font-mono text-xs text-brand">
                         {finding.location}
                       </code>
                     )}

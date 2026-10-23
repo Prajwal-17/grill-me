@@ -52,22 +52,22 @@ const fileKinds: {
   {
     extensions: ["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"],
     icon: FileImage,
-    className: "text-purple-500",
+    className: "text-muted",
   },
   {
     extensions: ["json", "jsonc"],
     icon: FileJson2,
-    className: "text-amber-500",
+    className: "text-muted",
   },
   {
     extensions: ["sql", "db", "sqlite", "prisma"],
     icon: Database,
-    className: "text-sky-500",
+    className: "text-muted",
   },
   {
     extensions: ["css", "scss", "sass", "less"],
     icon: Palette,
-    className: "text-pink-500",
+    className: "text-muted",
   },
   {
     extensions: ["md", "mdx", "txt", "rst"],
@@ -77,7 +77,7 @@ const fileKinds: {
   {
     extensions: ["zip", "gz", "tar", "7z"],
     icon: FileArchive,
-    className: "text-orange-500",
+    className: "text-muted",
   },
   {
     extensions: ["yaml", "yml", "toml", "ini", "env", "lock"],

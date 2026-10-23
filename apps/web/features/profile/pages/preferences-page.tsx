@@ -2,6 +2,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
+import { PageIntro } from "@/shared/components/layout/page-intro";
+import { Input } from "@/shared/components/ui/input";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
@@ -108,6 +110,10 @@ export function PreferencesPage() {
         />
       ) : (
         <main className="mx-auto w-full max-w-[850px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
+          <PageIntro
+            title="Make it your practice"
+            description="Set the context used for new challenges and quizzes, and choose how your code is reviewed."
+          />
           <form id="preferences-form" onSubmit={submit}>
             <fieldset disabled={save.isPending}>
               <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
@@ -119,14 +125,14 @@ export function PreferencesPage() {
                   >
                     Codex model
                   </label>
-                  <input
+                  <Input
                     id="codex-model"
                     list="codex-model-options"
                     value={form.codexModel}
                     required
                     maxLength={160}
                     onChange={(e) => update("codexModel", e.target.value)}
-                    className="w-full rounded border border-line bg-surface px-3 py-2 text-sm text-foreground"
+                    className="w-full"
                   />
                   <datalist id="codex-model-options">
                     {(

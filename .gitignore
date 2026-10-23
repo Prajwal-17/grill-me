@@ -42,3 +42,6 @@ apps/backend/.data/
 
 # Local runtime and review artifacts
 .data/
+
+# Local design verification captures
+**/.impeccable/review/

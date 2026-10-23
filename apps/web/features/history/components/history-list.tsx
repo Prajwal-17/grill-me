@@ -1,4 +1,5 @@
 "use client";
+import { PageIntro } from "@/shared/components/layout/page-intro";
 import { TopicProgressView } from "./topic-progress";
 import Link from "next/link";
 import { History } from "lucide-react";
@@ -40,8 +41,12 @@ export function HistoryList({
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-8">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-12 pt-7 md:px-8 md:pb-16 md:pt-8">
         <div className="mx-auto w-full max-w-[1100px]">
+          <PageIntro
+            title="Your practice history"
+            description="Revisit completed challenges, review your decisions, and see how your understanding develops."
+          />
           <TopicProgressView profileId={profileId} />
           {challenges.length ? (
             <>
@@ -82,7 +87,7 @@ export function HistoryList({
               </div>
             </>
           ) : (
-            <div className="rounded-xl border border-dashed border-line p-8 md:py-14">
+            <div className="rounded-xl border border-line bg-panel p-8 md:py-14">
               <History size={22} className="mb-4 text-muted" />
               <h2 className="text-base font-medium">No completed builds yet</h2>
               <p className="mt-2 text-sm text-muted">

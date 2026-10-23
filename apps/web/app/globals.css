@@ -9,8 +9,8 @@
   --color-card-foreground: var(--foreground);
   --color-popover: var(--surface);
   --color-popover-foreground: var(--foreground);
-  --color-primary: var(--foreground);
-  --color-primary-foreground: var(--canvas);
+  --color-primary: var(--action);
+  --color-primary-foreground: var(--action-ink);
   --color-secondary: var(--elevated);
   --color-secondary-foreground: var(--foreground);
   --color-muted-foreground: var(--muted);
@@ -21,7 +21,7 @@
   --color-warning: var(--warning);
   --color-border: var(--line);
   --color-input: var(--line);
-  --color-ring: var(--line-strong);
+  --color-ring: var(--focus);
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-elevated: var(--elevated);
@@ -30,9 +30,11 @@
   --color-dim: var(--muted);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-brand: var(--foreground);
-  --color-brand-bright: var(--foreground);
-  --color-brand-soft: var(--elevated);
+  --color-brand: var(--selection-ink);
+  --color-brand-bright: var(--selection-ink);
+  --color-brand-soft: var(--selection-surface);
+  --color-chrome: var(--chrome);
+  --color-panel: var(--panel);
   --font-sans: var(--font-plex-sans);
   --font-mono: var(--font-plex-mono);
 }
@@ -48,6 +50,15 @@
   --muted: #666666;
   --line: #e2e2e2;
   --line-strong: #b7b7b7;
+  --chrome: #f7f7f7;
+  --panel: #ffffff;
+  --selection-surface: #ededed;
+  --selection-ink: #202020;
+  --focus: #202020;
+  --action: #202020;
+  --action-ink: #f7f7f7;
+  --ember: #a63a19;
+  --ember-surface: #fdf4f1;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -61,6 +72,15 @@
   --muted: #aaaaaa;
   --line: #383838;
   --line-strong: #616161;
+  --chrome: #171717;
+  --panel: #222222;
+  --selection-surface: #303030;
+  --selection-ink: #f2f2f2;
+  --focus: #f2f2f2;
+  --action: #f2f2f2;
+  --action-ink: #171717;
+  --ember: #ffb478;
+  --ember-surface: #302623;
 }
 @layer base {
   body {
@@ -77,7 +97,7 @@
     cursor: default;
   }
   :focus-visible {
-    outline: 2px solid var(--foreground);
+    outline: 2px solid var(--focus);
     outline-offset: 3px;
   }
   ::selection {

@@ -10,13 +10,13 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-line",
+        "overflow-hidden rounded-lg border border-line",
         styles.table,
       )}
     >
       <div
         className={cn(
-          "border-b border-line bg-canvas px-4 py-2 text-[11px] text-muted",
+          "border-b border-line bg-panel px-4 py-3 text-[11px] text-muted",
           styles.header,
         )}
         aria-hidden="true"
@@ -48,7 +48,7 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
                     : "/chat?id=" + challenge.id
                 }
                 className={cn(
-                  "group px-4 py-3 outline-offset-[-3px] hover:bg-canvas",
+                  "group px-4 py-4 outline-offset-[-3px] transition-colors hover:bg-panel",
                   styles.row,
                 )}
               >
@@ -65,7 +65,7 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
                     aria-hidden="true"
                   />
                   <div className="min-w-0 [overflow-wrap:anywhere]">
-                    <h3 className="text-[13px] font-medium leading-5">
+                    <h3 className="text-sm font-medium leading-5">
                       <span className="mr-2 font-normal text-muted">
                         #{challenge.number}
                       </span>

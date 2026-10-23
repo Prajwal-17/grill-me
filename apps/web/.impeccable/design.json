@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T18:07:23.980372+00:00",
+  "title": "Design System: Grill Me",
+  "extensions": {
+    "colorMeta": {
+      "light-destructive": {
+        "role": "semantic",
+        "displayName": "Light Destructive",
+        "canonical": "#b42318"
+      },
+      "light-success": {
+        "role": "semantic",
+        "displayName": "Light Success",
+        "canonical": "#18794e"
+      },
+      "light-warning": {
+        "role": "semantic",
+        "displayName": "Light Warning",
+        "canonical": "#946200"
+      },
+      "light-canvas": {
+        "role": "neutral",
+        "displayName": "Light Canvas",
+        "canonical": "#f7f7f7"
+      },
+      "light-surface": {
+        "role": "neutral",
+        "displayName": "Light Surface",
+        "canonical": "#ffffff"
+      },
+      "light-foreground": {
+        "role": "neutral",
+        "displayName": "Light Foreground",
+        "canonical": "#202020"
+      },
+      "light-elevated": {
+        "role": "neutral",
+        "displayName": "Light Elevated",
+        "canonical": "#ededed"
+      },
+      "light-muted": {
+        "role": "neutral",
+        "displayName": "Light Muted",
+        "canonical": "#666666"
+      },
+      "light-line": {
+        "role": "neutral",
+        "displayName": "Light Line",
+        "canonical": "#e2e2e2"
+      },
+      "light-line-strong": {
+        "role": "neutral",
+        "displayName": "Light Line Strong",
+        "canonical": "#b7b7b7"
+      },
+      "light-chrome": {
+        "role": "neutral",
+        "displayName": "Light Chrome",
+        "canonical": "#f7f7f7"
+      },
+      "light-panel": {
+        "role": "neutral",
+        "displayName": "Light Panel",
+        "canonical": "#ffffff"
+      },
+      "light-selection-surface": {
+        "role": "secondary",
+        "displayName": "Light Selection Surface",
+        "canonical": "#ededed"
+      },
+      "light-selection-ink": {
+        "role": "secondary",
+        "displayName": "Light Selection Ink",
+        "canonical": "#202020"
+      },
+      "light-focus": {
+        "role": "secondary",
+        "displayName": "Light Focus",
+        "canonical": "#202020"
+      },
+      "light-action": {
+        "role": "primary",
+        "displayName": "Light Action",
+        "canonical": "#202020"
+      },
+      "light-action-ink": {
+        "role": "primary",
+        "displayName": "Light Action Ink",
+        "canonical": "#f7f7f7"
+      },
+      "light-ember": {
+        "role": "primary",
+        "displayName": "Light Ember",
+        "canonical": "#a63a19"
+      },
+      "light-ember-surface": {
+        "role": "primary",
+        "displayName": "Light Ember Surface",
+        "canonical": "#fdf4f1"
+      },
+      "dark-destructive": {
+        "role": "semantic",
+        "displayName": "Dark Destructive",
+        "canonical": "#ff8c85"
+      },
+      "dark-success": {
+        "role": "semantic",
+        "displayName": "Dark Success",
+        "canonical": "#6ed6a1"
+      },
+      "dark-warning": {
+        "role": "semantic",
+        "displayName": "Dark Warning",
+        "canonical": "#e8c16a"
+      },
+      "dark-canvas": {
+        "role": "neutral",
+        "displayName": "Dark Canvas",
+        "canonical": "#171717"
+      },
+      "dark-surface": {
+        "role": "neutral",
+        "displayName": "Dark Surface",
+        "canonical": "#222222"
+      },
+      "dark-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Foreground",
+        "canonical": "#f2f2f2"
+      },
+      "dark-elevated": {
+        "role": "neutral",
+        "displayName": "Dark Elevated",
+        "canonical": "#303030"
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Dark Muted",
+        "canonical": "#aaaaaa"
+      },
+      "dark-line": {
+        "role": "neutral",
+        "displayName": "Dark Line",
+        "canonical": "#383838"
+      },
+      "dark-line-strong": {
+        "role": "neutral",
+        "displayName": "Dark Line Strong",
+        "canonical": "#616161"
+      },
+      "dark-chrome": {
+        "role": "neutral",
+        "displayName": "Dark Chrome",
+        "canonical": "#171717"
+      },
+      "dark-panel": {
+        "role": "neutral",
+        "displayName": "Dark Panel",
+        "canonical": "#222222"
+      },
+      "dark-selection-surface": {
+        "role": "secondary",
+        "displayName": "Dark Selection Surface",
+        "canonical": "#303030"
+      },
+      "dark-selection-ink": {
+        "role": "secondary",
+        "displayName": "Dark Selection Ink",
+        "canonical": "#f2f2f2"
+      },
+      "dark-focus": {
+        "role": "secondary",
+        "displayName": "Dark Focus",
+        "canonical": "#f2f2f2"
+      },
+      "dark-action": {
+        "role": "primary",
+        "displayName": "Dark Action",
+        "canonical": "#f2f2f2"
+      },
+      "dark-action-ink": {
+        "role": "primary",
+        "displayName": "Dark Action Ink",
+        "canonical": "#171717"
+      },
+      "dark-ember": {
+        "role": "primary",
+        "displayName": "Dark Ember",
+        "canonical": "#ffb478"
+      },
+      "dark-ember-surface": {
+        "role": "primary",
+        "displayName": "Dark Ember Surface",
+        "canonical": "#302623"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "PageIntro headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Active quiz titles, on their own row."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Challenge prose and quiz answers."
+      },
+      "body-compact": {
+        "displayName": "Body Compact",
+        "purpose": "Reference prose and page descriptions."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Shared controls and compact panel titles."
+      },
+      "metadata": {
+        "displayName": "Metadata",
+        "purpose": "Quiet interface metadata."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Submission code viewer."
+      },
+      "file-label": {
+        "displayName": "File Label",
+        "purpose": "File tabs and paths."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sm",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Selected default segmented tabs; line tabs remove shadow."
+      },
+      {
+        "name": "md",
+        "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        "purpose": "Dropdown menu surface."
+      },
+      {
+        "name": "lg",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "Dialogs and sheets; full-screen files remove shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "pressable",
+        "value": "120ms cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Transform transition; color, background and opacity use 120ms ease. Pointer active scale is 0.97."
+      },
+      {
+        "name": "navigation-tabs",
+        "value": "100ms",
+        "purpose": "Navigation and tab color transitions."
+      },
+      {
+        "name": "popover-enter",
+        "value": "150ms cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Tooltip and dropdown animation override."
+      },
+      {
+        "name": "sheet-open",
+        "value": "200ms cubic-bezier(0.32, 0.72, 0, 1)",
+        "purpose": "Sheet opening; closing is 150ms."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "Global reduced-motion CSS duration; pointer scale removed and MotionConfig respects user preference."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "40rem"
+      },
+      {
+        "name": "md",
+        "value": "48rem"
+      },
+      {
+        "name": "wide-workspace-viewport",
+        "value": "1180px"
+      },
+      {
+        "name": "quiz-container",
+        "value": "850px"
+      }
+    ],
+    "provenance": {
+      "method": "Source scan only; no browser verification. Confirmed user commitments replace a new qualitative interview.",
+      "sources": [
+        "app/globals.css",
+        "app/styles/grill.css",
+        "app/layout.tsx",
+        "shared/components/ui/button.tsx",
+        "shared/components/ui/input.tsx",
+        "shared/components/ui/tabs.tsx",
+        "shared/components/ui/dialog.tsx",
+        "shared/components/ui/sheet.tsx",
+        "shared/components/layout/app-shell.tsx",
+        "shared/components/layout/navigation.tsx",
+        "features/chat/components/practice-workspace.tsx",
+        "features/chat/components/submission-files.tsx",
+        "features/chat/hooks/use-wide-workspace.ts",
+        "features/quizzes/components/quiz-workspace.tsx",
+        "features/quizzes/components/quiz-attempt.tsx",
+        "node_modules/tailwindcss/theme.css",
+        "shared/components/brand.tsx"
+      ],
+      "tonalRamps": "Synthesized OKLCH display swatches using each source color hue/chroma and eight lightness steps. Not implementation tokens or a normative application scale.",
+      "snippets": "Representative CSS/HTML; runtime variables inherit through shadow DOM, with source light-theme fallbacks. Host font loading remains required for exact Plex rendering. No framework behavior is claimed.",
+      "breakpoints": "sm/md are viewport utilities; wide-workspace is a matchMedia viewport threshold; quiz-container is a container query."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default size; theme-bound colors, pointer press, focus ring, and disabled styling. Source: shared/components/ui/button.tsx; app/globals.css.",
+      "html": "<button class=\"ds-button-primary\" type=\"button\">Submit implementation</button>",
+      "css": ".ds-button-primary {display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;gap:8px;white-space:nowrap;border-radius:6px;font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:13px;font-weight:500;line-height:1.5;height:44px;padding:0 12px;cursor:pointer;border:1px solid var(--action, #202020);background:var(--action, #202020);color:var(--action-ink, #f7f7f7);transition:transform 120ms cubic-bezier(.23,1,.32,1),background-color 120ms ease,color 120ms ease,opacity 120ms ease;} .ds-button-primary:hover {opacity:.9;} .ds-button-primary:focus-visible {outline:2px solid var(--focus, #202020);outline-offset:3px;}.ds-button-primary:focus-visible {box-shadow:0 0 0 2px var(--surface, #ffffff),0 0 0 4px var(--focus, #202020);} .ds-button-primary:disabled {opacity:.4;pointer-events:none;cursor:default;} @media(min-width:48rem){.ds-button-primary{height:32px;}} :host-context([data-input=\"pointer\"]) .ds-button-primary:active:not(:disabled){transform:scale(.97);} :host-context([data-input=\"keyboard\"]) .ds-button-primary{transition:none;} @media(prefers-reduced-motion:reduce){.ds-button-primary{transition-duration:.01ms;} :host-context([data-input=\"pointer\"]) .ds-button-primary:active:not(:disabled){transform:none;}}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Default size; theme-bound colors, pointer press, focus ring, and disabled styling. Source: shared/components/ui/button.tsx; app/globals.css.",
+      "html": "<button class=\"ds-button-secondary\" type=\"button\">Mark completed</button>",
+      "css": ".ds-button-secondary {display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;gap:8px;white-space:nowrap;border-radius:6px;font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:13px;font-weight:500;line-height:1.5;height:44px;padding:0 12px;cursor:pointer;border:1px solid var(--line, #e2e2e2);background:var(--surface, #ffffff);color:var(--foreground, #202020);transition:transform 120ms cubic-bezier(.23,1,.32,1),background-color 120ms ease,color 120ms ease,opacity 120ms ease;} .ds-button-secondary:hover {background:var(--elevated, #ededed);} .ds-button-secondary:focus-visible {outline:2px solid var(--focus, #202020);outline-offset:3px;}.ds-button-secondary:focus-visible {box-shadow:0 0 0 2px var(--surface, #ffffff),0 0 0 4px var(--focus, #202020);} .ds-button-secondary:disabled {opacity:.4;pointer-events:none;cursor:default;} @media(min-width:48rem){.ds-button-secondary{height:32px;}} :host-context([data-input=\"pointer\"]) .ds-button-secondary:active:not(:disabled){transform:scale(.97);} :host-context([data-input=\"keyboard\"]) .ds-button-secondary{transition:none;} @media(prefers-reduced-motion:reduce){.ds-button-secondary{transition-duration:.01ms;} :host-context([data-input=\"pointer\"]) .ds-button-secondary:active:not(:disabled){transform:none;}}"
+    },
+    {
+      "name": "Ghost button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Default size; theme-bound colors, pointer press, focus ring, and disabled styling. Source: shared/components/ui/button.tsx; app/globals.css.",
+      "html": "<button class=\"ds-button-ghost\" type=\"button\">Show task</button>",
+      "css": ".ds-button-ghost {display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;gap:8px;white-space:nowrap;border-radius:6px;font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:13px;font-weight:500;line-height:1.5;height:44px;padding:0 12px;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--muted, #666666);transition:transform 120ms cubic-bezier(.23,1,.32,1),background-color 120ms ease,color 120ms ease,opacity 120ms ease;} .ds-button-ghost:hover {background:var(--elevated, #ededed);color:var(--foreground, #202020);} .ds-button-ghost:focus-visible {outline:2px solid var(--focus, #202020);outline-offset:3px;}.ds-button-ghost:focus-visible {box-shadow:0 0 0 2px var(--surface, #ffffff),0 0 0 4px var(--focus, #202020);} .ds-button-ghost:disabled {opacity:.4;pointer-events:none;cursor:default;} @media(min-width:48rem){.ds-button-ghost{height:32px;}} :host-context([data-input=\"pointer\"]) .ds-button-ghost:active:not(:disabled){transform:scale(.97);} :host-context([data-input=\"keyboard\"]) .ds-button-ghost{transition:none;} @media(prefers-reduced-motion:reduce){.ds-button-ghost{transition-duration:.01ms;} :host-context([data-input=\"pointer\"]) .ds-button-ghost:active:not(:disabled){transform:none;}}"
+    },
+    {
+      "name": "Destructive button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Default size; theme-bound colors, pointer press, focus ring, and disabled styling. Source: shared/components/ui/button.tsx; app/globals.css.",
+      "html": "<button class=\"ds-button-destructive\" type=\"button\">Move to Deleted</button>",
+      "css": ".ds-button-destructive {display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;gap:8px;white-space:nowrap;border-radius:6px;font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:13px;font-weight:500;line-height:1.5;height:44px;padding:0 12px;cursor:pointer;border:1px solid color-mix(in oklab,var(--destructive, #b42318) 30%,transparent);background:color-mix(in oklab,var(--destructive, #b42318) 10%,transparent);color:var(--destructive, #b42318);transition:transform 120ms cubic-bezier(.23,1,.32,1),background-color 120ms ease,color 120ms ease,opacity 120ms ease;} .ds-button-destructive:hover {background:color-mix(in oklab,var(--destructive, #b42318) 20%,transparent);} .ds-button-destructive:focus-visible {outline:2px solid var(--focus, #202020);outline-offset:3px;}.ds-button-destructive:focus-visible {box-shadow:0 0 0 2px var(--surface, #ffffff),0 0 0 4px var(--focus, #202020);} .ds-button-destructive:disabled {opacity:.4;pointer-events:none;cursor:default;} @media(min-width:48rem){.ds-button-destructive{height:32px;}} :host-context([data-input=\"pointer\"]) .ds-button-destructive:active:not(:disabled){transform:scale(.97);} :host-context([data-input=\"keyboard\"]) .ds-button-destructive{transition:none;} @media(prefers-reduced-motion:reduce){.ds-button-destructive{transition-duration:.01ms;} :host-context([data-input=\"pointer\"]) .ds-button-destructive:active:not(:disabled){transform:none;}}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Shared input with editable, invalid, and disabled states. Source: shared/components/ui/input.tsx; app/globals.css.",
+      "html": "<input class=\"ds-input\" aria-label=\"Project path\" placeholder=\"Project path\" />",
+      "css": ".ds-input{height:44px;width:100%;min-width:0;border:1px solid var(--line, #e2e2e2);border-radius:6px;background:var(--panel, #ffffff);color:var(--foreground, #202020);padding:4px 12px;font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:16px;line-height:24px;caret-color:var(--foreground, #202020);outline:none;transition:color 150ms,box-shadow 150ms;} .ds-input::placeholder{color:var(--muted, #666666);} .ds-input::selection{background:var(--action, #202020);color:var(--action-ink, #f7f7f7);} .ds-input:focus-visible{border-color:var(--focus, #202020);box-shadow:0 0 0 2px color-mix(in oklab,var(--focus, #202020) 20%,transparent);} .ds-input[aria-invalid=\"true\"]{border-color:var(--destructive, #b42318);} .ds-input[aria-invalid=\"true\"]:focus-visible{box-shadow:0 0 0 2px color-mix(in oklab,var(--destructive, #b42318) 20%,transparent);} :host-context([data-theme=\"dark\"]) .ds-input[aria-invalid=\"true\"]:focus-visible{box-shadow:0 0 0 2px color-mix(in oklab,var(--destructive, #b42318) 40%,transparent);} .ds-input:disabled{opacity:.5;pointer-events:none;cursor:not-allowed;} @media(min-width:48rem){.ds-input{height:36px;font-size:14px;line-height:20px;}} @media(prefers-reduced-motion:reduce){.ds-input{transition-duration:.01ms;}}"
+    },
+    {
+      "name": "Navigation item",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Current page uses blue selection fill and ink; inactive items expose hover and focus. Source: shared/components/layout/navigation.tsx; app/globals.css.",
+      "html": "<nav aria-label=\"Practice navigation\"><a class=\"ds-nav\" href=\"#challenges\" aria-current=\"page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 7v14\"/><path d=\"M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z\"/></svg>Challenges</a><a class=\"ds-nav\" href=\"#quizzes\">Quizzes</a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;min-height:44px;gap:10px;padding:0 10px;border-radius:6px;font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:13px;line-height:1.5;color:var(--muted, #666666);text-decoration:none;transition:color 100ms,background-color 100ms;} .ds-nav:hover{background:color-mix(in oklab,var(--elevated, #ededed) 60%,transparent);color:var(--foreground, #202020);} .ds-nav[aria-current=\"page\"]{background:var(--selection-surface, #ededed);color:var(--selection-ink, #202020);font-weight:500;} .ds-nav:focus-visible {outline:2px solid var(--focus, #202020);outline-offset:3px;}@media(min-width:48rem){.ds-nav{min-height:36px;}} @media(prefers-reduced-motion:reduce){.ds-nav{transition-duration:.01ms;}}"
+    },
+    {
+      "name": "Metadata badge",
+      "kind": "chip",
+      "refersTo": "metadata-badge",
+      "description": "Static metadata; intentionally has no hover, focus, or pressed state. Grill uses ember text, warm fill, and a mixed ember border. Source: features/challenges/components/challenge-metadata.tsx; app/styles/grill.css.",
+      "html": "<span class=\"ds-badge\" title=\"Scope\">Focused</span> <span class=\"ds-badge ds-grill\" title=\"Difficulty\">Grill</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;border:1px solid var(--line, #e2e2e2);border-radius:6px;background:var(--canvas, #f7f7f7);color:var(--muted, #666666);padding:4px 8px;font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:12px;line-height:16px;} .ds-grill{background:var(--ember-surface, #fdf4f1);border-color:color-mix(in srgb,var(--ember, #a63a19) 35%,var(--line, #e2e2e2));color:var(--ember, #a63a19);}"
+    },
+    {
+      "name": "Supporting card",
+      "kind": "card",
+      "refersTo": "supporting-card",
+      "description": "Hint surface; static container without invented hover elevation. Source: features/chat/components/practice-workspace.tsx.",
+      "html": "<section class=\"ds-card\" aria-label=\"Challenge hint\"><p class=\"ds-card-copy\">Check the acceptance criteria before submitting.</p></section>",
+      "css": ".ds-card{border:1px solid var(--line, #e2e2e2);border-radius:8px;background:var(--panel, #ffffff);color:var(--foreground, #202020);padding:16px;font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:14px;line-height:24px;} .ds-card-copy{margin:0;}"
+    },
+    {
+      "name": "Workspace line tabs",
+      "kind": "nav",
+      "refersTo": "workspace-tab",
+      "description": "Appearance of the line variant. Radix state management is intentionally not reproduced. Source: shared/components/ui/tabs.tsx; features/chat/components/practice-workspace.tsx; app/globals.css.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\" aria-label=\"Challenge workspace\"><button class=\"ds-tab\" role=\"tab\" aria-selected=\"true\" type=\"button\">Overview</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\" type=\"button\">Submit</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\" tabindex=\"-1\" type=\"button\">Reviews</button></div>",
+      "css": ".ds-tabs{display:inline-flex;align-items:center;gap:4px;height:44px;padding:3px;background:transparent;} .ds-tab{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:calc(100% - 1px);padding:4px 12px;white-space:nowrap;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--muted, #666666);font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:14px;font-weight:500;line-height:20px;cursor:pointer;transition:color 100ms;} .ds-tab:hover,.ds-tab[aria-selected=\"true\"]{color:var(--foreground, #202020);} .ds-tab::after{content:\"\";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--selection-ink, #202020);opacity:0;transition:opacity 150ms;} .ds-tab[aria-selected=\"true\"]::after{opacity:1;} .ds-tab:focus-visible{border-color:var(--focus, #202020);outline:1px solid var(--focus, #202020);outline-offset:3px;box-shadow:0 0 0 3px color-mix(in oklab,var(--focus, #202020) 50%,transparent);transition:none;} .ds-tab:disabled{pointer-events:none;opacity:.5;} :host-context([data-input=\"keyboard\"]) .ds-tab,:host-context([data-input=\"keyboard\"]) .ds-tab::after{transition:none;} @media(prefers-reduced-motion:reduce){.ds-tab,.ds-tab::after{transition-duration:.01ms;}}"
+    },
+    {
+      "name": "Quiz answer choice",
+      "kind": "custom",
+      "refersTo": "quiz-answer",
+      "description": "Native checked and focus states illustrate selection before submission; result feedback remains documented in DESIGN.md. Source: features/quizzes/components/quiz-attempt.tsx.",
+      "html": "<label class=\"ds-answer\"><input class=\"ds-answer-radio\" type=\"radio\" name=\"ds-answer\" checked/><span class=\"ds-answer-letter\" aria-hidden=\"true\">A</span><span class=\"ds-answer-text\">Validate the input before saving.</span><svg class=\"ds-answer-check\" width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg></label><label class=\"ds-answer\"><input class=\"ds-answer-radio\" type=\"radio\" name=\"ds-answer\" /><span class=\"ds-answer-letter\" aria-hidden=\"true\">B</span><span class=\"ds-answer-text\">Save the input without validation.</span><svg class=\"ds-answer-check\" width=\"17\" height=\"17\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg></label>",
+      "css": ".ds-answer{position:relative;display:flex;align-items:flex-start;gap:12px;min-height:48px;padding:12px 16px;border:1px solid var(--line, #e2e2e2);border-radius:8px;color:var(--foreground, #202020);font-family:var(--font-plex-sans, \"IBM Plex Sans\", sans-serif);font-size:16px;line-height:28px;cursor:pointer;transition:color 100ms,background-color 100ms,border-color 100ms;} .ds-answer+.ds-answer{margin-top:12px;} .ds-answer-radio{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;} .ds-answer:not(:has(:checked)):hover{border-color:var(--line-strong, #b7b7b7);background:var(--elevated, #ededed);} .ds-answer:has(:checked){border-color:color-mix(in oklab,var(--selection-ink, #202020) 60%,transparent);background:var(--selection-surface, #ededed);} .ds-answer:has(:focus-visible){outline:2px solid var(--focus, #202020);outline-offset:3px;} .ds-answer-letter{display:grid;place-items:center;flex-shrink:0;width:28px;height:28px;margin-top:2px;border:1px solid var(--line-strong, #b7b7b7);border-radius:4px;color:var(--muted, #666666);font-family:var(--font-plex-mono, \"IBM Plex Mono\", monospace);font-size:12px;line-height:16px;} .ds-answer:has(:checked) .ds-answer-letter{border-color:color-mix(in oklab,var(--selection-ink, #202020) 40%,transparent);background:var(--selection-surface, #ededed);color:var(--selection-ink, #202020);} .ds-answer-text{min-width:0;flex:1;overflow-wrap:break-word;} .ds-answer-check{display:none;flex-shrink:0;margin-top:6px;} .ds-answer:has(:checked) .ds-answer-check{display:block;} .ds-answer:has(:disabled){cursor:default;} @media(prefers-reduced-motion:reduce){.ds-answer{transition-duration:.01ms;}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Flexible workspace",
+    "overview": "Grill Me is a personal developer practice workspace with a warm ember identity, softened terracotta actions, and blue selection. The confirmed direction is layout A, the flexible workspace: task-focused tabs with optional supporting panels. T3 Code is the reference for panel consistency, line icons, and spacing. The user rejected the grayscale implementation and restored the original warm identity with softer orange accents and the colored logo.\n\nThe visual system supports sustained reading and operation across coding challenges, implementation reviews, standalone and challenge quizzes, and revisiting practice. Typography and panel boundaries establish hierarchy; color identifies actions, selection, focus, and outcomes. Compact desktop controls coexist with larger default controls on narrow screens.",
+    "keyCharacteristics": [
+      "Warm light surfaces and cool charcoal dark surfaces, with terracotta actions and ember accents.",
+      "Plex Sans for interface and prose; Plex Mono for code and file information.",
+      "Task-focused tabs with optional reference or file panels.",
+      "Compact line icons, visible keyboard focus, and restrained state motion."
+    ],
+    "rules": [],
+    "dos": [
+      "Do use the existing theme variables and shared controls for new surfaces.",
+      "Do preserve the flexible workspace: one active task and optional supporting context.",
+      "Do keep task prose readable and let long quiz titles wrap above the controls.",
+      "Do pair status color with text or icons and keep completion, difficulty, and review outcomes distinct.",
+      "Do preserve keyboard focus, accessible control names, and reduced-motion behavior."
+    ],
+    "donts": [
+      "Don't flatten the warm ember identity into grayscale or bring back harsh orange, glow, or animated heat effects.",
+      "Don't style primary actions blue by assuming the primary token is the selection accent.",
+      "Don't force desktop side panels into narrow viewports or default the narrow file tree open.",
+      "Don't replace task text with screenshot-specific sample content or turn a personal workspace into a team dashboard.",
+      "Don't treat these CSS specimens as implementations of saving, tabs, dialogs, or review behavior."
+    ]
+  }
+}
