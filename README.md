@@ -93,6 +93,8 @@ Copy the backend environment example:
 
 ```bash
 cp apps/backend/.env.example apps/backend/.env
+cp apps/backend/.env.development.example apps/backend/.env.development
+cp apps/backend/.env.production.example apps/backend/.env.production
 cp apps/web/.env.local.example apps/web/.env.local
 ```
 
@@ -116,8 +118,8 @@ at the same time without competing for ports.
 
 ## Local data
 
-PostgreSQL runs in the `primary-production` Docker container. Its data persists
-in the `primary-production-data` named volume. The cluster contains:
+PostgreSQL runs in the `primary-pg` Docker container. Its data persists
+in the external `primary-pg-data` named volume. The cluster contains:
 
 - `grill-me`: production/local Compose database
 - `grill-me-dev`: native development database
@@ -135,6 +137,7 @@ Submission files and other runtime data use these host paths:
 Start PostgreSQL and apply tracked migrations before native development:
 
 ```bash
+docker volume create primary-pg-data # Only needed on a new installation
 docker compose up -d postgres
 bun db:generate
 bun db:migrate
@@ -146,8 +149,10 @@ production counterparts are `bun db:migrate:prod` and `bun db:studio:prod`.
 Docker always sets `APP_ENV=production` and connects to `grill-me`; it never
 uses the development database. Shared model credentials remain in ignored
 `.env`, while database/storage settings live in the ignored environment-specific
-files. Copy `.env.development.example` and `.env.production.example` when
-setting up a new checkout.
+files. Keep database settings out of `.env.local`, which Bun loads after the
+selected environment and would otherwise override production settings. Copy
+`.env.development.example` and `.env.production.example` when setting up a new
+checkout.
 
 ## Quality checks
 

@@ -41,7 +41,7 @@ export function databaseUrl() {
         : "grill-me-dev";
   return (
     configured("DATABASE_URL") ??
-    `postgresql://grill_me:grill_me_local@localhost:5432/${database}`
+    `postgresql://prajwal-17:prajwal2004@localhost:5432/${database}`
   );
 }
 

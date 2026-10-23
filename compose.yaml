@@ -1,19 +1,19 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: primary-production
+    container_name: primary-pg
     restart: unless-stopped
     environment:
-      POSTGRES_USER: grill_me
-      POSTGRES_PASSWORD: grill_me_local
+      POSTGRES_USER: prajwal-17
+      POSTGRES_PASSWORD: prajwal2004
       POSTGRES_DB: grill-me
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
-      - primary-production-data:/var/lib/postgresql/data
+      - primary-pg-data:/var/lib/postgresql/data
       - ./infra/postgres/init-databases.sql:/docker-entrypoint-initdb.d/10-init-databases.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U grill_me -d grill-me"]
+      test: ["CMD-SHELL", "pg_isready -U prajwal-17 -d grill-me"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -28,7 +28,7 @@ services:
       API_HOST: 0.0.0.0
       API_PORT: 8017
       GRILL_ME_HOME: /mnt/hdd/.config/grill-me
-      DATABASE_URL: postgresql://grill_me:grill_me_local@postgres:5432/grill-me
+      DATABASE_URL: postgresql://prajwal-17:prajwal2004@postgres:5432/grill-me
       LLM_BASE_URL: ${OMNIROUTE_BASE_URL:-http://host.docker.internal:20128/v1}
       WEB_ORIGIN: http://localhost:8018
       CODEX_HOME: /codex-state
@@ -56,5 +56,7 @@ services:
     depends_on:
       - backend
 volumes:
-  primary-production-data:
+  primary-pg-data:
+    external: true
+    name: primary-pg-data
   codex-state:

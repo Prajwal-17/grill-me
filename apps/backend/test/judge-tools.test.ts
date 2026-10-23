@@ -40,7 +40,7 @@ test("snapshot tools read beyond the first page and reject paths outside the sna
 
 test("Codex transport correlates fragmented responses, rejects errors, and reconnects after exit", async () => {
   process.env.DATABASE_URL =
-    "postgresql://grill_me:grill_me_local@localhost:5432/grill-me-test";
+    "postgresql://prajwal-17:prajwal2004@localhost:5432/grill-me-test";
   const { CodexClient } = await import("../src/modules/judges/codex");
   const root = await mkdtemp(join(tmpdir(), "grill-protocol-"));
   const binary = join(root, "fixture");

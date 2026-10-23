@@ -22,7 +22,7 @@ import type { GeneratedQuiz } from "../src/modules/quizzes/quiz.schema";
 import type { QuizService } from "../src/modules/quizzes/quiz.service";
 
 process.env.DATABASE_URL =
-  "postgresql://grill_me:grill_me_local@localhost:5432/grill-me-test";
+  "postgresql://prajwal-17:prajwal2004@localhost:5432/grill-me-test";
 const testRoot = "/tmp/grill-me-tests-" + crypto.randomUUID();
 process.env.SNAPSHOT_ROOT = testRoot + "/snapshots";
 process.env.UPLOAD_ROOT = testRoot + "/uploads";
