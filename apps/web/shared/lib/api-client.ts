@@ -1,7 +1,7 @@
 import type { ApiError } from "@/shared/types/api";
 import { useAppStore } from "@/shared/stores/app-store";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8017";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:17017";
 
 type JsonResponse<T> = { data?: T } | ApiError;
 

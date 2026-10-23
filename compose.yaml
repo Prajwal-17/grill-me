@@ -26,17 +26,17 @@ services:
       APP_ENV: production
       NODE_ENV: production
       API_HOST: 0.0.0.0
-      API_PORT: 8017
+      API_PORT: 17017
       GRILL_ME_HOME: /mnt/hdd/.config/grill-me
       DATABASE_URL: postgresql://prajwal-17:prajwal2004@postgres:5432/grill-me
       LLM_BASE_URL: ${OMNIROUTE_BASE_URL:-http://host.docker.internal:20128/v1}
-      WEB_ORIGIN: http://localhost:8018
+      WEB_ORIGIN: http://localhost:17018
       CODEX_HOME: /codex-state
       PROJECTS_ROOT: /mnt/hdd/code/challenges
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "127.0.0.1:8017:8017"
+      - "127.0.0.1:17017:17017"
     volumes:
       - /mnt/hdd/.config/grill-me:/mnt/hdd/.config/grill-me
       - codex-state:/codex-state
@@ -49,10 +49,10 @@ services:
       context: .
       target: web
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:8017
+        NEXT_PUBLIC_API_URL: http://localhost:17017
         NEXT_PUBLIC_APP_ENV: production
     ports:
-      - "127.0.0.1:8018:8018"
+      - "127.0.0.1:17018:17018"
     depends_on:
       - backend
 volumes:

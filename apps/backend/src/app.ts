@@ -30,7 +30,7 @@ type AppDependencies = {
 
 export function createApp({
   llm,
-  webOrigin = "http://localhost:8018",
+  webOrigin = "http://localhost:17018",
 }: AppDependencies) {
   const app = new Hono();
 

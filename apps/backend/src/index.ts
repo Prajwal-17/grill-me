@@ -15,6 +15,6 @@ const app = createApp({
 
 export default {
   hostname: process.env.API_HOST ?? "localhost",
-  port: Number(process.env.API_PORT ?? 8017),
+  port: Number(process.env.API_PORT ?? 17017),
   fetch: app.fetch,
 };

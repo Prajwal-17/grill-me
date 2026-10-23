@@ -113,7 +113,7 @@ bun dev
 default, including its persistent development cache.
 
 Native development uses ports `8028` (web) and `8027` (API). The production-mode
-Compose services keep `8018` (web) and `8017` (API), so both environments can run
+Compose services use `17018` (web) and `17017` (API), so both environments can run
 at the same time without competing for ports.
 
 ## Local data
