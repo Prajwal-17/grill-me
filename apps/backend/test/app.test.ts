@@ -3652,3 +3652,36 @@ describe("clarification assignment regression", () => {
     expect(model.generationInputs.at(-1)?.clarificationHistory).toEqual([]);
   });
 });
+
+describe("browser CORS configuration", () => {
+  test("allows configured loopback origins and profile preflights only", async () => {
+    const app = createApp({
+      llm: new FakeModel(),
+      webOrigin: "http://localhost:8028, http://127.0.0.1:8028",
+    });
+    for (const origin of ["http://localhost:8028", "http://127.0.0.1:8028"]) {
+      const response = await app.request("/profiles/start", {
+        method: "OPTIONS",
+        headers: {
+          Origin: origin,
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "content-type,x-profile-id",
+        },
+      });
+      expect(response.status).toBe(204);
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBe(origin);
+      expect(response.headers.get("Access-Control-Allow-Headers")).toContain(
+        "X-Profile-Id",
+      );
+    }
+    for (const origin of [
+      "https://untrusted.example",
+      "http://localhost:17018",
+    ]) {
+      const response = await app.request("/health", {
+        headers: { Origin: origin },
+      });
+      expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    }
+  });
+});

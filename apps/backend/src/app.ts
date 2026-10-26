@@ -30,14 +30,17 @@ type AppDependencies = {
 
 export function createApp({
   llm,
-  webOrigin = "http://localhost:17018",
+  webOrigin = "http://localhost:17018,http://127.0.0.1:17018",
 }: AppDependencies) {
   const app = new Hono();
 
   app.use(
     "/*",
     cors({
-      origin: webOrigin,
+      origin: webOrigin
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
       allowHeaders: ["Content-Type", "X-Profile-Id"],
       allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
       maxAge: 600,

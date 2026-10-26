@@ -30,7 +30,7 @@ services:
       GRILL_ME_HOME: /mnt/hdd/.config/grill-me
       DATABASE_URL: postgresql://prajwal-17:prajwal2004@postgres:5432/grill-me
       LLM_BASE_URL: ${OMNIROUTE_BASE_URL:-http://host.docker.internal:20128/v1}
-      WEB_ORIGIN: http://localhost:17018
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:17018,http://127.0.0.1:17018}
       CODEX_HOME: /codex-state
       PROJECTS_ROOT: /mnt/hdd/code/challenges
     extra_hosts:
@@ -49,7 +49,7 @@ services:
       context: .
       target: web
       args:
-        VITE_API_URL: http://localhost:17017
+        VITE_API_URL: ${VITE_API_URL:-/api}
         VITE_APP_ENV: production
     ports:
       - "127.0.0.1:17018:17018"

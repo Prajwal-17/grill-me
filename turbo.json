@@ -12,6 +12,7 @@
     "LLM_MODEL",
     "VITE_API_URL",
     "VITE_APP_ENV",
+    "API_PROXY_TARGET",
     "WEB_ORIGIN",
     "CI",
     "API_HOST",

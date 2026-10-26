@@ -2,11 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseWebEnv } from "./env-schema";
 
-test("development and test defaults never target the production API", () => {
-  for (const mode of ["development", "test"]) {
+test("all environments default to the same-origin API proxy", () => {
+  for (const mode of ["development", "test", "production"]) {
     assert.deepEqual(parseWebEnv({}, mode), {
       appEnv: mode,
-      apiUrl: "http://localhost:8027",
+      apiUrl: "/api",
     });
   }
 });
@@ -24,14 +24,16 @@ test("explicit environment overrides build mode and normalizes API paths", () =>
   );
   assert.deepEqual(parseWebEnv({}, "production"), {
     appEnv: "production",
-    apiUrl: "http://localhost:17017",
+    apiUrl: "/api",
   });
 });
 
 test("invalid frontend configuration fails before the app starts", () => {
   for (const url of [
     "",
-    "/api",
+    "//evil.example/api",
+    "/other",
+    "/api?key=secret",
     "not a URL",
     "file:///tmp/api",
     "ftp://localhost",

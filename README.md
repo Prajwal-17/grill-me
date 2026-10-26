@@ -116,6 +116,16 @@ bun dev
 
 `bun dev` starts only the web and backend workspaces. Vite serves the frontend
 with React Fast Refresh. Routes load on demand without server rendering.
+Browser requests use `/api`; Vite proxies them to `127.0.0.1:8027`. This works
+with both `localhost` and `127.0.0.1` without cross-origin browser requests.
+
+Build and start production with `docker compose up --build -d`, then open
+http://localhost:17018. Nginx serves `dist`, supports SPA deep links, and proxies
+`/api/` to `backend:17017`, including unbuffered AI response streams. Rebuild the
+web image after changing any `VITE_*` build argument. Native `bun run build`
+uses production browser storage; `bun run --cwd apps/web preview` proxies to the
+production API at `127.0.0.1:17017`. Use `API_PROXY_TARGET` to preview against a
+different backend. Vite preview is for local build checks; Docker uses Nginx.
 
 Native development uses ports `8028` (web) and `8027` (API). The production-mode
 Compose services use `17018` (web) and `17017` (API), so both environments can run
@@ -188,17 +198,21 @@ Backend variables:
 - `EVALUATION_ROOT`: override prompt evaluation output
 - `CODEX_INSTALL_ROOT`: override the app-managed Codex CLI directory
 - `API_PORT`: Hono port
-- `WEB_ORIGIN`: allowed browser origin
+- `WEB_ORIGIN`: comma-separated allowed browser origins for direct API access; defaults include localhost and 127.0.0.1 on the environment’s web port
 
 Web variable:
 
-- `VITE_API_URL`: browser-visible Hono API URL (development default: `http://localhost:8027`)
-- `VITE_APP_ENV`: `development`, `test`, or `production`; namespaces persisted browser state
+- `VITE_API_URL`: defaults to `/api` in every environment; optionally an absolute HTTP(S) API URL for separate hosting
+- `VITE_APP_ENV`: `development`, `test`, or `production`; namespaces persisted browser state. Leave unset to follow Vite’s mode (`dev` → development, `build` → production).
+- `API_PROXY_TARGET`: server-only Vite dev/preview upstream; defaults to `http://127.0.0.1:8027` in development/test and `http://127.0.0.1:17017` in production. Docker Nginx uses `backend:17017`.
 
 These values are validated with Zod at startup/build time and bundled into the
 frontend. Never put secrets in `VITE_*` variables. Rename the two old
 `NEXT_PUBLIC_*` entries in an existing `apps/web/.env.local` to their `VITE_*`
-equivalents. Existing profile, theme, sidebar, and quiz recovery storage keys
+equivalents, or remove them to use the defaults. For same-origin requests, set
+`VITE_API_URL=/api`; remove a stale `VITE_APP_ENV=development` from `.env.local`
+before production builds. An explicit absolute API URL requires matching
+`WEB_ORIGIN` on the backend. Existing profile, theme, sidebar, and quiz recovery storage keys
 are preserved for each environment.
 
 See [frontend development and migration](docs/frontend.md) for the source layout,
