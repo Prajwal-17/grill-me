@@ -10,8 +10,8 @@
     "LLM_API_KEY",
     "LLM_BASE_URL",
     "LLM_MODEL",
-    "NEXT_PUBLIC_API_URL",
-    "NEXT_PUBLIC_APP_ENV",
+    "VITE_API_URL",
+    "VITE_APP_ENV",
     "WEB_ORIGIN",
     "CI",
     "API_HOST",
@@ -30,7 +30,7 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**", "!.next/dev/**"]
+      "outputs": ["dist/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]

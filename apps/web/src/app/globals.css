@@ -1,0 +1,316 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./styles/grill.css";
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("../assets/fonts/IBMPlexSans-Latin.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 100 700;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../assets/fonts/IBMPlexMono-Latin.woff2") format("woff2");
+  font-display: swap;
+  font-style: normal;
+  font-weight: 400;
+}
+
+@theme inline {
+  --color-background: var(--surface);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--action);
+  --color-primary-foreground: var(--action-ink);
+  --color-secondary: var(--elevated);
+  --color-secondary-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--elevated);
+  --color-accent-foreground: var(--foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--focus);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-elevated: var(--elevated);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-dim: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--selection-ink);
+  --color-brand-bright: var(--selection-ink);
+  --color-brand-soft: var(--selection-surface);
+  --color-chrome: var(--chrome);
+  --color-panel: var(--panel);
+  --font-sans: var(--font-plex-sans);
+  --font-mono: var(--font-plex-mono);
+}
+:root {
+  --font-plex-sans: "IBM Plex Sans", sans-serif;
+  --font-plex-mono: "IBM Plex Mono", monospace;
+  color-scheme: light;
+  --destructive: #b42318;
+  --success: #18794e;
+  --warning: #946200;
+  --canvas: #f7f7f7;
+  --surface: #ffffff;
+  --foreground: #202020;
+  --elevated: #ededed;
+  --muted: #666666;
+  --line: #e2e2e2;
+  --line-strong: #b7b7b7;
+  --chrome: #f7f7f7;
+  --panel: #ffffff;
+  --selection-surface: #ededed;
+  --selection-ink: #202020;
+  --focus: #202020;
+  --action: #202020;
+  --action-ink: #f7f7f7;
+  --ember: #a63a19;
+  --ember-surface: #fdf4f1;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --destructive: #ff8c85;
+  --success: #6ed6a1;
+  --warning: #e8c16a;
+  --canvas: #171717;
+  --surface: #222222;
+  --foreground: #f2f2f2;
+  --elevated: #303030;
+  --muted: #aaaaaa;
+  --line: #383838;
+  --line-strong: #616161;
+  --chrome: #171717;
+  --panel: #222222;
+  --selection-surface: #303030;
+  --selection-ink: #f2f2f2;
+  --focus: #f2f2f2;
+  --action: #f2f2f2;
+  --action-ink: #171717;
+  --ember: #ffb478;
+  --ember-surface: #302623;
+}
+@layer base {
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--foreground);
+  }
+  button,
+  select,
+  summary {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: var(--foreground);
+    color: var(--canvas);
+  }
+  dialog {
+    color: var(--foreground);
+  }
+  dialog::backdrop {
+    background: rgb(0 0 0 / 0.4);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--line);
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  input,
+  textarea {
+    caret-color: var(--foreground);
+  }
+}
+/* Interaction overrides also apply to portaled controls. */
+.pressable {
+  transition:
+    transform 120ms cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+:root[data-input="pointer"] .pressable:active:not(:disabled) {
+  transform: scale(0.97);
+}
+:root[data-input="keyboard"] :is(.pressable, [data-slot="tabs-trigger"]),
+:root[data-input="keyboard"] [data-slot="tabs-trigger"]::after {
+  transition: none;
+}
+[data-slot="tooltip-content"],
+[data-slot="dropdown-menu-content"] {
+  animation-duration: 150ms;
+  animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-slot="tooltip-content"][data-state="instant-open"],
+:root[data-input="keyboard"]
+  :is(
+    [data-slot="tooltip-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="sheet-content"],
+    [data-slot="sheet-overlay"]
+  ) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-input="pointer"] .pressable:active:not(:disabled) {
+    transform: none;
+  }
+}
+/* Descendant selectors are retained for generated Markdown, KaTeX, and highlight.js output. */
+@layer components {
+  .markdown :is(h1, h2, h3, h4, h5, h6) {
+    scroll-margin-top: 24px;
+  }
+  .markdown h2 {
+    margin-top: 28px;
+    margin-bottom: 12px;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  .markdown h3 {
+    margin-top: 24px;
+    margin-bottom: 10px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .markdown img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+  .markdown .katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-block: 4px;
+  }
+  .markdown .footnotes {
+    margin-top: 28px;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+    font-size: 14px;
+  }
+  .markdown .task-list-item {
+    display: list-item;
+    list-style: none;
+  }
+  .markdown .task-list-item > input {
+    margin-right: 8px;
+  }
+  .code-block .hljs-comment,
+  .code-block .hljs-quote {
+    color: var(--muted);
+    font-style: italic;
+  }
+  .code-block .hljs-keyword,
+  .code-block .hljs-selector-tag,
+  .code-block .hljs-literal {
+    color: #9c36b5;
+  }
+  .code-block .hljs-string,
+  .code-block .hljs-regexp,
+  .code-block .hljs-addition {
+    color: #18794e;
+  }
+  .code-block .hljs-number,
+  .code-block .hljs-attribute,
+  .code-block .hljs-symbol {
+    color: #9a5400;
+  }
+  .code-block .hljs-title,
+  .code-block .hljs-built_in,
+  .code-block .hljs-type {
+    color: #075fbd;
+  }
+  .code-block .hljs-attr,
+  .code-block .hljs-tag,
+  .code-block .hljs-name,
+  .code-block .hljs-deletion {
+    color: #b42318;
+  }
+  :root[data-theme="dark"] .code-block .hljs-keyword,
+  :root[data-theme="dark"] .code-block .hljs-selector-tag,
+  :root[data-theme="dark"] .code-block .hljs-literal {
+    color: #d6a3ee;
+  }
+  :root[data-theme="dark"] .code-block .hljs-string,
+  :root[data-theme="dark"] .code-block .hljs-regexp,
+  :root[data-theme="dark"] .code-block .hljs-addition {
+    color: #91d5ab;
+  }
+  :root[data-theme="dark"] .code-block .hljs-number,
+  :root[data-theme="dark"] .code-block .hljs-attribute,
+  :root[data-theme="dark"] .code-block .hljs-symbol {
+    color: #e5bd82;
+  }
+  :root[data-theme="dark"] .code-block .hljs-title,
+  :root[data-theme="dark"] .code-block .hljs-built_in,
+  :root[data-theme="dark"] .code-block .hljs-type {
+    color: #8fc3ee;
+  }
+  :root[data-theme="dark"] .code-block .hljs-attr,
+  :root[data-theme="dark"] .code-block .hljs-tag,
+  :root[data-theme="dark"] .code-block .hljs-name,
+  :root[data-theme="dark"] .code-block .hljs-deletion {
+    color: #f19d96;
+  }
+}
+
+@keyframes stream-word-enter {
+  from {
+    opacity: 0.35;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes stream-cursor-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes typing-cursor {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0;
+  }
+}

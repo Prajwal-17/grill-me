@@ -75,7 +75,8 @@ Existing calls cannot be reconstructed; only new calls are logged.
 ## Stack
 
 - Bun + Turborepo
-- Next.js 16, Tailwind CSS, shadcn/ui (Radix), TanStack Query
+- Vite + React + TypeScript, React Router, Tailwind CSS, shadcn/ui (Radix)
+- TanStack Query for server state, Zustand for client state, Zod for configuration
 - Motion for interactions, respecting reduced-motion preferences
 - AI interface patterns adapted from [Beautiful UI](https://www.beautifului.dev/)
 - Empty-composer suggestions adapted from [Magic UI Typing Animation](https://magicui.design/docs/components/typing-animation)
@@ -111,8 +112,8 @@ bun dev
 - API: http://localhost:8027
 - Health check: http://localhost:8027/health
 
-`bun dev` starts only the web and backend workspaces. Next.js 16 uses Turbopack by
-default, including its persistent development cache.
+`bun dev` starts only the web and backend workspaces. Vite serves the frontend
+with React Fast Refresh. Routes load on demand without server rendering.
 
 Native development uses ports `8028` (web) and `8027` (API). The production-mode
 Compose services use `17018` (web) and `17017` (API), so both environments can run
@@ -189,11 +190,20 @@ Backend variables:
 
 Web variable:
 
-- `NEXT_PUBLIC_API_URL`: browser-visible Hono API URL
-- `NEXT_PUBLIC_APP_ENV`: namespaces persisted browser state by environment
+- `VITE_API_URL`: browser-visible Hono API URL (development default: `http://localhost:8027`)
+- `VITE_APP_ENV`: `development`, `test`, or `production`; namespaces persisted browser state
+
+These values are validated with Zod at startup/build time and bundled into the
+frontend. Never put secrets in `VITE_*` variables. Rename the two old
+`NEXT_PUBLIC_*` entries in an existing `apps/web/.env.local` to their `VITE_*`
+equivalents. Existing profile, theme, sidebar, and quiz recovery storage keys
+are preserved for each environment.
+
+See [frontend development and migration](docs/frontend.md) for the source layout,
+browser tests, static serving, and Docker build details.
 
 Structured generation and judging use validated JSON response schemas. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
 
-Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses four tabs, with one selected quiz attempt, submission, or review run visible at a time. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
+Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses four tabs, with one selected quiz attempt, submission, or review run visible at a time. Shared layout, account navigation, and Markdown renderers live under `apps/web/src/shared/components`. The application frame stays within the viewport; page content scrolls inside it.
 
 For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. After a preparation transport failure, Create without clarification lets generation independently check whether it can proceed. An essential question requires an answer.
