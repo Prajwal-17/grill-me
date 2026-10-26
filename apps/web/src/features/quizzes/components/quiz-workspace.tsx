@@ -1,3 +1,4 @@
+import { QuizDetailSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -103,76 +104,6 @@ function quizLabel(quiz: QuizSummary) {
   return `${quiz.deletedAt ? "Deleted · " : ""}${quiz.title} · Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
 }
 
-function QuizLoadingState({ detail = false }: { detail?: boolean }) {
-  return (
-    <div
-      role="status"
-      aria-busy="true"
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-    >
-      <p className="mb-4 inline-flex items-center gap-2 text-ui text-muted">
-        <LoaderCircle
-          size={15}
-          aria-hidden="true"
-          className="animate-spin motion-reduce:animate-none"
-        />
-        {detail ? "Loading quiz…" : "Loading quizzes…"}
-      </p>
-      {detail ? (
-        <div className="animate-pulse space-y-4 motion-reduce:animate-none">
-          <div aria-hidden="true" className="flex h-1 gap-1">
-            {Array.from({ length: 5 }, (_, index) => (
-              <span key={index} className="h-1 flex-1 rounded-full bg-line" />
-            ))}
-          </div>
-          <div className="grid min-w-0 items-start gap-4 @[850px]/quiz:grid-cols-[minmax(0,74ch)_196px] @[850px]/quiz:gap-5">
-            <div className="max-w-[74ch] space-y-3" aria-hidden="true">
-              <div className="h-6 w-full rounded bg-elevated" />
-              <div className="h-6 w-4/5 rounded bg-elevated" />
-              <div className="space-y-2 pt-2">
-                {Array.from({ length: 4 }, (_, index) => (
-                  <div
-                    key={index}
-                    className="h-[3.75rem] rounded-md bg-elevated"
-                  />
-                ))}
-              </div>
-            </div>
-            <div
-              aria-hidden="true"
-              className="space-y-3 border-t border-line pt-3 @[850px]/quiz:border-t-0 @[850px]/quiz:border-l @[850px]/quiz:pt-0 @[850px]/quiz:pl-5"
-            >
-              <div className="h-4 w-28 rounded bg-elevated" />
-              <div className="grid grid-cols-5 gap-2 sm:grid-cols-10 @[850px]/quiz:grid-cols-2">
-                {Array.from({ length: 5 }, (_, index) => (
-                  <div key={index} className="h-11 rounded-md bg-elevated" />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="animate-pulse space-y-2 motion-reduce:animate-none">
-          {Array.from({ length: 4 }, (_, index) => (
-            <div
-              key={index}
-              aria-hidden="true"
-              className="flex min-h-14 items-center gap-3 border-b border-line py-3"
-            >
-              <span className="size-8 shrink-0 rounded bg-elevated" />
-              <span className="min-w-0 flex-1 space-y-2">
-                <span className="block h-4 w-2/5 rounded bg-elevated" />
-                <span className="block h-3 w-3/5 rounded bg-elevated" />
-              </span>
-              <span className="h-4 w-12 rounded bg-elevated" />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function QuizWorkspace({
   profileId,
   challengeId = null,
@@ -216,7 +147,8 @@ export function QuizWorkspace({
   });
   const selectedQuizId = allQuizzesOpen
     ? ""
-    : (list.data?.find((quiz) => quiz.id === quizId)?.id ??
+    : ((list.isLoading && quizId ? quizId : undefined) ??
+      list.data?.find((quiz) => quiz.id === quizId)?.id ??
       (challengeId === null
         ? ""
         : list.data?.find((quiz) => !quiz.deletedAt)?.id) ??
@@ -418,9 +350,7 @@ export function QuizWorkspace({
   }, [busy, dialogOpen, selectedQuizId, detail.data]);
   const showLibrary =
     !selectedQuizId &&
-    list.data !== undefined &&
-    !list.isLoading &&
-    !list.error;
+    !(list.isLoading && challengeId !== null && !allQuizzesOpen);
   const generateButton = (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -509,9 +439,7 @@ export function QuizWorkspace({
             {generateButton}
           </div>
         )}
-        {list.isLoading ? (
-          <QuizLoadingState />
-        ) : list.error ? (
+        {list.error && !list.data ? (
           <div role="alert" className="text-ui text-muted">
             <p>{list.error.message}</p>
             <Button
@@ -528,7 +456,8 @@ export function QuizWorkspace({
           <>
             <QuizTable
               profileId={profileId}
-              quizzes={list.data}
+              quizzes={list.data ?? []}
+              loading={list.isLoading}
               actions={generateButton}
               disabled={busy}
               onDelete={(quiz) => {
@@ -550,9 +479,13 @@ export function QuizWorkspace({
             )}
           </>
         ) : !selectedQuizId ? (
-          <p className="text-ui text-muted">No quizzes yet.</p>
+          list.isLoading ? (
+            <QuizDetailSkeleton />
+          ) : (
+            <p className="text-ui text-muted">No quizzes yet.</p>
+          )
         ) : detail.isLoading ? (
-          <QuizLoadingState detail />
+          <QuizDetailSkeleton />
         ) : detail.error ? (
           <div role="alert" className="text-ui text-muted">
             <p>{detail.error.message}</p>

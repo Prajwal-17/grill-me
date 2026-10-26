@@ -1,3 +1,4 @@
+import { PreferencesSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -134,7 +135,7 @@ export function PreferencesPage() {
       }
     >
       {preferences.isLoading ? (
-        <LoadingScreen />
+        <PreferencesSkeleton />
       ) : preferences.error && !preferences.data ? (
         <ErrorState
           title="Could not load preferences"
@@ -254,8 +255,12 @@ export function PreferencesPage() {
                   <p className="text-supporting text-muted">Unsaved changes</p>
                 )}
                 {saved && (
-                  <p className="flex items-start gap-2 text-ui leading-6 text-success">
-                    <Check size={16} className="feedback-check" />
+                  <p className="flex items-center gap-1.5 text-supporting text-success">
+                    <Check
+                      size={14}
+                      className="feedback-check shrink-0"
+                      aria-hidden="true"
+                    />
                     Preferences saved
                   </p>
                 )}

@@ -1,13 +1,7 @@
+import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  ArrowLeft,
-  ChevronRight,
-  Folder,
-  Home,
-  LoaderCircle,
-  Search,
-} from "lucide-react";
+import { ArrowLeft, ChevronRight, Folder, Home, Search } from "lucide-react";
 import { browseFolders } from "../api/review-api";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -171,11 +165,19 @@ export function ProjectPicker({
           </div>
 
           <div className="h-56 overflow-y-auto rounded-md border border-line p-1">
-            {listing.isLoading || listing.isFetching ? (
-              <div className="flex h-full items-center justify-center gap-2 text-ui text-muted">
-                <LoaderCircle size={15} className="animate-spin" />
-                Loading…
-              </div>
+            {listing.isLoading ? (
+              <LoadingRegion
+                label="Loading folders…"
+                layout="folders"
+                className="space-y-2 p-2"
+              >
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex h-8 items-center gap-3">
+                    <Skeleton className="size-4" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
+                ))}
+              </LoadingRegion>
             ) : listing.error ? (
               <div
                 role="alert"

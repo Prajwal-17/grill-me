@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Skeleton } from "./skeleton";
+import { LoadingRegion } from "./skeleton";
 export function LoadingIndicator({ label }: { label: string }) {
   return (
     <span
@@ -15,30 +15,19 @@ export function LoadingIndicator({ label }: { label: string }) {
 }
 export function LoadingScreen({ label = "Loading…" }: { label?: string }) {
   return (
-    <div
-      className="mx-auto w-full max-w-[1280px] p-4 md:p-6"
-      role="status"
-      aria-label={label}
+    <LoadingRegion
+      label={label}
+      layout="bootstrap"
+      className="grid min-h-48 place-items-center p-6"
     >
-      <span className="sr-only">{label}</span>
-      <div aria-hidden="true" className="space-y-5">
-        <div className="flex gap-3">
-          <Skeleton className="h-9 w-64" />
-          <Skeleton className="h-9 w-28" />
-        </div>
-        <div className="divide-y divide-line rounded-lg border border-line">
-          {[0, 1, 2, 3].map((row) => (
-            <div key={row} className="flex items-center gap-4 p-4">
-              <Skeleton className="size-4" />
-              <Skeleton className="h-4 w-2/5" />
-              <Skeleton className="ml-auto h-4 w-16" />
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
+      <LoaderCircle
+        size={20}
+        className="animate-spin text-muted motion-reduce:animate-none"
+      />
+    </LoadingRegion>
   );
 }
+
 export function ErrorState({
   title,
   message,

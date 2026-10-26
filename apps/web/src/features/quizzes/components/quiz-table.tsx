@@ -1,3 +1,4 @@
+import { CollectionSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useEffect, useRef, type ReactNode } from "react";
 import {
   ArrowRight,
@@ -176,6 +177,7 @@ function ListSelect({
 export function QuizTable({
   profileId,
   quizzes,
+  loading = false,
   disabled,
   actions,
   onOpen,
@@ -184,6 +186,7 @@ export function QuizTable({
 }: {
   profileId: string;
   quizzes: QuizSummary[];
+  loading?: boolean;
   disabled: boolean;
   actions: ReactNode;
   onOpen: (id: string) => void;
@@ -338,7 +341,7 @@ export function QuizTable({
         <h2 className="text-section font-semibold tracking-[-0.02em]">
           Quiz library{" "}
           <span className="ml-1 text-metadata font-normal text-muted tabular-nums">
-            {quizzes.filter((quiz) => !quiz.deletedAt).length}
+            {loading ? "–" : quizzes.filter((quiz) => !quiz.deletedAt).length}
           </span>
         </h2>
         {actions}
@@ -476,7 +479,9 @@ export function QuizTable({
           ]?.focus();
         }}
       >
-        {visible.length ? (
+        {loading ? (
+          <CollectionSkeleton kind="quizzes" />
+        ) : visible.length ? (
           <>
             <Table className="hidden w-full table-fixed text-left text-ui @[640px]/quiz-list:table">
               <TableCaption className="sr-only">
@@ -634,9 +639,11 @@ export function QuizTable({
       </div>
       <div className="flex min-h-8 items-center justify-between gap-3 text-metadata text-muted">
         <p role="status" aria-live="polite">
-          {filtered.length
-            ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, filtered.length)} of ${filtered.length}`
-            : "0 quizzes"}
+          {loading
+            ? "Loading quizzes…"
+            : filtered.length
+              ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, filtered.length)} of ${filtered.length}`
+              : "0 quizzes"}
           <span className="sr-only">{filtered.length ? " quizzes" : ""}</span>
         </p>
         {pageCount > 1 && (

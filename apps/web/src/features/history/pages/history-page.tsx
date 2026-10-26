@@ -1,3 +1,4 @@
+import { BuildSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
@@ -51,7 +52,19 @@ export function HistoryPage() {
       }
     >
       {history.isLoading ? (
-        <LoadingScreen label="Loading history…" />
+        selectedId ? (
+          <BuildSkeleton />
+        ) : (
+          <HistoryList
+            profileId={profile.id}
+            challenges={[]}
+            loading
+            search={search}
+            setSearch={setSearch}
+            scope={scope}
+            setScope={setScope}
+          />
+        )
       ) : history.error ? (
         <ErrorState
           title="Could not load history"

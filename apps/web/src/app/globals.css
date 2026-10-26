@@ -519,3 +519,17 @@
     font-size: max(1rem, 16px);
   }
 }
+
+/* A fast response never flashes skeleton blocks. Placeholders reserve their
+   final geometry immediately and never delay real content or pulse separately. */
+.loading-placeholder {
+  animation: loading-placeholder-reveal 120ms ease-out 180ms backwards;
+}
+@keyframes loading-placeholder-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

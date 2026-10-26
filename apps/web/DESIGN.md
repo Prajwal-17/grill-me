@@ -313,9 +313,15 @@ rather than installing a second component vocabulary. Configuration reference:
   attempt mounted and registered for autosave. Collection state persists in the
   existing per-profile namespace and in URL parameters; unrelated URL state is
   preserved. Resume, retake, recovery, deletion/restore, and scoring are unchanged.
-- **Feedback:** skeletons represent loading collections, errors explain the
-  failure and offer retry, save feedback uses an aria-live region. Disabled
-  controls remain visually distinct.
+- **Feedback:** initial loads use layout-specific skeletons for collections,
+  preferences, build/quiz details, reviews, source files, folders, and recent builds.
+  They use static surface blocks, reserve geometry immediately, and reveal after
+  180ms (120ms fade) so fast responses do not flash placeholders. Real data renders
+  as soon as it arrives; it is never held for a minimum loading duration. Keep
+  navigation, filters, and table headers stable. Challenge collections load
+  independently; log pagination retains previous rows within the same profile.
+  Background folder refreshes keep loaded entries. Errors offer retry, save
+  feedback uses an aria-live region, and disabled controls stay distinct.
 - **Overlays:** menus, dialogs, sheets, confirmations, and tooltips share the
   primitive palette, radius, focus behavior, and portal layering.
 

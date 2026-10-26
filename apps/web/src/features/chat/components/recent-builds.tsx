@@ -1,3 +1,4 @@
+import { RecentBuildsSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, Circle, Pause } from "lucide-react";
 import { Link } from "react-router";
@@ -13,15 +14,8 @@ export function RecentBuilds({ profileId }: { profileId: string }) {
     queryKey: challengeKeys.active(profileId),
     queryFn: () => getActiveChallenges(profileId),
   });
-  if (builds.isLoading)
-    return (
-      <div
-        className="mt-10 h-24 animate-pulse rounded-lg bg-panel"
-        role="status"
-        aria-label="Loading recent builds"
-      />
-    );
-  if (builds.error)
+  if (builds.isLoading) return <RecentBuildsSkeleton />;
+  if (builds.error && !builds.data)
     return (
       <div className="mt-8 flex items-center justify-between gap-3 text-metadata text-muted">
         <span>Could not load recent builds.</span>

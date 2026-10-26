@@ -20,7 +20,10 @@ import {
   getArchivedChallenges,
   getChallengeHistory,
 } from "@/features/challenges/api/challenge-api";
-import { ChallengeTable } from "@/features/challenges/components/challenge-table";
+import {
+  ChallengeTable,
+  ChallengeTableSkeleton,
+} from "@/features/challenges/components/challenge-table";
 import {
   Tabs,
   TabsContent,
@@ -88,25 +91,33 @@ export function ChallengesPage() {
   });
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
-  const error = active.error ?? archived.error ?? history.error;
   const collections = [
     {
       value: "active",
       label: "In progress",
       data: active.data ?? [],
+      loading: active.isLoading,
+      error: active.data ? null : active.error,
+      retry: () => void active.refetch(),
       empty: "No active challenges",
-    },
-    {
-      value: "archived",
-      label: "Archived",
-      data: archived.data ?? [],
-      empty: "No archived challenges",
     },
     {
       value: "completed",
       label: "Completed",
       data: history.data ?? [],
+      loading: history.isLoading,
+      error: history.data ? null : history.error,
+      retry: () => void history.refetch(),
       empty: "No completed challenges",
+    },
+    {
+      value: "archived",
+      label: "Archived",
+      data: archived.data ?? [],
+      loading: archived.isLoading,
+      error: archived.data ? null : archived.error,
+      retry: () => void archived.refetch(),
+      empty: "No archived challenges",
     },
   ];
   const query = search.trim().toLowerCase();
@@ -123,180 +134,176 @@ export function ChallengesPage() {
         </Link>
       }
     >
-      {active.isLoading || archived.isLoading || history.isLoading ? (
-        <LoadingScreen />
-      ) : error ? (
-        <ErrorState
-          title="Could not load challenges"
-          message={error.message}
-          onRetry={() => {
-            void active.refetch();
-            void archived.refetch();
-            void history.refetch();
-          }}
-        />
-      ) : (
-        <main className="h-full min-h-0 overflow-y-auto overscroll-contain p-4 md:p-6">
-          <Tabs
-            value={status}
-            onValueChange={(value) =>
-              setParams((current) => {
-                current.set("status", value);
-                return current;
-              })
-            }
-            className="mx-auto w-full max-w-[1200px] gap-4"
-          >
-            <div className="overflow-x-auto">
-              <TabsList
-                variant="line"
-                aria-label="Challenge status"
-                className="w-full justify-start gap-5 border-b border-line p-0 group-data-[orientation=horizontal]/tabs:h-auto"
-              >
-                {collections.map(({ value, label, data }) => (
-                  <TabsTrigger
-                    key={value}
-                    value={value}
-                    className="h-10 flex-none rounded-none border-0 px-0 text-ui font-normal data-[state=active]:font-medium"
-                  >
-                    {label}
-                    <span className="text-metadata font-normal text-muted tabular-nums">
-                      {data.length}
-                    </span>
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-            <div
-              role="search"
-              aria-label="Challenge filters"
-              className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(180px,1fr)_150px_145px_160px]"
+      <main className="h-full min-h-0 overflow-y-auto overscroll-contain p-4 md:p-6">
+        <Tabs
+          value={status}
+          onValueChange={(value) =>
+            setParams((current) => {
+              current.set("status", value);
+              return current;
+            })
+          }
+          className="mx-auto w-full max-w-[1200px] gap-4"
+        >
+          <div className="overflow-x-auto">
+            <TabsList
+              variant="line"
+              aria-label="Challenge status"
+              className="w-full justify-start gap-5 border-b border-line p-0 group-data-[orientation=horizontal]/tabs:h-auto"
             >
-              <div className="relative col-span-2 lg:col-span-1">
-                <Search
-                  size={15}
-                  aria-hidden="true"
-                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
-                />
-                <Input
-                  type="search"
-                  aria-label="Search challenges"
-                  placeholder="Search challenges…"
-                  value={search}
-                  maxLength={200}
-                  onChange={(event) => setSearch(event.target.value)}
-                  className="h-9 bg-surface pl-9 text-ui shadow-none"
-                />
-              </div>
-              <CollectionSelect
-                label="Challenge difficulty"
-                value={difficulty}
-                onChange={setDifficulty}
-                options={[
-                  ["all", "Any difficulty"],
-                  ["easy", "Easy"],
-                  ["medium", "Medium"],
-                  ["hard", "Hard"],
-                  ["grill", "Grill"],
-                ]}
+              {collections.map(({ value, label, data, loading }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="h-10 flex-none rounded-none border-0 px-0 text-ui font-normal data-[state=active]:font-medium"
+                >
+                  {label}
+                  <span className="text-metadata font-normal text-muted tabular-nums">
+                    {loading ? "–" : data.length}
+                  </span>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          <div
+            role="search"
+            aria-label="Challenge filters"
+            className="grid grid-cols-2 gap-2 lg:grid-cols-[minmax(180px,1fr)_150px_145px_160px]"
+          >
+            <div className="relative col-span-2 lg:col-span-1">
+              <Search
+                size={15}
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
               />
-              <CollectionSelect
-                label="Challenge type"
-                value={scope}
-                onChange={setScope}
-                options={[
-                  ["all", "Any type"],
-                  ["focused", "Focused"],
-                  ["feature", "Feature"],
-                  ["system", "System"],
-                ]}
+              <Input
+                type="search"
+                aria-label="Search challenges"
+                placeholder="Search challenges…"
+                value={search}
+                maxLength={200}
+                onChange={(event) => setSearch(event.target.value)}
+                className="h-9 bg-surface pl-9 text-ui shadow-none"
               />
-              <div className="col-span-2 lg:col-span-1">
-                <CollectionSelect
-                  label="Sort challenges"
-                  value={sort}
-                  onChange={setSort}
-                  options={[
-                    ["newest", "Newest first"],
-                    ["oldest", "Oldest first"],
-                    ["name", "Name A–Z"],
-                    ["difficulty", "Difficulty ↑"],
-                    ["duration", "Shortest first"],
-                  ]}
-                />
-              </div>
             </div>
-            {collections.map(({ value, data, empty }) => {
-              const filtered = data.filter(
-                (item) =>
-                  (!query ||
-                    `${item.title} ${item.topic ?? ""} #${item.number}`
-                      .toLowerCase()
-                      .includes(query)) &&
-                  (scope === "all" || item.scope === scope) &&
-                  (difficulty === "all" || item.difficulty === difficulty),
-              );
-              filtered.sort((a, b) => {
-                const newest =
-                  b.createdAt.localeCompare(a.createdAt) || b.number - a.number;
-                if (sort === "oldest") return -newest;
-                if (sort === "name")
-                  return (
-                    a.title.localeCompare(b.title, undefined, {
-                      numeric: true,
-                      sensitivity: "base",
-                    }) || newest
-                  );
-                if (sort === "duration")
-                  return (
-                    a.durationEstimate.minMinutes -
-                      b.durationEstimate.minMinutes || newest
-                  );
-                if (sort === "difficulty") {
-                  const ranks = { easy: 0, medium: 1, hard: 2, grill: 3 };
-                  return ranks[a.difficulty] - ranks[b.difficulty] || newest;
-                }
-                return newest;
-              });
-              return (
-                <TabsContent key={value} value={value} className="space-y-3">
-                  {filtered.length ? (
-                    <ChallengeTable challenges={filtered} />
-                  ) : (
-                    <div className="rounded-lg border border-line px-4 py-12 text-center">
-                      <h2 className="text-ui font-medium">
-                        {hasFilters ? "No challenges found" : empty}
-                      </h2>
-                      {hasFilters ? (
-                        <Button
-                          size="sm"
-                          className="mt-3"
-                          onClick={() => {
-                            setSearch("");
-                            setScope("all");
-                            setDifficulty("all");
-                          }}
+            <CollectionSelect
+              label="Challenge difficulty"
+              value={difficulty}
+              onChange={setDifficulty}
+              options={[
+                ["all", "Any difficulty"],
+                ["easy", "Easy"],
+                ["medium", "Medium"],
+                ["hard", "Hard"],
+                ["grill", "Grill"],
+              ]}
+            />
+            <CollectionSelect
+              label="Challenge type"
+              value={scope}
+              onChange={setScope}
+              options={[
+                ["all", "Any type"],
+                ["focused", "Focused"],
+                ["feature", "Feature"],
+                ["system", "System"],
+              ]}
+            />
+            <div className="col-span-2 lg:col-span-1">
+              <CollectionSelect
+                label="Sort challenges"
+                value={sort}
+                onChange={setSort}
+                options={[
+                  ["newest", "Newest first"],
+                  ["oldest", "Oldest first"],
+                  ["name", "Name A–Z"],
+                  ["difficulty", "Difficulty ↑"],
+                  ["duration", "Shortest first"],
+                ]}
+              />
+            </div>
+          </div>
+          {collections.map(({ value, data, empty, loading, error, retry }) => {
+            const filtered = data.filter(
+              (item) =>
+                (!query ||
+                  `${item.title} ${item.topic ?? ""} #${item.number}`
+                    .toLowerCase()
+                    .includes(query)) &&
+                (scope === "all" || item.scope === scope) &&
+                (difficulty === "all" || item.difficulty === difficulty),
+            );
+            filtered.sort((a, b) => {
+              const newest =
+                b.createdAt.localeCompare(a.createdAt) || b.number - a.number;
+              if (sort === "oldest") return -newest;
+              if (sort === "name")
+                return (
+                  a.title.localeCompare(b.title, undefined, {
+                    numeric: true,
+                    sensitivity: "base",
+                  }) || newest
+                );
+              if (sort === "duration")
+                return (
+                  a.durationEstimate.minMinutes -
+                    b.durationEstimate.minMinutes || newest
+                );
+              if (sort === "difficulty") {
+                const ranks = { easy: 0, medium: 1, hard: 2, grill: 3 };
+                return ranks[a.difficulty] - ranks[b.difficulty] || newest;
+              }
+              return newest;
+            });
+            return (
+              <TabsContent key={value} value={value} className="space-y-3">
+                {loading ? (
+                  <ChallengeTableSkeleton />
+                ) : error ? (
+                  <ErrorState
+                    title="Could not load challenges"
+                    message={error.message}
+                    onRetry={retry}
+                  />
+                ) : filtered.length ? (
+                  <ChallengeTable challenges={filtered} />
+                ) : (
+                  <div className="rounded-lg border border-line px-4 py-12 text-center">
+                    <h2 className="text-ui font-medium">
+                      {hasFilters ? "No challenges found" : empty}
+                    </h2>
+                    {hasFilters ? (
+                      <Button
+                        size="sm"
+                        className="mt-3"
+                        onClick={() => {
+                          setSearch("");
+                          setScope("all");
+                          setDifficulty("all");
+                        }}
+                      >
+                        Clear filters
+                      </Button>
+                    ) : (
+                      value === "active" && (
+                        <Link
+                          to="/"
+                          className={buttonStyles("primary") + " mt-4"}
                         >
-                          Clear filters
-                        </Button>
-                      ) : (
-                        value === "active" && (
-                          <Link
-                            to="/"
-                            className={buttonStyles("primary") + " mt-4"}
-                          >
-                            <Plus size={14} />
-                            Create a challenge
-                          </Link>
-                        )
-                      )}
-                    </div>
-                  )}
+                          <Plus size={14} />
+                          Create a challenge
+                        </Link>
+                      )
+                    )}
+                  </div>
+                )}
+                {!loading && !error && (
                   <div className="flex items-center justify-between gap-3 text-metadata text-muted">
                     <p role="status" aria-live="polite">
                       {filtered.length}{" "}
                       {filtered.length === 1 ? "challenge" : "challenges"}
-                      {hasFilters && ` of ${data.length}`}
+                      {hasFilters && ` of ${loading ? "–" : data.length}`}
                     </p>
                     {value === "completed" && (
                       <Link
@@ -308,12 +315,12 @@ export function ChallengesPage() {
                       </Link>
                     )}
                   </div>
-                </TabsContent>
-              );
-            })}
-          </Tabs>
-        </main>
-      )}
+                )}
+              </TabsContent>
+            );
+          })}
+        </Tabs>
+      </main>
     </AppShell>
   );
 }

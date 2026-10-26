@@ -1,3 +1,4 @@
+import { CodeSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useState, type CSSProperties, type RefObject } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { File as CodeFile } from "@pierre/diffs/react";
@@ -9,7 +10,6 @@ import {
   FileCode2,
   FileQuestion,
   Info,
-  LoaderCircle,
   Maximize2,
   Minimize2,
   MousePointer2,
@@ -433,13 +433,7 @@ function SubmissionFilesSurface({
           </div>
           <div className="min-h-0 flex-1 overflow-auto">
             {file.isLoading ? (
-              <div
-                role="status"
-                className="flex h-full min-h-56 items-center justify-center gap-2 text-metadata text-muted"
-              >
-                <LoaderCircle size={14} className="animate-spin" />
-                Loading file…
-              </div>
+              <CodeSkeleton />
             ) : file.error ? (
               <div
                 role="alert"

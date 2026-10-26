@@ -1,3 +1,4 @@
+import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
 import { ArrowUpRight, Blocks, Network, Target } from "lucide-react";
 import { Link } from "react-router";
 import { cn } from "@/shared/lib/cn";
@@ -104,5 +105,50 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
         })}
       </ul>
     </div>
+  );
+}
+
+export function ChallengeTableSkeleton() {
+  return (
+    <LoadingRegion
+      label="Loading challenges…"
+      layout="challenges"
+      className={cn(
+        "overflow-hidden rounded-lg border border-line bg-surface",
+        styles.table,
+      )}
+    >
+      <div
+        className={cn(
+          "border-b border-line bg-panel px-4 py-2 text-metadata text-muted",
+          styles.header,
+        )}
+        aria-hidden="true"
+      >
+        <span>Challenge</span>
+        <span>Type</span>
+        <span>Difficulty</span>
+        <span>Est. time</span>
+        <span />
+      </div>
+      <div className="divide-y divide-line">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className={cn("px-4 py-3", styles.row)}>
+            <div
+              className={cn("flex min-w-0 items-center gap-2", styles.title)}
+            >
+              <Skeleton className="size-4 shrink-0" />
+              <Skeleton className={i % 2 ? "h-5 w-3/5" : "h-5 w-4/5"} />
+            </div>
+            <div className={cn("grid items-center gap-x-4", styles.metadata)}>
+              <Skeleton className="h-6 w-14" />
+              <Skeleton className="h-4 w-14" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+            <Skeleton className={cn("size-3", styles.arrow)} />
+          </div>
+        ))}
+      </div>
+    </LoadingRegion>
   );
 }

@@ -1,3 +1,5 @@
+import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
+import { LogDetailSkeleton } from "@/shared/components/ui/loading-layouts";
 import { Link } from "react-router";
 import { useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -56,12 +58,20 @@ export function LogDetailPage({ id }: { id: string }) {
               </Link>
             )}
           </>
+        ) : query.isLoading ? (
+          <LoadingRegion
+            label="Loading request actions…"
+            className="flex h-5.5 items-center gap-2"
+          >
+            <Skeleton className="h-5.5 w-16" />
+            <Skeleton className="h-4 w-24" />
+          </LoadingRegion>
         ) : undefined
       }
     >
       <main className="mx-auto w-full max-w-[1280px] p-4 md:p-6">
         {query.isLoading ? (
-          <LoadingScreen label="Loading request…" />
+          <LogDetailSkeleton />
         ) : query.error ? (
           <ErrorState
             title="Could not load this log"

@@ -1,3 +1,4 @@
+import { ReviewSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useNavigate, useSearchParams } from "react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -623,9 +624,7 @@ export function PracticeWorkspace({
             </TabsContent>
             <TabsContent value="reviews" className="min-h-0 overflow-hidden">
               {attempts.isLoading ? (
-                <p role="status" className="p-6 text-ui text-muted">
-                  Loading submissions…
-                </p>
+                <ReviewSkeleton />
               ) : attempts.error ? (
                 <div role="alert">
                   <p>{attempts.error.message}</p>

@@ -1,3 +1,4 @@
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { TopicProgressView } from "./topic-progress";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -14,6 +15,7 @@ import { HistoryRow } from "@/features/history/components/history-row";
 import {
   Table,
   TableBody,
+  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -22,6 +24,7 @@ import { CollectionSummary } from "@/shared/components/layout/collection-toolbar
 
 export function HistoryList({
   profileId,
+  loading = false,
   challenges,
   search,
   setSearch,
@@ -29,6 +32,7 @@ export function HistoryList({
   setScope,
 }: {
   profileId: string;
+  loading?: boolean;
   challenges: Challenge[];
   search: string;
   setSearch: (value: string) => void;
@@ -60,7 +64,7 @@ export function HistoryList({
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
         <div className="mx-auto w-full max-w-[1280px]">
-          {challenges.length ? (
+          {challenges.length || loading ? (
             <>
               <div className="overflow-hidden rounded-lg border border-line">
                 <HistoryFilters
@@ -71,7 +75,7 @@ export function HistoryList({
                   sort={sort}
                   setSort={setSort}
                 />
-                {filtered.length ? (
+                {filtered.length || loading ? (
                   <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
@@ -87,10 +91,36 @@ export function HistoryList({
                         </TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
-                      {filtered.map((challenge) => (
-                        <HistoryRow key={challenge.id} challenge={challenge} />
-                      ))}
+                    <TableBody
+                      aria-busy={loading}
+                      aria-label={loading ? "Loading history…" : undefined}
+                      data-loading-layout={loading ? "history" : undefined}
+                      className={loading ? "loading-placeholder" : undefined}
+                    >
+                      {loading
+                        ? [0, 1, 2, 3].map((i) => (
+                            <TableRow key={i}>
+                              <TableCell className="space-y-2 px-4 py-3">
+                                <Skeleton className="h-4 w-4/5" />
+                                <Skeleton className="h-3 w-2/5" />
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell">
+                                <Skeleton className="h-4 w-3/4" />
+                              </TableCell>
+                              <TableCell className="hidden sm:table-cell">
+                                <Skeleton className="h-4 w-20" />
+                              </TableCell>
+                              <TableCell>
+                                <Skeleton className="size-3" />
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        : filtered.map((challenge) => (
+                            <HistoryRow
+                              key={challenge.id}
+                              challenge={challenge}
+                            />
+                          ))}
                     </TableBody>
                   </Table>
                 ) : (
@@ -114,7 +144,9 @@ export function HistoryList({
               </div>
               <CollectionSummary>
                 <span>
-                  {filtered.length} of {challenges.length} builds
+                  {loading
+                    ? "Loading history…"
+                    : `${filtered.length} of ${challenges.length} builds`}
                 </span>
                 <span>Completed and stopped</span>
               </CollectionSummary>
