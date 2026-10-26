@@ -3302,6 +3302,100 @@ describe("band calibration and essential clarification", () => {
 });
 
 describe("resume preview route", () => {
+  test("PDF imports return verified details and warnings when an optional technology lacks evidence", async () => {
+    let calls = 0;
+    const app = createApp({
+      llm: loggedModel(() => {
+        calls++;
+        return Response.json(
+          modelResponse(
+            JSON.stringify({
+              displayName: { value: "Alex Rivera", excerpt: "Alex Rivera" },
+              background: [],
+              languages: [{ value: "TypeScript", excerpt: "TypeScript" }],
+              technologies: [
+                {
+                  value: "Rust",
+                  excerpt: "Technologies: Node.js, PostgreSQL, Astro",
+                },
+              ],
+              projects: [
+                {
+                  name: {
+                    value: "Cache service",
+                    excerpt: "Project: Cache service",
+                  },
+                  contribution: {
+                    value: "Implemented expiry and cache invalidation.",
+                    excerpt: "Implemented expiry and cache invalidation.",
+                  },
+                  technologies: [
+                    { value: "TypeScript", excerpt: "TypeScript" },
+                  ],
+                },
+              ],
+            }),
+          ),
+        );
+      }),
+    });
+    const owner = await startProfile(
+      app,
+      `partial-resume-${crypto.randomUUID()}@test.dev`,
+    );
+    const form = new FormData();
+    form.append(
+      "file",
+      new File(
+        [
+          await Bun.file(
+            new URL("./fixtures/resume.pdf", import.meta.url),
+          ).arrayBuffer(),
+        ],
+        "resume.pdf",
+      ),
+    );
+    const response = await app.request("/profiles/resume/preview", {
+      method: "POST",
+      headers: { "X-Profile-Id": owner.id },
+      body: form,
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        draft: {
+          displayName: "Alex Rivera",
+          languages: ["typescript"],
+          stack: [],
+          projects: [
+            {
+              name: "Cache service",
+              technologies: ["typescript"],
+              contribution: "Implemented expiry and cache invalidation.",
+            },
+          ],
+        },
+        warnings: [expect.stringContaining("left out")],
+      },
+    });
+    expect(calls).toBe(1);
+    expect(
+      (await profileLogs(app, owner.id, "?operation=resume_import")).items[0]
+        ?.status,
+    ).toBe("success");
+    const preferences = (
+      await json<{ data: LearnerContext["preferences"] }>(
+        await request(app, "/profiles/preferences", owner.id),
+      )
+    ).data;
+    expect(preferences).toMatchObject({
+      displayName: null,
+      languages: [],
+      projects: [],
+      developerContextUpdatedAt: null,
+    });
+  });
+
   test("scopes extraction and logs to the active profile without saving any draft", async () => {
     let providerRequest: Record<string, unknown> | undefined;
     const extraction = {

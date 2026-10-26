@@ -106,14 +106,24 @@ test("source evidence is validated before technology alias normalization", async
   const source = await fixture("resume.txt").text();
   expect(() =>
     validateResumeExtraction(
-      { ...extraction, displayName: quote("Invented Name") },
+      {
+        ...extraction,
+        displayName: quote("Invented Name"),
+        background: [],
+        languages: [],
+        technologies: [],
+        projects: [],
+      },
       source,
     ),
   ).toThrow("document evidence");
   expect(() =>
     validateResumeExtraction(
       {
-        ...extraction,
+        displayName: null,
+        background: [],
+        languages: [],
+        projects: [],
         technologies: [
           quote("Rust", "Technologies: Node.js, PostgreSQL, Astro"),
         ],
@@ -177,7 +187,10 @@ test("evidence accepts document layout whitespace without accepting changed word
     expect(() =>
       validateResumeExtraction(
         {
-          ...extraction,
+          displayName: null,
+          background: [],
+          languages: [],
+          technologies: [],
           projects: [
             { ...extraction.projects[0]!, contribution: quote(value) },
           ],
@@ -199,6 +212,110 @@ test("evidence accepts canonically equivalent Unicode characters", () => {
   expect(
     validateResumeExtraction(raw, "Jose\u0301 Example").draft.displayName,
   ).toBe("Jos\u00e9 Example");
+});
+
+test("PDF evidence accepts omitted list bullets and wrapped hyphen spacing", () => {
+  const contribution =
+    "Built an offline desktop app. Added user-scoped storage and PDF invoices.";
+  const raw = {
+    displayName: null,
+    background: [],
+    languages: [],
+    technologies: [],
+    projects: [
+      {
+        name: quote("Billing app"),
+        technologies: [],
+        contribution: quote(
+          contribution,
+          "Built an offline desktop app. Added user- scoped storage and PDF invoices.",
+        ),
+      },
+    ],
+  };
+  for (const bullet of ["●", "•", "▪"]) {
+    const source = `Project: Billing app\n${bullet} Built an offline desktop app.\n${bullet} Added user-\nscoped storage and PDF invoices.`;
+    expect(validateResumeExtraction(raw, source)).toEqual({
+      draft: {
+        displayName: null,
+        aboutMe: null,
+        languages: [],
+        stack: [],
+        projects: [{ name: "Billing app", technologies: [], contribution }],
+      },
+      warnings: [],
+    });
+  }
+});
+
+test("partial extraction retains verified details, excludes unsupported fields, and warns", () => {
+  const raw = {
+    displayName: quote("Invented Name"),
+    background: [quote("Built a useful developer tool.")],
+    languages: [quote("Python"), quote("Rust", "Languages: Python")],
+    technologies: [quote("Kubernetes")],
+    projects: [
+      {
+        name: quote("Voice app"),
+        technologies: [
+          quote("Drizzle ORM", "Used Drizzle for storage."),
+          quote("React"),
+        ],
+        contribution: quote("Built voice input with React."),
+      },
+      {
+        name: quote("Unstated project"),
+        technologies: [],
+        contribution: quote("Built a useful developer tool."),
+      },
+      {
+        name: quote("Incomplete project"),
+        technologies: [],
+        contribution: quote("Invented contribution."),
+      },
+    ],
+  };
+  const source =
+    "Built a useful developer tool.\nLanguages: Python\nProject: Voice app\nUsed Drizzle for storage.\nBuilt voice input with React.\nProject: Incomplete project";
+  const result = validateResumeExtraction(raw, source);
+  expect(result.draft).toEqual({
+    displayName: null,
+    aboutMe: "Built a useful developer tool.",
+    languages: ["python"],
+    stack: [],
+    projects: [
+      {
+        name: "Voice app",
+        technologies: ["react"],
+        contribution: "Built voice input with React.",
+      },
+    ],
+  });
+  expect(result.warnings).toEqual([expect.stringContaining("left out")]);
+});
+
+test("formatting normalization preserves internal bullet characters and rejects changed claims", () => {
+  for (const [source, value] of [
+    ["Uses • as a delimiter.", "Uses as a delimiter."],
+    ["Built user-scoped storage.", "Built userscoped storage."],
+    [
+      "Built storage with no cloud service.",
+      "Built storage with a cloud service.",
+    ],
+  ]) {
+    expect(() =>
+      validateResumeExtraction(
+        {
+          displayName: null,
+          background: [quote(value!)],
+          languages: [],
+          technologies: [],
+          projects: [],
+        },
+        source!,
+      ),
+    ).toThrow("document evidence");
+  }
 });
 
 test("pasted text and multipart inputs obey only resume-specific limits", async () => {

@@ -29,11 +29,15 @@ export const resumeExtractionSchema = z.strictObject({
 });
 export type ResumeExtraction = z.infer<typeof resumeExtractionSchema>;
 
-// Document parsers preserve layout whitespace that the model may flatten when
-// quoting an excerpt. Ignore that formatting, but preserve words, case, and
-// punctuation so unsupported claims still fail evidence validation.
+// PDF text preserves list markers and line wraps that a quoted value may omit.
+// Ignore only this layout, keeping words, case, internal symbols, and hyphens.
 function normalizeEvidence(text: string) {
-  return text.normalize("NFC").replace(/\s+/gu, " ").trim();
+  return text
+    .normalize("NFC")
+    .replace(/^[^\S\r\n]*[•●◦▪▫‣⁃][^\S\r\n]+/gmu, "")
+    .replace(/(?<=\p{L})-\s+(?=\p{L})/gu, "-")
+    .replace(/\s+/gu, " ")
+    .trim();
 }
 
 export function validateResumeExtraction(
@@ -50,49 +54,59 @@ export function validateResumeExtraction(
     );
   if (!parsed.success) throw invalid();
   const result = parsed.data;
-  const supportedValues = [
-    result.displayName,
-    ...result.background,
-    ...result.languages,
-    ...result.technologies,
-    ...result.projects.flatMap((project) => [
-      project.name,
-      project.contribution,
-      ...project.technologies,
-    ]),
-  ].filter((value) => value !== null);
   const normalizedSource = normalizeEvidence(source);
-  if (
-    supportedValues.some(({ value, excerpt }) => {
-      const normalizedExcerpt = normalizeEvidence(excerpt);
-      return (
-        !normalizedSource.includes(normalizedExcerpt) ||
-        !normalizedExcerpt.includes(normalizeEvidence(value))
-      );
-    })
-  )
-    throw invalid();
+  let omitted = 0;
+  type SupportedValue = { value: string; excerpt: string };
+  function read(field: SupportedValue | null) {
+    if (field === null) return null;
+    const excerpt = normalizeEvidence(field.excerpt);
+    if (
+      normalizedSource.includes(excerpt) &&
+      excerpt.includes(normalizeEvidence(field.value))
+    )
+      return field.value;
+    omitted++;
+    return null;
+  }
+  function readAll(fields: SupportedValue[]) {
+    return fields.flatMap((field) => {
+      const value = read(field);
+      return value === null ? [] : [value];
+    });
+  }
   const warnings: string[] = [];
   const draft = {
-    displayName: result.displayName?.value ?? null,
-    aboutMe: result.background.map(({ value }) => value).join("\n\n") || null,
-    languages: normalizeTechnologies(
-      result.languages.map(({ value }) => value),
-      LANGUAGES,
-    ),
-    stack: normalizeTechnologies(
-      result.technologies.map(({ value }) => value),
-      STACK,
-    ),
-    projects: result.projects.map((project) => ({
-      name: project.name.value,
-      technologies: normalizeTechnologies(
-        project.technologies.map(({ value }) => value),
-      ),
-      contribution: project.contribution.value,
-    })),
+    displayName: read(result.displayName),
+    aboutMe: readAll(result.background).join("\n\n") || null,
+    languages: normalizeTechnologies(readAll(result.languages), LANGUAGES),
+    stack: normalizeTechnologies(readAll(result.technologies), STACK),
+    projects: result.projects.flatMap((project) => {
+      const name = read(project.name);
+      const contribution = read(project.contribution);
+      if (name === null || contribution === null) return [];
+      return [
+        {
+          name,
+          contribution,
+          technologies: normalizeTechnologies(readAll(project.technologies)),
+        },
+      ];
+    }),
   };
-  if (!supportedValues.length)
+  const hasDetails = Boolean(
+    draft.displayName ||
+    draft.aboutMe ||
+    draft.languages.length ||
+    draft.stack.length ||
+    draft.projects.length,
+  );
+  // Never turn an entirely unsupported response into a successful empty import.
+  if (omitted && !hasDetails) throw invalid();
+  if (omitted)
+    warnings.push(
+      `${omitted} ${omitted === 1 ? "detail could" : "details could"} not be matched to the document and ${omitted === 1 ? "was" : "were"} left out. Review the remaining draft before applying it.`,
+    );
+  if (!hasDetails)
     warnings.push(
       "No supported developer details were found. You can enter them manually.",
     );
