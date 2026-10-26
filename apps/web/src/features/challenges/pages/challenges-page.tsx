@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { Link } from "react-router";
 import { useProfile } from "@/features/profile/hooks/use-profile";
-import { PageIntro } from "@/shared/components/layout/page-intro";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { buttonStyles } from "@/shared/components/ui/button";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
@@ -67,12 +66,6 @@ export function ChallengesPage() {
       ) : (
         <main className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-7 md:px-8 md:py-8">
-            <div className="mx-auto max-w-[1100px]">
-              <PageIntro
-                title="Your challenges"
-                description="Pick up where you left off, or revisit something you saved for later."
-              />
-            </div>
             <Tabs
               defaultValue="active"
               className="mx-auto w-full max-w-[1100px] gap-4"
@@ -117,11 +110,8 @@ export function ChallengesPage() {
                 ) : (
                   <div className="rounded-lg border border-line bg-panel px-6 py-12">
                     <h3 className="text-base font-medium">
-                      Your next challenge starts here
+                      No active challenges
                     </h3>
-                    <p className="mt-2 text-sm text-muted">
-                      Choose a topic and build something at your own pace.
-                    </p>
                     <Link to="/" className={buttonStyles("primary") + " mt-5"}>
                       <Plus size={15} />
                       Create a challenge
@@ -135,11 +125,8 @@ export function ChallengesPage() {
                 ) : (
                   <div className="rounded-lg border border-line bg-panel px-6 py-12">
                     <h3 className="text-base font-medium">
-                      Room for your next idea
+                      No saved challenges
                     </h3>
-                    <p className="mt-2 text-sm text-muted">
-                      Use “Save for later” in a challenge to keep it here.
-                    </p>
                   </div>
                 )}
               </TabsContent>
@@ -158,11 +145,8 @@ export function ChallengesPage() {
                 ) : (
                   <div className="rounded-lg border border-line bg-panel px-6 py-12">
                     <h3 className="text-base font-medium">
-                      Keep a record of what you learn
+                      No completed challenges
                     </h3>
-                    <p className="mt-2 text-sm text-muted">
-                      Challenges appear here when you choose “Mark completed”.
-                    </p>
                   </div>
                 )}
               </TabsContent>

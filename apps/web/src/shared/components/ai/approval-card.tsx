@@ -122,10 +122,7 @@ export function ApprovalCard({
             </div>
           )}
         </div>
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3">
-          <span className="text-xs text-muted">
-            Answer required to continue
-          </span>
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line px-3 py-3">
           <Button
             type="submit"
             variant="primary"

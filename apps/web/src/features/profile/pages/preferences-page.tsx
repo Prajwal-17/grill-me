@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { PageIntro } from "@/shared/components/layout/page-intro";
 import { Input } from "@/shared/components/ui/input";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
@@ -116,10 +115,6 @@ export function PreferencesPage() {
         />
       ) : (
         <main className="mx-auto w-full max-w-[850px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
-          <PageIntro
-            title="Make it your practice"
-            description="Set the context used for new challenges and quizzes, and choose how your code is reviewed."
-          />
           <form
             id="preferences-form"
             onSubmit={submit}
@@ -161,15 +156,6 @@ export function PreferencesPage() {
                       </option>
                     ))}
                   </datalist>
-                  <p className="text-xs leading-5 text-muted">
-                    Default: GPT-5.6 Sol for complex code reviews. Choose an
-                    available model or enter its ID. Applies to new Codex review
-                    runs.
-                  </p>
-                  <p className="text-xs leading-5 text-muted">
-                    Review sessions are temporary. Prompts, responses, and tool
-                    activity are saved in Grill Me’s Logs.
-                  </p>
                   {codexModels.isLoading && (
                     <p className="text-xs text-muted">
                       Loading available models…

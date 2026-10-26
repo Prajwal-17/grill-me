@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { RefreshCw, ScrollText } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useProfile } from "@/features/profile/hooks/use-profile";
-import { PageIntro } from "@/shared/components/layout/page-intro";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
@@ -60,10 +59,6 @@ export function LogsPage() {
       }
     >
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-4 py-5 md:px-8 md:py-8">
-        <PageIntro
-          title="AI activity"
-          description="Inspect requests, responses, and timing for your local profile."
-        />
         {logs.isLoading ? (
           <div className="min-h-0 flex-1 overflow-y-auto">
             <LoadingScreen label="Loading logs…" />
@@ -198,13 +193,6 @@ export function LogsPage() {
                         ? "No matching requests"
                         : "No AI requests yet"}
                     </h2>
-                    <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-                      {filters.search ||
-                      filters.status !== "all" ||
-                      filters.operation !== "all"
-                        ? "Try another search or clear the filters."
-                        : "Create a build, ask a question, or request a review. New AI calls will appear here."}
-                    </p>
                     {(filters.search ||
                       filters.status !== "all" ||
                       filters.operation !== "all") && (

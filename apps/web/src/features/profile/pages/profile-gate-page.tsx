@@ -29,12 +29,8 @@ export function ProfileGatePage() {
       </header>
       <section className="mx-auto my-auto w-full max-w-[400px] rounded-xl border border-line bg-surface p-7 sm:p-8">
         <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
-          Your practice workspace
+          Choose a profile
         </h1>
-        <p className="mt-3 text-sm leading-6 text-muted">
-          Build, review, and revisit what you learn. Choose your local profile
-          to get started.
-        </p>
         <form onSubmit={submit} className="mt-7 grid gap-4">
           <label className="grid gap-2 text-sm font-medium" htmlFor="email">
             Profile email
@@ -59,9 +55,6 @@ export function ProfileGatePage() {
             )}
             Continue
           </Button>
-          <p className="text-xs text-muted">
-            Your email loads your local profile.
-          </p>
           {start.error && (
             <p
               role="alert"

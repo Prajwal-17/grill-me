@@ -10,7 +10,6 @@ import {
 type BuildOption<T extends string> = {
   id: T;
   label: string;
-  description: string;
   icon: LucideIcon;
   accent?: "grill";
 };
@@ -36,7 +35,7 @@ export function BuildOptionMenu<T extends string>({
         <button
           type="button"
           disabled={disabled}
-          aria-label={label}
+          aria-label={`${label}: ${selected?.label ?? value}`}
           data-grill-option={selected?.accent === "grill" || undefined}
           className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line px-2 text-sm font-normal hover:bg-elevated focus-visible:ring-2 focus-visible:ring-foreground data-[grill-option]:focus-visible:ring-[var(--grill-accent)] data-[state=open]:bg-elevated disabled:opacity-50 sm:px-2.5"
         >
@@ -60,7 +59,7 @@ export function BuildOptionMenu<T extends string>({
         align="start"
         sideOffset={8}
         collisionPadding={16}
-        className="w-[min(260px,calc(100vw-32px))] p-1.5"
+        className="w-[min(200px,calc(100vw-32px))] p-1.5"
       >
         <DropdownMenuRadioGroup
           value={value}
@@ -72,19 +71,14 @@ export function BuildOptionMenu<T extends string>({
               value={option.id}
               indicatorPosition="right"
               data-grill-option={option.accent === "grill" || undefined}
-              className="items-start gap-2.5 rounded-md py-2.5 pl-3"
+              className="items-center gap-2.5 rounded-md py-2.5 pl-3"
             >
               <Icon
-                className="mt-0.5 size-4 shrink-0 opacity-80"
+                className="size-4 shrink-0 opacity-80"
                 aria-hidden="true"
                 focusable="false"
               />
-              <span className="grid min-w-0 gap-0.5">
-                <span className="font-medium">{option.label}</span>
-                <span className="text-xs leading-4 text-muted">
-                  {option.description}
-                </span>
-              </span>
+              <span className="font-medium">{option.label}</span>
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

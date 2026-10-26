@@ -130,9 +130,9 @@ export function Navigation({
           {mainLinks.map(renderLink)}
         </nav>
         {!!active.data?.length && (
-          <section className="mt-7" aria-label="Continue practicing">
+          <section className="mt-7" aria-label="Active challenges">
             <h2 className="mb-2 px-2.5 text-xs font-medium text-muted">
-              Continue practicing
+              Active challenges
             </h2>
             <div className="grid gap-1">
               {active.data.slice(0, 4).map((challenge) => {

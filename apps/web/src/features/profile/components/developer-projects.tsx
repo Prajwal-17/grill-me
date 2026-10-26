@@ -22,10 +22,6 @@ export function DeveloperProjects({
   }
   return (
     <div className="space-y-5">
-      <p className="text-xs leading-5 text-muted">
-        Up to ten concise projects. Only related projects inform a new
-        challenge.
-      </p>
       {value.map((project, index) => (
         <fieldset
           key={index}
@@ -57,10 +53,7 @@ export function DeveloperProjects({
           </div>
           <label className="grid gap-2 text-sm">
             Technologies
-            <span className="text-xs text-muted">
-              Separate entries with commas. Catalog names and custom entries are
-              supported.
-            </span>
+            <span className="text-xs text-muted">Comma-separated</span>
             <Input
               value={project.technologies.join(",")}
               maxLength={1600}

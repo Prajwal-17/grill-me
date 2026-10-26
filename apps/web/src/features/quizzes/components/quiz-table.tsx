@@ -11,7 +11,6 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { PageIntro } from "@/shared/components/layout/page-intro";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -329,11 +328,7 @@ export function QuizTable({
 
   return (
     <div className="shrink-0 space-y-4 @container/quiz-list">
-      <PageIntro
-        title="Your quizzes"
-        description="Explore a topic, pick up an unfinished attempt, or revisit your answers."
-        actions={actions}
-      />
+      <div className="flex justify-end">{actions}</div>
       <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_140px_148px_160px]">
         <div
           role="search"

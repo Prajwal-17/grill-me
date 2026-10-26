@@ -314,3 +314,7 @@ Task and file panels keep a compact header above independently scrolling content
 - Don't force desktop side panels into narrow viewports or default the narrow file tree open.
 - Don't replace task text with screenshot-specific sample content or turn a personal workspace into a team dashboard.
 - Don't treat these CSS specimens as implementations of saving, tabs, dialogs, or review behavior.
+
+## Interface copy and automation
+
+Use the shell heading once per page. Start content with its filters, actions, or fields instead of repeating a title and explanatory introduction. Retain labels, errors, save/recovery status, and explanations that affect a decision. The creation prompt uses a static native placeholder; menu triggers expose both their purpose and selected value in their accessible name. The home page contains only the composer; omit promotional headings, example suggestions, and duplicate navigation links. This reduces visual repetition, removes animation state from the implementation, and gives browser agents stable semantic controls.

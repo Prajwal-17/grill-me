@@ -122,7 +122,7 @@ export function ResumeImport({
                 ? "Extracting resume"
                 : "Import resume"}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             {draft
               ? "Select details to apply to your editable form. Use Save preferences afterward to persist them."
               : "Prefill your developer profile, then review the details before saving."}
@@ -174,9 +174,6 @@ export function ResumeImport({
           >
             <LoaderCircle size={24} className="animate-spin text-muted" />
             <p className="text-sm">Preparing your developer profile draft…</p>
-            <p className="text-xs leading-5 text-muted">
-              You can cancel and continue editing manually.
-            </p>
             <Button
               type="button"
               onClick={() => {

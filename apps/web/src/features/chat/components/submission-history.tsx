@@ -94,9 +94,6 @@ export function SubmissionHistory({
           <div className="mx-auto flex max-w-sm flex-col items-center py-16 text-center">
             <FileSearch2 size={22} className="text-muted" />
             <h3 className="mt-4 text-sm font-semibold">No reviews yet</h3>
-            <p className="mt-1 text-sm text-muted">
-              Submit an implementation to start a review.
-            </p>
           </div>
         )}
       </div>

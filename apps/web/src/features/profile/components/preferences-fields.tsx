@@ -60,10 +60,7 @@ export function PreferencesFields({
         </div>
         <div className="grid gap-5 md:ml-[174px]">
           <label className="grid gap-2 text-sm font-medium">
-            Name{" "}
-            <span className="text-xs font-normal text-muted">
-              Optional · used for profile presentation
-            </span>
+            Name
             <Input
               value={values.displayName ?? ""}
               maxLength={120}
@@ -106,10 +103,7 @@ export function PreferencesFields({
             onChange={(value) => onChange("stack", value)}
           />
           <label className="grid gap-2 text-sm font-medium">
-            Background{" "}
-            <span className="text-xs font-normal text-muted">
-              Optional · a short professional summary
-            </span>
+            Background
             <Textarea
               value={values.aboutMe ?? ""}
               maxLength={4000}
@@ -138,8 +132,7 @@ export function PreferencesFields({
         <summary className="cursor-pointer text-sm font-medium">
           Projects{" "}
           <span className="ml-2 text-xs font-normal text-muted">
-            Optional
-            {values.projects.length ? ` · ${values.projects.length}` : ""}
+            {values.projects.length || ""}
           </span>
         </summary>
         <div className="mt-5 md:ml-[174px]">
@@ -152,8 +145,7 @@ export function PreferencesFields({
       </details>
       <details className="border-b border-line py-6">
         <summary className="cursor-pointer text-sm font-medium">
-          Practice context{" "}
-          <span className="ml-2 text-xs font-normal text-muted">Optional</span>
+          Practice context
         </summary>
         <div className="mt-5 grid gap-5 md:ml-[174px]">
           <MultiSelect
@@ -179,7 +171,7 @@ export function PreferencesFields({
             />
           </div>
           <label className="grid gap-2 text-sm">
-            Your learning goal
+            Learning goal
             <Textarea
               value={values.learningGoal ?? ""}
               maxLength={1000}
@@ -291,13 +283,7 @@ export function PreferencesFields({
               onChange("includeRecentChallenges", event.target.checked)
             }
           />
-          <span>
-            Send recent challenges to AI
-            <span className="mt-1 block text-xs leading-5 text-muted">
-              Include recent tasks and review findings when creating challenges.
-              Off keeps each new challenge independent.
-            </span>
-          </span>
+          <span>Send recent challenges to AI</span>
         </label>
       </section>
     </div>

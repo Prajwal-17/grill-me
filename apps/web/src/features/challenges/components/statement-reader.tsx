@@ -93,7 +93,6 @@ export function StatementReader({ challenge }: { challenge: Challenge }) {
         />
       </div>
       <aside className="sticky top-5 hidden max-h-[calc(100dvh-150px)] self-start overflow-y-auto xl:block">
-        <p className="mb-3 px-2 text-xs font-medium">On this page</p>
         {links}
       </aside>
     </div>

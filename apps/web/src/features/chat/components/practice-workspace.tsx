@@ -17,7 +17,6 @@ import {
   PanelRight,
 } from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
-import { PageIntro } from "@/shared/components/layout/page-intro";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
 import { Markdown } from "@/shared/components/markdown";
@@ -561,10 +560,6 @@ export function PracticeWorkspace({
                   className="mx-auto max-w-[900px] space-y-5"
                   aria-label="Submit implementation"
                 >
-                  <PageIntro
-                    title="Submit your implementation"
-                    description="Connect a local project, attach source files, or paste your code for review."
-                  />
                   {!active && (
                     <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
                       {challenge.status === "completed"

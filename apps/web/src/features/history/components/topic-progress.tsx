@@ -57,10 +57,6 @@ export function TopicProgressView({ profileId }: { profileId: string }) {
           );
         })}
       </div>
-      <p className="mt-4 text-xs text-muted">
-        Latest review per challenge. Scores compare practice within the same
-        topic, mode, and difficulty.
-      </p>
     </section>
   );
 }

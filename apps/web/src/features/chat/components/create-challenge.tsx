@@ -7,13 +7,12 @@ import {
   Network,
   Target,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { Button } from "@/shared/components/ui/button";
 import type { BuildDifficulty, BuildScope, Profile } from "@/shared/types/api";
 import { ClarificationCard } from "@/shared/components/ai/clarification-card";
 import { PromptTextarea } from "@/shared/components/ai/prompt-textarea";
 import { PromptSurface } from "@/shared/components/ai/prompt-surface";
-import { TypingSuggestion } from "@/shared/components/ai/typing-suggestion";
 import {
   EasyDifficultyIcon,
   HardDifficultyIcon,
@@ -22,39 +21,20 @@ import {
 import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
 import { useCreateBuild } from "@/features/chat/hooks/use-create-challenge";
 import { BuildOptionMenu } from "@/features/chat/components/build-option-menu";
-import { Link } from "react-router";
-import { ArrowUpRight, BookOpen, ListChecks } from "lucide-react";
-
-const EXAMPLES = [
-  "Build a React command palette with keyboard navigation",
-  "Implement a Go worker pool with graceful shutdown",
-  "Add optimistic updates with rollback in TypeScript",
-  "Build an idempotent event-processing pipeline with retries",
-] as const;
-
-const SUGGESTIONS = [
-  "Can you give me a build to practice React?",
-  "What can I build to get better at Go?",
-  "Can you give me a TypeScript challenge?",
-] as const;
-
 const SCOPES = [
   {
     id: "focused",
     label: "Focused",
-    description: "One small task.",
     icon: Target,
   },
   {
     id: "feature",
     label: "Feature",
-    description: "One complete feature.",
     icon: ComponentIcon,
   },
   {
     id: "system",
     label: "System",
-    description: "A working core and system reasoning.",
     icon: Network,
   },
 ] as const;
@@ -63,25 +43,21 @@ const DIFFICULTIES = [
   {
     id: "easy",
     label: "Easy",
-    description: "Simple logic.",
     icon: EasyDifficultyIcon,
   },
   {
     id: "medium",
     label: "Medium",
-    description: "More logic and error handling.",
     icon: MediumDifficultyIcon,
   },
   {
     id: "hard",
     label: "Hard",
-    description: "Complex logic and edge cases.",
     icon: HardDifficultyIcon,
   },
   {
     id: "grill",
     label: "Grill",
-    description: "Maximum difficulty.",
     icon: Flame,
     accent: "grill",
   },
@@ -113,32 +89,13 @@ export function GenerationHome({ profile }: { profile: Profile }) {
     skipClarification,
   } = useCreateBuild(profile);
   const textarea = useRef<HTMLTextAreaElement>(null);
-  const [focused, setFocused] = useState(false);
-
-  function fillExample(example: string) {
-    setPrompt(example);
-    reset();
-    requestAnimationFrame(() =>
-      textarea.current?.focus({ preventScroll: true }),
-    );
-  }
 
   return (
-    <main className="mx-auto flex h-full min-h-0 w-full max-w-[880px] flex-col gap-7 overflow-y-auto px-5 pb-10 pt-8 sm:px-8 md:px-12 md:pt-16">
-      <header className="shrink-0">
-        <h2
-          id="generation-heading"
-          className="text-balance text-[clamp(1.75rem,3vw,2.25rem)] font-semibold leading-[1.12] tracking-[-0.035em]"
-        >
-          What do you want to practice?
-        </h2>
-        <p className="mt-3 max-w-[55ch] text-sm leading-6 text-muted">
-          Turn a topic into a coding challenge. Build in your editor, then bring
-          your implementation back for a review.
-        </p>
-      </header>
-
-      <section aria-label="Create a build" className="flex shrink-0 flex-col">
+    <main className="mx-auto flex h-full min-h-0 w-full max-w-[880px] flex-col overflow-y-auto px-5 py-8 sm:px-8 md:px-12">
+      <section
+        aria-label="Create a build"
+        className="my-auto flex shrink-0 flex-col"
+      >
         {error && (
           <p
             role="alert"
@@ -197,9 +154,6 @@ export function GenerationHome({ profile }: { profile: Profile }) {
           ) : (
             <form onSubmit={submit}>
               <div className="relative">
-                {!prompt && !focused && (
-                  <TypingSuggestion words={SUGGESTIONS} />
-                )}
                 <PromptTextarea
                   ref={textarea}
                   id="build-request"
@@ -207,12 +161,10 @@ export function GenerationHome({ profile }: { profile: Profile }) {
                   disabled={busy}
                   value={prompt}
                   maxLength={4000}
-                  placeholder=""
+                  placeholder="Describe a topic or something you want to build…"
                   minHeight={112}
                   aria-invalid={Boolean(error)}
                   aria-describedby={error ? "generation-error" : undefined}
-                  onFocus={() => setFocused(true)}
-                  onBlur={() => setFocused(false)}
                   onChange={(event) => {
                     setPrompt(event.target.value);
                     reset();
@@ -285,50 +237,6 @@ export function GenerationHome({ profile }: { profile: Profile }) {
           </p>
         )}
       </section>
-      <section aria-labelledby="generation-heading" className="shrink-0">
-        {!clarification?.question && (
-          <div
-            className="grid gap-x-6 sm:grid-cols-2"
-            aria-label="Example builds"
-          >
-            {EXAMPLES.map((example) => (
-              <button
-                key={example}
-                type="button"
-                disabled={busy}
-                onClick={() => fillExample(example)}
-                className="group flex items-center justify-between border-b border-line py-3 text-left text-sm leading-5 text-muted transition-colors hover:text-foreground focus-visible:border-foreground disabled:opacity-50"
-              >
-                <span>{example}</span>
-                <ArrowUpRight
-                  size={14}
-                  className="ml-3 shrink-0"
-                  aria-hidden="true"
-                />
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <div className="flex shrink-0 flex-wrap gap-5 border-t border-line pt-5 text-sm">
-        <Link
-          to="/challenges"
-          className="inline-flex items-center gap-2 text-muted hover:text-foreground"
-        >
-          <BookOpen size={16} />
-          Continue a challenge
-          <ArrowUpRight size={14} />
-        </Link>
-        <Link
-          to="/quizzes"
-          className="inline-flex items-center gap-2 text-muted hover:text-foreground"
-        >
-          <ListChecks size={16} />
-          Practice with a quiz
-          <ArrowUpRight size={14} />
-        </Link>
-      </div>
     </main>
   );
 }
