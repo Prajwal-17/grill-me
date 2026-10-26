@@ -97,6 +97,10 @@ export type JudgeInput = {
   signal?: AbortSignal;
 };
 export interface ModelGateway {
+  enhanceBuildPrompt?(input: {
+    profileId: string;
+    prompt: string;
+  }): Promise<{ prompt: string }>;
   extractResume?(input: {
     profileId: string;
     text: string;

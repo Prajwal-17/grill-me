@@ -9,6 +9,7 @@ export const logStatusSchema = z.enum([
 export const logOperationSchema = z.enum([
   "resume_import",
   "preparation",
+  "prompt_enhancement",
   "generation",
   "clarify",
   "review",

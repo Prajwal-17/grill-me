@@ -11,6 +11,7 @@ export function toChallenge(row: ChallengeRow): Challenge {
     },
     createdAt: row.createdAt.toISOString(),
     completedAt: row.completedAt?.toISOString() ?? null,
+    archivedAt: row.archivedAt?.toISOString() ?? null,
   });
 }
 
@@ -22,7 +23,7 @@ export function requireChallenge(row: ChallengeRow | undefined) {
 }
 
 export function requireActiveChallenge(row: ChallengeRow) {
-  if (row.status !== "active") {
+  if (row.status !== "active" || row.archivedAt) {
     throw new AppError(
       "CHALLENGE_COMPLETED",
       "Resume this challenge before submitting work or requesting help.",

@@ -112,6 +112,7 @@ export const challenges = pgTable(
       .notNull()
       .$defaultFn(() => new Date()),
     completedAt: timestamp("completed_at", { mode: "date" }),
+    archivedAt: timestamp("archived_at", { mode: "date" }),
   },
   (table) => [
     uniqueIndex("challenges_profile_number_unique").on(
@@ -246,6 +247,7 @@ export const aiLogs = pgTable(
     operation: text("operation", {
       enum: [
         "preparation",
+        "prompt_enhancement",
         "generation",
         "clarify",
         "review",

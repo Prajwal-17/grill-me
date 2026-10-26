@@ -11,9 +11,11 @@ import { AppError } from "../../shared/errors/app-error";
 import {
   challengePreparationSchema,
   buildGenerationResultSchema,
+  enhanceBuildPromptSchema,
 } from "../challenges/challenge.schema";
 import type { ModelGateway } from "./model-gateway";
 import { normalizePreparationOutput } from "./preparation-output";
+import { normalizeGenerationOutput } from "./generation-output";
 import { modelUnavailable, parseJson } from "./model.utils";
 import {
   resumeExtractionSchema,
@@ -29,6 +31,7 @@ import {
 import { quizPrompt } from "./prompts/generate-quiz";
 import { quizTitlePrompt } from "./prompts/generate-quiz-title";
 import { enhanceQuizPromptPrompt } from "./prompts/enhance-quiz-prompt";
+import { enhancementPrompt } from "./prompts/enhance-prompt";
 import {
   buildJsonSchema,
   clarificationPrompt,
@@ -167,6 +170,7 @@ export function createOpenAIModel(
       | "verification"
       | "quiz"
       | "quiz_title"
+      | "prompt_enhancement"
       | "resume_import";
     // Each action has its own instructions and schema.
     signal?: AbortSignal;
@@ -209,7 +213,9 @@ export function createOpenAIModel(
             ? "build"
             : input.stage === "quiz_title"
               ? "quiz title"
-              : input.stage;
+              : input.stage === "prompt_enhancement"
+                ? "prompt enhancement"
+                : input.stage;
       if (response.status === "incomplete") {
         throw new AppError(
           "MODEL_OUTPUT_INCOMPLETE",
@@ -411,16 +417,30 @@ Do not infer seniority, years of experience, mastery, learning goals, topic fami
         signal: input.signal,
       });
     },
+    enhanceBuildPrompt(input) {
+      return requestStructured({
+        context: {
+          profileId: input.profileId,
+          operation: "prompt_enhancement",
+          preview: input.prompt,
+        },
+        prompt: enhancementPrompt(input.prompt, "build"),
+        name: "enhanced_build_prompt",
+        stage: "prompt_enhancement",
+        schema: zod.toJSONSchema(enhanceBuildPromptSchema),
+        validator: enhanceBuildPromptSchema,
+      });
+    },
     enhanceQuizPrompt(input) {
       return requestStructured({
         context: {
           profileId: input.profileId,
-          operation: "quiz_generation",
+          operation: "prompt_enhancement",
           preview: "Enhance quiz prompt: " + input.prompt.slice(0, 180),
         },
         prompt: enhanceQuizPromptPrompt(input.prompt),
         name: "enhanced_quiz_prompt",
-        stage: "quiz",
+        stage: "prompt_enhancement",
         schema: zod.toJSONSchema(enhancedQuizPromptSchema),
         validator: enhancedQuizPromptSchema,
       });
@@ -533,6 +553,7 @@ Do not infer seniority, years of experience, mastery, learning goals, topic fami
         stage: "generation",
         schema: buildJsonSchema(input.scope),
         validator: buildGenerationResultSchema(input.scope),
+        normalize: normalizeGenerationOutput,
       });
     },
 

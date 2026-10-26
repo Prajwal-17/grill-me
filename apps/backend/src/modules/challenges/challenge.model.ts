@@ -3,7 +3,17 @@ import {
   CALIBRATION_VERSION,
   CONTRACT_VERSION,
 } from "../ai/prompts/core";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  isNotNull,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { db, first } from "../../shared/database/db";
 import { challenges, messages } from "../../shared/database/schema";
 import type { ChallengeContent } from "./challenge.schema";
@@ -15,7 +25,13 @@ export const challengeModel = {
     return db
       .select()
       .from(challenges)
-      .where(eq(challenges.profileId, profileId))
+      .where(
+        and(
+          eq(challenges.profileId, profileId),
+          isNull(challenges.archivedAt),
+          ne(challenges.status, "saved"),
+        ),
+      )
       .orderBy(desc(challenges.createdAt))
       .limit(limit);
   },
@@ -28,6 +44,7 @@ export const challengeModel = {
         and(
           eq(challenges.profileId, profileId),
           inArray(challenges.status, ["active", "paused"]),
+          isNull(challenges.archivedAt),
         ),
       )
       .orderBy(desc(challenges.createdAt));
@@ -46,6 +63,19 @@ export const challengeModel = {
       .orderBy(desc(challenges.createdAt));
   },
 
+  findArchived(profileId: string) {
+    return db
+      .select()
+      .from(challenges)
+      .where(
+        and(
+          eq(challenges.profileId, profileId),
+          or(isNotNull(challenges.archivedAt), eq(challenges.status, "saved")),
+        ),
+      )
+      .orderBy(desc(challenges.archivedAt), desc(challenges.createdAt));
+  },
+
   findHistory(profileId: string) {
     return db
       .select()
@@ -54,6 +84,7 @@ export const challengeModel = {
         and(
           eq(challenges.profileId, profileId),
           inArray(challenges.status, ["completed", "stopped"]),
+          isNull(challenges.archivedAt),
         ),
       )
       .orderBy(desc(challenges.completedAt));
@@ -150,6 +181,23 @@ export const challengeModel = {
       db
         .update(challenges)
         .set({ status, completedAt: null, completionSource: null })
+        .where(eq(challenges.id, id))
+        .returning(),
+    );
+  },
+  setArchived(id: string, archived: boolean) {
+    return first(
+      db
+        .update(challenges)
+        .set(
+          archived
+            ? { archivedAt: sql`coalesce(${challenges.archivedAt}, now())` }
+            : {
+                archivedAt: null,
+                // Older clients used saved as a lifecycle state. Restore those to active.
+                status: sql`case when ${challenges.status} = 'saved' then 'active' else ${challenges.status} end`,
+              },
+        )
         .where(eq(challenges.id, id))
         .returning(),
     );

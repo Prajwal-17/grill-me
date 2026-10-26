@@ -43,6 +43,13 @@
       "when": 1792956298356,
       "tag": "0005_bored_zodiak",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793019241073,
+      "tag": "0006_challenge_archive",
+      "breakpoints": true
     }
   ]
 }

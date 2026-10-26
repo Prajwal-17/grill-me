@@ -43,7 +43,7 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
             >
               <Link
                 to={
-                  completed
+                  completed && !challenge.archivedAt
                     ? "/history?id=" + challenge.id
                     : "/chat?id=" + challenge.id
                 }

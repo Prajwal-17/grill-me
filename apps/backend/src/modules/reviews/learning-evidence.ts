@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import { db } from "../../shared/database/db";
 import {
   challenges,
@@ -9,7 +9,13 @@ export async function recentLearningEvidence(profileId: string) {
   const recent = await db
     .select()
     .from(challenges)
-    .where(eq(challenges.profileId, profileId))
+    .where(
+      and(
+        eq(challenges.profileId, profileId),
+        isNull(challenges.archivedAt),
+        ne(challenges.status, "saved"),
+      ),
+    )
     .orderBy(desc(challenges.createdAt))
     .limit(10);
   return (

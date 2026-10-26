@@ -49,6 +49,7 @@ export type Challenge = {
   completionCriteria: string[];
   hint: string | null;
   status: ChallengeStatus;
+  archivedAt: string | null;
   createdAt: string;
   completedAt: string | null;
 };

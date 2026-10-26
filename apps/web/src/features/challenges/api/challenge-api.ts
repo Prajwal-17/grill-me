@@ -6,6 +6,8 @@ import type {
 } from "@/shared/types/api";
 
 export const challengeKeys = {
+  archived: (profileId?: string) =>
+    ["challenges", "archived", profileId] as const,
   saved: (profileId?: string) => ["challenges", "saved", profileId] as const,
   active: (profileId?: string) => ["challenges", "active", profileId] as const,
   history: (profileId?: string) =>
@@ -25,6 +27,30 @@ export function getChallenge(profileId: string, challengeId: string) {
 
 export function getSavedChallenges(profileId: string) {
   return apiRequest<Challenge[]>("/challenges/saved", {}, profileId);
+}
+
+export function getArchivedChallenges(profileId: string) {
+  return apiRequest<Challenge[]>("/challenges/archived", {}, profileId);
+}
+
+export function setChallengeArchived(
+  profileId: string,
+  challengeId: string,
+  archived: boolean,
+) {
+  return apiRequest<Challenge>(
+    `/challenges/${challengeId}/${archived ? "archive" : "restore"}`,
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+
+export function enhanceBuildPrompt(profileId: string, prompt: string) {
+  return apiRequest<{ prompt: string }>(
+    "/challenges/enhance-prompt",
+    { method: "POST", body: JSON.stringify({ prompt }) },
+    profileId,
+  );
 }
 
 export function getChallengeHistory(profileId: string) {

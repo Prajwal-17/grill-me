@@ -8,7 +8,8 @@ import {
   Pause,
   Play,
   Check,
-  Bookmark,
+  Archive,
+  ArchiveRestore,
   Files,
   BookOpen,
   FileCode2,
@@ -23,7 +24,10 @@ import { Markdown } from "@/shared/components/markdown";
 import { ChallengeCard } from "@/features/challenges/components/challenge-card";
 import { CopyButton } from "@/shared/components/ui/copy-button";
 import { statementMarkdown } from "@/features/challenges/lib/challenge-statement";
-import { challengeKeys } from "@/features/challenges/api/challenge-api";
+import {
+  challengeKeys,
+  setChallengeArchived,
+} from "@/features/challenges/api/challenge-api";
 import { getHint, getMessages } from "@/features/chat/api/message-api";
 import {
   cancelReview,
@@ -256,13 +260,17 @@ export function PracticeWorkspace({
     onSettled: () => setUploadProgress(""),
   });
   const lifecycle = useMutation({
-    mutationFn: (status: "active" | "paused" | "saved" | "completed") =>
-      status === "completed"
-        ? completeChallenge(profile.id, challenge.id)
-        : setChallengeStatus(profile.id, challenge.id, status),
+    mutationFn: (
+      status: "active" | "paused" | "archived" | "restored" | "completed",
+    ) =>
+      status === "archived" || status === "restored"
+        ? setChallengeArchived(profile.id, challenge.id, status === "archived")
+        : status === "completed"
+          ? completeChallenge(profile.id, challenge.id)
+          : setChallengeStatus(profile.id, challenge.id, status),
     onSuccess: async (_result, status) => {
       await refresh();
-      if (status === "saved") navigate("/challenges");
+      if (status === "archived") navigate("/challenges?status=archived");
     },
   });
   const reviewAction = useMutation({
@@ -321,7 +329,9 @@ export function PracticeWorkspace({
     hint.isPending ||
     lifecycle.isPending ||
     reviewAction.isPending;
-  const active = challenge.status === "active";
+  const archived =
+    Boolean(challenge.archivedAt) || challenge.status === "saved";
+  const active = challenge.status === "active" && !archived;
   const error =
     submit.error ??
     upload.error ??
@@ -341,24 +351,33 @@ export function PracticeWorkspace({
           {challenge.status === "completed" && (
             <span className="text-metadata text-success">Completed</span>
           )}
-          {challenge.status === "saved" && (
-            <span className="text-metadata text-muted">Saved for later</span>
+          {archived && (
+            <span className="text-metadata text-muted">Archived</span>
           )}
-          {(active || challenge.status === "paused") && (
+          {!archived && (
             <Button
               size="sm"
               variant="ghost"
               disabled={busy || lifecycle.isPending}
-              onClick={() => lifecycle.mutate("saved")}
+              onClick={() => lifecycle.mutate("archived")}
             >
-              <Bookmark size={14} /> Save for later
+              <Archive size={14} /> Archive
             </Button>
           )}
-          {active ? (
+          {archived ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={busy || lifecycle.isPending}
+              onClick={() => lifecycle.mutate("restored")}
+            >
+              <ArchiveRestore size={14} /> Restore
+            </Button>
+          ) : active ? (
             <Button
               size="sm"
               variant="ghost"
-              disabled={busy}
+              disabled={busy || lifecycle.isPending}
               onClick={() => lifecycle.mutate("paused")}
             >
               <Pause size={14} />
@@ -368,18 +387,18 @@ export function PracticeWorkspace({
             <Button
               size="sm"
               variant="ghost"
-              disabled={busy}
+              disabled={busy || lifecycle.isPending}
               onClick={() => lifecycle.mutate("active")}
             >
               <Play size={14} />
               Resume
             </Button>
           )}
-          {challenge.status !== "completed" && (
+          {!archived && challenge.status !== "completed" && (
             <Button
               size="sm"
               variant="secondary"
-              disabled={busy}
+              disabled={busy || lifecycle.isPending}
               onClick={() => lifecycle.mutate("completed")}
             >
               <Check size={15} />
@@ -562,12 +581,12 @@ export function PracticeWorkspace({
                 >
                   {!active && (
                     <div className="rounded-lg border border-line bg-surface p-4 text-ui text-muted">
-                      {challenge.status === "completed"
-                        ? "You marked this challenge completed."
-                        : challenge.status === "saved"
-                          ? "This challenge is saved for later."
+                      {archived
+                        ? "This challenge is archived. Restore it to continue."
+                        : challenge.status === "completed"
+                          ? "You marked this challenge completed."
                           : "This challenge is paused."}{" "}
-                      Resume to submit another version.
+                      {!archived && "Resume to submit another version."}
                     </div>
                   )}
                   <SubmissionComposer

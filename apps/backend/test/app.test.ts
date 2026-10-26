@@ -669,7 +669,7 @@ describe("standalone quizzes", () => {
         typeof stored[0].context_snapshot === "string"
           ? JSON.parse(stored[0].context_snapshot)
           : stored[0].context_snapshot;
-      expect(snapshot.prompt).toBe(prompt.trim());
+      expect(snapshot.currentRequest).toBe(prompt.trim());
     }
     expect(detailed.length).toBeGreaterThan(200);
     const list = (
@@ -952,11 +952,11 @@ describe("standalone quizzes", () => {
       ).status,
     ).toBe(201);
     expect(providerRequest!.instructions).toContain(
-      "standalone multiple-choice",
+      "Current action: standalone quiz",
     );
     expect(JSON.parse(String(providerRequest!.input))).toMatchObject({
-      prompt: quiz.prompt,
-      difficulty: "hard",
+      currentRequest: quiz.prompt,
+      selectedDifficulty: "hard",
       questionCount: 5,
     });
     expect(JSON.parse(String(providerRequest!.input))).not.toHaveProperty(
@@ -1452,7 +1452,337 @@ async function profileLogs(app: TestApp, id: string, query = "") {
   ).data;
 }
 
+describe("home prompt enhancement", () => {
+  test("enhances short prompts once without creating a challenge and logs the operation", async () => {
+    let calls = 0;
+    let sent: Record<string, unknown> = {};
+    const app = createApp({
+      llm: loggedModel((body) => {
+        calls++;
+        sent = body;
+        return Response.json(
+          modelResponse(
+            JSON.stringify({
+              prompt: "Give me a coding exercise to practice Python closures.",
+            }),
+          ),
+        );
+      }),
+    });
+    const owner = await startProfile(
+      app,
+      `enhance-${crypto.randomUUID()}@test.dev`,
+    );
+    const response = await request(
+      app,
+      "/challenges/enhance-prompt",
+      owner.id,
+      { prompt: "  Python closures  " },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        prompt: "Give me a coding exercise to practice Python closures.",
+      },
+    });
+    expect(JSON.parse(String(sent.input))).toEqual({
+      prompt: "Python closures",
+    });
+    expect(calls).toBe(1);
+    expect(
+      (await profileLogs(app, owner.id, "?operation=prompt_enhancement"))
+        .items[0]?.status,
+    ).toBe("success");
+    expect((await request(app, "/challenges/active", owner.id)).status).toBe(
+      200,
+    );
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/active", owner.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+    for (const prompt of ["", "  ", "x".repeat(4001), 1]) {
+      expect(
+        (await request(app, "/challenges/enhance-prompt", owner.id, { prompt }))
+          .status,
+      ).toBe(400);
+    }
+    expect(
+      (
+        await app.request("/challenges/enhance-prompt", {
+          method: "POST",
+          body: JSON.stringify({ prompt: "Python" }),
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request(app, "/challenges/enhance-prompt", crypto.randomUUID(), {
+          prompt: "Python",
+        })
+      ).status,
+    ).toBe(401);
+    expect(calls).toBe(1);
+    const other = await startProfile(
+      app,
+      `enhance-other-${crypto.randomUUID()}@test.dev`,
+    );
+    expect((await profileLogs(app, other.id)).items).toHaveLength(0);
+  });
+
+  test("invalid enhancement output remains an error and creates no build", async () => {
+    const app = createApp({
+      llm: loggedModel(() => Response.json(modelResponse('{"prompt":""}'))),
+    });
+    const owner = await startProfile(
+      app,
+      `enhance-invalid-${crypto.randomUUID()}@test.dev`,
+    );
+    const response = await request(
+      app,
+      "/challenges/enhance-prompt",
+      owner.id,
+      { prompt: "C" },
+    );
+    expect(response.status).toBe(502);
+    expect(await response.json()).toMatchObject({
+      error: { code: "MODEL_OUTPUT_INVALID" },
+    });
+    expect((await profileLogs(app, owner.id)).items[0]?.status).toBe("error");
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/active", owner.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+  });
+});
+
+describe("challenge archives", () => {
+  test("archive and restore preserve lifecycle state, contracts, messages and quizzes", async () => {
+    const app = createApp({ llm: new FakeModel() });
+    const owner = await startProfile(
+      app,
+      `archive-${crypto.randomUUID()}@test.dev`,
+    );
+    const other = await startProfile(
+      app,
+      `archive-other-${crypto.randomUUID()}@test.dev`,
+    );
+    for (const status of ["active", "paused", "completed"] as const) {
+      const challenge = await createChallenge(app, owner.id);
+      const path = `/challenges/${challenge.id}`;
+      if (status === "completed")
+        await request(app, path + "/complete", owner.id, {});
+      else if (status === "paused")
+        await request(app, path + "/status", owner.id, { status });
+      const before = (
+        await json<{ data: Challenge }>(await request(app, path, owner.id))
+      ).data;
+      const messages = await (
+        await request(app, path + "/messages", owner.id)
+      ).json();
+      const quiz = await request(app, path + "/quizzes/generate", owner.id, {
+        requestId: crypto.randomUUID(),
+        questionCount: 5,
+        coverage: "mixed",
+      });
+      expect(quiz.status).toBe(201);
+      const quizzesBefore = await (
+        await request(app, path + "/quizzes", owner.id)
+      ).json();
+      expect((await request(app, path + "/archive", other.id, {})).status).toBe(
+        404,
+      );
+      const archived = await request(app, path + "/archive", owner.id, {});
+      expect(archived.status).toBe(200);
+      const value = (
+        await json<{ data: Challenge & { archivedAt: string } }>(archived)
+      ).data;
+      expect(value.archivedAt).not.toBeNull();
+      const unarchived: Challenge = { ...value, archivedAt: null };
+      expect(unarchived).toEqual(before);
+      expect(
+        (
+          await json<{ data: Challenge[] }>(
+            await request(app, "/challenges/archived", owner.id),
+          )
+        ).data.map((c) => c.id),
+      ).toContain(challenge.id);
+      expect(
+        (
+          await json<{ data: Challenge[] }>(
+            await request(app, "/challenges/active", owner.id),
+          )
+        ).data.map((c) => c.id),
+      ).not.toContain(challenge.id);
+      expect(
+        (
+          await json<{ data: Challenge[] }>(
+            await request(app, "/challenges/history", owner.id),
+          )
+        ).data.map((c) => c.id),
+      ).not.toContain(challenge.id);
+      const again = (
+        await json<{ data: Challenge & { archivedAt: string } }>(
+          await request(app, path + "/archive", owner.id, {}),
+        )
+      ).data;
+      expect(again.archivedAt).toBe(value.archivedAt);
+      expect(
+        await (await request(app, path + "/messages", owner.id)).json(),
+      ).toEqual(messages);
+      expect(
+        await (await request(app, path + "/quizzes", owner.id)).json(),
+      ).toEqual(quizzesBefore);
+      for (const endpoint of ["complete", "status", "submissions"]) {
+        expect(
+          (
+            await request(app, path + "/" + endpoint, owner.id, {
+              status: "active",
+              content: "pass",
+              attachments: [],
+            })
+          ).status,
+        ).toBe(409);
+      }
+      expect((await request(app, path + "/restore", other.id, {})).status).toBe(
+        404,
+      );
+      const restored = await request(app, path + "/restore", owner.id, {});
+      expect((await json<{ data: Challenge }>(restored)).data).toEqual(before);
+    }
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/archived", other.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+    expect((await app.request("/challenges/archived")).status).toBe(401);
+    const legacy = await createChallenge(app, owner.id);
+    await request(app, `/challenges/${legacy.id}/status`, owner.id, {
+      status: "saved",
+    });
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/archived", owner.id),
+        )
+      ).data.map((c) => c.id),
+    ).toContain(legacy.id);
+    const restored = await request(
+      app,
+      `/challenges/${legacy.id}/restore`,
+      owner.id,
+      {},
+    );
+    expect((await json<{ data: Challenge }>(restored)).data).toMatchObject({
+      status: "active",
+      archivedAt: null,
+    });
+  });
+});
+
 describe("bounded challenge generation", () => {
+  test.each(["", " \n\t ", "null", " NULL ", null])(
+    "creates a build when the provider returns a ready response with question %j",
+    async (question) => {
+      let calls = 0;
+      const app = createApp({
+        llm: loggedModel(() => {
+          calls++;
+          return Response.json(
+            modelResponse(
+              JSON.stringify({ ...readyResult(generated), question }),
+            ),
+          );
+        }),
+      });
+      const owner = await startProfile(
+        app,
+        `empty-question-${crypto.randomUUID()}@test.dev`,
+      );
+      const challenge = await createChallenge(app, owner.id, {
+        prompt:
+          "I just learned Python closures. Give me a small exercise to practice them",
+        difficulty: "medium",
+      });
+      expect(challenge.title).toBe(generated.title);
+      expect(calls).toBe(1);
+      expect((await profileLogs(app, owner.id)).items[0]?.status).toBe(
+        "success",
+      );
+    },
+  );
+
+  test("empty-question compatibility preserves invalid generation rejection and essential clarification", async () => {
+    let output: Record<string, unknown> = {};
+    const app = createApp({
+      llm: loggedModel(() =>
+        Response.json(modelResponse(JSON.stringify(output))),
+      ),
+    });
+    const owner = await startProfile(
+      app,
+      `invalid-question-${crypto.randomUUID()}@test.dev`,
+    );
+    const input = {
+      prompt: "Practice an external SDK",
+      scope: "focused",
+      difficulty: "medium",
+    };
+    for (const patch of [
+      { question: "What is the required external API signature?" },
+      { question: "Implement a Python closure." },
+      { options: ["One", "Two"] },
+      { options: null },
+      { options: undefined },
+      { question: undefined },
+      { challenge: null },
+      { challenge: { ...generated, completionCriteria: [] } },
+      { status: "needs_clarification", challenge: null },
+    ]) {
+      output = { ...readyResult(generated), question: "", ...patch };
+      const response = await request(
+        app,
+        "/challenges/generate",
+        owner.id,
+        input,
+      );
+      expect(response.status).toBe(502);
+      expect(await response.json()).toMatchObject({
+        error: { code: "MODEL_OUTPUT_INVALID" },
+      });
+    }
+    output = {
+      status: "needs_clarification",
+      challenge: null,
+      question: "What is the required external API signature?",
+      options: [],
+    };
+    const clarification = await request(
+      app,
+      "/challenges/generate",
+      owner.id,
+      input,
+    );
+    expect(clarification.status).toBe(409);
+    expect(await clarification.json()).toMatchObject({
+      error: { code: "CHALLENGE_NEEDS_CLARIFICATION" },
+    });
+    expect(
+      (
+        await json<{ data: Challenge[] }>(
+          await request(app, "/challenges/active", owner.id),
+        )
+      ).data,
+    ).toHaveLength(0);
+  });
+
   test("System Easy generates once with a matching band", async () => {
     const model = new FakeModel();
     const app = createApp({ llm: model });
@@ -2362,6 +2692,20 @@ createInterface({input: process.stdin}).on("line", line => {
     ).data;
     expect(persisted.status).toBe("active");
     expect(persisted.completionSource).toBeNull();
+    const beforeArchive = await service.list(challenge.id, owner.id);
+    await request(app, `/challenges/${challenge.id}/archive`, owner.id, {});
+    expect(await service.list(challenge.id, owner.id)).toEqual(beforeArchive);
+    const file = await service.file(
+      started.submission.id,
+      owner.id,
+      "answer.py",
+    );
+    expect(file.content).toContain("def group(words)");
+    await expect(
+      service.retry(started.review.id, owner.id, null),
+    ).rejects.toMatchObject({ code: "CHALLENGE_INACTIVE" });
+    await request(app, `/challenges/${challenge.id}/restore`, owner.id, {});
+    expect(await service.list(challenge.id, owner.id)).toEqual(beforeArchive);
   });
   test("failed reviews retain the submission and can retry without duplicating attempts", async () => {
     const { model, owner, challenge } = await fixture();

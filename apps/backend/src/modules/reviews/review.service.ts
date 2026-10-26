@@ -295,7 +295,7 @@ export function createReviewService(
       input: SubmissionRequest,
     ) {
       const challenge = await owned(challengeId, profileId);
-      if (challenge.status !== "active")
+      if (challenge.status !== "active" || challenge.archivedAt)
         throw new AppError(
           "CHALLENGE_INACTIVE",
           "Resume the challenge before submitting.",
@@ -399,6 +399,7 @@ export function createReviewService(
       const challenge = await owned(attempt.challengeId, profileId);
       if (
         challenge.status === "paused" ||
+        challenge.archivedAt ||
         challenge.status === "stopped" ||
         challenge.status === "saved"
       )

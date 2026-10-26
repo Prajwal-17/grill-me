@@ -14,6 +14,7 @@ import {
   challengeContentSchema,
   buildGenerationResultSchema,
   challengePreparationSchema,
+  enhanceBuildPromptSchema,
   type BuildDifficulty,
   type BuildScope,
   type GenerateChallengeInput,
@@ -88,6 +89,27 @@ export function createChallengeService(dependencies: {
   }
 
   return {
+    async enhancePrompt(profileId: string, prompt: string) {
+      await profiles.assertExists(profileId);
+      if (!llm.enhanceBuildPrompt)
+        throw new AppError(
+          "MODEL_UNAVAILABLE",
+          "This model does not support prompt enhancement.",
+          503,
+        );
+      const output = enhanceBuildPromptSchema.safeParse(
+        await llm.enhanceBuildPrompt({ profileId, prompt }),
+      );
+      if (!output.success)
+        throw new AppError(
+          "MODEL_OUTPUT_INVALID",
+          "The model returned an invalid enhanced prompt. Try again or edit it yourself.",
+          502,
+          true,
+        );
+      return output.data;
+    },
+
     async getActive(profileId: string) {
       await profiles.assertExists(profileId);
       return (await challenges.findActive(profileId)).map(toChallenge);
@@ -96,6 +118,16 @@ export function createChallengeService(dependencies: {
     async getSaved(profileId: string) {
       await profiles.assertExists(profileId);
       return (await challenges.findSaved(profileId)).map(toChallenge);
+    },
+
+    async getArchived(profileId: string) {
+      await profiles.assertExists(profileId);
+      return (await challenges.findArchived(profileId)).map(toChallenge);
+    },
+
+    async setArchived(id: string, profileId: string, archived: boolean) {
+      await owned(id, profileId);
+      return toChallenge((await challenges.setArchived(id, archived))!);
     },
 
     async getHistory(profileId: string) {
@@ -226,6 +258,12 @@ export function createChallengeService(dependencies: {
 
     async complete(id: string, profileId: string) {
       const challenge = await owned(id, profileId);
+      if (challenge.archivedAt || challenge.status === "saved")
+        throw new AppError(
+          "CHALLENGE_INACTIVE",
+          "Restore this challenge before changing its status.",
+          409,
+        );
       if (challenge.status === "completed") return toChallenge(challenge);
       return toChallenge((await challenges.complete(id))!);
     },
@@ -234,7 +272,13 @@ export function createChallengeService(dependencies: {
       profileId: string,
       status: "active" | "paused" | "saved" | "stopped",
     ) {
-      await owned(id, profileId);
+      const challenge = await owned(id, profileId);
+      if (challenge.archivedAt)
+        throw new AppError(
+          "CHALLENGE_INACTIVE",
+          "Restore this challenge before changing its status.",
+          409,
+        );
       return toChallenge((await challenges.setStatus(id, status))!);
     },
 

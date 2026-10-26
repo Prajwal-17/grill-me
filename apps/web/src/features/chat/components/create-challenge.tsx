@@ -6,8 +6,9 @@ import {
   LoaderCircle,
   Network,
   Target,
+  WandSparkles,
 } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { RecentBuilds } from "./recent-builds";
 import { Button } from "@/shared/components/ui/button";
@@ -83,6 +84,9 @@ export function GenerationHome({ profile }: { profile: Profile }) {
     canFallback,
     generate,
     prepare,
+    enhance,
+    originalPrompt,
+    undoEnhancement,
     busy,
     error,
     reset,
@@ -91,6 +95,10 @@ export function GenerationHome({ profile }: { profile: Profile }) {
     skipClarification,
   } = useCreateBuild(profile);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (enhance.isSuccess && !busy)
+      textarea.current?.focus({ preventScroll: true });
+  }, [enhance.isSuccess, busy]);
 
   return (
     <main className="h-full min-h-0 overflow-y-auto overscroll-contain px-5 py-8 sm:px-8 md:py-14">
@@ -193,7 +201,7 @@ export function GenerationHome({ profile }: { profile: Profile }) {
                   />
                 </div>
 
-                <div className="flex min-w-0 items-center justify-between gap-1.5 border-t border-line/70 px-2 py-2 sm:gap-2 sm:px-2.5">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-line/70 px-2 py-2 sm:px-2.5">
                   <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
                     <BuildOptionMenu
                       label="Build scope"
@@ -216,36 +224,74 @@ export function GenerationHome({ profile }: { profile: Profile }) {
                       }}
                     />
                   </div>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="icon"
-                    aria-label={
-                      prepare.isPending
-                        ? "Checking request"
-                        : generate.isPending || generate.isSuccess
-                          ? "Creating build"
-                          : generate.error && ready
-                            ? "Try creating build again"
-                            : "Create build"
-                    }
-                    disabled={
-                      busy ||
-                      Boolean(clarification?.question) ||
-                      prompt.trim().length < 3
-                    }
-                    className="size-9 shrink-0 rounded-md"
-                  >
-                    {busy ? (
-                      <LoaderCircle size={16} className="animate-spin" />
-                    ) : (
-                      <ArrowUp size={16} />
-                    )}
-                  </Button>
+                  <div className="ml-auto flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={busy || !prompt.trim()}
+                      aria-label={
+                        enhance.isPending
+                          ? "Enhancing prompt"
+                          : "Enhance prompt"
+                      }
+                      onClick={() => enhance.mutate(prompt)}
+                    >
+                      {enhance.isPending ? (
+                        <LoaderCircle size={14} className="animate-spin" />
+                      ) : (
+                        <WandSparkles size={14} />
+                      )}
+                      {enhance.isPending ? "Enhancing…" : "Enhance"}
+                    </Button>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="icon"
+                      aria-label={
+                        prepare.isPending
+                          ? "Checking request"
+                          : generate.isPending || generate.isSuccess
+                            ? "Creating build"
+                            : generate.error && ready
+                              ? "Try creating build again"
+                              : "Create build"
+                      }
+                      disabled={
+                        busy ||
+                        Boolean(clarification?.question) ||
+                        prompt.trim().length < 3
+                      }
+                      className="size-9 shrink-0 rounded-md"
+                    >
+                      {busy ? (
+                        <LoaderCircle size={16} className="animate-spin" />
+                      ) : (
+                        <ArrowUp size={16} />
+                      )}
+                    </Button>
+                  </div>
                 </div>
               </form>
             )}
           </PromptSurface>
+          {originalPrompt !== null && (
+            <div className="mt-2 flex items-center gap-2 text-metadata text-muted">
+              <span role="status">Prompt enhanced</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  undoEnhancement();
+                  textarea.current?.focus({ preventScroll: true });
+                }}
+              >
+                Undo
+              </Button>
+            </div>
+          )}
           {prompt.length > 3600 && (
             <p className="mt-2 text-right text-metadata text-muted">
               {prompt.length}/4000

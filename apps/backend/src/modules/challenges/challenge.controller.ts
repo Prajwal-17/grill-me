@@ -9,6 +9,7 @@ import {
   challengeParamsSchema,
   generateChallengeRequestSchema,
   prepareChallengeRequestSchema,
+  enhanceBuildPromptSchema,
 } from "./challenge.schema";
 
 function profileId(c: Context) {
@@ -29,11 +30,33 @@ function challengeId(c: Context) {
 
 export function createChallengeController(service: ChallengeService) {
   return {
+    enhancePrompt: async (c: Context) => {
+      const input = parseInput(
+        enhanceBuildPromptSchema,
+        await readJson(c.req.raw),
+      );
+      return c.json({
+        data: await service.enhancePrompt(profileId(c), input.prompt),
+      });
+    },
     active: async (c: Context) =>
       c.json({ data: await service.getActive(profileId(c)) }),
 
     saved: async (c: Context) =>
       c.json({ data: await service.getSaved(profileId(c)) }),
+
+    archived: async (c: Context) =>
+      c.json({ data: await service.getArchived(profileId(c)) }),
+
+    archive: async (c: Context) =>
+      c.json({
+        data: await service.setArchived(challengeId(c), profileId(c), true),
+      }),
+
+    restore: async (c: Context) =>
+      c.json({
+        data: await service.setArchived(challengeId(c), profileId(c), false),
+      }),
 
     history: async (c: Context) =>
       c.json({ data: await service.getHistory(profileId(c)) }),

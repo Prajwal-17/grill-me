@@ -32,9 +32,9 @@ test("redesigned surfaces retain named controls and fit narrow screens", async (
     });
   }
   await page.goto("/challenges");
-  await page.getByRole("tab", { name: /Saved for later/ }).click();
+  await page.getByRole("tab", { name: /Archived/ }).click();
   await expect(
-    page.getByRole("heading", { name: "No saved challenges" }),
+    page.getByRole("heading", { name: "No archived challenges" }),
   ).toBeVisible();
   await page.screenshot({
     path: `${artifacts}/after-saved.png`,

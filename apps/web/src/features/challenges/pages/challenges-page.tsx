@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Plus, Search } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button, buttonStyles } from "@/shared/components/ui/button";
@@ -17,7 +17,7 @@ import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
 import {
   challengeKeys,
   getActiveChallenges,
-  getSavedChallenges,
+  getArchivedChallenges,
   getChallengeHistory,
 } from "@/features/challenges/api/challenge-api";
 import { ChallengeTable } from "@/features/challenges/components/challenge-table";
@@ -65,15 +65,20 @@ export function ChallengesPage() {
   const [difficulty, setDifficulty] = useState("all");
   const [scope, setScope] = useState("all");
   const [sort, setSort] = useState("newest");
-  const [status, setStatus] = useState("active");
+  const [params, setParams] = useSearchParams();
+  const requestedStatus = params.get("status");
+  const status =
+    requestedStatus === "archived" || requestedStatus === "completed"
+      ? requestedStatus
+      : "active";
   const active = useQuery({
     queryKey: challengeKeys.active(profile?.id),
     queryFn: () => getActiveChallenges(profile!.id),
     enabled: Boolean(profile),
   });
-  const saved = useQuery({
-    queryKey: challengeKeys.saved(profile?.id),
-    queryFn: () => getSavedChallenges(profile!.id),
+  const archived = useQuery({
+    queryKey: challengeKeys.archived(profile?.id),
+    queryFn: () => getArchivedChallenges(profile!.id),
     enabled: Boolean(profile),
   });
   const history = useQuery({
@@ -83,7 +88,7 @@ export function ChallengesPage() {
   });
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
-  const error = active.error ?? saved.error ?? history.error;
+  const error = active.error ?? archived.error ?? history.error;
   const collections = [
     {
       value: "active",
@@ -92,10 +97,10 @@ export function ChallengesPage() {
       empty: "No active challenges",
     },
     {
-      value: "saved",
-      label: "Saved for later",
-      data: saved.data ?? [],
-      empty: "No saved challenges",
+      value: "archived",
+      label: "Archived",
+      data: archived.data ?? [],
+      empty: "No archived challenges",
     },
     {
       value: "completed",
@@ -118,7 +123,7 @@ export function ChallengesPage() {
         </Link>
       }
     >
-      {active.isLoading || saved.isLoading || history.isLoading ? (
+      {active.isLoading || archived.isLoading || history.isLoading ? (
         <LoadingScreen />
       ) : error ? (
         <ErrorState
@@ -126,7 +131,7 @@ export function ChallengesPage() {
           message={error.message}
           onRetry={() => {
             void active.refetch();
-            void saved.refetch();
+            void archived.refetch();
             void history.refetch();
           }}
         />
@@ -134,7 +139,12 @@ export function ChallengesPage() {
         <main className="h-full min-h-0 overflow-y-auto overscroll-contain p-4 md:p-6">
           <Tabs
             value={status}
-            onValueChange={setStatus}
+            onValueChange={(value) =>
+              setParams((current) => {
+                current.set("status", value);
+                return current;
+              })
+            }
             className="mx-auto w-full max-w-[1200px] gap-4"
           >
             <div className="overflow-x-auto">

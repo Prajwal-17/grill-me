@@ -114,6 +114,7 @@ export const challengeSchema = challengeContentSchema.extend({
   status: z.enum(["active", "paused", "saved", "stopped", "completed"]),
   createdAt: z.string(),
   completedAt: z.string().nullable(),
+  archivedAt: z.string().nullable().default(null),
 });
 
 const buildRequestSchema = z.object({
@@ -124,6 +125,10 @@ const buildRequestSchema = z.object({
 });
 
 export const prepareChallengeRequestSchema = buildRequestSchema;
+
+export const enhanceBuildPromptSchema = z.object({
+  prompt: z.string().trim().min(1).max(4_000),
+});
 
 export const clarificationContextSchema = z.object({
   question: z.string().trim().min(5).max(240),

@@ -45,6 +45,7 @@ export const challenge: Challenge = {
   completionCriteria: ["Preserve every word."],
   hint: null,
   status: "active",
+  archivedAt: null,
   createdAt: profile.createdAt,
   completedAt: null,
 };
@@ -168,6 +169,7 @@ export const test = base.extend<{ apiRequests: string[] }>({
                 "/progress",
                 "/quizzes",
                 "/challenges/saved",
+                "/challenges/archived",
                 "/challenges/history",
               ].includes(url.pathname) ||
               /^\/challenges\/build-(one|two)\/(messages|submissions|quizzes)$/.test(

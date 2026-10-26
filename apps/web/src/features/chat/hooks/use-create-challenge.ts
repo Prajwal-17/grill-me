@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { useEffect, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   challengeKeys,
   generateChallenge,
   prepareChallenge,
+  enhanceBuildPrompt,
 } from "@/features/challenges/api/challenge-api";
 import { ApiClientError } from "@/shared/lib/api-client";
 import { useBuildStore } from "@/features/chat/stores/chat-store";
@@ -60,7 +61,15 @@ export function useCreateBuild(profile: Profile) {
     resetBuild,
   } = useBuildStore();
 
-  useEffect(() => () => resetBuild(), [resetBuild]);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      resetBuild();
+    };
+  }, [resetBuild]);
+  const [originalPrompt, setOriginalPrompt] = useState<string | null>(null);
 
   const generate = useMutation({
     mutationFn: (history: ClarificationContext[]) =>
@@ -105,9 +114,27 @@ export function useCreateBuild(profile: Profile) {
       }
     },
   });
-  const busy = prepare.isPending || generate.isPending || generate.isSuccess;
+  const enhance = useMutation({
+    mutationFn: (original: string) => enhanceBuildPrompt(profile.id, original),
+    onSuccess: (result, original) => {
+      if (!mounted.current || useBuildStore.getState().prompt !== original)
+        return;
+      resetFlow();
+      prepare.reset();
+      generate.reset();
+      setOriginalPrompt(original);
+      setPrompt(result.prompt);
+    },
+  });
+  const busy =
+    prepare.isPending ||
+    generate.isPending ||
+    generate.isSuccess ||
+    enhance.isPending;
   const clarificationError = clarificationFromError(generate.error);
-  const error = clarificationError ? null : (generate.error ?? prepare.error);
+  const error =
+    enhance.error ??
+    (clarificationError ? null : (generate.error ?? prepare.error));
   const canFallback =
     prepare.error instanceof TypeError ||
     (prepare.error instanceof ApiClientError &&
@@ -116,6 +143,8 @@ export function useCreateBuild(profile: Profile) {
     resetFlow();
     prepare.reset();
     generate.reset();
+    enhance.reset();
+    setOriginalPrompt(null);
   }
   function submit(event?: FormEvent) {
     event?.preventDefault();
@@ -173,6 +202,13 @@ export function useCreateBuild(profile: Profile) {
     canFallback,
     generate,
     prepare,
+    enhance,
+    originalPrompt,
+    undoEnhancement: () => {
+      if (originalPrompt === null || busy) return;
+      setPrompt(originalPrompt);
+      reset();
+    },
     busy,
     error,
     reset,

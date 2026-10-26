@@ -2,6 +2,7 @@ export type LogStatus = "running" | "success" | "error" | "cancelled";
 export type LogOperation =
   | "resume_import"
   | "preparation"
+  | "prompt_enhancement"
   | "generation"
   | "clarify"
   | "review"

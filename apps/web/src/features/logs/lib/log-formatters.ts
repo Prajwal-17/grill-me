@@ -8,6 +8,7 @@ export const OPERATION_LABELS: Record<LogOperation, string> = {
   resume_import: "Resume import",
   quiz_title_generation: "Quiz title",
   preparation: "Request check",
+  prompt_enhancement: "Prompt enhancement",
   generation: "Build generation",
   clarify: "Chat",
   review: "Solution review",

@@ -13,6 +13,11 @@ import {
   verificationPrompt,
   judgePrompt,
 } from "../src/modules/ai/prompts/judge";
+import {
+  quizPrompt,
+  QUIZ_PROMPT_VERSION,
+} from "../src/modules/ai/prompts/generate-quiz";
+import { profilePreferencesSchema } from "../src/modules/profiles/profile.schema";
 
 const build = {
   title: "Group words",
@@ -50,6 +55,101 @@ const evidence = {
     "The execution environment could not start. This is not a source defect.",
   checks: [],
 };
+
+test("standalone quizzes preserve the full request and project relevant developer context without identity", () => {
+  const request =
+    "I just learned Python closures. Compare captured state and ordinary function arguments; exclude decorators.";
+  const preferences = profilePreferencesSchema.parse({
+    profileId: crypto.randomUUID(),
+    updatedAt: "2026-10-01T00:00:00Z",
+    developerContextUpdatedAt: "2026-09-01T00:00:00Z",
+    displayName: "Private Learner",
+    aboutMe: "Private Learner builds tools; contact learner@example.test",
+    topicFamiliarity: [
+      { topic: "Python closures", familiarity: "new" },
+      { topic: "Go channels", familiarity: "comfortable" },
+    ],
+    projects: [
+      {
+        name: "Python scripts",
+        technologies: ["Python"],
+        contribution: "Used closures in Python.",
+      },
+      {
+        name: "Unrelated dashboard",
+        technologies: ["React"],
+        contribution: "Styled forms.",
+      },
+    ],
+  });
+  for (const difficulty of ["easy", "medium", "hard", "grill"] as const) {
+    const prompt = quizPrompt({
+      challenge: null,
+      profileId: preferences.profileId,
+      prompt: request,
+      difficulty,
+      preferences,
+      coverage: "topic",
+      questionCount: 5,
+      previousQuestions: ["Which state is captured?"],
+    });
+    const input = JSON.parse(prompt.input);
+    expect(input).toMatchObject({
+      currentRequest: request,
+      selectedDifficulty: difficulty,
+      questionCount: 5,
+      promptVersion: QUIZ_PROMPT_VERSION,
+    });
+    expect(input.previousQuestions).toEqual(["Which state is captured?"]);
+    expect(input.developerContext.updatedAt).toBe(
+      preferences.developerContextUpdatedAt,
+    );
+    expect(input.developerContext.topicFamiliarity).toEqual([
+      { topic: "Python closures", familiarity: "new" },
+    ]);
+    expect(
+      input.developerContext.projects.map((p: { name: string }) => p.name),
+    ).toEqual(["Python scripts"]);
+    expect(prompt.input).not.toContain("Private Learner");
+    expect(prompt.input).not.toContain("learner@example.test");
+    expect(prompt.input).not.toContain(preferences.profileId);
+  }
+});
+
+test("challenge quizzes use the frozen contract and selected coverage without unrelated snapshots", () => {
+  const developerContext = {
+    updatedAt: "2025-01-01T00:00:00Z",
+    knownConcepts: ["Maps"],
+  };
+  for (const coverage of ["challenge", "related", "mixed"] as const) {
+    const prompt = quizPrompt({
+      challenge: {
+        ...challenge,
+        contextSnapshot: { developerContext, privateMetadata: "do not send" },
+      },
+      coverage,
+      questionCount: 10,
+      previousQuestions: [],
+    });
+    const input = JSON.parse(prompt.input);
+    expect(input.developerContext).toEqual(developerContext);
+    expect(input.coverage).toBe(coverage);
+    expect(input.selectedDifficulty).toBe(challenge.difficulty);
+    expect(input.challenge.completionCriteria).toEqual(
+      challenge.completionCriteria,
+    );
+    expect(input.challenge.problemStatement).toBe(challenge.problemStatement);
+    expect(prompt.input).not.toContain("do not send");
+    expect(input).not.toHaveProperty("currentRequest");
+  }
+  const legacy = quizPrompt({
+    challenge: { ...challenge, contextSnapshot: null },
+    coverage: "mixed",
+    questionCount: 5,
+    previousQuestions: [],
+  });
+  expect(JSON.parse(legacy.input).developerContext).toBeNull();
+});
 function accepted(): ReviewResult {
   return {
     verdict: "accepted",
