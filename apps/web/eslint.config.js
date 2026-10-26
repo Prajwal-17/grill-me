@@ -1,4 +1,12 @@
-import { nextJsConfig } from "@repo/eslint-config/next-js";
+import { config } from "@repo/eslint-config/react-internal";
+import globals from "globals";
 
 /** @type {import("eslint").Linter.Config[]} */
-export default nextJsConfig;
+export default [
+  ...config,
+  { ignores: ["dist/**", "test-results/**", "playwright-report/**"] },
+  {
+    files: ["*.config.ts", "e2e/**/*.ts"],
+    languageOptions: { globals: globals.node },
+  },
+];

@@ -18,11 +18,7 @@ node_modules
 # Turbo
 .turbo
 
-# Vercel
-.vercel
-
 # Build Outputs
-.next/
 out/
 build
 dist
@@ -45,3 +41,7 @@ apps/backend/.data/
 
 # Local design verification captures
 **/.impeccable/review/
+
+# Browser test artifacts
+playwright-report/
+test-results/

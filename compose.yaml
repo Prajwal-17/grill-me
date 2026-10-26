@@ -49,8 +49,8 @@ services:
       context: .
       target: web
       args:
-        NEXT_PUBLIC_API_URL: http://localhost:17017
-        NEXT_PUBLIC_APP_ENV: production
+        VITE_API_URL: http://localhost:17017
+        VITE_APP_ENV: production
     ports:
       - "127.0.0.1:17018:17018"
     depends_on:

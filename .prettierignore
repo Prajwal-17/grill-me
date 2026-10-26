@@ -4,3 +4,7 @@ apps/backend/drizzle/meta/
 
 # Local runtime and review artifacts
 .data/
+
+**/dist/
+**/playwright-report/
+**/test-results/

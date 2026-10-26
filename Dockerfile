@@ -13,10 +13,14 @@ WORKDIR /app/apps/backend
 ENV NODE_ENV=production APP_ENV=production API_HOST=0.0.0.0 API_PORT=17017 CODEX_HOME=/codex-state
 CMD ["bun", "run", "start"]
 
-FROM base AS web
-ARG NEXT_PUBLIC_API_URL=http://localhost:17017
-ARG NEXT_PUBLIC_APP_ENV=production
-ENV NODE_ENV=production APP_ENV=production NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL NEXT_PUBLIC_APP_ENV=$NEXT_PUBLIC_APP_ENV
+FROM base AS web-build
+ARG VITE_API_URL=http://localhost:17017
+ARG VITE_APP_ENV=production
+ENV VITE_API_URL=$VITE_API_URL VITE_APP_ENV=$VITE_APP_ENV
 WORKDIR /app/apps/web
 RUN bun run build
-CMD ["bun", "run", "start"]
+
+FROM nginx:stable-alpine AS web
+COPY infra/nginx/web.conf /etc/nginx/conf.d/default.conf
+COPY --from=web-build /app/apps/web/dist /usr/share/nginx/html
+EXPOSE 17018
