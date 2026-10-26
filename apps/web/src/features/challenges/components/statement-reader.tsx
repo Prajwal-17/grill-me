@@ -55,7 +55,7 @@ export function StatementReader({ challenge }: { challenge: Challenge }) {
           }}
           aria-current={active === item.id ? "location" : undefined}
           className={cn(
-            "block rounded py-1.5 pr-2 text-left text-xs leading-5 text-muted hover:text-foreground focus-visible:outline-offset-0",
+            "block rounded py-1.5 pr-2 text-left text-metadata leading-5 text-muted hover:text-foreground focus-visible:outline-offset-0",
             active === item.id && "bg-elevated text-foreground",
           )}
           style={{ paddingLeft: 8 + Math.max(0, item.depth - 2) * 10 }}
@@ -73,7 +73,7 @@ export function StatementReader({ challenge }: { challenge: Challenge }) {
       <div className="min-w-0">
         <div className="mb-4 xl:hidden">
           <details className="min-w-0 xl:hidden">
-            <summary className="flex cursor-pointer list-none items-center gap-2 rounded py-1.5 text-xs text-muted">
+            <summary className="flex cursor-pointer list-none items-center gap-2 rounded py-1.5 text-metadata text-muted">
               <List size={14} />
               On this page
             </summary>

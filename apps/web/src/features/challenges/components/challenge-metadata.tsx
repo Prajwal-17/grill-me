@@ -38,11 +38,16 @@ export function ChallengeMetadata({
       aria-label="Build details"
     >
       {metadata.map(({ label, value }) => {
-        const DifficultyIcon = DIFFICULTY_ICONS[challenge.contextualDifficulty];
+        const difficulty =
+          challenge.estimatedDifficultyScore === null
+            ? challenge.difficulty
+            : challenge.contextualDifficulty;
+        const DifficultyIcon = DIFFICULTY_ICONS[difficulty];
         return (
           <span
             key={label}
             title={label}
+            data-difficulty={label === "Difficulty" ? difficulty : undefined}
             data-grill-badge={
               (label === "Difficulty" &&
                 challenge.contextualDifficulty === "grill") ||
@@ -50,7 +55,10 @@ export function ChallengeMetadata({
             }
             className={cn(
               "inline-flex items-center rounded-md border border-line bg-canvas text-muted",
-              compact ? "px-1.5 py-0.5 text-[11px]" : "px-2 py-1 text-xs",
+              label === "Scope" && "border-brand/25 bg-brand-soft text-brand",
+              compact
+                ? "px-1.5 py-0.5 text-metadata"
+                : "px-2 py-1 text-metadata",
               variant === "columns" && "w-fit whitespace-nowrap",
               variant === "columns" &&
                 label !== "Scope" &&

@@ -64,7 +64,7 @@ export function ApprovalCard({
             id={id}
             ref={heading}
             tabIndex={-1}
-            className="mt-2 text-sm font-medium leading-6 outline-none"
+            className="mt-2 text-ui font-medium leading-6 outline-none"
           >
             {question}
           </h2>
@@ -98,7 +98,7 @@ export function ApprovalCard({
                     aria-hidden="true"
                     className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border border-line-strong peer-checked:border-foreground peer-checked:after:size-2 peer-checked:after:rounded-full peer-checked:after:bg-foreground"
                   />
-                  <span className="min-w-0 break-words text-sm leading-5">
+                  <span className="min-w-0 break-words text-ui leading-5">
                     {option.label}
                   </span>
                 </label>

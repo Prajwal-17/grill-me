@@ -14,7 +14,7 @@ export function LogStatusBadge({ status }: { status: LogStatus }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[11px] font-medium leading-4",
+        "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-metadata font-medium leading-4",
         status === "success"
           ? "border-success/20 bg-success/5 text-success"
           : status === "error"

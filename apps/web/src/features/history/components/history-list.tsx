@@ -1,4 +1,5 @@
 import { TopicProgressView } from "./topic-progress";
+import { useState } from "react";
 import { Link } from "react-router";
 import { History } from "lucide-react";
 import type { Challenge } from "@/shared/types/api";
@@ -7,8 +8,17 @@ import { Button, buttonStyles } from "@/shared/components/ui/button";
 import {
   HistoryFilters,
   type HistoryScope,
+  type HistorySort,
 } from "@/features/history/components/history-filters";
 import { HistoryRow } from "@/features/history/components/history-row";
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table";
+import { CollectionSummary } from "@/shared/components/layout/collection-toolbar";
 
 export function HistoryList({
   profileId,
@@ -25,45 +35,67 @@ export function HistoryList({
   scope: HistoryScope;
   setScope: (value: HistoryScope) => void;
 }) {
-  const filtered = challenges.filter((challenge) => {
-    const matchesScope = scope === "all" || challenge.scope === scope;
-    const terms = [
-      `#${challenge.number}`,
-      challenge.title,
-      ...buildMetadata(challenge).map((item) => item.value),
-    ]
-      .join(" ")
-      .toLowerCase();
-    return matchesScope && terms.includes(search.trim().toLowerCase());
-  });
+  const [sort, setSort] = useState<HistorySort>("newest");
+  const filtered = challenges
+    .filter((challenge) => {
+      const matchesScope = scope === "all" || challenge.scope === scope;
+      const terms = [
+        `#${challenge.number}`,
+        challenge.title,
+        ...buildMetadata(challenge).map((item) => item.value),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return matchesScope && terms.includes(search.trim().toLowerCase());
+    })
+    .sort((a, b) => {
+      if (sort === "title") return a.title.localeCompare(b.title);
+      const dates = (a.completedAt ?? a.createdAt).localeCompare(
+        b.completedAt ?? b.createdAt,
+      );
+      return sort === "oldest" ? dates : -dates;
+    });
 
   return (
     <main className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-12 pt-7 md:px-8 md:pb-16 md:pt-8">
-        <div className="mx-auto w-full max-w-[1100px]">
-          <TopicProgressView profileId={profileId} />
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6">
+        <div className="mx-auto w-full max-w-[1280px]">
           {challenges.length ? (
             <>
-              <HistoryFilters
-                search={search}
-                setSearch={setSearch}
-                scope={scope}
-                setScope={setScope}
-              />
-              <div className="overflow-hidden rounded-xl border border-line">
-                <div className="hidden grid-cols-[minmax(0,1fr)_minmax(220px,320px)_130px_24px] gap-4 border-b border-line bg-canvas px-5 py-3 text-xs text-muted md:grid">
-                  <span>Build</span>
-                  <span>Details</span>
-                  <span>Completed</span>
-                  <span />
-                </div>
+              <div className="overflow-hidden rounded-lg border border-line">
+                <HistoryFilters
+                  search={search}
+                  setSearch={setSearch}
+                  scope={scope}
+                  setScope={setScope}
+                  sort={sort}
+                  setSort={setSort}
+                />
                 {filtered.length ? (
-                  filtered.map((challenge) => (
-                    <HistoryRow key={challenge.id} challenge={challenge} />
-                  ))
+                  <Table className="table-fixed">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Build</TableHead>
+                        <TableHead className="hidden w-[310px] md:table-cell">
+                          Details
+                        </TableHead>
+                        <TableHead className="hidden w-[140px] sm:table-cell">
+                          Completed
+                        </TableHead>
+                        <TableHead className="w-10">
+                          <span className="sr-only">Open build</span>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filtered.map((challenge) => (
+                        <HistoryRow key={challenge.id} challenge={challenge} />
+                      ))}
+                    </TableBody>
+                  </Table>
                 ) : (
                   <div className="px-5 py-12 text-center">
-                    <p className="text-sm text-muted">
+                    <p className="text-ui text-muted">
                       No builds match your search.
                     </p>
                     <Button
@@ -72,6 +104,7 @@ export function HistoryList({
                       onClick={() => {
                         setSearch("");
                         setScope("all");
+                        setSort("newest");
                       }}
                     >
                       Clear filters
@@ -79,6 +112,12 @@ export function HistoryList({
                   </div>
                 )}
               </div>
+              <CollectionSummary>
+                <span>
+                  {filtered.length} of {challenges.length} builds
+                </span>
+                <span>Completed and stopped</span>
+              </CollectionSummary>
             </>
           ) : (
             <div className="rounded-xl border border-line bg-panel p-8 md:py-14">
@@ -92,6 +131,7 @@ export function HistoryList({
               </Link>
             </div>
           )}
+          <TopicProgressView profileId={profileId} />
         </div>
       </div>
     </main>

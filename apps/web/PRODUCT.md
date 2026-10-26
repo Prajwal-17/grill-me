@@ -6,8 +6,12 @@ Users describe what they want to learn, choose scope and difficulty, build in th
 
 The interface should be comfortable for sustained practice: readable task text, compact navigation, clear controls, and accessible keyboard operation. It supports light and dark themes and narrow touch screens. This is a personal workspace, without a team or project-management layer. Local profile selection is not authentication.
 
-The confirmed visual direction borrows T3 Code's consistency of panels, icons, and spacing. The user requires the exact original committed palette: white and charcoal surfaces, foreground-colored primary actions, original semantic colors, the full-color logo, and orange scoped to Grill difficulty. The beige/terracotta and added blue palette was rejected. Improvements must be limited to restrained fills, hover, focus, and border treatment; do not reinterpret the color identity. They selected the flexible workspace: task-focused tabs, with an optional challenge reference beside the active task on wide screens and in a drawer on smaller screens.
+The interface uses shadcn/Radix, with T3Code as a reference for spacing, surface hierarchy, compact navigation, and settings organization. Preserve Grill Me's original neutral charcoal/white palette, inverted monochrome actions, full-color logo, and orange Grill difficulty identity. The user explicitly rejected both the gray-blue replacement and the saturated navy/cobalt replacement. Refinement means improving tonal separation, contrast, borders, and interaction states within the original palette; it does not authorize changing the hue family. Collections emphasize search/filter/sort controls, settings use task-specific sections, and active work keeps task tabs with optional reference and file panels.
 
 Preserve existing data, API contracts, frozen challenge requirements, scoring rules, explicit completion, code attachment behavior, and quiz save/recovery behavior when extending the UI. Source product details live in the repository README; visual rules and tokens live in DESIGN.md.
 
 This is a personal developer tool. Keep screens focused on controls, data, and results. Omit taglines, promotional empty states, routine instructions, and duplicate descriptions. Preserve field names, accessible semantics, technical limits, keyboard shortcuts, errors, and meaningful state.
+
+Typography uses locally served Inter Variable for interface/prose and IBM Plex
+Mono for code and paths. This follows the user's explicit typography refinement
+request; the original palette and softened border system remain authoritative.

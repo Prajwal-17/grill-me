@@ -53,7 +53,7 @@ export function MultiSelect<T extends string>({
     );
   return (
     <div className="min-w-0">
-      <span id={id} className="mb-2 block text-sm font-medium">
+      <span id={id} className="mb-2 block text-ui font-medium">
         {label}
       </span>
       <Popover open={open} onOpenChange={setOpen}>
@@ -144,7 +144,7 @@ export function MultiSelect<T extends string>({
             </CommandList>
           </Command>
           <div className="flex items-center justify-between border-t border-line p-2">
-            <span className="px-1 text-xs text-muted">
+            <span className="px-1 text-metadata text-muted">
               {value.length} selected
             </span>
             <Button
@@ -163,7 +163,7 @@ export function MultiSelect<T extends string>({
           {selected.map((o) => (
             <span
               key={o.id}
-              className="inline-flex min-w-0 items-center gap-1 rounded-md bg-canvas py-0.5 pl-2 text-xs text-foreground"
+              className="inline-flex min-w-0 items-center gap-1 rounded-md bg-canvas py-0.5 pl-2 text-metadata text-foreground"
             >
               <span className="truncate">{o.label}</span>
               <button

@@ -10,7 +10,7 @@ export function QuizzesPage() {
 
   return (
     <AppShell profile={profile} title="Quizzes" contentScrollable={false}>
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1200px] flex-col px-5 py-7 md:px-8 md:py-8">
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1200px] flex-col p-4 md:p-6">
         <QuizWorkspace key={profile.id} profileId={profile.id} />
       </main>
     </AppShell>

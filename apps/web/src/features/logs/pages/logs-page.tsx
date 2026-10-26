@@ -58,7 +58,7 @@ export function LogsPage() {
         </Button>
       }
     >
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col px-4 py-5 md:px-8 md:py-8">
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col p-4 md:p-6">
         {logs.isLoading ? (
           <div className="min-h-0 flex-1 overflow-y-auto">
             <LoadingScreen label="Loading logs…" />
@@ -84,11 +84,11 @@ export function LogsPage() {
                 aria-live="polite"
                 aria-busy={logs.isFetching}
               >
-                <table className="w-full min-w-[680px] table-fixed border-collapse text-left text-xs">
+                <table className="w-full min-w-[680px] table-fixed border-collapse text-left text-supporting">
                   <caption className="sr-only">
                     AI request logs, newest first
                   </caption>
-                  <thead className="sticky top-0 z-10 border-b border-line bg-surface/95 text-[11px] text-muted backdrop-blur-sm">
+                  <thead className="sticky top-0 z-10 border-b border-line bg-panel text-metadata text-muted">
                     <tr>
                       <th scope="col" className="w-[34%] px-3 py-2 font-medium">
                         Request
@@ -139,10 +139,10 @@ export function LogsPage() {
                             )}
                             className="block min-w-0 rounded-sm outline-offset-4"
                           >
-                            <span className="block truncate font-medium group-hover:underline">
+                            <span className="block truncate text-ui font-medium group-hover:underline">
                               {OPERATION_LABELS[log.operation]}
                             </span>
-                            <span className="mt-0.5 block truncate text-[11px] text-muted">
+                            <span className="mt-0.5 block truncate text-metadata text-muted">
                               {log.preview || "No request preview"}
                             </span>
                           </Link>
@@ -154,7 +154,7 @@ export function LogsPage() {
                           >
                             {log.actualModel ?? log.requestedModel}
                           </span>
-                          <span className="mt-0.5 block text-[11px] text-muted">
+                          <span className="mt-0.5 block text-metadata text-muted">
                             {log.streamed ? "Streamed" : "Structured"}
                           </span>
                         </td>
@@ -170,7 +170,7 @@ export function LogsPage() {
                         <td className="px-3 py-2.5 text-right tabular-nums text-muted">
                           {formatLatency(log.durationMs)}
                         </td>
-                        <td className="hidden px-3 py-2.5 text-right text-[11px] tabular-nums text-muted xl:table-cell">
+                        <td className="hidden px-3 py-2.5 text-right text-metadata tabular-nums text-muted xl:table-cell">
                           <time dateTime={log.startedAt}>
                             {formatLogDate(log.startedAt)}
                           </time>

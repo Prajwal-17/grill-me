@@ -81,13 +81,13 @@ export function AttemptReview({
   const VerdictIcon = verdict?.icon;
 
   return (
-    <article className="mx-auto w-full max-w-[820px]">
+    <article className="mx-auto w-full max-w-[70ch]">
       <header className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold">
+          <h3 className="text-ui font-semibold">
             Submission {attempt.sequence}
           </h3>
-          <p className="mt-1 flex items-center gap-1.5 text-xs text-muted">
+          <p className="mt-1 flex items-center gap-1.5 text-metadata text-muted">
             <Clock3 size={12} />
             <time dateTime={attempt.createdAt}>
               {formatDate(attempt.createdAt)}
@@ -124,8 +124,8 @@ export function AttemptReview({
         <div role="status" className="flex items-center gap-3 py-8">
           <LoaderCircle size={17} className="animate-spin" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">Reviewing submission</p>
-            <p className="mt-1 truncate text-xs text-muted">
+            <p className="text-ui font-medium">Reviewing submission</p>
+            <p className="mt-1 truncate text-metadata text-muted">
               {review.progress || "Inspecting your implementation…"}
             </p>
           </div>
@@ -140,12 +140,10 @@ export function AttemptReview({
           <div className="flex items-start gap-3">
             <XCircle size={17} className="mt-0.5 text-destructive" />
             <div>
-              <p role="alert" className="text-sm font-medium">
+              <p role="alert" className="text-ui font-medium">
                 Review failed
               </p>
-              <p className="mt-1 text-sm leading-6 text-muted">
-                {review.error}
-              </p>
+              <p className="mt-1 text-reading text-muted">{review.error}</p>
               <Button
                 className="mt-3"
                 size="sm"
@@ -162,7 +160,7 @@ export function AttemptReview({
 
       {review?.status === "cancelled" && !review.error && (
         <div className="flex items-center justify-between gap-3 border-b border-line py-5">
-          <p className="text-sm text-muted">Review cancelled</p>
+          <p className="text-ui text-muted">Review cancelled</p>
           <Button
             size="sm"
             disabled={busy}
@@ -183,40 +181,47 @@ export function AttemptReview({
                   size={19}
                   className={cn("shrink-0", verdict.className)}
                 />
-                <h3 className={cn("text-lg font-semibold", verdict.className)}>
+                <h3
+                  className={cn(
+                    "text-section font-semibold",
+                    verdict.className,
+                  )}
+                >
                   {verdict.label}
                 </h3>
               </div>
-              <p className="font-mono text-xl font-semibold tabular-nums">
+              <p className="text-section font-semibold tabular-nums">
                 {review.score === null ? "—" : review.score}
-                <span className="text-xs font-normal text-muted">/10</span>
+                <span className="text-metadata font-normal text-muted">
+                  /10
+                </span>
               </p>
             </div>
-            <div className="mt-5 text-[15px] leading-7">
+            <div className="mt-5 text-reading leading-7">
               <Markdown>{result.summary}</Markdown>
             </div>
           </section>
 
           {result.nextStep && (
             <section className="my-5 rounded-lg border border-line bg-panel p-4">
-              <h4 className="text-sm font-semibold">Next step</h4>
-              <p className="mt-2 text-sm leading-6">{result.nextStep}</p>
+              <h4 className="text-ui font-semibold">Next step</h4>
+              <p className="mt-2 text-reading">{result.nextStep}</p>
             </section>
           )}
 
           {!!result.findings.length && (
             <section className="border-b border-line py-6">
-              <h4 className="text-sm font-semibold">Findings</h4>
+              <h4 className="text-ui font-semibold">Findings</h4>
               <div className="mt-4 divide-y divide-line">
                 {result.findings.map((finding, index) => (
                   <div key={index} className="py-4 first:pt-0 last:pb-0">
-                    <p className="text-sm font-medium">{finding.issue}</p>
+                    <p className="text-reading font-medium">{finding.issue}</p>
                     {finding.location && (
-                      <code className="mt-2 block break-all font-mono text-xs text-brand">
+                      <code className="mt-2 block break-all font-mono text-metadata text-brand">
                         {finding.location}
                       </code>
                     )}
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted">
+                    <p className="mt-2 whitespace-pre-wrap text-reading text-muted">
                       {finding.evidence}
                     </p>
                   </div>
@@ -227,8 +232,8 @@ export function AttemptReview({
 
           {!!result.optionalImprovements.length && (
             <section className="border-b border-line py-5">
-              <h4 className="text-sm font-semibold">Suggestions</h4>
-              <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
+              <h4 className="text-ui font-semibold">Suggestions</h4>
+              <ul className="mt-3 list-disc space-y-2 pl-5 text-reading text-muted">
                 {result.optionalImprovements.map((item, index) => (
                   <li key={index}>{item}</li>
                 ))}
@@ -241,8 +246,8 @@ export function AttemptReview({
               <div className="flex items-start gap-2">
                 <MessageSquare size={15} className="mt-1 shrink-0" />
                 <div>
-                  <h4 className="text-sm font-semibold">Reviewer question</h4>
-                  <p className="mt-2 text-sm leading-6">{result.question}</p>
+                  <h4 className="text-ui font-semibold">Reviewer question</h4>
+                  <p className="mt-2 text-reading">{result.question}</p>
                 </div>
               </div>
             </section>
@@ -284,11 +289,11 @@ export function AttemptReview({
             )}
           </div>
 
-          <details className="group border-b border-line py-4 text-sm">
+          <details className="group border-b border-line py-4 text-ui">
             <summary className="flex list-none items-center gap-2 text-muted hover:text-foreground">
               <ChevronRight
                 size={14}
-                className="transition-transform group-open:rotate-90"
+                className="motion-chevron group-open:rotate-90"
               />
               Assessment details
             </summary>
@@ -302,13 +307,13 @@ export function AttemptReview({
                   const value = dimension as typeof result.correctness;
                   return (
                     <div key={label as string}>
-                      <dt className="text-xs font-medium">
+                      <dt className="text-ui font-medium">
                         {label as string}:{" "}
                         {value.score === null
                           ? "Unassessed"
                           : value.score + "/" + max}
                       </dt>
-                      <dd className="mt-1 text-xs leading-5 text-muted">
+                      <dd className="mt-1 text-reading text-muted">
                         {value.evidence}
                       </dd>
                     </div>
@@ -317,10 +322,10 @@ export function AttemptReview({
               </dl>
 
               <div>
-                <h4 className="text-xs font-medium">Completion criteria</h4>
+                <h4 className="text-ui font-medium">Completion criteria</h4>
                 <ul className="mt-2 divide-y divide-line">
                   {result.criteria.map((criterion) => (
-                    <li key={criterion.id} className="py-2 text-xs">
+                    <li key={criterion.id} className="py-2 text-reading">
                       <p className="mb-1 font-medium">
                         {requirements[Number(criterion.id.slice(1)) - 1] ??
                           "Requirement"}
@@ -332,7 +337,7 @@ export function AttemptReview({
                             ? "Met"
                             : "Unmet"}
                       </span>
-                      <p className="mt-1 leading-5 text-muted">
+                      <p className="mt-1 text-reading text-muted">
                         {criterion.evidence}
                       </p>
                     </li>
@@ -340,7 +345,7 @@ export function AttemptReview({
                 </ul>
               </div>
 
-              <p className="text-xs text-muted">
+              <p className="text-metadata text-muted">
                 {review.judge === "codex" ? "Project review" : "Direct review"}
                 {" · "}
                 {result.verification === "checks_run"
@@ -361,7 +366,7 @@ export function AttemptReview({
       )}
 
       {review?.judge === "codex" && (
-        <details className="group py-4 text-xs text-muted">
+        <details className="group py-4 text-metadata text-muted">
           <summary className="flex list-none items-center gap-2 hover:text-foreground">
             <TerminalSquare size={14} />
             Review logs

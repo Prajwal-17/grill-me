@@ -1,6 +1,7 @@
 import { env } from "@/shared/config/env";
 
 import { useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 
 const STATUSES = ["all", "draft", "submitted", "new", "deleted"] as const;
 const DIFFICULTIES = ["all", "easy", "medium", "hard", "grill"] as const;
@@ -43,11 +44,51 @@ function readSettings(key: string): QuizListState {
 
 export function useQuizListState(profileId: string) {
   const key = `grill-me.quiz-library.${env.appEnv}.${profileId}`;
-  const [settings, setSettings] = useState(() => readSettings(key));
+  const [stored] = useState(() => readSettings(key));
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const { hash } = useLocation();
+  // Keep collection state shareable without touching challenge id/tab parameters.
+  const hasUrlState = [
+    "quizSearch",
+    "quizStatus",
+    "quizDifficulty",
+    "quizSort",
+    "quizPage",
+  ].some((key) => params.has(key));
+  const settings: QuizListState = hasUrlState
+    ? {
+        search: (params.get("quizSearch") ?? "").slice(0, 200),
+        status: STATUSES.includes(
+          params.get("quizStatus") as QuizListState["status"],
+        )
+          ? (params.get("quizStatus") as QuizListState["status"])
+          : defaults.status,
+        difficulty: DIFFICULTIES.includes(
+          params.get("quizDifficulty") as QuizListState["difficulty"],
+        )
+          ? (params.get("quizDifficulty") as QuizListState["difficulty"])
+          : defaults.difficulty,
+        sort: SORTS.includes(params.get("quizSort") as QuizListState["sort"])
+          ? (params.get("quizSort") as QuizListState["sort"])
+          : defaults.sort,
+        page:
+          Number.isSafeInteger(Number(params.get("quizPage"))) &&
+          Number(params.get("quizPage")) > 0
+            ? Number(params.get("quizPage"))
+            : 1,
+      }
+    : stored;
 
   function updateSettings(changes: Partial<QuizListState>) {
     const next = { ...settings, ...changes };
-    setSettings(next);
+    const updated = new URLSearchParams(params);
+    updated.set("quizSearch", next.search);
+    updated.set("quizStatus", next.status);
+    updated.set("quizDifficulty", next.difficulty);
+    updated.set("quizSort", next.sort);
+    updated.set("quizPage", String(next.page));
+    void navigate({ search: updated.toString(), hash }, { replace: true });
     try {
       localStorage.setItem(key, JSON.stringify({ version: 1, ...next }));
     } catch {

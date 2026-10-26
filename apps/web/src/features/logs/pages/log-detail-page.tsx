@@ -49,7 +49,7 @@ export function LogDetailPage({ id }: { id: string }) {
             {log.challengeId && (
               <Link
                 to={`/chat?id=${log.challengeId}`}
-                className="inline-flex items-center gap-1.5 rounded-sm text-sm text-muted hover:text-foreground"
+                className="inline-flex items-center gap-1.5 rounded-sm text-ui text-muted hover:text-foreground"
               >
                 Open build
                 <ArrowUpRight size={15} />
@@ -59,7 +59,7 @@ export function LogDetailPage({ id }: { id: string }) {
         ) : undefined
       }
     >
-      <main className="mx-auto w-full max-w-[1160px] px-5 py-8 md:px-10 md:py-10">
+      <main className="mx-auto w-full max-w-[1280px] p-4 md:p-6">
         {query.isLoading ? (
           <LoadingScreen label="Loading request…" />
         ) : query.error ? (
@@ -72,18 +72,18 @@ export function LogDetailPage({ id }: { id: string }) {
           log && (
             <>
               {log.preview && (
-                <p className="break-words text-sm leading-6 text-muted">
+                <p className="break-words text-ui leading-6 text-muted">
                   {log.preview}
                 </p>
               )}
-              <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+              <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-metadata text-muted">
                 <time dateTime={log.startedAt}>
                   {formatLogDate(log.startedAt)}
                 </time>
                 <span className="break-all font-mono">{log.id}</span>
                 <CopyButton text={log.id} label="Copy ID" />
               </div>
-              <dl className="my-7 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-line py-5 sm:grid-cols-3 lg:grid-cols-4">
+              <dl className="my-5 grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-line bg-panel p-4 sm:grid-cols-3 lg:grid-cols-4">
                 {[
                   ["Requested model", log.requestedModel],
                   ["Returned model", log.actualModel ?? "Not reported"],
@@ -107,8 +107,8 @@ export function LogDetailPage({ id }: { id: string }) {
                   ],
                 ].map(([label, value]) => (
                   <div key={label} className="min-w-0">
-                    <dt className="text-xs text-muted">{label}</dt>
-                    <dd className="mt-1.5 break-words text-sm tabular-nums">
+                    <dt className="text-metadata text-muted">{label}</dt>
+                    <dd className="mt-1.5 break-words text-ui tabular-nums">
                       {value}
                     </dd>
                   </div>
@@ -117,7 +117,7 @@ export function LogDetailPage({ id }: { id: string }) {
               {log.error && (
                 <div
                   role="alert"
-                  className="mb-6 flex gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm"
+                  className="mb-6 flex gap-3 rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-ui"
                 >
                   <CircleAlert
                     size={17}
@@ -132,7 +132,7 @@ export function LogDetailPage({ id }: { id: string }) {
                         log.error.message ?? "No error message was returned.",
                       )}
                     </p>
-                    <p className="mt-2 text-xs text-muted">
+                    <p className="mt-2 text-metadata text-muted">
                       Any received response and stream events are retained
                       below.
                     </p>
@@ -165,7 +165,7 @@ export function LogDetailPage({ id }: { id: string }) {
                     }
                   />
                   {log.status !== "success" && log.responseText && (
-                    <p className="mt-3 text-xs text-muted">
+                    <p className="mt-3 text-metadata text-muted">
                       This is partial or invalid output from a request that did
                       not pass.
                     </p>
@@ -195,7 +195,7 @@ export function LogDetailPage({ id }: { id: string }) {
                   />
                 </TabsContent>
               </Tabs>
-              <div className="mt-6 grid gap-2 border-t border-line pt-5 text-xs leading-5 text-muted">
+              <div className="mt-6 grid gap-2 border-t border-line pt-5 text-metadata leading-5 text-muted">
                 <p className="break-all">Endpoint: {log.endpoint}</p>
                 {log.providerRequestId && (
                   <p className="break-all">

@@ -32,36 +32,35 @@ export function AppShell({
   const { collapsed, toggle, open, setOpen } = useAppNavigation();
   const sidebarLabel = collapsed ? "Open sidebar" : "Collapse sidebar";
   return (
-    <div className="flex h-dvh overflow-hidden bg-chrome md:p-2 md:pl-0">
+    <div className="flex h-dvh overflow-hidden bg-chrome">
       <a
         href="#app-content"
-        className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-lg bg-foreground px-4 py-2 text-sm text-canvas focus:translate-y-0"
+        className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-lg bg-foreground px-4 py-2 text-ui text-canvas focus:translate-y-0"
       >
         Skip to content
       </a>
       <aside
         id="desktop-sidebar"
         className={cn(
-          "hidden h-full w-[224px] shrink-0 overflow-hidden transition-[width] duration-200 ease-out motion-reduce:transition-none md:block",
+          "hidden h-full w-[var(--workspace-sidebar-width)] shrink-0 overflow-hidden md:block",
           collapsed && "md:w-0",
         )}
         aria-label="Sidebar"
         aria-hidden={collapsed || undefined}
         inert={collapsed}
       >
-        <div className="h-full w-[224px]">
+        <div className="h-full w-[var(--workspace-sidebar-width)]">
           <Navigation profile={profile} />
         </div>
       </aside>
       <div
         className={cn(
-          "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface md:rounded-xl md:border md:border-line",
-          collapsed && "md:ml-2",
+          "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-canvas md:border-l md:border-line",
         )}
       >
         <header
           data-slot="page-header"
-          className="z-30 flex min-h-[52px] shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-3 py-2 sm:px-4"
+          className="z-30 flex min-h-[var(--workspace-header-height)] shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-3 py-2 sm:px-5"
         >
           <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
             <div className="hidden shrink-0 md:block">
@@ -98,7 +97,7 @@ export function AppShell({
             </div>
             <MobileNavigation profile={profile} open={open} setOpen={setOpen} />
             <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
-              <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[13px]">
+              <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-ui">
                 {breadcrumbs.map(({ label, href }) => (
                   <li key={href} className="flex shrink-0 items-center gap-2">
                     <Link

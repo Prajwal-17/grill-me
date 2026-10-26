@@ -43,7 +43,7 @@ export function HistoryPage() {
       contentScrollable={false}
       actions={
         !selectedId && history.data ? (
-          <span className="text-xs tabular-nums text-muted">
+          <span className="text-metadata tabular-nums text-muted">
             {history.data.filter((c) => c.status === "completed").length}{" "}
             completed
           </span>
@@ -60,8 +60,8 @@ export function HistoryPage() {
         />
       ) : selectedId ? (
         <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
-          <h2 className="text-xl font-semibold">Build not found</h2>
-          <p className="mt-3 text-sm text-muted">
+          <h2 className="text-section font-semibold">Build not found</h2>
+          <p className="mt-3 text-ui text-muted">
             This build is not in your completed history.
           </p>
           <Link to="/history" className={buttonStyles("secondary") + " mt-5"}>

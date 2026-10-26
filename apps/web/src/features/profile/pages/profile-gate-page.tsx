@@ -20,19 +20,22 @@ export function ProfileGatePage() {
     if (email.trim()) start.mutate();
   }
   return (
-    <main className="flex min-h-dvh flex-col gap-12 px-5 pb-16">
-      <header className="-mx-5 flex min-h-16 items-center justify-between gap-4 border-b border-line px-5 py-2">
-        <BrandLockup />
+    <main className="flex min-h-dvh flex-col gap-12 bg-chrome px-5 pb-16">
+      <header className="-mx-5 flex min-h-[52px] items-center justify-between gap-4 border-b border-line px-5 py-2">
+        <BrandLockup markClassName="size-7" wordmarkClassName="text-ui" />
         <div className="w-40">
           <ThemeSelect />
         </div>
       </header>
-      <section className="mx-auto my-auto w-full max-w-[400px] rounded-xl border border-line bg-surface p-7 sm:p-8">
-        <h1 className="text-[26px] font-semibold leading-[1.2] tracking-[-0.025em]">
+      <section className="mx-auto my-auto w-full max-w-[420px] rounded-xl border border-line bg-surface p-6 sm:p-8">
+        <h1 className="text-section font-semibold tracking-[-0.02em]">
           Choose a profile
         </h1>
-        <form onSubmit={submit} className="mt-7 grid gap-4">
-          <label className="grid gap-2 text-sm font-medium" htmlFor="email">
+        <p className="mt-2 text-ui leading-6 text-muted">
+          Open your local practice workspace.
+        </p>
+        <form onSubmit={submit} className="mt-6 grid gap-5">
+          <label className="grid gap-2 text-ui font-medium" htmlFor="email">
             Profile email
             <Input
               id="email"
@@ -58,7 +61,7 @@ export function ProfileGatePage() {
           {start.error && (
             <p
               role="alert"
-              className="flex items-start gap-2 text-sm leading-6 text-destructive"
+              className="flex items-start gap-2 text-ui leading-6 text-destructive"
             >
               <AlertCircle size={16} className="shrink-0" />
               {start.error.message}

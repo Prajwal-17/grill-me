@@ -30,7 +30,7 @@ export function ChoiceSelect({
     >
       <SelectTrigger
         aria-label={label}
-        className={className ?? "w-full bg-surface shadow-xs"}
+        className={className ?? "w-full bg-surface shadow-none"}
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

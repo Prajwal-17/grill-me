@@ -26,7 +26,7 @@ export function ChallengeCard({
         ? Blocks
         : Target;
   return (
-    <article className={cn("mx-auto w-full min-w-0 max-w-[76ch]", className)}>
+    <article className={cn("mx-auto w-full min-w-0 max-w-[70ch]", className)}>
       <header className="mb-6 border-b border-line pb-5">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
@@ -36,7 +36,7 @@ export function ChallengeCard({
           {headerAction}
         </div>
         {showTitle && (
-          <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.025em]">
+          <h1 className="text-title font-semibold leading-tight tracking-[-0.02em]">
             <span className="mr-2 font-normal text-muted">
               #{challenge.number}
             </span>
@@ -44,7 +44,7 @@ export function ChallengeCard({
           </h1>
         )}
       </header>
-      <div className="text-base leading-7 [overflow-wrap:anywhere]">
+      <div className="text-reading [overflow-wrap:anywhere]">
         <Markdown headingPrefix={headingPrefix}>
           {statementBody(challenge)}
         </Markdown>

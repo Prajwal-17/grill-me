@@ -1,5 +1,5 @@
 import { Check, Copy } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/shared/components/ui/button";
 
 export function CopyButton({
@@ -12,6 +12,11 @@ export function CopyButton({
   ariaLabel?: string;
 }) {
   const [state, setState] = useState<"idle" | "copied" | "error">("idle");
+  useEffect(() => {
+    if (state !== "copied") return;
+    const timer = window.setTimeout(() => setState("idle"), 1800);
+    return () => window.clearTimeout(timer);
+  }, [state]);
   return (
     <span className="inline-flex flex-col items-end">
       <Button
@@ -27,17 +32,30 @@ export function CopyButton({
           }
         }}
       >
-        {state === "copied" ? <Check size={14} /> : <Copy size={14} />}
-        <span aria-live="polite">
-          {state === "copied"
-            ? "Copied"
-            : state === "error"
-              ? "Retry copy"
-              : label}
+        {state === "copied" ? (
+          <Check size={14} className="feedback-check" />
+        ) : (
+          <Copy size={14} />
+        )}
+        <span className="grid" aria-live="polite">
+          {/* Reserve label width so acknowledgement never moves adjacent actions. */}
+          {(["idle", "copied", "error"] as const).map((value) => (
+            <span
+              key={value}
+              className={`col-start-1 row-start-1 ${state === value ? "" : "invisible"}`}
+              aria-hidden={state !== value}
+            >
+              {value === "idle"
+                ? label
+                : value === "copied"
+                  ? "Copied"
+                  : "Retry copy"}
+            </span>
+          ))}
         </span>
       </Button>
       {state === "error" && (
-        <span role="alert" className="text-xs text-destructive">
+        <span role="alert" className="text-metadata text-destructive">
           Clipboard unavailable. Select and copy the text.
         </span>
       )}

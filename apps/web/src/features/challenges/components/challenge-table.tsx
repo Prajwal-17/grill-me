@@ -10,13 +10,13 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border border-line",
+        "overflow-hidden rounded-lg border border-line bg-surface",
         styles.table,
       )}
     >
       <div
         className={cn(
-          "border-b border-line bg-panel px-4 py-3 text-[11px] text-muted",
+          "border-b border-line bg-panel px-4 py-2 text-metadata text-muted",
           styles.header,
         )}
         aria-hidden="true"
@@ -48,7 +48,7 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
                     : "/chat?id=" + challenge.id
                 }
                 className={cn(
-                  "group px-4 py-4 outline-offset-[-3px] transition-colors hover:bg-panel",
+                  "group px-4 py-3 outline-offset-[-3px] transition-colors hover:bg-panel",
                   styles.row,
                 )}
               >
@@ -61,24 +61,24 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
                   <Icon
                     size={16}
                     strokeWidth={1.5}
-                    className="shrink-0 text-muted"
+                    className="shrink-0 text-brand"
                     aria-hidden="true"
                   />
                   <div className="min-w-0 [overflow-wrap:anywhere]">
-                    <h3 className="text-sm font-medium leading-5">
+                    <h3 className="text-ui font-medium leading-5">
                       <span className="mr-2 font-normal text-muted">
                         #{challenge.number}
                       </span>
                       {challenge.title}
                       {(challenge.status === "paused" ||
                         challenge.status === "stopped") && (
-                        <span className="ml-2 inline-block rounded-md bg-canvas px-1.5 text-[11px] font-normal text-muted">
+                        <span className="ml-2 inline-block rounded-md bg-canvas px-1.5 text-metadata font-normal text-muted">
                           {challenge.status === "paused" ? "Paused" : "Stopped"}
                         </span>
                       )}
                     </h3>
                     {completed && challenge.completedAt && (
-                      <p className="text-[11px] text-muted">
+                      <p className="text-metadata text-muted">
                         Completed {formatDate(challenge.completedAt)}
                       </p>
                     )}

@@ -154,8 +154,8 @@ test("unknown routes recover and local assets load", async ({ page }) => {
   ).toBeGreaterThan(0);
   expect(
     await page.evaluate(async () => {
-      await document.fonts.load('16px "IBM Plex Sans"');
-      return document.fonts.check('16px "IBM Plex Sans"');
+      await document.fonts.load('16px "Inter Variable"');
+      return document.fonts.check('16px "Inter Variable"');
     }),
   ).toBe(true);
 });

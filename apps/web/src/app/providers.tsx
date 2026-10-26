@@ -10,7 +10,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       {env.appEnv === "development" && (
         <div
           aria-label="Development environment"
-          className="pointer-events-none fixed bottom-3 right-3 z-[100] rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-[11px] font-semibold tracking-wider text-muted"
+          className="pointer-events-none fixed bottom-3 right-3 z-[100] rounded-md border border-line bg-elevated px-2.5 py-1 font-mono text-metadata font-semibold tracking-wider text-muted"
         >
           DEV
         </div>

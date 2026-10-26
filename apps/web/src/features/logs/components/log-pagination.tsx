@@ -20,7 +20,7 @@ export function LogPagination({
   const navClass = buttonStyles("ghost", "icon-sm");
   return (
     <footer className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-line px-3 py-2">
-      <p className="text-xs tabular-nums text-muted">
+      <p className="text-metadata tabular-nums text-muted">
         {data.total === 0
           ? "0 requests"
           : `${(data.page - 1) * data.pageSize + 1}–${Math.min(data.page * data.pageSize, data.total)} of ${data.total.toLocaleString()} requests`}

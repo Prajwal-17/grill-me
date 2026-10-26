@@ -110,7 +110,7 @@ function FileTabs({
                   }
                 }}
                 className={cn(
-                  "group relative flex h-full max-w-48 shrink-0 cursor-default items-center gap-1.5 border-r border-line px-3 font-mono text-[11px] outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
+                  "group relative flex h-full max-w-48 shrink-0 cursor-default items-center gap-1.5 border-r border-line px-3 font-mono text-metadata outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
                   active
                     ? "bg-canvas/50 text-foreground after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[var(--grill-accent)]"
                     : "text-muted hover:bg-elevated/50 hover:text-foreground",
@@ -166,7 +166,7 @@ function FileTabs({
 function SourcePath({ path }: { path: string }) {
   const segments = path.split("/");
   return (
-    <div className="flex min-w-0 items-center gap-1 overflow-hidden font-mono text-[11px]">
+    <div className="flex min-w-0 items-center gap-1 overflow-hidden font-mono text-metadata">
       {segments.map((segment, index) => (
         <span key={segments.slice(0, index + 1).join("/")} className="contents">
           {index > 0 && <span className="text-muted/60">/</span>}
@@ -195,10 +195,10 @@ function FileUnavailable({
   return (
     <div className="flex h-full min-h-56 flex-col items-center justify-center px-8 text-center">
       <FileQuestion size={22} className="text-muted" />
-      <p className="mt-3 text-sm font-medium">
+      <p className="mt-3 text-ui font-medium">
         {tooLarge ? "File is too large to preview" : "Preview unavailable"}
       </p>
-      <p className="mt-1 max-w-xs text-xs leading-5 text-muted">
+      <p className="mt-1 max-w-xs text-metadata leading-5 text-muted">
         {tooLarge
           ? "Files over 2 MB stay in the submission but are not rendered here."
           : binary
@@ -296,7 +296,7 @@ function SubmissionFilesSurface({
     "--trees-selected-bg-override": "var(--elevated)",
     "--trees-selected-focused-border-color-override": "var(--line-strong)",
     "--trees-font-family-override": "var(--font-plex-mono)",
-    "--trees-font-size-override": "12px",
+    "--trees-font-size-override": "0.8125rem",
     "--trees-border-radius-override": "5px",
     "--trees-focus-ring-width-override": "1px",
   };
@@ -304,8 +304,8 @@ function SubmissionFilesSurface({
     display: "block",
     minHeight: "100%",
     "--diffs-font-family": "var(--font-plex-mono)",
-    "--diffs-font-size": "12px",
-    "--diffs-line-height": "20px",
+    "--diffs-font-size": "0.8125rem",
+    "--diffs-line-height": "1.375rem",
     "--diffs-gap-inline": "10px",
   };
 
@@ -317,18 +317,18 @@ function SubmissionFilesSurface({
       <header className="flex h-11 shrink-0 items-center gap-2 border-b border-line px-3">
         <FileCode2 size={15} className="text-muted" />
         {expanded ? (
-          <DialogTitle className="text-sm leading-none font-semibold">
+          <DialogTitle className="text-ui leading-none font-semibold">
             Submission files
           </DialogTitle>
         ) : (
-          <h2 className="text-sm font-semibold">Submission files</h2>
+          <h2 className="text-ui font-semibold">Submission files</h2>
         )}
-        <span className="text-xs tabular-nums text-muted">
+        <span className="text-metadata tabular-nums text-muted">
           {attempt.manifest.length}
         </span>
         {submissionCount > 1 && (
           <span
-            className="hidden min-w-0 items-center gap-1 truncate border-l border-line pl-2 text-[11px] text-muted sm:flex"
+            className="hidden min-w-0 items-center gap-1 truncate border-l border-line pl-2 text-metadata text-muted sm:flex"
             title="The file viewer shows the complete saved snapshot for the selected submission."
           >
             <Info size={12} />
@@ -423,10 +423,10 @@ function SubmissionFilesSurface({
             {selectedPath ? (
               <SourcePath path={selectedPath} />
             ) : (
-              <span className="text-xs text-muted">Select a file</span>
+              <span className="text-metadata text-muted">Select a file</span>
             )}
             {selectedFile && (
-              <span className="shrink-0 font-mono text-[10px] text-muted">
+              <span className="shrink-0 font-mono text-metadata text-muted">
                 {formatBytes(selectedFile.bytes)}
               </span>
             )}
@@ -435,7 +435,7 @@ function SubmissionFilesSurface({
             {file.isLoading ? (
               <div
                 role="status"
-                className="flex h-full min-h-56 items-center justify-center gap-2 text-xs text-muted"
+                className="flex h-full min-h-56 items-center justify-center gap-2 text-metadata text-muted"
               >
                 <LoaderCircle size={14} className="animate-spin" />
                 Loading file…
@@ -446,7 +446,7 @@ function SubmissionFilesSurface({
                 className="flex h-full min-h-56 flex-col items-center justify-center px-8 text-center"
               >
                 <FileQuestion size={22} className="text-destructive" />
-                <p className="mt-3 text-sm font-medium">
+                <p className="mt-3 text-ui font-medium">
                   Could not load this file
                 </p>
                 <Button
@@ -485,7 +485,7 @@ function SubmissionFilesSurface({
             ) : (
               <div className="flex h-full min-h-56 flex-col items-center justify-center text-muted">
                 <Braces size={20} />
-                <p className="mt-2 text-xs">Select a file to preview</p>
+                <p className="mt-2 text-metadata">Select a file to preview</p>
               </div>
             )}
           </div>
@@ -506,7 +506,7 @@ function SubmissionFilesSurface({
                 }
                 placeholder="Search files"
                 aria-label="Search submission files"
-                className="h-8 border-transparent bg-elevated/60 pr-2 pl-8 font-mono text-xs shadow-none focus-visible:border-line-strong focus-visible:ring-0 md:h-8"
+                className="h-8 border-transparent bg-elevated/60 pr-2 pl-8 font-mono text-metadata shadow-none focus-visible:border-line-strong focus-visible:ring-0 md:h-8"
               />
             </div>
             <div className="min-h-0 flex-1 p-1.5">

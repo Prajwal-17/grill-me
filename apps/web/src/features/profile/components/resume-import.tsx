@@ -130,9 +130,9 @@ export function ResumeImport({
         </DialogHeader>
         {!pending && !draft && (
           <div className="grid gap-5">
-            <label className="grid gap-2 text-sm font-medium">
+            <label className="grid gap-2 text-ui font-medium">
               Choose a document
-              <span className="text-xs font-normal text-muted">
+              <span className="text-metadata font-normal text-muted">
                 PDF or DOCX · up to 10 MiB · PDFs up to 30 pages
               </span>
               <Input
@@ -146,7 +146,7 @@ export function ResumeImport({
               />
             </label>
             <div className="grid gap-3 border-t border-line pt-5">
-              <label className="grid gap-2 text-sm font-medium">
+              <label className="grid gap-2 text-ui font-medium">
                 Or paste resume text
                 <Textarea
                   rows={7}
@@ -173,7 +173,7 @@ export function ResumeImport({
             className="flex flex-col items-center gap-3 py-8 text-center"
           >
             <LoaderCircle size={24} className="animate-spin text-muted" />
-            <p className="text-sm">Preparing your developer profile draft…</p>
+            <p className="text-ui">Preparing your developer profile draft…</p>
             <Button
               type="button"
               onClick={() => {
@@ -187,7 +187,7 @@ export function ResumeImport({
           </div>
         )}
         {error && (
-          <p role="alert" className="text-sm leading-6 text-destructive">
+          <p role="alert" className="text-ui leading-6 text-destructive">
             {error}
           </p>
         )}
@@ -197,7 +197,7 @@ export function ResumeImport({
               <p
                 key={warning}
                 role="status"
-                className="text-sm leading-6 text-warning"
+                className="text-ui leading-6 text-warning"
               >
                 {warning}
               </p>
@@ -207,7 +207,7 @@ export function ResumeImport({
                 key={key}
                 className="grid gap-3 border-t border-line pt-4"
               >
-                <label className="flex items-start gap-3 text-sm font-medium">
+                <label className="flex items-start gap-3 text-ui font-medium">
                   <input
                     type="checkbox"
                     className="mt-1 accent-foreground"
@@ -222,7 +222,7 @@ export function ResumeImport({
                   />
                   <span>
                     {labels[key]}
-                    <span className="mt-1 block text-xs font-normal text-muted">
+                    <span className="mt-1 block text-metadata font-normal text-muted">
                       {key === "languages" ||
                       key === "stack" ||
                       key === "projects"
@@ -258,7 +258,7 @@ export function ResumeImport({
                     onChange={(value) => edit("projects", value)}
                   />
                 ) : (
-                  <label className="grid gap-2 text-xs text-muted">
+                  <label className="grid gap-2 text-metadata text-muted">
                     One technology per line
                     <Textarea
                       aria-label={`Draft ${labels[key].toLowerCase()}`}
@@ -281,7 +281,7 @@ export function ResumeImport({
             ))}
             {selected.includes("projects") &&
               values.projects.length + draft.projects.length > 10 && (
-                <p className="text-xs leading-5 text-warning">
+                <p className="text-metadata leading-5 text-warning">
                   Your existing projects stay first. Only entries that fit
                   within the ten-project limit will be added.
                 </p>
@@ -339,7 +339,7 @@ export function ResumeImport({
             </div>
           </div>
         )}
-        <p className="border-t border-line pt-4 text-xs leading-5 text-muted">
+        <p className="border-t border-line pt-4 text-metadata leading-5 text-muted">
           Extracted text is sent to your configured AI provider and can appear
           in existing AI logs. Uploaded files are not retained. Scanned PDFs
           need readable text; OCR is not included.

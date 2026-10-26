@@ -10,7 +10,7 @@ export function PromptSurface({
     <div
       data-slot="prompt-surface"
       className={cn(
-        "overflow-hidden rounded-xl border border-line-strong bg-panel transition-colors duration-150 focus-within:border-ring",
+        "overflow-hidden rounded-xl border border-input bg-surface transition-colors duration-150 focus-within:border-ring",
         className,
       )}
       {...props}

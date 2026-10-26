@@ -139,12 +139,12 @@ function JsonNode({
         type="button"
         aria-expanded={open}
         onClick={() => onToggle(path)}
-        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm hover:bg-elevated/35"
+        className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-ui hover:bg-elevated/35"
       >
         <ChevronRight
           size={14}
           className={cn(
-            "shrink-0 text-muted transition-transform",
+            "shrink-0 text-muted motion-chevron",
             open && "rotate-90",
           )}
         />
@@ -156,7 +156,7 @@ function JsonNode({
             {readableKey(label)}
           </span>
         )}
-        <span className="ml-auto shrink-0 text-xs text-muted">
+        <span className="ml-auto shrink-0 text-metadata text-muted">
           {containerLabel(value)}
         </span>
       </button>
@@ -228,7 +228,7 @@ export function JsonInspector({
             aria-pressed={view === "formatted"}
             onClick={() => setView("formatted")}
             className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted hover:text-foreground",
+              "inline-flex h-7 items-center gap-1.5 rounded px-2 text-metadata text-muted hover:text-foreground",
               view === "formatted" &&
                 "bg-elevated font-medium text-foreground shadow-xs",
             )}
@@ -241,7 +241,7 @@ export function JsonInspector({
             aria-pressed={view === "source"}
             onClick={() => setView("source")}
             className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted hover:text-foreground",
+              "inline-flex h-7 items-center gap-1.5 rounded px-2 text-metadata text-muted hover:text-foreground",
               view === "source" &&
                 "bg-elevated font-medium text-foreground shadow-xs",
             )}
@@ -255,7 +255,7 @@ export function JsonInspector({
             <button
               type="button"
               onClick={() => setExpanded(new Set(paths))}
-              className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted hover:bg-elevated hover:text-foreground"
+              className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-metadata text-muted hover:bg-elevated hover:text-foreground"
             >
               <ChevronsUpDown size={13} />
               Expand all
@@ -263,7 +263,7 @@ export function JsonInspector({
             <button
               type="button"
               onClick={() => setExpanded(new Set())}
-              className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs text-muted hover:bg-elevated hover:text-foreground"
+              className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-metadata text-muted hover:bg-elevated hover:text-foreground"
             >
               <ChevronsDownUp size={13} />
               Collapse
@@ -275,7 +275,7 @@ export function JsonInspector({
         <div
           tabIndex={0}
           aria-label={`${label} formatted JSON`}
-          className="max-h-[65dvh] overflow-auto font-mono text-[13px] leading-5 outline-offset-[-2px]"
+          className="max-h-[65dvh] overflow-auto font-mono text-code leading-5 outline-offset-[-2px]"
         >
           <JsonNode
             value={value}
@@ -288,7 +288,7 @@ export function JsonInspector({
         <pre
           tabIndex={0}
           aria-label={`${label} JSON source`}
-          className="code-block m-0 max-h-[65dvh] overflow-auto whitespace-pre p-4 font-mono text-[13px] leading-6 outline-offset-[-2px]"
+          className="code-block m-0 max-h-[65dvh] overflow-auto whitespace-pre p-4 font-mono text-code leading-6 outline-offset-[-2px]"
         >
           {highlighted === null ? (
             <code>{source}</code>

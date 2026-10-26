@@ -339,10 +339,10 @@ export function PracticeWorkspace({
       actions={
         <>
           {challenge.status === "completed" && (
-            <span className="text-xs text-success">Completed</span>
+            <span className="text-metadata text-success">Completed</span>
           )}
           {challenge.status === "saved" && (
-            <span className="text-xs text-muted">Saved for later</span>
+            <span className="text-metadata text-muted">Saved for later</span>
           )}
           {(active || challenge.status === "paused") && (
             <Button
@@ -394,7 +394,7 @@ export function PracticeWorkspace({
           {error && (
             <p
               role="alert"
-              className="shrink-0 border-b border-line px-5 py-3 text-sm text-destructive"
+              className="shrink-0 border-b border-line px-5 py-3 text-ui text-destructive"
             >
               {error.message}
             </p>
@@ -404,7 +404,7 @@ export function PracticeWorkspace({
             onValueChange={setTab}
             className="min-h-0 flex-1 gap-0 overflow-hidden"
           >
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b border-line bg-panel px-3 md:px-5">
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b border-line bg-panel/60 px-2 md:px-5">
               <div className="min-w-0 overflow-x-auto">
                 <TabsList
                   variant="line"
@@ -471,8 +471,8 @@ export function PracticeWorkspace({
               value="overview"
               className="min-h-0 flex-1 overflow-y-auto"
             >
-              <div className="px-5 py-6 md:px-10">
-                <div className="mx-auto max-w-[850px] space-y-6">
+              <div className="px-4 py-6 md:px-8">
+                <div className="mx-auto max-w-[880px] space-y-6">
                   <ChallengeCard
                     challenge={challenge}
                     className="max-w-none"
@@ -513,19 +513,19 @@ export function PracticeWorkspace({
                       aria-live="polite"
                     >
                       {reply && (
-                        <div className="text-sm leading-6">
+                        <div className="text-ui leading-6">
                           <Markdown>{reply}</Markdown>
                         </div>
                       )}
                       {hint.isPending && !reply && (
-                        <p role="status" className="text-xs text-muted">
+                        <p role="status" className="text-metadata text-muted">
                           Preparing a hint…
                         </p>
                       )}
                     </section>
                   )}
                   {!!savedHints.length && (
-                    <details className="border-t border-line pt-4 text-sm">
+                    <details className="border-t border-line pt-4 text-ui">
                       <summary className="cursor-pointer text-muted">
                         Previous hints ({savedHints.length})
                       </summary>
@@ -539,7 +539,7 @@ export function PracticeWorkspace({
                     </details>
                   )}
                   {challenge.contextSnapshot && (
-                    <details className="text-xs text-muted">
+                    <details className="text-metadata text-muted">
                       <summary className="cursor-pointer">
                         Generation details
                       </summary>
@@ -555,13 +555,13 @@ export function PracticeWorkspace({
               value="submit"
               className="min-h-0 flex-1 overflow-y-auto"
             >
-              <div className="px-5 py-6 md:px-10">
+              <div className="px-4 py-6 md:px-8">
                 <section
-                  className="mx-auto max-w-[900px] space-y-5"
+                  className="mx-auto max-w-[880px] space-y-5"
                   aria-label="Submit implementation"
                 >
                   {!active && (
-                    <div className="rounded-lg border border-line bg-surface p-4 text-sm text-muted">
+                    <div className="rounded-lg border border-line bg-surface p-4 text-ui text-muted">
                       {challenge.status === "completed"
                         ? "You marked this challenge completed."
                         : challenge.status === "saved"
@@ -604,7 +604,7 @@ export function PracticeWorkspace({
             </TabsContent>
             <TabsContent value="reviews" className="min-h-0 overflow-hidden">
               {attempts.isLoading ? (
-                <p role="status" className="p-6 text-sm text-muted">
+                <p role="status" className="p-6 text-ui text-muted">
                   Loading submissions…
                 </p>
               ) : attempts.error ? (
@@ -630,7 +630,7 @@ export function PracticeWorkspace({
             </TabsContent>
             <TabsContent
               value="quizzes"
-              className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-10"
+              className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
             >
               <QuizWorkspace
                 profileId={profile.id}
@@ -643,7 +643,7 @@ export function PracticeWorkspace({
           <aside
             id="challenge-reference"
             aria-label="Challenge reference"
-            className="w-[340px] min-w-[300px] max-w-[35%] shrink-0 border-l border-line"
+            className="w-[340px] min-w-[300px] max-w-[35%] shrink-0 border-l border-line bg-panel"
             onKeyDown={(event) => {
               if (event.key === "Escape") {
                 event.stopPropagation();

@@ -46,13 +46,13 @@ export function AccountMenu({
           )}
           aria-label="Account"
         >
-          <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line bg-surface text-xs font-medium">
+          <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line bg-surface text-metadata font-medium">
             {name.charAt(0).toUpperCase()}
           </span>
           {!collapsed && (
             <>
               <span
-                className="min-w-0 flex-1 truncate text-left text-xs text-muted"
+                className="min-w-0 flex-1 truncate text-left text-metadata text-muted"
                 title={name}
               >
                 {name}
@@ -67,7 +67,7 @@ export function AccountMenu({
         align="start"
         className="w-64"
       >
-        <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal text-muted">
+        <DropdownMenuLabel className="flex items-center gap-2 text-metadata font-normal text-muted">
           <UserRound size={14} />
           <span className="truncate">{name}</span>
         </DropdownMenuLabel>

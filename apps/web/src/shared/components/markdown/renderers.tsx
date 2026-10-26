@@ -26,7 +26,7 @@ export const markdownComponents: Components = {
     <h1
       id={id}
       tabIndex={-1}
-      className="mt-5 mb-2 text-lg leading-6 font-semibold tracking-[-0.02em] first:mt-0"
+      className="mt-8 mb-3 text-section font-semibold first:mt-0"
     >
       {content}
     </h1>
@@ -35,7 +35,7 @@ export const markdownComponents: Components = {
     <h2
       id={id}
       tabIndex={-1}
-      className="mt-5 mb-2 text-base leading-6 font-semibold first:mt-0"
+      className="mt-7 mb-3 text-question font-semibold first:mt-0"
     >
       {content}
     </h2>
@@ -44,18 +44,18 @@ export const markdownComponents: Components = {
     <h3
       id={id}
       tabIndex={-1}
-      className="mt-4 mb-1.5 text-sm font-semibold first:mt-0"
+      className="mt-6 mb-2 text-reading font-semibold first:mt-0"
     >
       {content}
     </h3>
   ),
   h4: ({ children: content, id }) => (
-    <h4 id={id} tabIndex={-1} className="mt-5 mb-2 font-semibold">
+    <h4 id={id} tabIndex={-1} className="mt-5 mb-2 text-reading font-semibold">
       {content}
     </h4>
   ),
   h5: ({ children: content, id }) => (
-    <h5 id={id} tabIndex={-1} className="mt-4 mb-2 text-sm font-semibold">
+    <h5 id={id} tabIndex={-1} className="mt-4 mb-2 text-ui font-semibold">
       {content}
     </h5>
   ),
@@ -63,7 +63,7 @@ export const markdownComponents: Components = {
     <h6
       id={id}
       tabIndex={-1}
-      className="mt-4 mb-2 text-sm font-medium text-muted"
+      className="mt-4 mb-2 text-ui font-medium text-muted"
     >
       {content}
     </h6>
@@ -149,7 +149,7 @@ export const markdownComponents: Components = {
       tabIndex={0}
       className="my-5 max-w-full overflow-x-auto rounded-lg border border-line"
     >
-      <table className="w-full border-collapse text-left text-sm leading-6">
+      <table className="w-full border-collapse text-left text-ui leading-6">
         {content}
       </table>
     </div>

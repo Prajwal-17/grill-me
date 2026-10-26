@@ -15,6 +15,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { DeveloperProjects } from "./developer-projects";
 
+export type PreferenceSection = "profile" | "practice" | "projects" | "reviews";
 export type PreferenceValues = Omit<
   ProfilePreferences,
   "profileId" | "updatedAt" | "developerContextUpdatedAt"
@@ -35,12 +36,38 @@ export function preferenceValues(
   return values;
 }
 
+export function PreferenceRow({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid min-w-0 gap-2 border-b border-line py-4 last:border-b-0 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-6">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="pt-1.5 text-ui font-medium">
+          {label}
+        </label>
+      ) : (
+        <div className="pt-1.5 text-ui font-medium">{label}</div>
+      )}
+      <div className="min-w-0 [&_input]:text-ui [&_textarea]:text-ui [&_[role=combobox]]:h-9 [&>div>span[id]]:sr-only">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export function PreferencesFields({
   values,
   onChange,
   disabled = false,
   importAction,
   updatedAt,
+  section = "profile",
 }: {
   values: PreferenceValues;
   onChange: <K extends keyof PreferenceValues>(
@@ -50,42 +77,49 @@ export function PreferencesFields({
   disabled?: boolean;
   importAction?: ReactNode;
   updatedAt?: string | null;
+  section?: PreferenceSection;
 }) {
   return (
-    <div>
-      <section className="border-b border-line py-7">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[15px] font-semibold">Developer profile</h2>
+    <>
+      <section
+        data-preference-section="profile"
+        hidden={section !== "profile"}
+        aria-labelledby="profile-section-title"
+      >
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+          <h2
+            id="profile-section-title"
+            className="text-section font-semibold tracking-[-0.02em]"
+          >
+            Developer profile
+          </h2>
           {importAction}
         </div>
-        <div className="grid gap-5 md:ml-[174px]">
-          <label className="grid gap-2 text-sm font-medium">
-            Name
-            <Input
-              value={values.displayName ?? ""}
-              maxLength={120}
-              disabled={disabled}
-              autoComplete="name"
-              onChange={(event) =>
-                onChange("displayName", event.target.value || null)
-              }
-            />
-          </label>
-          <div className="grid gap-2">
-            <span className="text-sm font-medium">Experience</span>
-            <ChoiceSelect
-              label="Experience"
-              disabled={disabled}
-              value={values.experienceLevel ?? ""}
-              options={[{ id: "", label: "Not set" }, ...EXPERIENCE]}
-              onChange={(value) =>
-                onChange(
-                  "experienceLevel",
-                  (value || null) as PreferenceValues["experienceLevel"],
-                )
-              }
-            />
-          </div>
+        <PreferenceRow label="Name" htmlFor="preference-name">
+          <Input
+            id="preference-name"
+            value={values.displayName ?? ""}
+            maxLength={120}
+            disabled={disabled}
+            autoComplete="name"
+            onChange={(e) => onChange("displayName", e.target.value || null)}
+          />
+        </PreferenceRow>
+        <PreferenceRow label="Experience">
+          <ChoiceSelect
+            label="Experience"
+            disabled={disabled}
+            value={values.experienceLevel ?? ""}
+            options={[{ id: "", label: "Not set" }, ...EXPERIENCE]}
+            onChange={(value) =>
+              onChange(
+                "experienceLevel",
+                (value || null) as PreferenceValues["experienceLevel"],
+              )
+            }
+          />
+        </PreferenceRow>
+        <PreferenceRow label="Languages">
           <MultiSelect
             label="Languages"
             options={LANGUAGES}
@@ -94,6 +128,8 @@ export function PreferencesFields({
             disabled={disabled}
             onChange={(value) => onChange("languages", value)}
           />
+        </PreferenceRow>
+        <PreferenceRow label="Stack">
           <MultiSelect
             label="Stack"
             options={STACK}
@@ -102,52 +138,38 @@ export function PreferencesFields({
             disabled={disabled}
             onChange={(value) => onChange("stack", value)}
           />
-          <label className="grid gap-2 text-sm font-medium">
-            Background
-            <Textarea
-              value={values.aboutMe ?? ""}
-              maxLength={4000}
-              rows={3}
-              disabled={disabled}
-              onChange={(event) =>
-                onChange("aboutMe", event.target.value || null)
-              }
-            />
-          </label>
-          <p className="text-xs text-muted">
-            {updatedAt ? (
-              <>
-                Context last updated{" "}
-                <time dateTime={updatedAt}>
-                  {new Date(updatedAt).toLocaleString()}
-                </time>
-              </>
-            ) : (
-              "Context last updated: unknown"
-            )}
-          </p>
-        </div>
-      </section>
-      <details className="border-b border-line py-6">
-        <summary className="cursor-pointer text-sm font-medium">
-          Projects{" "}
-          <span className="ml-2 text-xs font-normal text-muted">
-            {values.projects.length || ""}
-          </span>
-        </summary>
-        <div className="mt-5 md:ml-[174px]">
-          <DeveloperProjects
-            value={values.projects}
+        </PreferenceRow>
+        <PreferenceRow label="Background" htmlFor="preference-background">
+          <Textarea
+            id="preference-background"
+            value={values.aboutMe ?? ""}
+            maxLength={4000}
+            rows={4}
             disabled={disabled}
-            onChange={(value) => onChange("projects", value)}
+            onChange={(e) => onChange("aboutMe", e.target.value || null)}
           />
-        </div>
-      </details>
-      <details className="border-b border-line py-6">
-        <summary className="cursor-pointer text-sm font-medium">
-          Practice context
-        </summary>
-        <div className="mt-5 grid gap-5 md:ml-[174px]">
+        </PreferenceRow>
+        {updatedAt && (
+          <p className="mt-4 text-supporting text-muted">
+            Context updated{" "}
+            <time dateTime={updatedAt}>
+              {new Date(updatedAt).toLocaleString()}
+            </time>
+          </p>
+        )}
+      </section>
+      <section
+        data-preference-section="practice"
+        hidden={section !== "practice"}
+        aria-labelledby="practice-section-title"
+      >
+        <h2
+          id="practice-section-title"
+          className="border-b border-line pb-4 text-section font-semibold tracking-[-0.02em]"
+        >
+          Practice
+        </h2>
+        <PreferenceRow label="Learning goals">
           <MultiSelect
             label="Learning goals"
             options={GOALS}
@@ -155,92 +177,96 @@ export function PreferencesFields({
             disabled={disabled}
             onChange={(value) => onChange("learningGoals", value)}
           />
-          <div className="grid gap-2">
-            <span className="text-sm font-medium">Current focus</span>
-            <ChoiceSelect
-              label="Current focus"
-              disabled={disabled}
-              value={values.currentFocus ?? ""}
-              options={[{ id: "", label: "Let my request decide" }, ...FOCUS]}
-              onChange={(value) =>
-                onChange(
-                  "currentFocus",
-                  (value || null) as PreferenceValues["currentFocus"],
-                )
-              }
-            />
-          </div>
-          <label className="grid gap-2 text-sm">
-            Learning goal
-            <Textarea
-              value={values.learningGoal ?? ""}
-              maxLength={1000}
-              disabled={disabled}
-              onChange={(event) =>
-                onChange("learningGoal", event.target.value || null)
-              }
-              rows={2}
-            />
-          </label>
-          <label className="grid gap-2 text-sm">
-            Known concepts{" "}
-            <span className="text-xs text-muted">One per line</span>
-            <Textarea
-              value={values.knownConcepts.join("\n")}
-              disabled={disabled}
-              onChange={(event) =>
-                onChange("knownConcepts", event.target.value.split("\n"))
-              }
-              rows={3}
-            />
-          </label>
-          <div className="grid gap-3">
-            <p className="text-sm font-medium">Familiarity by topic</p>
+        </PreferenceRow>
+        <PreferenceRow label="Current focus">
+          <ChoiceSelect
+            label="Current focus"
+            disabled={disabled}
+            value={values.currentFocus ?? ""}
+            options={[{ id: "", label: "Let my request decide" }, ...FOCUS]}
+            onChange={(value) =>
+              onChange(
+                "currentFocus",
+                (value || null) as PreferenceValues["currentFocus"],
+              )
+            }
+          />
+        </PreferenceRow>
+        <PreferenceRow label="Learning goal" htmlFor="preference-goal">
+          <Textarea
+            id="preference-goal"
+            value={values.learningGoal ?? ""}
+            maxLength={1000}
+            disabled={disabled}
+            onChange={(e) => onChange("learningGoal", e.target.value || null)}
+            rows={3}
+          />
+        </PreferenceRow>
+        <PreferenceRow label="Known concepts" htmlFor="preference-concepts">
+          <Textarea
+            id="preference-concepts"
+            value={values.knownConcepts.join("\n")}
+            disabled={disabled}
+            onChange={(e) =>
+              onChange("knownConcepts", e.target.value.split("\n"))
+            }
+            rows={3}
+            aria-describedby="concepts-hint"
+          />
+          <p id="concepts-hint" className="mt-1.5 text-supporting text-muted">
+            One per line
+          </p>
+        </PreferenceRow>
+        <PreferenceRow label="Topic familiarity">
+          <div className="space-y-2">
             {values.topicFamiliarity.map((item, index) => (
-              <div key={index} className="flex flex-wrap gap-2">
+              <div
+                key={index}
+                className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 [&>[role=combobox]]:col-start-1 sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:[&>[role=combobox]]:col-start-auto"
+              >
                 <Input
                   aria-label={`Topic ${index + 1}`}
-                  className="min-w-0 flex-1"
+                  className="min-w-[120px] flex-1"
                   value={item.topic}
                   maxLength={200}
                   disabled={disabled}
-                  onChange={(event) =>
+                  onChange={(e) =>
                     onChange(
                       "topicFamiliarity",
                       values.topicFamiliarity.map((value, i) =>
                         i === index
-                          ? { ...value, topic: event.target.value }
+                          ? { ...value, topic: e.target.value }
                           : value,
                       ),
                     )
                   }
                 />
-                <select
-                  aria-label={`Familiarity ${index + 1}`}
+                <ChoiceSelect
+                  label={`Familiarity ${index + 1}`}
                   value={item.familiarity}
                   disabled={disabled}
-                  onChange={(event) =>
+                  options={[
+                    { id: "new", label: "New" },
+                    { id: "practiced", label: "Practiced" },
+                    { id: "comfortable", label: "Comfortable" },
+                  ]}
+                  onChange={(selected) =>
                     onChange(
                       "topicFamiliarity",
                       values.topicFamiliarity.map((value, i) =>
                         i === index
                           ? {
                               ...value,
-                              familiarity: event.target
-                                .value as typeof item.familiarity,
+                              familiarity: selected as typeof item.familiarity,
                             }
                           : value,
                       ),
                     )
                   }
-                  className="rounded border border-line bg-surface px-2 text-sm"
-                >
-                  <option value="new">New</option>
-                  <option value="practiced">Practiced</option>
-                  <option value="comfortable">Comfortable</option>
-                </select>
+                />
                 <Button
                   type="button"
+                  size="sm"
                   variant="ghost"
                   disabled={disabled}
                   aria-label={`Remove topic ${index + 1}`}
@@ -257,7 +283,7 @@ export function PreferencesFields({
             ))}
             <Button
               type="button"
-              className="justify-self-start"
+              size="sm"
               disabled={disabled}
               onClick={() =>
                 onChange("topicFamiliarity", [
@@ -269,23 +295,42 @@ export function PreferencesFields({
               Add topic
             </Button>
           </div>
-        </div>
-      </details>
-      <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
-        <h2 className="text-[15px] font-semibold">Challenge settings</h2>
-        <label className="flex items-start gap-3 text-sm">
-          <input
-            type="checkbox"
-            className="mt-1 accent-foreground"
-            checked={values.includeRecentChallenges}
-            disabled={disabled}
-            onChange={(event) =>
-              onChange("includeRecentChallenges", event.target.checked)
-            }
-          />
-          <span>Send recent challenges to AI</span>
-        </label>
+        </PreferenceRow>
+        <PreferenceRow label="Challenge context">
+          <label className="flex items-start gap-2.5 text-ui">
+            <input
+              type="checkbox"
+              className="mt-1 accent-brand"
+              checked={values.includeRecentChallenges}
+              disabled={disabled}
+              onChange={(e) =>
+                onChange("includeRecentChallenges", e.target.checked)
+              }
+            />
+            <span>Send recent challenges to AI</span>
+          </label>
+        </PreferenceRow>
       </section>
-    </div>
+      <section
+        data-preference-section="projects"
+        hidden={section !== "projects"}
+        aria-labelledby="projects-section-title"
+      >
+        <h2
+          id="projects-section-title"
+          className="mb-4 border-b border-line pb-4 text-section font-semibold tracking-[-0.02em]"
+        >
+          Projects{" "}
+          <span className="ml-1 text-ui font-normal text-muted">
+            {values.projects.length}
+          </span>
+        </h2>
+        <DeveloperProjects
+          value={values.projects}
+          disabled={disabled}
+          onChange={(value) => onChange("projects", value)}
+        />
+      </section>
+    </>
   );
 }

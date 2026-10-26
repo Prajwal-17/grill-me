@@ -5,7 +5,7 @@ export function StreamingStatus({ label = "Thinking…" }: { label?: string }) {
   return (
     <span
       role="status"
-      className="inline-flex items-center gap-2.5 text-xs text-muted"
+      className="inline-flex items-center gap-2.5 text-metadata text-muted"
     >
       <span className="flex gap-1" aria-hidden>
         {[0, 1, 2].map((i) => (

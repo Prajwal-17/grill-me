@@ -56,7 +56,7 @@ export function CodeBlock({
     <div className="code-block my-5 min-w-0 overflow-hidden rounded-lg border border-line bg-canvas text-left">
       <div className="flex min-h-9 items-center justify-between gap-2 border-b border-line px-3 py-1">
         <span
-          className="min-w-0 truncate text-xs text-muted"
+          className="min-w-0 truncate text-metadata text-muted"
           title={
             highlighted.detected ? "Automatically detected language" : undefined
           }
@@ -85,7 +85,7 @@ export function CodeBlock({
         tabIndex={0}
         aria-label={`${highlighted.language} code`}
         className={cn(
-          "m-0 overflow-x-auto p-4 font-mono text-[13px] leading-6",
+          "m-0 overflow-x-auto p-4 font-mono text-code leading-6",
           wrapped
             ? "whitespace-pre-wrap [overflow-wrap:anywhere]"
             : "whitespace-pre",

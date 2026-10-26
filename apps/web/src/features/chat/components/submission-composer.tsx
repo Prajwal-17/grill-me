@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useInstantMotion } from "@/shared/components/ui/interaction-motion";
 import type { ConnectedProject } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
 import { Textarea } from "@/shared/components/ui/textarea";
@@ -103,7 +105,7 @@ const fileKinds: {
       "sh",
     ],
     icon: FileCode2,
-    className: "text-[var(--grill-accent)]",
+    className: "text-brand",
   },
 ];
 
@@ -170,6 +172,7 @@ export function SubmissionComposer({
   reviewStatusError: boolean;
   onRetryReviewStatus: () => void;
 }) {
+  const instantMotion = useInstantMotion();
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const selectedProject = projects.find((project) => project.id === projectId);
   const hasSource = Boolean(projectId || uploads.length || content.trim());
@@ -180,9 +183,11 @@ export function SubmissionComposer({
       disabled={!active || busy}
       className="overflow-hidden rounded-lg border border-line bg-surface disabled:opacity-60"
     >
-      <div className="flex flex-col gap-3 border-b border-line px-4 py-4 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-3 border-b border-line bg-panel/60 px-4 py-4 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
-          <label className="mb-2 block text-xs font-medium">Project</label>
+          <label className="mb-2 block text-metadata font-medium">
+            Project
+          </label>
           <Popover open={projectMenuOpen} onOpenChange={setProjectMenuOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -246,7 +251,7 @@ export function SubmissionComposer({
                         <Folder />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate">{project.name}</span>
-                          <span className="block truncate font-mono text-[10px] text-muted">
+                          <span className="block truncate font-mono text-metadata text-muted">
                             {project.root}
                           </span>
                         </span>
@@ -273,22 +278,22 @@ export function SubmissionComposer({
       </div>
 
       {selectedProject && (
-        <p className="truncate border-b border-line px-4 py-2 font-mono text-[11px] text-muted">
+        <p className="truncate border-b border-line px-4 py-2 font-mono text-metadata text-muted">
           {selectedProject.root}
         </p>
       )}
       {projectsError && (
-        <p className="border-b border-line px-4 py-2 text-xs text-destructive">
+        <p className="border-b border-line px-4 py-2 text-metadata text-destructive">
           Could not load connected projects.
         </p>
       )}
 
       <div className="border-b border-line">
         <div className="flex items-center justify-between px-4 py-3">
-          <h3 className="text-xs font-medium">Files</h3>
+          <h3 className="text-metadata font-medium">Files</h3>
           {!!uploads.length && (
             <div className="flex items-center gap-2">
-              <span className="text-xs tabular-nums text-muted">
+              <span className="text-metadata tabular-nums text-muted">
                 {uploads.length}
               </span>
               <Button size="sm" variant="ghost" onClick={onClearUploads}>
@@ -308,8 +313,8 @@ export function SubmissionComposer({
           }}
         >
           <UploadCloud size={18} className="shrink-0 text-muted" />
-          <p className="flex-1 text-sm">Drop files here</p>
-          <label className="relative inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-xs font-medium hover:bg-elevated focus-within:ring-2">
+          <p className="flex-1 text-ui">Drop files here</p>
+          <label className="relative inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-metadata font-medium hover:bg-elevated focus-within:ring-2">
             <Paperclip size={14} />
             Choose files
             <input
@@ -327,24 +332,34 @@ export function SubmissionComposer({
           </label>
         </div>
 
-        {uploads.length > 0 && (
-          <ul className="max-h-60 divide-y divide-line overflow-y-auto border-t border-line">
+        <ul className="max-h-60 divide-y divide-line overflow-y-auto border-t border-line empty:hidden">
+          <AnimatePresence initial={false} custom={instantMotion}>
             {uploads.map((file) => {
               const parts = file.filename.split("/");
               const name = parts.pop() ?? file.filename;
               const directory = parts.join("/");
               return (
-                <li
+                <motion.li
+                  initial={instantMotion ? false : { opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit="exit"
+                  variants={{
+                    exit: (immediate: boolean) => ({
+                      opacity: 0,
+                      x: immediate ? 0 : 4,
+                      transition: { duration: immediate ? 0 : 0.1 },
+                    }),
+                  }}
                   key={file.id}
                   className="group flex items-center gap-3 px-4 py-2.5"
                 >
                   <FileTypeIcon filename={file.filename} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-xs">
+                    <span className="block truncate font-mono text-metadata">
                       {name}
                     </span>
                     {directory && (
-                      <span className="mt-0.5 block truncate font-mono text-[10px] text-muted">
+                      <span className="mt-0.5 block truncate font-mono text-metadata text-muted">
                         {directory}
                       </span>
                     )}
@@ -353,30 +368,30 @@ export function SubmissionComposer({
                     type="button"
                     aria-label={"Remove " + file.filename}
                     onClick={() => onRemoveUpload(file.id)}
-                    className="shrink-0 rounded p-1.5 text-muted hover:bg-elevated hover:text-foreground"
+                    className="pressable shrink-0 rounded p-1.5 text-muted hover:bg-elevated hover:text-foreground"
                   >
                     <X size={14} />
                   </button>
-                </li>
+                </motion.li>
               );
             })}
-          </ul>
-        )}
+          </AnimatePresence>
+        </ul>
       </div>
 
       <details className="group border-b border-line">
-        <summary className="flex list-none items-center gap-2.5 px-4 py-3 text-sm hover:bg-elevated/30">
+        <summary className="flex list-none items-center gap-2.5 px-4 py-3 text-ui hover:bg-elevated/30">
           <Braces size={15} className="text-muted" />
           <span>Paste code</span>
           {snippetLines > 0 && (
-            <span className="ml-auto text-xs tabular-nums text-muted">
+            <span className="ml-auto text-metadata tabular-nums text-muted">
               {snippetLines} lines
             </span>
           )}
           <ArrowRight
             size={13}
             className={
-              "text-muted transition-transform group-open:rotate-90 " +
+              "text-muted motion-chevron group-open:rotate-90 " +
               (snippetLines ? "" : "ml-auto")
             }
           />
@@ -388,7 +403,7 @@ export function SubmissionComposer({
             onChange={(event) => onContentChange(event.target.value)}
             placeholder="Paste code…"
             rows={9}
-            className="min-h-48 resize-y font-mono text-xs leading-5"
+            className="min-h-48 resize-y font-mono text-metadata leading-5"
           />
         </div>
       </details>
@@ -401,7 +416,7 @@ export function SubmissionComposer({
           <p
             role="status"
             className={cn(
-              "min-w-0 text-xs",
+              "min-w-0 text-metadata",
               reviewIssue ? "text-warning" : "truncate text-muted",
             )}
           >
@@ -419,7 +434,7 @@ export function SubmissionComposer({
           {(reviewIssue || reviewStatusError) && (
             <button
               type="button"
-              className="shrink-0 text-xs underline underline-offset-2"
+              className="shrink-0 text-metadata underline underline-offset-2"
               onClick={onRetryReviewStatus}
             >
               Retry

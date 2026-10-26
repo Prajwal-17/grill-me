@@ -26,7 +26,7 @@ export function ThemeSelect({ compact = false }: { compact?: boolean }) {
           {!compact && (
             <>
               <span>Appearance</span>
-              <span className="ml-auto text-xs capitalize text-muted">
+              <span className="ml-auto text-metadata capitalize text-muted">
                 {theme}
               </span>
             </>

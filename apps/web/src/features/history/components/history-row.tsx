@@ -1,37 +1,49 @@
 import { Link } from "react-router";
-import { ArrowUpRight, Check } from "lucide-react";
+import { ArrowUpRight, Check, Square } from "lucide-react";
 import type { Challenge } from "@/shared/types/api";
 import { formatDate } from "@/features/challenges/lib/challenge-formatters";
 import { ChallengeMetadata } from "@/features/challenges/components/challenge-metadata";
+import { TableCell, TableRow } from "@/shared/components/ui/table";
 
 export function HistoryRow({ challenge: c }: { challenge: Challenge }) {
+  const Icon = c.status === "stopped" ? Square : Check;
   return (
-    <Link
-      to={"/chat?id=" + encodeURIComponent(c.id)}
-      className="transition-colors hover:bg-canvas group grid grid-cols-[minmax(0,1fr)_20px] items-center gap-x-4 gap-y-2 border-b border-line px-4 py-5 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(220px,320px)_130px_24px] md:px-5"
-    >
-      <span className="flex min-w-0 items-center gap-3">
-        <span className="hidden size-8 shrink-0 place-items-center rounded-lg border border-line bg-surface sm:grid">
-          <Check size={14} className="text-muted" />
-        </span>
-        <span className="truncate text-sm font-medium">
-          <span className="mr-2 font-normal text-muted">#{c.number}</span>
-          {c.title}
-        </span>
-      </span>
-      <div className="col-start-1 row-start-2 md:col-auto md:row-auto">
+    <TableRow className="group">
+      <TableCell className="w-full max-w-0 whitespace-normal sm:w-auto">
+        <Link
+          to={"/chat?id=" + encodeURIComponent(c.id)}
+          className="flex min-w-0 items-start gap-3 rounded-sm py-1"
+        >
+          <Icon
+            size={15}
+            className="mt-0.5 shrink-0 text-muted"
+            aria-hidden="true"
+          />
+          <span className="min-w-0">
+            <span
+              title={c.title}
+              className="block truncate text-ui font-medium group-hover:text-brand"
+            >
+              <span className="mr-2 font-normal tabular-nums text-muted">
+                #{c.number}
+              </span>
+              {c.title}
+            </span>
+            <span className="mt-1 block text-metadata text-muted md:hidden">
+              {c.status === "stopped" ? "Stopped" : formatDate(c.completedAt)}
+            </span>
+          </span>
+        </Link>
+      </TableCell>
+      <TableCell className="hidden md:table-cell">
         <ChallengeMetadata challenge={c} compact />
-        <span className="mt-1 block text-xs text-muted md:hidden">
-          {c.status === "stopped" ? "Stopped" : formatDate(c.completedAt)}
-        </span>
-      </div>
-      <span className="hidden text-xs text-muted md:block">
+      </TableCell>
+      <TableCell className="hidden text-metadata tabular-nums text-muted sm:table-cell">
         {c.status === "stopped" ? "Stopped" : formatDate(c.completedAt)}
-      </span>
-      <ArrowUpRight
-        size={16}
-        className="col-start-2 row-start-1 text-muted group-hover:text-foreground md:col-auto md:row-auto"
-      />
-    </Link>
+      </TableCell>
+      <TableCell className="w-10">
+        <ArrowUpRight size={14} className="text-muted" aria-hidden="true" />
+      </TableCell>
+    </TableRow>
   );
 }

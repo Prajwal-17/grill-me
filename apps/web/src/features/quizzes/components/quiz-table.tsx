@@ -94,8 +94,14 @@ function Progress({
     <div className={compact ? "flex flex-wrap items-center gap-2" : undefined}>
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 whitespace-nowrap text-xs",
-          current === "draft" && !deleted ? "text-warning" : "text-muted",
+          "inline-flex items-center gap-1.5 whitespace-nowrap text-metadata",
+          deleted
+            ? "text-muted"
+            : current === "draft"
+              ? "text-warning"
+              : current === "submitted"
+                ? "text-success"
+                : "text-muted",
         )}
       >
         <Icon size={13} aria-hidden="true" />
@@ -110,7 +116,7 @@ function Progress({
       {!deleted && current === "draft" && (
         <span
           className={cn(
-            "text-xs text-muted tabular-nums",
+            "text-metadata text-muted tabular-nums",
             !compact && "mt-1 block",
           )}
         >
@@ -152,7 +158,7 @@ function ListSelect({
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         aria-label={label}
-        className="w-full min-w-0 gap-1 bg-surface px-3 text-sm shadow-none data-[size=default]:h-11 md:data-[size=default]:h-9"
+        className="w-full min-w-0 gap-1 bg-surface px-3 text-ui shadow-none data-[size=default]:h-9"
       >
         <SelectValue />
       </SelectTrigger>
@@ -266,9 +272,9 @@ export function QuizTable({
         className={cn(
           "rounded-sm",
           isAction
-            ? "h-11 shrink-0 justify-start px-1.5 text-xs text-muted hover:text-foreground md:h-8"
+            ? "h-11 shrink-0 justify-start px-1.5 text-metadata text-muted hover:text-foreground md:h-8"
             : cn(
-                "h-auto w-full justify-start px-0 py-0 text-left text-sm font-medium whitespace-normal",
+                "h-auto w-full justify-start px-0 py-0 text-left text-ui font-medium whitespace-normal",
                 quiz.deletedAt && "text-muted",
               ),
           isAction && status(quiz) === "draft" && "text-foreground",
@@ -328,7 +334,15 @@ export function QuizTable({
 
   return (
     <div className="shrink-0 space-y-4 @container/quiz-list">
-      <div className="flex justify-end">{actions}</div>
+      <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+        <h2 className="text-section font-semibold tracking-[-0.02em]">
+          Quiz library{" "}
+          <span className="ml-1 text-metadata font-normal text-muted tabular-nums">
+            {quizzes.filter((quiz) => !quiz.deletedAt).length}
+          </span>
+        </h2>
+        {actions}
+      </div>
       <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_140px_148px_160px]">
         <div
           role="search"
@@ -357,7 +371,7 @@ export function QuizTable({
                 update({ search: "", page: 1 });
               }
             }}
-            className="h-11 bg-canvas pr-10 pl-9 shadow-none md:h-9 [&::-webkit-search-cancel-button]:appearance-none"
+            className="h-9 bg-surface pr-10 pl-9 text-ui shadow-none [&::-webkit-search-cancel-button]:appearance-none"
           />
           {settings.search && (
             <Tooltip>
@@ -372,7 +386,7 @@ export function QuizTable({
                     update({ search: "", page: 1 });
                     searchRef.current?.focus();
                   }}
-                  className="absolute top-1/2 right-1 size-9 -translate-y-1/2 rounded-md text-muted hover:text-foreground"
+                  className="absolute top-1/2 right-1 size-7 -translate-y-1/2 rounded-md text-muted hover:text-foreground"
                 >
                   <X size={14} aria-hidden="true" />
                 </Button>
@@ -464,7 +478,7 @@ export function QuizTable({
       >
         {visible.length ? (
           <>
-            <Table className="hidden w-full table-fixed text-left text-xs @[640px]/quiz-list:table">
+            <Table className="hidden w-full table-fixed text-left text-ui @[640px]/quiz-list:table">
               <TableCaption className="sr-only">
                 Saved quizzes. Use up and down arrows to browse, then Enter to
                 open.
@@ -477,7 +491,7 @@ export function QuizTable({
                 <col className="hidden w-20 @[850px]/quiz-list:table-column" />
                 <col className="w-28" />
               </colgroup>
-              <TableHeader className="border-b border-line bg-canvas text-muted">
+              <TableHeader className="border-b border-line bg-panel text-muted">
                 <TableRow>
                   <TableHead scope="col" className="h-8 px-4 py-2 font-normal">
                     Quiz
@@ -506,19 +520,28 @@ export function QuizTable({
                 {visible.map((quiz) => (
                   <TableRow
                     key={quiz.id}
-                    className="border-b border-line last:border-b-0 hover:bg-canvas/60 focus-within:bg-canvas/60"
+                    className="border-b border-line last:border-b-0 bg-surface hover:bg-panel focus-within:bg-panel"
                   >
                     <TableHead
                       scope="row"
                       className="px-4 py-2 font-normal whitespace-normal"
                     >
                       {openButton(quiz)}
-                      <p className="mt-1 text-xs text-muted">
+                      <p className="mt-1 text-metadata text-muted">
                         Quiz {quiz.number} · {quiz.questionCount} questions
                       </p>
                     </TableHead>
-                    <TableCell className="px-2 py-2 text-muted capitalize">
-                      {quiz.difficulty ?? "—"}
+                    <TableCell
+                      className={cn(
+                        "px-2 py-2 capitalize",
+                        quiz.difficulty === "grill"
+                          ? "text-warning"
+                          : "text-muted",
+                      )}
+                    >
+                      <span data-difficulty={quiz.difficulty}>
+                        {quiz.difficulty ?? "—"}
+                      </span>
                     </TableCell>
                     <TableCell className="px-2 py-2">
                       <Progress quiz={quiz} />
@@ -559,13 +582,16 @@ export function QuizTable({
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       {openButton(quiz)}
-                      <p className="mt-1 text-xs text-muted">
+                      <p className="mt-1 text-metadata text-muted">
                         Quiz {quiz.number} · {quiz.questionCount} questions
                         {quiz.difficulty && (
                           <>
                             {" "}
                             ·{" "}
-                            <span className="capitalize">
+                            <span
+                              className="capitalize"
+                              data-difficulty={quiz.difficulty}
+                            >
                               {quiz.difficulty}
                             </span>
                           </>
@@ -586,7 +612,7 @@ export function QuizTable({
                   <div className="mt-2 flex items-center justify-between gap-3">
                     <Progress quiz={quiz} compact />
                     {quiz.latestAttempt?.score != null && (
-                      <span className="text-xs">
+                      <span className="text-metadata">
                         <Score quiz={quiz} />
                       </span>
                     )}
@@ -596,7 +622,7 @@ export function QuizTable({
             </div>
           </>
         ) : (
-          <div className="space-y-3 px-4 py-12 text-center text-sm text-muted">
+          <div className="space-y-3 px-4 py-12 text-center text-ui text-muted">
             <p>{quizzes.length ? "No quizzes found." : "No quizzes yet."}</p>
             {hasFilters && (
               <Button size="sm" disabled={disabled} onClick={clearFilters}>
@@ -606,7 +632,7 @@ export function QuizTable({
           </div>
         )}
       </div>
-      <div className="flex min-h-8 items-center justify-between gap-3 text-xs text-muted">
+      <div className="flex min-h-8 items-center justify-between gap-3 text-metadata text-muted">
         <p role="status" aria-live="polite">
           {filtered.length
             ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, filtered.length)} of ${filtered.length}`

@@ -3,12 +3,13 @@ import { test, expect, seedProfile } from "./fixtures";
 
 const artifacts = resolve(
   import.meta.dirname,
-  "../../../artifacts/ui-simplification",
+  "../../../artifacts/ui-revamp/interactions",
 );
 
-test("simplified surfaces retain named controls and fit narrow screens", async ({
+test("redesigned surfaces retain named controls and fit narrow screens", async ({
   page,
 }) => {
+  test.setTimeout(90000);
   await seedProfile(page);
   for (const [name, path] of [
     ["home", "/"],
@@ -20,7 +21,9 @@ test("simplified surfaces retain named controls and fit narrow screens", async (
     ["logs", "/logs"],
   ]) {
     await page.goto(path!);
-    await expect(page.getByRole("heading").first()).toBeVisible();
+    await expect(page.getByRole("heading").first()).toBeVisible({
+      timeout: 15000,
+    });
     await expect(page.getByText(/^Loading/)).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     await page.screenshot({

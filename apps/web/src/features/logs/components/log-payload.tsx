@@ -35,7 +35,7 @@ export function LogPayload({
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-line">
       <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-2">
-        <h3 className="text-sm font-medium">{title}</h3>
+        <h3 className="text-ui font-medium">{title}</h3>
         {content.source && (
           <CopyButton
             text={content.source}
@@ -54,12 +54,12 @@ export function LogPayload({
         <pre
           tabIndex={0}
           aria-label={title}
-          className="max-h-[65dvh] overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-6 outline-offset-[-2px]"
+          className="max-h-[65dvh] overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-code leading-6 outline-offset-[-2px]"
         >
           <code>{content.source}</code>
         </pre>
       ) : (
-        <p className="p-5 text-sm text-muted">{empty}</p>
+        <p className="p-5 text-ui text-muted">{empty}</p>
       )}
     </section>
   );

@@ -13,6 +13,8 @@ import {
 import {
   DEFAULT_PREFERENCES,
   PreferencesFields,
+  PreferenceRow,
+  type PreferenceSection,
   preferenceValues,
   type PreferenceValues,
 } from "@/features/profile/components/preferences-fields";
@@ -25,6 +27,7 @@ export function PreferencesPage() {
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<PreferenceValues | null>(null);
   const [saved, setSaved] = useState(false);
+  const [section, setSection] = useState<PreferenceSection>("profile");
   const preferences = useQuery({
     queryKey: preferencesKey(profile?.id),
     queryFn: () => getPreferences(profile!.id),
@@ -47,6 +50,14 @@ export function PreferencesPage() {
     (preferences.data
       ? preferenceValues(preferences.data)
       : DEFAULT_PREFERENCES);
+  const dirty =
+    edits !== null &&
+    JSON.stringify(edits) !==
+      JSON.stringify(
+        preferences.data
+          ? preferenceValues(preferences.data)
+          : DEFAULT_PREFERENCES,
+      );
   const save = useMutation({
     mutationFn: () =>
       savePreferences(profile!.id, {
@@ -79,6 +90,23 @@ export function PreferencesPage() {
   }
   function submit(event: FormEvent) {
     event.preventDefault();
+    const invalid =
+      event.currentTarget instanceof HTMLFormElement
+        ? event.currentTarget.querySelector<
+            HTMLInputElement | HTMLTextAreaElement
+          >("input:invalid, textarea:invalid, select:invalid")
+        : null;
+    if (invalid) {
+      const targetSection = invalid.closest<HTMLElement>(
+        "[data-preference-section]",
+      )?.dataset.preferenceSection as PreferenceSection | undefined;
+      if (targetSection) setSection(targetSection);
+      requestAnimationFrame(() => {
+        invalid.focus();
+        invalid.reportValidity();
+      });
+      return;
+    }
     save.mutate();
   }
   return (
@@ -99,7 +127,7 @@ export function PreferencesPage() {
           {save.isPending ? (
             <LoaderCircle size={15} className="animate-spin" />
           ) : saved ? (
-            <Check size={15} />
+            <Check size={15} className="feedback-check" />
           ) : null}
           {save.isPending ? "Saving…" : saved ? "Saved" : "Save preferences"}
         </Button>
@@ -114,105 +142,135 @@ export function PreferencesPage() {
           onRetry={() => preferences.refetch()}
         />
       ) : (
-        <main className="mx-auto w-full max-w-[850px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
-          <form
-            id="preferences-form"
-            onSubmit={submit}
-            onInvalidCapture={(event) => {
-              let details = (event.target as HTMLElement).closest("details");
-              while (details) {
-                details.open = true;
-                details = details.parentElement?.closest("details") ?? null;
-              }
-            }}
-          >
-            <fieldset disabled={save.isPending}>
-              <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
-                <h2 className="text-[15px] font-semibold">Code reviews</h2>
-                <div className="space-y-2">
-                  <label
-                    htmlFor="codex-model"
-                    className="block text-sm font-medium"
-                  >
-                    Codex model
-                  </label>
-                  <Input
-                    id="codex-model"
-                    list="codex-model-options"
-                    value={form.codexModel}
-                    required
-                    maxLength={160}
-                    onChange={(e) => update("codexModel", e.target.value)}
-                    className="w-full"
-                  />
-                  <datalist id="codex-model-options">
-                    {(
-                      codexModels.data?.models ?? [
-                        { id: DEFAULT_CODEX_MODEL, label: "GPT-5.6 Sol" },
-                      ]
-                    ).map((model) => (
-                      <option key={model.id} value={model.id}>
-                        {model.label}
-                      </option>
-                    ))}
-                  </datalist>
-                  {codexModels.isLoading && (
-                    <p className="text-xs text-muted">
-                      Loading available models…
-                    </p>
-                  )}
-                  {codexModels.error && (
-                    <p className="text-xs text-muted">
-                      Could not load models: {codexModels.error.message}{" "}
-                      <button
-                        type="button"
-                        className="underline"
-                        onClick={() => codexModels.refetch()}
-                      >
-                        Retry
-                      </button>
-                    </p>
-                  )}
-                </div>
-              </section>
-              <PreferencesFields
-                values={form}
-                updatedAt={preferences.data?.developerContextUpdatedAt}
-                importAction={
-                  <ResumeImport
-                    key={profile.id}
-                    profileId={profile.id}
-                    values={form}
-                    disabled={save.isPending}
-                    onApply={(value) => {
-                      setEdits(value);
-                      setSaved(false);
-                      save.reset();
-                    }}
-                  />
-                }
-                onChange={update}
-                disabled={save.isPending}
-              />
-            </fieldset>
-            <div className="mt-5 min-h-6" aria-live="polite">
-              {saved && (
-                <p className="flex items-start gap-2 text-sm leading-6 text-success">
-                  <Check size={16} />
-                  Preferences saved
-                </p>
-              )}
-              {save.error && (
-                <p
-                  role="alert"
-                  className="flex items-start gap-2 text-sm leading-6 text-destructive"
+        <main className="mx-auto w-full max-w-[1100px] p-4 md:p-6">
+          <div className="grid min-w-0 gap-6 md:grid-cols-[160px_minmax(0,1fr)] md:gap-8">
+            <nav
+              aria-label="Preference sections"
+              className="flex gap-1 overflow-x-auto border-b border-line pb-2 md:flex-col md:self-start md:border-b-0 md:pb-0"
+            >
+              {(
+                [
+                  ["profile", "Profile"],
+                  ["practice", "Practice"],
+                  ["projects", "Projects"],
+                  ["reviews", "Code reviews"],
+                ] as const
+              ).map(([value, label]) => (
+                <Button
+                  key={value}
+                  type="button"
+                  variant="ghost"
+                  aria-current={section === value ? "page" : undefined}
+                  onClick={() => setSection(value)}
+                  className={`h-9 shrink-0 justify-start px-3 text-ui ${section === value ? "bg-brand-soft text-brand hover:bg-brand-soft hover:text-brand" : "text-muted"}`}
                 >
-                  <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                  {save.error.message}
-                </p>
-              )}
-            </div>
-          </form>
+                  {label}
+                </Button>
+              ))}
+            </nav>
+            <form
+              id="preferences-form"
+              noValidate
+              className="min-w-0 max-w-[760px]"
+              onSubmit={submit}
+            >
+              <fieldset disabled={save.isPending}>
+                <section
+                  data-preference-section="reviews"
+                  hidden={section !== "reviews"}
+                  aria-labelledby="reviews-section-title"
+                >
+                  <h2
+                    id="reviews-section-title"
+                    className="border-b border-line pb-4 text-section font-semibold tracking-[-0.02em]"
+                  >
+                    Code reviews
+                  </h2>
+                  <PreferenceRow label="Codex model" htmlFor="codex-model">
+                    <div className="space-y-2">
+                      <Input
+                        id="codex-model"
+                        list="codex-model-options"
+                        value={form.codexModel}
+                        required
+                        maxLength={160}
+                        onChange={(e) => update("codexModel", e.target.value)}
+                        className="w-full"
+                      />
+                      <datalist id="codex-model-options">
+                        {(
+                          codexModels.data?.models ?? [
+                            { id: DEFAULT_CODEX_MODEL, label: "GPT-5.6 Sol" },
+                          ]
+                        ).map((model) => (
+                          <option key={model.id} value={model.id}>
+                            {model.label}
+                          </option>
+                        ))}
+                      </datalist>
+                      {codexModels.isLoading && (
+                        <p className="text-supporting text-muted">
+                          Loading available models…
+                        </p>
+                      )}
+                      {codexModels.error && (
+                        <p className="text-supporting text-muted">
+                          Could not load models: {codexModels.error.message}{" "}
+                          <button
+                            type="button"
+                            className="underline"
+                            onClick={() => codexModels.refetch()}
+                          >
+                            Retry
+                          </button>
+                        </p>
+                      )}
+                    </div>
+                  </PreferenceRow>
+                </section>
+                <PreferencesFields
+                  section={section}
+                  values={form}
+                  updatedAt={preferences.data?.developerContextUpdatedAt}
+                  importAction={
+                    <ResumeImport
+                      key={profile.id}
+                      profileId={profile.id}
+                      values={form}
+                      disabled={save.isPending}
+                      onApply={(value) => {
+                        setEdits(value);
+                        setSaved(false);
+                        save.reset();
+                      }}
+                    />
+                  }
+                  onChange={update}
+                  disabled={save.isPending}
+                />
+              </fieldset>
+              <div className="mt-5 min-h-6" aria-live="polite">
+                {dirty && !save.isPending && !save.error && (
+                  <p className="text-supporting text-muted">Unsaved changes</p>
+                )}
+                {saved && (
+                  <p className="flex items-start gap-2 text-ui leading-6 text-success">
+                    <Check size={16} className="feedback-check" />
+                    Preferences saved
+                  </p>
+                )}
+                {save.error && (
+                  <p
+                    role="alert"
+                    className="flex items-start gap-2 text-ui leading-6 text-destructive"
+                  >
+                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                    {save.error.message}
+                  </p>
+                )}
+              </div>
+            </form>
+          </div>
         </main>
       )}
     </AppShell>

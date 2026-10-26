@@ -21,7 +21,7 @@ export function DeveloperProjects({
     );
   }
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {value.map((project, index) => (
         <fieldset
           key={index}
@@ -30,7 +30,7 @@ export function DeveloperProjects({
         >
           <legend className="sr-only">Project {index + 1}</legend>
           <div className="flex items-end gap-2">
-            <label className="grid min-w-0 flex-1 gap-2 text-sm">
+            <label className="grid min-w-0 flex-1 gap-1.5 text-ui">
               Project name
               <Input
                 value={project.name}
@@ -51,9 +51,9 @@ export function DeveloperProjects({
               <Trash2 size={15} />
             </Button>
           </div>
-          <label className="grid gap-2 text-sm">
+          <label className="grid gap-1.5 text-ui">
             Technologies
-            <span className="text-xs text-muted">Comma-separated</span>
+            <span className="text-metadata text-muted">Comma-separated</span>
             <Input
               value={project.technologies.join(",")}
               maxLength={1600}
@@ -62,7 +62,7 @@ export function DeveloperProjects({
               }
             />
           </label>
-          <label className="grid gap-2 text-sm">
+          <label className="grid gap-1.5 text-ui">
             Your contribution
             <Textarea
               value={project.contribution}

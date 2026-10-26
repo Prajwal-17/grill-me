@@ -39,7 +39,7 @@ export function BrandLockup({
       <BrandMark className={cn("size-11", markClassName)} />
       <span
         className={cn(
-          "font-sans text-[18px] font-semibold leading-none tracking-[-0.025em] text-foreground",
+          "font-sans text-question font-semibold leading-none tracking-[-0.02em] text-foreground",
           wordmarkClassName,
         )}
       >

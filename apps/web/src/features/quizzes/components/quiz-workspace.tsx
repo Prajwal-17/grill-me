@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -8,6 +8,7 @@ import {
   RotateCcw,
   Sparkles,
   Trash2,
+  X,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -25,12 +26,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -115,7 +110,7 @@ function QuizLoadingState({ detail = false }: { detail?: boolean }) {
       aria-busy="true"
       className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
     >
-      <p className="mb-4 inline-flex items-center gap-2 text-sm text-muted">
+      <p className="mb-4 inline-flex items-center gap-2 text-ui text-muted">
         <LoaderCircle
           size={15}
           aria-hidden="true"
@@ -190,6 +185,16 @@ export function QuizWorkspace({
   const [attemptId, setAttemptId] = useState("");
   const [allQuizzesOpen, setAllQuizzesOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const createRef = useRef<HTMLElement>(null);
+  const generateRef = useRef<HTMLButtonElement>(null);
+  const startButtonRef = useRef<HTMLButtonElement>(null);
+  const focusAfterGeneration = useRef(false);
+  useEffect(() => {
+    if (dialogOpen)
+      createRef.current
+        ?.querySelector<HTMLElement>("textarea, [role=combobox]")
+        ?.focus();
+  }, [dialogOpen]);
   const [deleteTarget, setDeleteTarget] = useState<QuizSummary | null>(null);
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
   const [coverage, setCoverage] = useState<QuizCoverage>("mixed");
@@ -281,6 +286,7 @@ export function QuizWorkspace({
       return generateQuiz(profileId, challengeId, request);
     },
     onSuccess: (quiz) => {
+      focusAfterGeneration.current = true;
       requestRef.current = null;
       queries.setQueryData<QuizDetail>(
         quizKeys.detail(profileId, challengeId, quiz.id),
@@ -399,6 +405,17 @@ export function QuizWorkspace({
     start.isPending ||
     deletion.isPending ||
     restoration.isPending;
+  useEffect(() => {
+    if (
+      !dialogOpen &&
+      !busy &&
+      focusAfterGeneration.current &&
+      startButtonRef.current
+    ) {
+      startButtonRef.current.focus();
+      focusAfterGeneration.current = false;
+    }
+  }, [busy, dialogOpen, selectedQuizId, detail.data]);
   const showLibrary =
     !selectedQuizId &&
     list.data !== undefined &&
@@ -408,8 +425,9 @@ export function QuizWorkspace({
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
+          ref={generateRef}
           size={showLibrary ? "default" : "icon-sm"}
-          className={showLibrary ? "h-11 md:h-9" : "ml-auto shrink-0"}
+          className={showLibrary ? "h-9" : "ml-auto shrink-0"}
           variant={selectedQuizId ? "secondary" : "primary"}
           disabled={busy || list.isLoading}
           aria-label="Generate quiz"
@@ -443,140 +461,18 @@ export function QuizWorkspace({
           : "flex h-full min-h-0 flex-col gap-5 overflow-hidden"
       }`}
     >
-      {!showLibrary && !detail.data && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {selectedQuizId && (
-            <div className="flex items-center gap-1.5">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon-sm"
-                    disabled={busy}
-                    aria-label="All quizzes"
-                    onClick={() => {
-                      void select("", "quiz");
-                    }}
-                  >
-                    <ArrowLeft size={14} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" sideOffset={6}>
-                  All quizzes
-                </TooltipContent>
-              </Tooltip>
-              {challengeId !== null && (
-                <QuizSelect
-                  label="Select quiz"
-                  value={selectedQuizId}
-                  disabled={busy}
-                  onChange={(value) => {
-                    void select(value, "quiz");
-                  }}
-                  options={(list.data ?? [])
-                    .filter(
-                      (quiz) => !quiz.deletedAt || quiz.id === selectedQuizId,
-                    )
-                    .map((quiz) => ({
-                      value: quiz.id,
-                      label: quizLabel(quiz),
-                    }))}
-                />
-              )}
-            </div>
-          )}
-          {generateButton}
-        </div>
-      )}
-      {list.isLoading ? (
-        <QuizLoadingState />
-      ) : list.error ? (
-        <div role="alert" className="text-sm text-muted">
-          <p>{list.error.message}</p>
-          <Button
-            size="sm"
-            className="mt-2"
-            onClick={() => {
-              void list.refetch();
-            }}
-          >
-            Retry
-          </Button>
-        </div>
-      ) : showLibrary ? (
-        <>
-          <QuizTable
-            profileId={profileId}
-            quizzes={list.data}
-            actions={generateButton}
-            disabled={busy}
-            onDelete={(quiz) => {
-              deletion.reset();
-              setDeleteTarget(quiz);
-            }}
-            onRestore={(quiz) => {
-              restoration.reset();
-              restoration.mutate(quiz.id);
-            }}
-            onOpen={(id) => {
-              void select(id, "quiz");
-            }}
-          />
-          {restoration.error && (
-            <p role="alert" className="text-xs text-destructive">
-              {restoration.error.message}
-            </p>
-          )}
-        </>
-      ) : !selectedQuizId ? (
-        <p className="text-sm text-muted">No quizzes yet.</p>
-      ) : detail.isLoading ? (
-        <QuizLoadingState detail />
-      ) : detail.error ? (
-        <div role="alert" className="text-sm text-muted">
-          <p>{detail.error.message}</p>
-          <Button
-            size="sm"
-            className="mt-2"
-            onClick={() => {
-              void detail.refetch();
-            }}
-          >
-            Retry
-          </Button>
-        </div>
-      ) : (
-        detail.data && (
-          <>
-            {selectedAttempt && (
-              <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-                <h2
-                  className="min-w-0 break-words text-xl font-semibold tracking-tight [overflow-wrap:anywhere]"
-                  title={detail.data.quiz.title}
-                >
-                  {detail.data.quiz.title}
-                </h2>
-                {detail.data.quiz.deletedAt && (
-                  <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-[10px] text-muted">
-                    Deleted
-                  </span>
-                )}
-                <span className="text-xs text-muted">
-                  Quiz {detail.data.quiz.number} ·{" "}
-                  {detail.data.quiz.coverage === "topic"
-                    ? detail.data.quiz.difficulty
-                    : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
-                  · {detail.data.quiz.questionCount} questions
-                </span>
-              </div>
-            )}
-            <div className="relative flex shrink-0 flex-wrap items-center gap-x-3 gap-y-3 border-b border-line pb-4">
-              <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <div
+        className="flex min-h-0 flex-1 flex-col gap-4"
+        style={dialogOpen ? { display: "none" } : undefined}
+      >
+        {!showLibrary && !detail.data && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {selectedQuizId && (
+              <div className="flex items-center gap-1.5">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
-                      size="sm"
-                      variant="ghost"
-                      className="-ml-2 shrink-0 px-2 text-muted hover:text-foreground"
+                      size="icon-sm"
                       disabled={busy}
                       aria-label="All quizzes"
                       onClick={() => {
@@ -584,7 +480,6 @@ export function QuizWorkspace({
                       }}
                     >
                       <ArrowLeft size={14} />
-                      <span>All quizzes</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" sideOffset={6}>
@@ -609,392 +504,536 @@ export function QuizWorkspace({
                       }))}
                   />
                 )}
-                {!detail.data.quiz.deletedAt && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="icon-sm"
-                        variant="ghost"
-                        className="shrink-0 text-muted"
-                        disabled={busy}
-                        aria-label={
-                          titleGeneration.isPending
-                            ? "Regenerating quiz title"
-                            : "Regenerate quiz title"
-                        }
-                        onClick={() => {
-                          titleGeneration.reset();
-                          titleGeneration.mutate(selectedQuizId);
-                        }}
-                      >
-                        <Sparkles size={14} />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={6}>
-                      {titleGeneration.isPending
-                        ? "Regenerating title…"
-                        : "Regenerate quiz title"}
-                    </TooltipContent>
-                  </Tooltip>
-                )}
               </div>
-              <div className="ml-auto flex w-auto max-w-full flex-wrap items-center justify-end gap-1">
-                {selectedAttempt && (
-                  <QuizSelect
-                    label="Select quiz attempt"
-                    value={selectedAttempt.id}
-                    displayValue={`Attempt ${selectedAttempt.number}`}
-                    disabled={busy}
-                    onChange={(value) => {
-                      void select(value, "attempt");
-                    }}
-                    options={detail.data.attempts.map((attempt) => ({
-                      value: attempt.id,
-                      label: `Attempt ${attempt.number} · ${attempt.status === "submitted" ? `${attempt.score}/${detail.data.quiz.questionCount}` : "In progress"}`,
-                    }))}
-                  />
-                )}
-                {detail.data.quiz.deletedAt ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={busy}
-                    aria-label={`Restore quiz ${detail.data.quiz.number}`}
-                    onClick={() => {
-                      restoration.reset();
-                      restoration.mutate(selectedQuizId);
-                    }}
-                  >
-                    <RotateCcw size={14} />
-                    Restore
-                  </Button>
-                ) : (
-                  <>
-                    {selectedAttempt?.status === "submitted" && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={busy}
-                            aria-label={
-                              start.isPending ? "Starting quiz" : "Retake quiz"
-                            }
-                            onClick={() => start.mutate()}
-                          >
-                            <RotateCcw size={14} />
-                            {start.isPending ? "Starting…" : "Retake"}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={6}>
-                          {start.isPending
-                            ? "Starting a new attempt…"
-                            : "Start a new attempt"}
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    {selectedSummary && (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
-                            disabled={busy}
-                            aria-label={`Delete quiz ${detail.data.quiz.number}`}
-                            onClick={() => {
-                              deletion.reset();
-                              setDeleteTarget(selectedSummary);
-                            }}
-                          >
-                            <Trash2 size={14} />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" sideOffset={6}>
-                          Move to Deleted
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
-                    {generateButton}
-                  </>
-                )}
-              </div>
-            </div>
-            {titleGeneration.error && (
-              <p role="alert" className="text-xs text-destructive">
-                {titleGeneration.error.message}
-              </p>
             )}
-            {start.error && (
-              <p role="alert" className="text-xs text-destructive">
-                {start.error.message}
-              </p>
-            )}
+            {generateButton}
+          </div>
+        )}
+        {list.isLoading ? (
+          <QuizLoadingState />
+        ) : list.error ? (
+          <div role="alert" className="text-ui text-muted">
+            <p>{list.error.message}</p>
+            <Button
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                void list.refetch();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : showLibrary ? (
+          <>
+            <QuizTable
+              profileId={profileId}
+              quizzes={list.data}
+              actions={generateButton}
+              disabled={busy}
+              onDelete={(quiz) => {
+                deletion.reset();
+                setDeleteTarget(quiz);
+              }}
+              onRestore={(quiz) => {
+                restoration.reset();
+                restoration.mutate(quiz.id);
+              }}
+              onOpen={(id) => {
+                void select(id, "quiz");
+              }}
+            />
             {restoration.error && (
-              <p role="alert" className="text-xs text-destructive">
+              <p role="alert" className="text-metadata text-destructive">
                 {restoration.error.message}
               </p>
             )}
-            {selectedAttempt ? (
-              <QuizAttempt
-                key={selectedAttempt.id}
-                profileId={profileId}
-                quiz={detail.data.quiz}
-                attempt={selectedAttempt}
-                onSaved={updateAttempt}
-                registerSave={registerSave}
-                readOnly={
-                  Boolean(detail.data.quiz.deletedAt) || deletion.isPending
-                }
-              />
-            ) : detail.data.quiz.deletedAt ? (
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto overscroll-contain px-4 py-5">
-                <section className="w-full max-w-3xl rounded-xl border border-line bg-surface px-5 py-5 sm:px-6 sm:py-6">
-                  <h2 className="text-xl font-medium tracking-tight sm:text-2xl">
+          </>
+        ) : !selectedQuizId ? (
+          <p className="text-ui text-muted">No quizzes yet.</p>
+        ) : detail.isLoading ? (
+          <QuizLoadingState detail />
+        ) : detail.error ? (
+          <div role="alert" className="text-ui text-muted">
+            <p>{detail.error.message}</p>
+            <Button
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                void detail.refetch();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : (
+          detail.data && (
+            <>
+              {selectedAttempt && (
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2
+                    className="min-w-0 break-words text-section font-semibold tracking-[-0.02em] [overflow-wrap:anywhere]"
+                    title={detail.data.quiz.title}
+                  >
                     {detail.data.quiz.title}
                   </h2>
-                  <p className="mt-3 text-sm text-muted">
-                    This quiz is deleted. Restore it to start an attempt.
-                  </p>
-                </section>
-              </div>
-            ) : (
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto overscroll-contain px-4 py-5">
-                <section className="w-full max-w-3xl rounded-xl border border-line bg-surface px-5 py-5 sm:px-6 sm:py-6">
-                  <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-                    <div className="min-w-0">
-                      <h2 className="text-xl font-medium tracking-tight sm:text-2xl">
-                        {detail.data.quiz.title}
-                      </h2>
-                      <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-muted">
-                        <span>Quiz {detail.data.quiz.number}</span>
-                        <span aria-hidden="true" className="text-line-strong">
-                          ·
-                        </span>
-                        <span>{detail.data.quiz.questionCount} questions</span>
-                        <span aria-hidden="true" className="text-line-strong">
-                          ·
-                        </span>
-                        <span>
-                          {detail.data.quiz.coverage === "topic"
-                            ? detail.data.quiz.difficulty
-                            : COVERAGE_LABELS[detail.data.quiz.coverage]}
-                        </span>
-                      </div>
-                    </div>
-                    <Button
-                      size="default"
-                      variant="primary"
-                      className="w-full sm:w-auto"
-                      disabled={busy}
-                      onClick={() => start.mutate()}
-                    >
-                      {start.isPending ? (
-                        <LoaderCircle
-                          size={14}
-                          aria-hidden="true"
-                          className="animate-spin motion-reduce:animate-none"
-                        />
-                      ) : (
-                        <ArrowRight size={14} aria-hidden="true" />
-                      )}
-                      {start.isPending ? "Starting…" : "Start quiz"}
-                    </Button>
-                  </div>
-                </section>
-              </div>
-            )}
-          </>
-        )
-      )}
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          if (!generation.isPending && !promptEnhancement.isPending)
-            setDialogOpen(open);
-        }}
-      >
-        <DialogContent
-          className={`max-h-[calc(100dvh-2rem)] gap-3 overflow-y-auto p-4 sm:p-5 ${challengeId === null ? "sm:max-w-xl" : "sm:max-w-sm"}`}
-          showCloseButton={
-            !generation.isPending && !promptEnhancement.isPending
-          }
-        >
-          <DialogTitle className="pr-8">Generate quiz</DialogTitle>
-          <DialogDescription className="sr-only">
-            {challengeId === null
-              ? "Enter a topic or prompt, then choose difficulty and question count."
-              : "Choose question count and coverage for a new quiz."}
-          </DialogDescription>
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!generation.isPending && !promptEnhancement.isPending)
-                generation.mutate();
-            }}
-          >
-            {challengeId === null && (
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="quiz-prompt"
-                  className="block text-xs font-medium text-muted"
-                >
-                  Quiz prompt
-                </label>
-                <div className="relative">
-                  <Textarea
-                    id="quiz-prompt"
-                    value={prompt}
-                    onChange={(event) => {
-                      setPrompt(event.target.value);
-                      promptEnhancement.reset();
-                    }}
-                    className="min-h-24 max-h-44 overflow-y-auto pr-12 pb-10 leading-6"
-                    placeholder="A topic or skill you want to practice…"
-                    required
-                    minLength={1}
-                    maxLength={4000}
-                    disabled={
-                      generation.isPending || promptEnhancement.isPending
-                    }
-                  />
+                  {detail.data.quiz.deletedAt && (
+                    <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-metadata text-muted">
+                      Deleted
+                    </span>
+                  )}
+                  <span className="text-metadata text-muted">
+                    Quiz {detail.data.quiz.number} ·{" "}
+                    {detail.data.quiz.coverage === "topic"
+                      ? detail.data.quiz.difficulty
+                      : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
+                    · {detail.data.quiz.questionCount} questions
+                  </span>
+                </div>
+              )}
+              <div className="relative flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span
-                        className="absolute right-2 bottom-2 inline-flex"
-                        tabIndex={
-                          generation.isPending ||
-                          promptEnhancement.isPending ||
-                          prompt.trim().length === 0
-                            ? 0
-                            : undefined
-                        }
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="-ml-2 shrink-0 px-2 text-muted hover:text-foreground"
+                        disabled={busy}
+                        aria-label="All quizzes"
+                        onClick={() => {
+                          void select("", "quiz");
+                        }}
                       >
+                        <ArrowLeft size={14} />
+                        <span>All quizzes</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={6}>
+                      All quizzes
+                    </TooltipContent>
+                  </Tooltip>
+                  {challengeId !== null && (
+                    <QuizSelect
+                      label="Select quiz"
+                      value={selectedQuizId}
+                      disabled={busy}
+                      onChange={(value) => {
+                        void select(value, "quiz");
+                      }}
+                      options={(list.data ?? [])
+                        .filter(
+                          (quiz) =>
+                            !quiz.deletedAt || quiz.id === selectedQuizId,
+                        )
+                        .map((quiz) => ({
+                          value: quiz.id,
+                          label: quizLabel(quiz),
+                        }))}
+                    />
+                  )}
+                  {!detail.data.quiz.deletedAt && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
                         <Button
-                          type="button"
                           size="icon-sm"
                           variant="ghost"
-                          className="rounded-md bg-background text-muted hover:bg-elevated hover:text-foreground"
-                          disabled={
+                          className="shrink-0 text-muted"
+                          disabled={busy}
+                          aria-label={
+                            titleGeneration.isPending
+                              ? "Regenerating quiz title"
+                              : "Regenerate quiz title"
+                          }
+                          onClick={() => {
+                            titleGeneration.reset();
+                            titleGeneration.mutate(selectedQuizId);
+                          }}
+                        >
+                          <Sparkles size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={6}>
+                        {titleGeneration.isPending
+                          ? "Regenerating title…"
+                          : "Regenerate quiz title"}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+                <div className="ml-auto flex w-auto max-w-full flex-wrap items-center justify-end gap-1">
+                  {selectedAttempt && (
+                    <QuizSelect
+                      label="Select quiz attempt"
+                      value={selectedAttempt.id}
+                      displayValue={`Attempt ${selectedAttempt.number}`}
+                      disabled={busy}
+                      onChange={(value) => {
+                        void select(value, "attempt");
+                      }}
+                      options={detail.data.attempts.map((attempt) => ({
+                        value: attempt.id,
+                        label: `Attempt ${attempt.number} · ${attempt.status === "submitted" ? `${attempt.score}/${detail.data.quiz.questionCount}` : "In progress"}`,
+                      }))}
+                    />
+                  )}
+                  {detail.data.quiz.deletedAt ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy}
+                      aria-label={`Restore quiz ${detail.data.quiz.number}`}
+                      onClick={() => {
+                        restoration.reset();
+                        restoration.mutate(selectedQuizId);
+                      }}
+                    >
+                      <RotateCcw size={14} />
+                      Restore
+                    </Button>
+                  ) : (
+                    <>
+                      {selectedAttempt?.status === "submitted" && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy}
+                              aria-label={
+                                start.isPending
+                                  ? "Starting quiz"
+                                  : "Retake quiz"
+                              }
+                              onClick={() => start.mutate()}
+                            >
+                              <RotateCcw size={14} />
+                              {start.isPending ? "Starting…" : "Retake"}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={6}>
+                            {start.isPending
+                              ? "Starting a new attempt…"
+                              : "Start a new attempt"}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {selectedSummary && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              disabled={busy}
+                              aria-label={`Delete quiz ${detail.data.quiz.number}`}
+                              onClick={() => {
+                                deletion.reset();
+                                setDeleteTarget(selectedSummary);
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={6}>
+                            Move to Deleted
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {generateButton}
+                    </>
+                  )}
+                </div>
+              </div>
+              {titleGeneration.error && (
+                <p role="alert" className="text-metadata text-destructive">
+                  {titleGeneration.error.message}
+                </p>
+              )}
+              {start.error && (
+                <p role="alert" className="text-metadata text-destructive">
+                  {start.error.message}
+                </p>
+              )}
+              {restoration.error && (
+                <p role="alert" className="text-metadata text-destructive">
+                  {restoration.error.message}
+                </p>
+              )}
+              {selectedAttempt ? (
+                <QuizAttempt
+                  key={selectedAttempt.id}
+                  profileId={profileId}
+                  quiz={detail.data.quiz}
+                  attempt={selectedAttempt}
+                  onSaved={updateAttempt}
+                  registerSave={registerSave}
+                  readOnly={
+                    Boolean(detail.data.quiz.deletedAt) || deletion.isPending
+                  }
+                />
+              ) : detail.data.quiz.deletedAt ? (
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto overscroll-contain px-4 py-5">
+                  <section className="w-full max-w-3xl py-5">
+                    <h2 className="text-section font-medium tracking-tight sm:text-title">
+                      {detail.data.quiz.title}
+                    </h2>
+                    <p className="mt-3 text-ui text-muted">
+                      This quiz is deleted. Restore it to start an attempt.
+                    </p>
+                  </section>
+                </div>
+              ) : (
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto overscroll-contain px-4 py-5">
+                  <section className="w-full max-w-3xl py-5">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+                      <div className="min-w-0">
+                        <h2 className="text-section font-medium tracking-tight sm:text-title">
+                          {detail.data.quiz.title}
+                        </h2>
+                        <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ui text-muted">
+                          <span>Quiz {detail.data.quiz.number}</span>
+                          <span aria-hidden="true" className="text-line-strong">
+                            ·
+                          </span>
+                          <span>
+                            {detail.data.quiz.questionCount} questions
+                          </span>
+                          <span aria-hidden="true" className="text-line-strong">
+                            ·
+                          </span>
+                          <span>
+                            {detail.data.quiz.coverage === "topic"
+                              ? detail.data.quiz.difficulty
+                              : COVERAGE_LABELS[detail.data.quiz.coverage]}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        ref={startButtonRef}
+                        size="default"
+                        variant="primary"
+                        className="w-full sm:w-auto"
+                        disabled={busy}
+                        onClick={() => start.mutate()}
+                      >
+                        {start.isPending ? (
+                          <LoaderCircle
+                            size={14}
+                            aria-hidden="true"
+                            className="animate-spin motion-reduce:animate-none"
+                          />
+                        ) : (
+                          <ArrowRight size={14} aria-hidden="true" />
+                        )}
+                        {start.isPending ? "Starting…" : "Start quiz"}
+                      </Button>
+                    </div>
+                  </section>
+                </div>
+              )}
+            </>
+          )
+        )}
+      </div>
+      {dialogOpen && (
+        <section
+          ref={createRef}
+          aria-labelledby="quiz-create-title"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
+          <div className="mx-auto w-full max-w-[720px]">
+            <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
+              <h2
+                id="quiz-create-title"
+                className="text-section font-semibold tracking-[-0.02em]"
+              >
+                Generate quiz
+              </h2>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={generation.isPending || promptEnhancement.isPending}
+                onClick={() => {
+                  setDialogOpen(false);
+                  requestAnimationFrame(() => generateRef.current?.focus());
+                }}
+              >
+                <X size={14} />
+                Cancel
+              </Button>
+            </div>
+            <form
+              className="space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!generation.isPending && !promptEnhancement.isPending)
+                  generation.mutate();
+              }}
+            >
+              {challengeId === null && (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="quiz-prompt"
+                    className="block text-ui font-medium"
+                  >
+                    Quiz prompt
+                  </label>
+                  <div className="relative">
+                    <Textarea
+                      id="quiz-prompt"
+                      value={prompt}
+                      onChange={(event) => {
+                        setPrompt(event.target.value);
+                        promptEnhancement.reset();
+                      }}
+                      className="min-h-24 max-h-44 overflow-y-auto pr-12 pb-10 leading-6"
+                      placeholder="A topic or skill you want to practice…"
+                      required
+                      minLength={1}
+                      maxLength={4000}
+                      disabled={
+                        generation.isPending || promptEnhancement.isPending
+                      }
+                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className="absolute right-2 bottom-2 inline-flex"
+                          tabIndex={
                             generation.isPending ||
                             promptEnhancement.isPending ||
                             prompt.trim().length === 0
+                              ? 0
+                              : undefined
                           }
-                          aria-label={
-                            promptEnhancement.isPending
-                              ? "Enhancing prompt with AI"
-                              : "Enhance prompt with AI"
-                          }
-                          onClick={() => promptEnhancement.mutate()}
                         >
-                          {promptEnhancement.isPending ? (
-                            <LoaderCircle
-                              size={14}
-                              aria-hidden="true"
-                              className="animate-spin motion-reduce:animate-none"
-                            />
-                          ) : (
-                            <Sparkles size={14} aria-hidden="true" />
-                          )}
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" sideOffset={6}>
-                      {promptEnhancement.isPending
-                        ? "Enhancing prompt…"
-                        : prompt.trim().length === 0
-                          ? "Enter a prompt to enable AI enhancement"
-                          : generation.isPending
-                            ? "Wait for quiz generation to finish"
-                            : "Enhance prompt with AI"}
-                    </TooltipContent>
-                  </Tooltip>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            className="rounded-md bg-surface text-muted hover:bg-elevated hover:text-foreground"
+                            disabled={
+                              generation.isPending ||
+                              promptEnhancement.isPending ||
+                              prompt.trim().length === 0
+                            }
+                            aria-label={
+                              promptEnhancement.isPending
+                                ? "Enhancing prompt with AI"
+                                : "Enhance prompt with AI"
+                            }
+                            onClick={() => promptEnhancement.mutate()}
+                          >
+                            {promptEnhancement.isPending ? (
+                              <LoaderCircle
+                                size={14}
+                                aria-hidden="true"
+                                className="animate-spin motion-reduce:animate-none"
+                              />
+                            ) : (
+                              <Sparkles size={14} aria-hidden="true" />
+                            )}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={6}>
+                        {promptEnhancement.isPending
+                          ? "Enhancing prompt…"
+                          : prompt.trim().length === 0
+                            ? "Enter a prompt to enable AI enhancement"
+                            : generation.isPending
+                              ? "Wait for quiz generation to finish"
+                              : "Enhance prompt with AI"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {promptEnhancement.isError && (
+                    <p role="alert" className="text-metadata text-destructive">
+                      {promptEnhancement.error.message} Try again or edit the
+                      prompt yourself.
+                    </p>
+                  )}
                 </div>
-                {promptEnhancement.isError && (
-                  <p role="alert" className="text-xs text-destructive">
-                    {promptEnhancement.error.message} Try again or edit the
-                    prompt yourself.
-                  </p>
-                )}
-              </div>
-            )}
-            {generation.error && (
-              <p role="alert" className="text-xs text-destructive">
-                {generation.error.message}
-              </p>
-            )}
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="flex flex-wrap gap-3">
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted">Questions</p>
-                  <QuizSelect
-                    label="Question count"
-                    value={String(questionCount)}
-                    disabled={
-                      generation.isPending || promptEnhancement.isPending
-                    }
-                    onChange={(value) =>
-                      setQuestionCount(Number(value) as QuestionCount)
-                    }
-                    options={[5, 10, 15].map((count) => ({
-                      value: String(count),
-                      label: String(count),
-                    }))}
-                  />
-                </div>
-                {challengeId === null ? (
+              )}
+              {generation.error && (
+                <p role="alert" className="text-metadata text-destructive">
+                  {generation.error.message}
+                </p>
+              )}
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="flex flex-wrap gap-3">
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted">Difficulty</p>
+                    <p className="text-ui font-medium">Questions</p>
                     <QuizSelect
-                      label="Quiz difficulty"
-                      value={difficulty}
+                      label="Question count"
+                      value={String(questionCount)}
                       disabled={
                         generation.isPending || promptEnhancement.isPending
                       }
                       onChange={(value) =>
-                        setDifficulty(value as QuizDifficulty)
+                        setQuestionCount(Number(value) as QuestionCount)
                       }
-                      options={[
-                        { value: "easy", label: "Easy" },
-                        { value: "medium", label: "Medium" },
-                        { value: "hard", label: "Hard" },
-                        { value: "grill", label: "Grill" },
-                      ]}
+                      options={[5, 10, 15].map((count) => ({
+                        value: String(count),
+                        label: String(count),
+                      }))}
                     />
                   </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted">Coverage</p>
-                    <QuizSelect
-                      label="Quiz coverage"
-                      value={coverage}
-                      disabled={
-                        generation.isPending || promptEnhancement.isPending
-                      }
-                      onChange={(value) => setCoverage(value as QuizCoverage)}
-                      options={Object.entries(COVERAGE_LABELS).map(
-                        ([value, label]) => ({ value, label }),
-                      )}
-                    />
-                  </div>
-                )}
+                  {challengeId === null ? (
+                    <div className="space-y-1.5">
+                      <p className="text-ui font-medium">Difficulty</p>
+                      <QuizSelect
+                        label="Quiz difficulty"
+                        value={difficulty}
+                        disabled={
+                          generation.isPending || promptEnhancement.isPending
+                        }
+                        onChange={(value) =>
+                          setDifficulty(value as QuizDifficulty)
+                        }
+                        options={[
+                          { value: "easy", label: "Easy" },
+                          { value: "medium", label: "Medium" },
+                          { value: "hard", label: "Hard" },
+                          { value: "grill", label: "Grill" },
+                        ]}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <p className="text-ui font-medium">Coverage</p>
+                      <QuizSelect
+                        label="Quiz coverage"
+                        value={coverage}
+                        disabled={
+                          generation.isPending || promptEnhancement.isPending
+                        }
+                        onChange={(value) => setCoverage(value as QuizCoverage)}
+                        options={Object.entries(COVERAGE_LABELS).map(
+                          ([value, label]) => ({ value, label }),
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="ml-auto w-full sm:w-auto"
+                  disabled={
+                    generation.isPending ||
+                    promptEnhancement.isPending ||
+                    (challengeId === null && prompt.trim().length === 0)
+                  }
+                >
+                  {generation.isPending ? "Generating…" : "Generate quiz"}
+                </Button>
               </div>
-              <Button
-                type="submit"
-                variant="primary"
-                className="ml-auto w-full sm:w-auto"
-                disabled={
-                  generation.isPending ||
-                  promptEnhancement.isPending ||
-                  (challengeId === null && prompt.trim().length === 0)
-                }
-              >
-                {generation.isPending ? "Generating…" : "Generate quiz"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+            </form>
+          </div>
+        </section>
+      )}
       <AlertDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {
@@ -1013,7 +1052,7 @@ export function QuizWorkspace({
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deletion.error && (
-            <p role="alert" className="text-xs text-destructive">
+            <p role="alert" className="text-metadata text-destructive">
               {deletion.error.message}
             </p>
           )}

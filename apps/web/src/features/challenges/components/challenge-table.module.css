@@ -40,7 +40,7 @@
   .row {
     grid-template-columns: minmax(0, 1fr) 298px 16px;
     gap: 16px;
-    min-height: 58px;
+    min-height: 56px;
   }
 
   .metadata {

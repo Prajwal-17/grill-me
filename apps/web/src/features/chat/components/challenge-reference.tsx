@@ -18,7 +18,7 @@ export function ChallengeReference({
   return (
     <div className="flex h-full min-h-0 flex-col bg-panel">
       <div className="flex min-h-12 shrink-0 items-center justify-between gap-2 border-b border-line px-4">
-        <h2 className="flex items-center gap-2 text-[13px] font-medium">
+        <h2 className="flex items-center gap-2 text-ui font-medium">
           <BookOpen size={15} className="text-muted" />
           Challenge reference
         </h2>
@@ -38,8 +38,8 @@ export function ChallengeReference({
           </Button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-5 text-sm leading-6 [overflow-wrap:anywhere] [&_.markdown_h2]:text-sm [&_.markdown_h3]:text-sm">
-        <p className="mb-5 text-sm font-medium">{challenge.title}</p>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-8 pt-5 text-ui leading-6 [overflow-wrap:anywhere] [&_.markdown_h2]:text-ui [&_.markdown_h3]:text-ui">
+        <p className="mb-5 text-ui font-medium">{challenge.title}</p>
         <Markdown headingPrefix={`reference-${challenge.id}`}>
           {statementBody(challenge)}
         </Markdown>

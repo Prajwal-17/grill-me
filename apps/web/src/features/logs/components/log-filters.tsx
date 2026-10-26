@@ -1,6 +1,6 @@
-import { Search } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
+import { SearchField } from "@/shared/components/ui/search-field";
+import { CollectionToolbar } from "@/shared/components/layout/collection-toolbar";
 import {
   Select,
   SelectContent,
@@ -21,7 +21,7 @@ export function LogFilterBar({
   onChange: (filters: LogFilters) => void;
 }) {
   return (
-    <div className="flex shrink-0 flex-col gap-2 border-b border-line p-2.5 sm:flex-row sm:items-center">
+    <CollectionToolbar className="flex-col items-stretch sm:flex-row sm:items-center">
       <form
         key={filters.search}
         className="flex min-w-0 flex-1 gap-1.5 sm:max-w-[440px]"
@@ -34,21 +34,15 @@ export function LogFilterBar({
           onChange({ ...filters, search, page: 1 });
         }}
       >
-        <div className="relative min-w-0 flex-1">
-          <Search
-            size={16}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-          />
-          <Input
-            name="search"
-            defaultValue={filters.search}
-            maxLength={200}
-            placeholder="Search requests or models"
-            aria-label="Search logs"
-            className="h-8 border-line bg-canvas pl-9 text-sm shadow-none"
-          />
-        </div>
-        <Button type="submit" size="sm">
+        <SearchField
+          name="search"
+          defaultValue={filters.search}
+          maxLength={200}
+          placeholder="Search requests or models"
+          aria-label="Search logs"
+          className="min-w-0 flex-1"
+        />
+        <Button type="submit" className="md:h-9">
           Search
         </Button>
       </form>
@@ -106,6 +100,6 @@ export function LogFilterBar({
           </SelectContent>
         </Select>
       </div>
-    </div>
+    </CollectionToolbar>
   );
 }

@@ -40,7 +40,7 @@ function PathBreadcrumb({
   return (
     <nav
       aria-label="Current folder"
-      className="flex min-w-0 flex-1 items-center overflow-x-auto font-mono text-[11px]"
+      className="flex min-w-0 flex-1 items-center overflow-x-auto font-mono text-metadata"
     >
       <button
         type="button"
@@ -133,7 +133,7 @@ export function ProjectPicker({
               placeholder="Path or file:// URL"
               autoComplete="off"
               spellCheck={false}
-              className="h-9 font-mono text-xs"
+              className="h-9 font-mono text-metadata"
             />
             <Button type="submit" disabled={!typedPath.trim()}>
               Open
@@ -172,14 +172,14 @@ export function ProjectPicker({
 
           <div className="h-56 overflow-y-auto rounded-md border border-line p-1">
             {listing.isLoading || listing.isFetching ? (
-              <div className="flex h-full items-center justify-center gap-2 text-sm text-muted">
+              <div className="flex h-full items-center justify-center gap-2 text-ui text-muted">
                 <LoaderCircle size={15} className="animate-spin" />
                 Loading…
               </div>
             ) : listing.error ? (
               <div
                 role="alert"
-                className="flex h-full flex-col items-center justify-center px-5 text-center text-sm"
+                className="flex h-full flex-col items-center justify-center px-5 text-center text-ui"
               >
                 <p>{listing.error.message}</p>
                 <Button className="mt-3" size="sm" onClick={() => navigate("")}>
@@ -193,7 +193,7 @@ export function ProjectPicker({
                     type="button"
                     role="listitem"
                     key={folder.path}
-                    className="flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left text-sm hover:bg-elevated focus-visible:outline-2"
+                    className="flex w-full items-center gap-2.5 rounded px-2.5 py-2 text-left text-ui hover:bg-elevated focus-visible:outline-2"
                     onClick={() => navigate(folder.path)}
                   >
                     <Folder
@@ -209,11 +209,11 @@ export function ProjectPicker({
                 ))}
               </div>
             ) : folderSearch && listing.data?.folders.length ? (
-              <div className="flex h-full items-center justify-center text-sm text-muted">
+              <div className="flex h-full items-center justify-center text-ui text-muted">
                 No matching folders
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted">
+              <div className="flex h-full items-center justify-center text-ui text-muted">
                 No subfolders
               </div>
             )}
