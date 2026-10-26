@@ -2,7 +2,10 @@ import { eq } from "drizzle-orm";
 import { EMPTY_GUIDED } from "@repo/preferences";
 import { db, first } from "../../shared/database/db";
 import { profilePreferences, profiles } from "../../shared/database/schema";
-import type { SavePreferencesInput } from "./profile.schema";
+import {
+  guidedPreferencesSchema,
+  type SavePreferencesInput,
+} from "./profile.schema";
 
 export type ProfileRow = typeof profiles.$inferSelect;
 export type ProfilePreferencesRow = typeof profilePreferences.$inferSelect;
@@ -47,22 +50,65 @@ export const profilePreferencesModel = {
   },
 
   save(profileId: string, input: SavePreferencesInput) {
-    const now = new Date();
-    const { aboutMe, ...guidedPreferences } = input;
-    const values = {
-      aboutMe,
-      guidedPreferences,
-    };
-    return first(
-      db
+    return db.transaction(async (tx) => {
+      await tx
         .insert(profilePreferences)
-        .values({ profileId, ...values, createdAt: now, updatedAt: now })
-        .onConflictDoUpdate({
-          target: profilePreferences.profileId,
-          set: { ...values, updatedAt: now },
-        })
-        .returning(),
-    );
+        .values({ profileId, guidedPreferences: EMPTY_GUIDED })
+        .onConflictDoNothing();
+      const previous = (
+        await tx
+          .select()
+          .from(profilePreferences)
+          .where(eq(profilePreferences.profileId, profileId))
+          .for("update")
+      )[0]!;
+      const prior = guidedPreferencesSchema.parse(previous.guidedPreferences);
+      const { aboutMe: suppliedBackground, ...incoming } = input;
+      const aboutMe =
+        suppliedBackground === undefined
+          ? previous.aboutMe
+          : suppliedBackground;
+      const guidedPreferences = guidedPreferencesSchema.parse({
+        ...prior,
+        ...Object.fromEntries(
+          Object.entries(incoming).filter(([, value]) => value !== undefined),
+        ),
+      });
+      const developerInfo = (
+        guided: typeof guidedPreferences,
+        background: string | null,
+      ) => {
+        const {
+          codexModel: _model,
+          includeRecentChallenges: _sharing,
+          ...developer
+        } = guided;
+        return JSON.stringify({ ...developer, aboutMe: background });
+      };
+      const now = new Date();
+      const changed =
+        developerInfo(prior, previous.aboutMe) !==
+        developerInfo(guidedPreferences, aboutMe);
+      return (
+        await tx
+          .update(profilePreferences)
+          .set({
+            aboutMe,
+            guidedPreferences,
+            updatedAt: now,
+            developerContextUpdatedAt: changed
+              ? new Date(
+                  Math.max(
+                    now.getTime(),
+                    (previous.developerContextUpdatedAt?.getTime() ?? 0) + 1,
+                  ),
+                )
+              : previous.developerContextUpdatedAt,
+          })
+          .where(eq(profilePreferences.profileId, profileId))
+          .returning()
+      )[0];
+    });
   },
 };
 

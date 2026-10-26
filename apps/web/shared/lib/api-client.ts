@@ -16,6 +16,7 @@ export class ApiClientError extends Error {
     message: string,
     public readonly code: string,
     public readonly retryable: boolean,
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiClientError";
@@ -24,7 +25,9 @@ export class ApiClientError extends Error {
 
 function requestHeaders(init: RequestInit, profileId?: string) {
   return {
-    "Content-Type": "application/json",
+    ...(init.body instanceof FormData
+      ? {}
+      : { "Content-Type": "application/json" }),
     ...(profileId ? { "X-Profile-Id": profileId } : {}),
     ...init.headers,
   };
@@ -79,7 +82,12 @@ export async function apiRequest<T>(
             retryable: false,
           };
     recoverInvalidProfile(error.code);
-    throw new ApiClientError(error.message, error.code, error.retryable);
+    throw new ApiClientError(
+      error.message,
+      error.code,
+      error.retryable,
+      "details" in error ? error.details : undefined,
+    );
   }
 
   return body.data as T;

@@ -17,11 +17,32 @@ export function getPreferences(profileId: string) {
 
 export function savePreferences(
   profileId: string,
-  preferences: Omit<ProfilePreferences, "profileId" | "updatedAt">,
+  preferences: Omit<
+    ProfilePreferences,
+    "profileId" | "updatedAt" | "developerContextUpdatedAt"
+  >,
 ) {
   return apiRequest<ProfilePreferences>(
     "/profiles/preferences",
     { method: "POST", body: JSON.stringify(preferences) },
+    profileId,
+  );
+}
+
+export function previewResume(
+  profileId: string,
+  input: File | string,
+  signal: AbortSignal,
+) {
+  let body: FormData | string;
+  if (typeof input === "string") body = JSON.stringify({ text: input });
+  else {
+    body = new FormData();
+    body.append("file", input);
+  }
+  return apiRequest<import("@repo/preferences").ResumePreview>(
+    "/profiles/resume/preview",
+    { method: "POST", body, signal },
     profileId,
   );
 }

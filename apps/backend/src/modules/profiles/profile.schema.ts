@@ -7,6 +7,8 @@ import {
   GOALS,
   FOCUS,
   optionIds,
+  normalizeTechnologies,
+  mergeProjects,
 } from "@repo/preferences";
 export const profileIdSchema = z.string().uuid();
 export const startProfileRequestSchema = z.object({
@@ -21,6 +23,27 @@ function unique<T>(values: T[]) {
   return [...new Set(values)];
 }
 export const guidedPreferencesSchema = z.object({
+  displayName: z
+    .string()
+    .trim()
+    .max(120)
+    .nullable()
+    .default(null)
+    .transform((value) => value || null),
+  projects: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        technologies: z
+          .array(z.string().trim().min(1).max(80))
+          .max(20)
+          .transform((values) => normalizeTechnologies(values)),
+        contribution: z.string().trim().min(1).max(600),
+      }),
+    )
+    .max(10)
+    .default([])
+    .transform((values) => mergeProjects([], values)),
   codexModel: z
     .string()
     .trim()
@@ -41,15 +64,15 @@ export const guidedPreferencesSchema = z.object({
   learningGoal: z.string().trim().max(1000).nullable().default(null),
   experienceLevel: z.enum(optionIds(EXPERIENCE)).nullable().default(null),
   languages: z
-    .array(z.enum(optionIds(LANGUAGES)))
-    .max(LANGUAGES.length)
+    .array(z.string().trim().min(1).max(80))
+    .max(50)
     .default([])
-    .transform(unique),
+    .transform((values) => normalizeTechnologies(values, LANGUAGES)),
   stack: z
-    .array(z.enum(optionIds(STACK)))
-    .max(STACK.length)
+    .array(z.string().trim().min(1).max(80))
+    .max(50)
     .default([])
-    .transform(unique),
+    .transform((values) => normalizeTechnologies(values, STACK)),
   learningGoals: z
     .array(z.enum(optionIds(GOALS)))
     .max(GOALS.length)
@@ -57,7 +80,7 @@ export const guidedPreferencesSchema = z.object({
     .transform(unique),
   currentFocus: z.enum(optionIds(FOCUS)).nullable().default(null),
 });
-export const savePreferencesRequestSchema = guidedPreferencesSchema.extend({
+const editablePreferencesSchema = guidedPreferencesSchema.extend({
   aboutMe: z
     .string()
     .trim()
@@ -66,9 +89,35 @@ export const savePreferencesRequestSchema = guidedPreferencesSchema.extend({
     .default(null)
     .transform((value) => value || null),
 });
-export const profilePreferencesSchema = savePreferencesRequestSchema.extend({
+// Put undefined first: defaults nested inside optional schemas otherwise reset
+// omitted fields in Zod 4. Older and partial clients must preserve saved values.
+const optionalField = <T extends z.ZodType>(schema: T) =>
+  z.union([z.undefined(), schema]).optional();
+export const savePreferencesRequestSchema = z.object({
+  displayName: optionalField(editablePreferencesSchema.shape.displayName),
+  projects: optionalField(editablePreferencesSchema.shape.projects),
+  codexModel: optionalField(editablePreferencesSchema.shape.codexModel),
+  includeRecentChallenges: optionalField(
+    editablePreferencesSchema.shape.includeRecentChallenges,
+  ),
+  topicFamiliarity: optionalField(
+    editablePreferencesSchema.shape.topicFamiliarity,
+  ),
+  knownConcepts: optionalField(editablePreferencesSchema.shape.knownConcepts),
+  learningGoal: optionalField(editablePreferencesSchema.shape.learningGoal),
+  experienceLevel: optionalField(
+    editablePreferencesSchema.shape.experienceLevel,
+  ),
+  languages: optionalField(editablePreferencesSchema.shape.languages),
+  stack: optionalField(editablePreferencesSchema.shape.stack),
+  learningGoals: optionalField(editablePreferencesSchema.shape.learningGoals),
+  currentFocus: optionalField(editablePreferencesSchema.shape.currentFocus),
+  aboutMe: optionalField(editablePreferencesSchema.shape.aboutMe),
+});
+export const profilePreferencesSchema = editablePreferencesSchema.extend({
   profileId: profileIdSchema,
   updatedAt: z.string(),
+  developerContextUpdatedAt: z.string().nullable().default(null),
 });
 export type Profile = z.infer<typeof profileSchema>;
 export type ProfilePreferences = z.infer<typeof profilePreferencesSchema>;

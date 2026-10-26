@@ -20,6 +20,7 @@ import {
 } from "@/features/profile/components/preferences-fields";
 import { apiRequest } from "@/shared/lib/api-client";
 import { DEFAULT_CODEX_MODEL } from "@repo/preferences";
+import { ResumeImport } from "../components/resume-import";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 export function PreferencesPage() {
   const profile = useProfile();
@@ -52,6 +53,12 @@ export function PreferencesPage() {
     mutationFn: () =>
       savePreferences(profile!.id, {
         ...form,
+        projects: form.projects.map((project) => ({
+          ...project,
+          technologies: project.technologies
+            .map((value) => value.trim())
+            .filter(Boolean),
+        })),
         knownConcepts: form.knownConcepts.map((v) => v.trim()).filter(Boolean),
         topicFamiliarity: form.topicFamiliarity.filter((v) => v.topic.trim()),
       }),
@@ -114,7 +121,17 @@ export function PreferencesPage() {
             title="Make it your practice"
             description="Set the context used for new challenges and quizzes, and choose how your code is reviewed."
           />
-          <form id="preferences-form" onSubmit={submit}>
+          <form
+            id="preferences-form"
+            onSubmit={submit}
+            onInvalidCapture={(event) => {
+              let details = (event.target as HTMLElement).closest("details");
+              while (details) {
+                details.open = true;
+                details = details.parentElement?.closest("details") ?? null;
+              }
+            }}
+          >
             <fieldset disabled={save.isPending}>
               <section className="grid gap-6 border-b border-line py-7 md:grid-cols-[150px_minmax(0,1fr)]">
                 <h2 className="text-[15px] font-semibold">Code reviews</h2>
@@ -175,6 +192,20 @@ export function PreferencesPage() {
               </section>
               <PreferencesFields
                 values={form}
+                updatedAt={preferences.data?.developerContextUpdatedAt}
+                importAction={
+                  <ResumeImport
+                    key={profile.id}
+                    profileId={profile.id}
+                    values={form}
+                    disabled={save.isPending}
+                    onApply={(value) => {
+                      setEdits(value);
+                      setSaved(false);
+                      save.reset();
+                    }}
+                  />
+                }
                 onChange={update}
                 disabled={save.isPending}
               />

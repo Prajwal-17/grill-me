@@ -20,7 +20,9 @@
     "codex:doctor": "bun run --cwd apps/backend codex:doctor",
     "db:studio": "bun run --cwd apps/backend db:studio",
     "db:studio:dev": "bun run --cwd apps/backend db:studio:dev",
-    "db:studio:prod": "bun run --cwd apps/backend db:studio:prod"
+    "db:studio:prod": "bun run --cwd apps/backend db:studio:prod",
+    "test:isolated": "bun run scripts/test-isolated.ts",
+    "prompt:eval": "bun run --cwd apps/backend scripts/prompt-eval.ts"
   },
   "devDependencies": {
     "@babel/core": "8.0.1",

@@ -34,17 +34,17 @@ export function ApprovalCard({
   const customInput = useRef<HTMLTextAreaElement>(null);
   const answerContent = useRef<HTMLDivElement>(null);
   const submission = useApprovalSubmission(busy, onAnswer);
-  const answer = choice === "custom" ? custom : choice;
+  const answer = !options.length || choice === "custom" ? custom : choice;
   useEffect(() => {
     heading.current?.focus({ preventScroll: true });
   }, [question]);
   useEffect(() => {
-    if (choice === "custom") {
+    if (!options.length || choice === "custom") {
       customInput.current?.focus({ preventScroll: true });
       if (answerContent.current)
         answerContent.current.scrollTop = answerContent.current.scrollHeight;
     }
-  }, [choice]);
+  }, [choice, options.length]);
 
   return (
     <form
@@ -74,37 +74,39 @@ export function ApprovalCard({
           ref={answerContent}
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4"
         >
-          <div role="radiogroup" aria-labelledby={id} className="grid gap-1">
-            {[
-              ...options.map((option) => ({ value: option, label: option })),
-              { value: "custom", label: "Something else" },
-            ].map((option) => (
-              <label
-                key={option.value}
-                className="relative flex min-h-10 cursor-pointer items-start gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-elevated has-checked:border-line has-checked:bg-elevated has-focus-visible:outline-2 has-focus-visible:outline-offset-[-2px]"
-              >
-                <input
-                  type="radio"
-                  name={id}
-                  value={option.value}
-                  checked={choice === option.value}
-                  className="peer sr-only"
-                  onChange={() => {
-                    submission.cancel();
-                    onChoice(option.value);
-                  }}
-                />
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border border-line-strong peer-checked:border-foreground peer-checked:after:size-2 peer-checked:after:rounded-full peer-checked:after:bg-foreground"
-                />
-                <span className="min-w-0 break-words text-sm leading-5">
-                  {option.label}
-                </span>
-              </label>
-            ))}
-          </div>
-          {choice === "custom" && (
+          {options.length > 0 && (
+            <div role="radiogroup" aria-labelledby={id} className="grid gap-1">
+              {[
+                ...options.map((option) => ({ value: option, label: option })),
+                { value: "custom", label: "Something else" },
+              ].map((option) => (
+                <label
+                  key={option.value}
+                  className="relative flex min-h-10 cursor-pointer items-start gap-3 rounded-md border border-transparent px-3 py-2.5 transition-colors hover:bg-elevated has-checked:border-line has-checked:bg-elevated has-focus-visible:outline-2 has-focus-visible:outline-offset-[-2px]"
+                >
+                  <input
+                    type="radio"
+                    name={id}
+                    value={option.value}
+                    checked={choice === option.value}
+                    className="peer sr-only"
+                    onChange={() => {
+                      submission.cancel();
+                      onChoice(option.value);
+                    }}
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border border-line-strong peer-checked:border-foreground peer-checked:after:size-2 peer-checked:after:rounded-full peer-checked:after:bg-foreground"
+                  />
+                  <span className="min-w-0 break-words text-sm leading-5">
+                    {option.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          {(!options.length || choice === "custom") && (
             <div className="relative mt-3">
               <label htmlFor={`${id}-answer`} className="sr-only">
                 Your answer
@@ -122,14 +124,9 @@ export function ApprovalCard({
           )}
         </div>
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-line px-3 py-3">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => submission.submit("Use your best judgment.")}
-          >
-            Skip
-          </Button>
+          <span className="text-xs text-muted">
+            Answer required to continue
+          </span>
           <Button
             type="submit"
             variant="primary"

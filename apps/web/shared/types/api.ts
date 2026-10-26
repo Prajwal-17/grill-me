@@ -9,6 +9,7 @@ export type ProfilePreferences = GuidedPreferences & {
   profileId: string;
   aboutMe: string | null;
   updatedAt: string;
+  developerContextUpdatedAt: string | null;
 };
 
 export type BuildScope = "focused" | "feature" | "system";
@@ -79,6 +80,7 @@ export type ApiError = {
     code: string;
     message: string;
     retryable: boolean;
+    details?: Record<string, unknown>;
   };
 };
 
@@ -93,6 +95,7 @@ export type GenerateBuildRequest = {
   scope: BuildScope;
   difficulty: BuildDifficulty;
   clarificationContext: ClarificationContext | null;
+  clarificationHistory?: ClarificationContext[];
 };
 
 export type ScoreDimension = { score: number | null; evidence: string };

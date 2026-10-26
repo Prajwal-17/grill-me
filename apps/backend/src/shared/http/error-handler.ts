@@ -11,6 +11,7 @@ export function handleError(error: Error) {
         code: known ? error.code : "INTERNAL_ERROR",
         message: known ? error.message : "Something went wrong.",
         retryable: known ? error.retryable : false,
+        ...(known && error.details ? { details: error.details } : {}),
       },
     }),
     {

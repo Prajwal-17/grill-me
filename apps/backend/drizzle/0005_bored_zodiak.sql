@@ -1,0 +1,1 @@
+ALTER TABLE "profile_preferences" ADD COLUMN "developer_context_updated_at" timestamp;

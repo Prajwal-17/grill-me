@@ -618,6 +618,7 @@ export function PracticeWorkspace({
                 </div>
               ) : (
                 <SubmissionHistory
+                  requirements={challenge.completionCriteria}
                   attempts={attempts.data ?? []}
                   selectedId={selectedSubmissionId}
                   onSelectedChange={setSelectedSubmissionId}

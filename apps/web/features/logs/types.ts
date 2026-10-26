@@ -1,11 +1,13 @@
 export type LogStatus = "running" | "success" | "error" | "cancelled";
 export type LogOperation =
+  | "resume_import"
   | "preparation"
   | "generation"
   | "clarify"
   | "review"
   | "hint"
-  | "quiz_generation";
+  | "quiz_generation"
+  | "quiz_title_generation";
 export type AiLogSummary = {
   id: string;
   profileId: string;

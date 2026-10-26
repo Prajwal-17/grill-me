@@ -5,14 +5,15 @@ import {
   CALIBRATION_VERSION,
 } from "../ai/prompts/core";
 import { AppError } from "../../shared/errors/app-error";
-import type { ModelGateway } from "../ai/model-gateway";
+import type { BuildModelInput, ModelGateway } from "../ai/model-gateway";
 import type { MessageModel } from "../messages/message.model";
 import { toMessage } from "../messages/message.utils";
 import type { ProfileService } from "../profiles/profile.service";
 import type { ChallengeModel } from "./challenge.model";
 import {
   challengeContentSchema,
-  generatedBuildSchemaForScope,
+  buildGenerationResultSchema,
+  challengePreparationSchema,
   type BuildDifficulty,
   type BuildScope,
   type GenerateChallengeInput,
@@ -30,6 +31,36 @@ export function createChallengeService(dependencies: {
   llm: ModelGateway;
 }) {
   const { challenges, messages, profiles, llm } = dependencies;
+  // Remember valid essential questions so a client cannot skip one after preparation.
+  // Bounded to avoid retaining abandoned requests indefinitely in this local server.
+  const pendingQuestions = new Map<
+    string,
+    { question: string; options: string[] }
+  >();
+  const questionKey = (
+    profileId: string,
+    input: { prompt: string; scope: BuildScope; difficulty: BuildDifficulty },
+  ) => JSON.stringify([profileId, input.prompt, input.scope, input.difficulty]);
+  function remember(
+    key: string,
+    question: { question: string; options: string[] },
+  ) {
+    if (pendingQuestions.size >= 500)
+      pendingQuestions.delete(pendingQuestions.keys().next().value!);
+    pendingQuestions.set(key, question);
+  }
+  function needsClarification(question: {
+    question: string;
+    options: string[];
+  }): never {
+    throw new AppError(
+      "CHALLENGE_NEEDS_CLARIFICATION",
+      "Answer this essential question before creating the challenge.",
+      409,
+      false,
+      question,
+    );
+  }
 
   async function owned(id: string, profileId: string) {
     await profiles.assertExists(profileId);
@@ -85,44 +116,112 @@ export function createChallengeService(dependencies: {
       profileId: string,
     ) {
       await profiles.assertExists(profileId);
-      return llm.prepareBuild({
-        ...input,
-        learner: await learnerContext(profileId),
-      });
+      const output = challengePreparationSchema.safeParse(
+        await llm.prepareBuild({
+          ...input,
+          learner: await learnerContext(profileId),
+        }),
+      );
+      if (!output.success)
+        throw new AppError(
+          "MODEL_OUTPUT_INVALID",
+          "The model did not return a valid preparation. Try again.",
+          502,
+          true,
+        );
+      if (output.data.question)
+        remember(questionKey(profileId, input), {
+          question: output.data.question,
+          options: output.data.options,
+        });
+      return output.data;
     },
 
     async generate(input: GenerateChallengeInput, profileId: string) {
       await profiles.assertExists(profileId);
-      const modelInput = {
+      const history = [...input.clarificationHistory];
+      if (
+        input.clarificationContext &&
+        !history.some(
+          (item) =>
+            item.question === input.clarificationContext!.question &&
+            item.answer === input.clarificationContext!.answer,
+        )
+      )
+        history.push(input.clarificationContext);
+      const key = questionKey(profileId, input);
+      const pending = pendingQuestions.get(key);
+      if (
+        pending &&
+        !history.some(
+          (item) => item.question === pending.question && item.answer.trim(),
+        )
+      )
+        needsClarification(pending);
+      let modelInput: BuildModelInput = {
         ...input,
+        clarificationHistory: history,
         learner: await learnerContext(profileId),
       };
-      const generated = await llm.generateBuild(modelInput);
-      const validated = generatedBuildSchemaForScope(input.scope).safeParse(
-        generated,
-      );
-      if (!validated.success) {
-        throw new AppError(
-          "MODEL_OUTPUT_INVALID",
-          "The model did not return a valid build. Try again.",
-          502,
-          true,
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const output = buildGenerationResultSchema(input.scope).safeParse(
+          await llm.generateBuild(modelInput),
         );
+        if (!output.success)
+          throw new AppError(
+            "MODEL_OUTPUT_INVALID",
+            "The model did not return a valid build. Try again.",
+            502,
+            true,
+          );
+        const generated = output.data;
+        if (generated.status === "needs_clarification") {
+          const question = {
+            question: generated.question!,
+            options: generated.options,
+          };
+          remember(key, question);
+          needsClarification(question);
+        }
+        const challenge = generated.challenge!;
+        if (challenge.estimatedDifficultyBand !== input.difficulty) {
+          if (attempt === 1)
+            throw new AppError(
+              "MODEL_DIFFICULTY_MISMATCH",
+              "The model could not match the selected difficulty after one correction. Try again or adjust your request.",
+              502,
+              true,
+            );
+          modelInput = {
+            ...modelInput,
+            calibrationFeedback: {
+              selectedDifficulty: input.difficulty,
+              estimatedBand: challenge.estimatedDifficultyBand,
+              reason: challenge.difficultyReason,
+              previousChallenge: challenge,
+            },
+          };
+          continue;
+        }
+        const finalBuild = challengeContentSchema.parse({
+          ...challenge,
+          estimatedDifficultyScore: null,
+          scope: input.scope,
+          difficulty: input.difficulty,
+          contextualDifficulty: challenge.estimatedDifficultyBand,
+        });
+        const created = toChallenge(
+          await challenges.create(profileId, finalBuild, input.prompt, {
+            ...JSON.parse(requestPromptContext(modelInput)),
+            promptVersion: PROMPT_VERSION,
+            calibrationVersion: CALIBRATION_VERSION,
+            requestedModel: process.env.LLM_MODEL ?? "auto",
+          }),
+        );
+        pendingQuestions.delete(key);
+        return created;
       }
-      const finalBuild = challengeContentSchema.parse({
-        ...validated.data,
-        scope: input.scope,
-        difficulty: input.difficulty,
-        contextualDifficulty: input.difficulty,
-      });
-      return toChallenge(
-        await challenges.create(profileId, finalBuild, input.prompt, {
-          ...JSON.parse(requestPromptContext(modelInput)),
-          promptVersion: PROMPT_VERSION,
-          calibrationVersion: CALIBRATION_VERSION,
-          requestedModel: process.env.LLM_MODEL ?? "auto",
-        }),
-      );
+      throw new Error("Unreachable generation state");
     },
 
     async complete(id: string, profileId: string) {

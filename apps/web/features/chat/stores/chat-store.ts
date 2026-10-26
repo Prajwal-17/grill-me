@@ -17,6 +17,8 @@ export type BuildStore = {
   custom: string;
   ready: boolean;
   lastAnswer: ClarificationContext | null;
+  clarificationHistory: ClarificationContext[];
+  setClarificationHistory: (history: ClarificationContext[]) => void;
   setPrompt: (prompt: string) => void;
   setScope: (scope: BuildScope) => void;
   setDifficulty: (difficulty: BuildDifficulty) => void;
@@ -38,6 +40,7 @@ const buildDefaults = {
   custom: "",
   ready: false,
   lastAnswer: null,
+  clarificationHistory: [] as ClarificationContext[],
 };
 
 const flowDefaults = {
@@ -46,6 +49,7 @@ const flowDefaults = {
   custom: "",
   ready: false,
   lastAnswer: null,
+  clarificationHistory: [] as ClarificationContext[],
 };
 
 export const useBuildStore = create<BuildStore>((set) => ({
@@ -58,6 +62,8 @@ export const useBuildStore = create<BuildStore>((set) => ({
   setCustom: (custom) => set({ custom }),
   setReady: (ready) => set({ ready }),
   setLastAnswer: (lastAnswer) => set({ lastAnswer }),
+  setClarificationHistory: (clarificationHistory) =>
+    set({ clarificationHistory }),
   resetFlow: () => set(flowDefaults),
   resetBuild: () => set(buildDefaults),
 }));

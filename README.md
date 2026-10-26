@@ -8,7 +8,7 @@ for a hint, submit your implementation, and mark the challenge completed when yo
 
 1. Choose a local profile and optional stack, learning goal, topic familiarity, and known concepts.
 2. Describe the topic, choose Focused / Feature / System and Easy / Medium / Hard / Grill, and generate a challenge.
-3. Read a concise task with stable acceptance criteria. Each challenge saves a difficulty estimate out of 10 and the context used to generate it.
+3. Read a concise task with stable acceptance criteria. New challenges show a difficulty band and freeze the projected developer context used to generate them. Historical numeric estimates remain available.
 4. Code in your editor. Paste an implementation, upload source files, or connect a local project. There are no application file-count or file-size limits; attachments upload in chunks.
 5. Submit for review. Self-contained exercises use OmniRoute; projects and submissions that need incremental exploration use the local Codex app-server judge.
 6. Use Overview, Submit, Reviews, and Quizzes tabs. Submit code without a written explanation, select an earlier submission or review run when needed, and mark completed when you decide. Pause and resume anytime.
@@ -37,18 +37,20 @@ The tabbed workspace keeps the task, submission, and selected review separate. R
 
 System challenges request a bounded working core and assess design choices in code. No written explanation is required. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews do not complete the challenge. Mark completed records your decision independently; high scores cannot override unmet review requirements.
 
-Prompts live under `apps/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one bounded retry for difficulty mismatch.
+Prompts live under `apps/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one corrective attempt for a difficulty mismatch; a second mismatch returns a retryable error without saving. Essential clarification returns a structured question, and answers accumulate in order.
 
 Preferences include an optional “Send recent challenges to AI” setting, off by default. Connect a folder by entering its path or browsing the folders available to Grill Me; connecting does not upload files. Save challenges for later from the workspace and reopen them from the separate Saved for later section in Challenges. Codex reviews use ephemeral sessions and link to their database-saved prompts, responses, and complete app-server protocol activity. Preferences includes a Codex model picker, defaulting to GPT-5.6 Sol. Run `bun run db:studio` to browse the local database.
 
 Existing history is preserved. Old manual completions are labeled as legacy; historical scores and missing context are not invented. Local profile selection is not authentication; keep the app private to your machine.
+
+See [developer context, resume import, and rollout](docs/practice-workflow.md) for the new contracts and migration rehearsal.
 
 See [runtime setup](docs/runtime-setup.md) for native Codex setup, optional Docker, verification images, storage, and diagnostics.
 
 ## AI request logs
 
 Logs records each new AI operation: request checks, build and quiz generation, clarification,
-solution reviews, and hints. The paginated `/logs` page provides status and
+solution reviews, resume imports, and hints. The paginated `/logs` page provides status and
 operation filters plus request/model search. Each `/logs/:id` detail page shows
 the complete instructions, input, response text, raw provider response, stream
 events, and errors, with copy actions. Requested and returned models are shown
@@ -157,6 +159,7 @@ checkout.
 ## Quality checks
 
 ```bash
+bun run test:isolated # Disposable PostgreSQL; no paid model calls
 bun run check
 bun run lint
 bun run lint:fix
@@ -193,4 +196,4 @@ Structured generation and judging use validated JSON response schemas. Valid JSO
 
 Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses four tabs, with one selected quiz attempt, submission, or review run visible at a time. Shared layout, account navigation, and Markdown renderers live under shared/components. The application frame stays within the viewport; page content scrolls inside it.
 
-For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. If preparation fails, Create without clarification lets you proceed explicitly using your request and saved context.
+For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. After a preparation transport failure, Create without clarification lets generation independently check whether it can proceed. An essential question requires an answer.

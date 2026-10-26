@@ -36,6 +36,13 @@
       "when": 1792405250358,
       "tag": "0004_soft_delete_quizzes",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792956298356,
+      "tag": "0005_bored_zodiak",
+      "breakpoints": true
     }
   ]
 }

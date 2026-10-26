@@ -10,6 +10,7 @@ import type {
   ClarificationContext,
   ChallengePreparation,
   GeneratedBuildContent,
+  BuildGenerationResult,
 } from "../challenges/challenge.schema";
 import type {
   ChatMessage,
@@ -75,6 +76,13 @@ export type BuildModelInput = {
   difficulty: BuildDifficulty;
   clarificationContext: ClarificationContext | null;
   learner: LearnerContext;
+  clarificationHistory?: ClarificationContext[];
+  calibrationFeedback?: {
+    selectedDifficulty: BuildDifficulty;
+    estimatedBand: BuildDifficulty;
+    reason: string;
+    previousChallenge: GeneratedBuildContent;
+  };
 };
 
 export type JudgeInput = {
@@ -89,6 +97,11 @@ export type JudgeInput = {
   signal?: AbortSignal;
 };
 export interface ModelGateway {
+  extractResume?(input: {
+    profileId: string;
+    text: string;
+    signal?: AbortSignal;
+  }): Promise<unknown>;
   generateQuiz?(input: QuizModelInput): Promise<GeneratedQuiz>;
   generateQuizTitle?(input: QuizTitleModelInput): Promise<string>;
   enhanceQuizPrompt?(input: {
@@ -101,7 +114,7 @@ export interface ModelGateway {
   prepareBuild(
     input: Omit<BuildModelInput, "clarificationContext">,
   ): Promise<ChallengePreparation>;
-  generateBuild(input: BuildModelInput): Promise<GeneratedBuildContent>;
+  generateBuild(input: BuildModelInput): Promise<BuildGenerationResult>;
   respond(input: {
     challenge: Challenge;
     messages: ChatMessage[];

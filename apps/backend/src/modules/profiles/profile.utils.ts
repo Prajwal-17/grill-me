@@ -19,5 +19,7 @@ export function toProfilePreferences(
     profileId: row.profileId,
     aboutMe: row.aboutMe,
     updatedAt: row.updatedAt.toISOString(),
+    developerContextUpdatedAt:
+      row.developerContextUpdatedAt?.toISOString() ?? null,
   });
 }

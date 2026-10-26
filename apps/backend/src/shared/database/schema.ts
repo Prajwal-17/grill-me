@@ -7,6 +7,7 @@ import type {
 import {
   boolean,
   check,
+  customType,
   doublePrecision,
   index,
   integer,
@@ -17,6 +18,20 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+
+// Bun SQL already decodes timestamps to Date. The standard timestamp mapper
+// expects strings and would lose milliseconds and reinterpret the local zone.
+const contextTimestamp = customType<{ data: Date; driverData: Date | string }>({
+  dataType: () => "timestamp",
+  fromDriver: (value) =>
+    value instanceof Date
+      ? value
+      : new Date(
+          value.replace(" ", "T") +
+            (/Z$|[+-]\d{2}:?\d{2}$/.test(value) ? "" : "Z"),
+        ),
+  toDriver: (value) => value.toISOString(),
+});
 
 export const profiles = pgTable("profiles", {
   id: text("id").primaryKey(),
@@ -37,6 +52,7 @@ export const profilePreferences = pgTable("profile_preferences", {
     .$type<GuidedPreferences>()
     .notNull(),
   aboutMe: text("about_me"),
+  developerContextUpdatedAt: contextTimestamp("developer_context_updated_at"),
   createdAt: timestamp("created_at", { mode: "date" })
     .notNull()
     .$defaultFn(() => new Date()),
@@ -236,6 +252,7 @@ export const aiLogs = pgTable(
         "hint",
         "quiz_generation",
         "quiz_title_generation",
+        "resume_import",
       ],
     }).notNull(),
     status: text("status", {

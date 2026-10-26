@@ -102,6 +102,8 @@ export function GenerationHome({ profile }: { profile: Profile }) {
     custom,
     setCustom,
     ready,
+    clarificationHistory,
+    canFallback,
     generate,
     prepare,
     busy,
@@ -148,10 +150,27 @@ export function GenerationHome({ profile }: { profile: Profile }) {
             {error.message}
           </p>
         )}
-        {prepare.error && !generate.error && (
+        {canFallback && !generate.error && (
           <Button className="mb-3" disabled={busy} onClick={skipClarification}>
             Create without clarification
           </Button>
+        )}
+        {clarificationHistory.length > 0 && (
+          <details className="mb-4 text-sm">
+            <summary className="cursor-pointer text-muted">
+              Clarification history ({clarificationHistory.length})
+            </summary>
+            <ol className="mt-3 grid gap-3">
+              {clarificationHistory.map((item, index) => (
+                <li key={index}>
+                  <p className="font-medium">{item.question}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-muted">
+                    {item.answer}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </details>
         )}
         <PromptSurface
           className="flex min-h-0 flex-col"

@@ -7,6 +7,7 @@ export const logStatusSchema = z.enum([
   "cancelled",
 ]);
 export const logOperationSchema = z.enum([
+  "resume_import",
   "preparation",
   "generation",
   "clarify",

@@ -1,4 +1,8 @@
-import { PROMPT_VERSION, CALIBRATION_VERSION } from "../ai/prompts/core";
+import {
+  PROMPT_VERSION,
+  CALIBRATION_VERSION,
+  CONTRACT_VERSION,
+} from "../ai/prompts/core";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { db, first } from "../../shared/database/db";
 import { challenges, messages } from "../../shared/database/schema";
@@ -93,13 +97,14 @@ export const challengeModel = {
             scope: content.scope,
             difficulty: content.difficulty,
             contextualDifficulty: content.contextualDifficulty,
-            estimatedDifficultyScore: content.estimatedDifficultyScore,
+            estimatedDifficultyScore: null,
             difficultyReason: content.difficultyReason,
             topic: content.topic,
             implementationBoundary: content.implementationBoundary,
             contextSnapshot,
             promptVersion: PROMPT_VERSION,
             calibrationVersion: CALIBRATION_VERSION,
+            contractVersion: CONTRACT_VERSION,
 
             durationMinMinutes: content.durationEstimate.minMinutes,
             durationMaxMinutes: content.durationEstimate.maxMinutes,

@@ -3,7 +3,8 @@ import { SQL } from "bun";
 
 test("standalone quiz migration preserves populated challenge quizzes and attempts", async () => {
   const client = new SQL(
-    "postgresql://prajwal-17:prajwal2004@localhost:5432/grill-me-test",
+    process.env.TEST_DATABASE_URL ??
+      "postgresql://prajwal-17:prajwal2004@localhost:5432/grill-me-test",
   );
   const schema = `quiz_migration_${crypto.randomUUID().replaceAll("-", "")}`;
   try {

@@ -68,7 +68,7 @@ export function createApp({
   app.route("/logs", createLogRoutes(profileService));
   app.route(
     "/profiles",
-    createProfileRoutes(createProfileController(profileService)),
+    createProfileRoutes(createProfileController(profileService, llm)),
   );
   app.route(
     "/challenges",

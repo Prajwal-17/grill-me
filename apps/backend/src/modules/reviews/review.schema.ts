@@ -28,8 +28,8 @@ export const reviewResultSchema = z.object({
   correctness: assessment(4),
   understanding: assessment(3),
   judgment: assessment(3),
-  nextStep: z.string().nullable(),
-  question: z.string().nullable(),
+  nextStep: z.string().trim().min(1).nullable(),
+  question: z.string().trim().min(1).nullable(),
   verification: z.enum(["checks_run", "inspection_only", "incomplete"]),
 });
 export type ReviewResult = z.infer<typeof reviewResultSchema>;
@@ -81,17 +81,50 @@ export function validateReview(
   }
   if (
     result.verdict === "accepted" &&
-    (result.findings.length || result.criteria.some((c) => c.status !== "met"))
+    (result.findings.length ||
+      result.criteria.some((c) => c.status !== "met") ||
+      result.question !== null ||
+      result.nextStep !== null)
   ) {
     throw new Error(
-      "An accepted review cannot contain unmet criteria or required fixes.",
+      "An accepted review cannot contain unmet criteria, required fixes, reviewer questions, or mandatory next steps.",
     );
   }
   if (result.verdict === "accepted" && result.correctness.score !== 4)
     throw new Error(
       "Accepted work must satisfy the correctness rubric completely.",
     );
-  if (result.verdict === "needs_revision" && !result.findings.length) {
+  const unmet = result.criteria.filter(
+    (criterion) => criterion.status === "unmet",
+  );
+  const uncertain = result.criteria.some(
+    (criterion) => criterion.status === "unassessed",
+  );
+  if (
+    result.findings.some(
+      (finding) =>
+        !unmet.some((criterion) => criterion.id === finding.criterionId),
+    )
+  )
+    throw new Error(
+      "Required findings must refer to an unmet frozen requirement.",
+    );
+  if (
+    unmet.some(
+      (criterion) =>
+        !result.findings.some(
+          (finding) => finding.criterionId === criterion.id,
+        ),
+    )
+  )
+    throw new Error("Every unmet criterion needs a corresponding finding.");
+  if (uncertain && result.verdict !== "needs_evidence")
+    throw new Error("Essential uncertainty requires a needs_evidence verdict.");
+  if (result.verdict === "needs_evidence" && !uncertain)
+    throw new Error(
+      "A needs_evidence verdict must identify an unassessed requirement.",
+    );
+  if (result.verdict === "needs_revision" && !unmet.length) {
     throw new Error(
       "A revision request must identify a concrete requirement violation.",
     );

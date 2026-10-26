@@ -14,12 +14,17 @@ export function statementBody(challenge: Challenge) {
   if (challenge.promptVersion) {
     return [
       `## Task\n\n${challenge.problemStatement}`,
-      `## Requirements\n\n${list(challenge.completionCriteria.map((text, i) => `**C${i + 1}.** ${text}`))}`,
+      `## Requirements\n\n${list(challenge.completionCriteria)}`,
       ...(challenge.constraints.length
         ? [`## Constraints\n\n${list(challenge.constraints)}`]
         : []),
       ...(challenge.implementationBoundary
         ? [`## Implementation boundary\n\n${challenge.implementationBoundary}`]
+        : []),
+      ...(challenge.implementationMilestones.length
+        ? [
+            `## Implementation milestones\n\n${list(challenge.implementationMilestones)}`,
+          ]
         : []),
       `## Submit\n\n${challenge.expectedOutcome}`,
       ...(challenge.starterCode

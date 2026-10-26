@@ -29,6 +29,7 @@ function attemptState(attempt: PracticeSubmission) {
 
 export function SubmissionHistory({
   attempts,
+  requirements,
   selectedId,
   onSelectedChange,
   busy,
@@ -36,6 +37,7 @@ export function SubmissionHistory({
   onCancel,
 }: {
   attempts: PracticeSubmission[];
+  requirements: string[];
   selectedId: string;
   onSelectedChange: (id: string) => void;
   busy: boolean;
@@ -84,6 +86,7 @@ export function SubmissionHistory({
             <AttemptReview
               key={selected.id}
               attempt={selected}
+              requirements={requirements}
               busy={busy}
               onRetry={onRetry}
               onCancel={onCancel}

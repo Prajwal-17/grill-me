@@ -20,11 +20,13 @@
     "db:studio:prod": "NODE_ENV=production APP_ENV=production drizzle-kit studio"
   },
   "dependencies": {
+    "@repo/preferences": "*",
     "drizzle-orm": "^0.44.0",
     "hono": "^4.0.0",
+    "mammoth": "^1.13.0",
     "openai": "^5.0.0",
-    "zod": "^4.0.0",
-    "@repo/preferences": "*"
+    "unpdf": "^1.9.1",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",

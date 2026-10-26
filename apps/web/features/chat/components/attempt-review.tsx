@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
+import { reviewPresentation } from "../lib/review-presentation";
 import { cn } from "@/shared/lib/cn";
 
 const verdicts = {
@@ -57,11 +58,13 @@ function formatDate(value: string) {
 
 export function AttemptReview({
   attempt,
+  requirements,
   onRetry,
   onCancel,
   busy,
 }: {
   attempt: PracticeSubmission;
+  requirements: string[];
   onRetry: (review: ReviewJob, response: string | null) => void;
   onCancel: (review: ReviewJob) => void;
   busy: boolean;
@@ -72,7 +75,9 @@ export function AttemptReview({
     attempt.reviews[0];
   const [responding, setResponding] = useState(false);
   const [response, setResponse] = useState("");
-  const result = review?.response;
+  const result = review?.response
+    ? reviewPresentation(review.response, requirements)
+    : null;
   const running = review?.status === "queued" || review?.status === "running";
   const verdict = result ? verdicts[result.verdict] : null;
   const VerdictIcon = verdict?.icon;
@@ -318,8 +323,16 @@ export function AttemptReview({
                 <ul className="mt-2 divide-y divide-line">
                   {result.criteria.map((criterion) => (
                     <li key={criterion.id} className="py-2 text-xs">
+                      <p className="mb-1 font-medium">
+                        {requirements[Number(criterion.id.slice(1)) - 1] ??
+                          "Requirement"}
+                      </p>
                       <span className="font-medium">
-                        {criterion.id} · {criterion.status}
+                        {criterion.status === "unassessed"
+                          ? "Needs evidence"
+                          : criterion.status === "met"
+                            ? "Met"
+                            : "Unmet"}
                       </span>
                       <p className="mt-1 leading-5 text-muted">
                         {criterion.evidence}

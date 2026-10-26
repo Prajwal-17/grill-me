@@ -1,3 +1,5 @@
+import { previewResume } from "./resume";
+import type { ModelGateway } from "../ai/model-gateway";
 import type { Context } from "hono";
 import { AppError } from "../../shared/errors/app-error";
 import { parseInput, readJson } from "../../shared/http/validation";
@@ -20,8 +22,16 @@ function profileId(c: Context) {
   return parseInput(profileIdSchema, value);
 }
 
-export function createProfileController(service: ProfileService) {
+export function createProfileController(
+  service: ProfileService,
+  llm: ModelGateway,
+) {
   return {
+    resumePreview: async (c: Context) => {
+      const id = profileId(c);
+      await service.assertExists(id);
+      return c.json({ data: await previewResume(c.req.raw, id, llm) });
+    },
     start: async (c: Context) => {
       const input = parseInput(
         startProfileRequestSchema,

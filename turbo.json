@@ -23,7 +23,8 @@
     "CODEX_BIN",
     "CODEX_MODEL",
     "DIRECT_REVIEW_CONTEXT_TOKENS",
-    "JUDGE_TIMEOUT_MS"
+    "JUDGE_TIMEOUT_MS",
+    "TEST_DATABASE_URL"
   ],
   "tasks": {
     "build": {
