@@ -1,10 +1,11 @@
-import { createBrowserRouter, Outlet } from "react-router";
+import { createBrowserRouter } from "react-router";
+import { GenerationMonitor } from "@/features/generations/components/generation-monitor";
 import { LoadingScreen } from "@/shared/components/ui/feedback";
 import { NotFoundPage, RouteErrorPage } from "./routes/route-error";
 
 export const router = createBrowserRouter([
   {
-    Component: Outlet,
+    Component: GenerationMonitor,
     ErrorBoundary: RouteErrorPage,
     HydrateFallback: LoadingScreen,
     children: [

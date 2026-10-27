@@ -33,6 +33,14 @@ Standalone quizzes use your saved learner preferences and stay separate from
 challenge quizzes and challenge progress. Apply tracked migrations with
 `bun db:migrate` when updating an existing installation.
 
+Quizzes and challenges display permanent generation numbers such as **#1**, **#2**,
+and **#3**. PostgreSQL allocates a separate sequence for each type within each
+profile; standalone and challenge quizzes share the quiz sequence. Deleted quizzes
+and archived challenges keep their numbers, and removed numbers are never reused.
+The numbering migration merges existing quizzes in creation order (including
+soft-deleted quizzes), preserves challenge numbers, and retains all saved content,
+relationships, answers, scores, and history.
+
 The tabbed workspace keeps the task, submission, and selected review separate. Reviews assess correctness (4), implementation reasoning (3), and engineering judgment (3), each with evidence. Unknown dimensions remain unassessed. Submission scores are separate from challenge difficulty; hints and retries do not reduce the score. Topic progress appears in History without a global intelligence score.
 
 System challenges request a bounded working core and assess design choices in code. No written explanation is required. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews do not complete the challenge. Mark completed records your decision independently; high scores cannot override unmet review requirements.
@@ -223,3 +231,27 @@ Structured generation and judging use validated JSON response schemas. Valid JSO
 Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses four tabs, with one selected quiz attempt, submission, or review run visible at a time. Shared layout, account navigation, and Markdown renderers live under `apps/web/src/shared/components`. The application frame stays within the viewport; page content scrolls inside it.
 
 For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. After a preparation transport failure, Create without clarification lets generation independently check whether it can proceed. An essential question requires an answer.
+
+## Background generation
+
+Challenge and quiz generation runs as jobs saved in PostgreSQL. Submitting a
+request queues it immediately, with progress in the page and in the shared
+header’s notification bell. You can navigate elsewhere, reload, or close the tab while
+the backend continues. A completion toast offers **Open challenge** or **Open quiz**;
+completion never redirects you. Saved results and recent jobs remain available in
+notifications after a toast disappears. Clear dismisses finished notifications in the current browser and profile without removing generated content.
+
+Essential clarification pauses a challenge job and offers **Answer**. Failed jobs
+show their error and a retry action when retry is supported. Retries use the same
+job; repeated submission of a request ID does not create another generation.
+Queued, running, and waiting-for-answer jobs offer **Cancel generation**. Cancellation aborts the provider request, releases the worker slot, and fences out late results. Existing quiz
+attempts keep their autosave behavior while another quiz is being generated.
+
+The backend claims jobs atomically, runs up to two at a time, and saves each
+result together with its completed job state. Queued jobs resume after a backend
+restart. A running job whose worker disappears is marked interrupted after its
+lease expires (up to 90 seconds); retry is explicit, so restarting does not
+silently repeat a model call. There is no additional queue service to configure.
+The additive `0008_background_generations` migration preserves existing practice
+data. All job endpoints and completion notifications are scoped to the selected
+profile.

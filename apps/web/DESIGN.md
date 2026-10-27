@@ -240,6 +240,9 @@ account controls; challenge collections belong in the main content.
 Collections use 16px mobile and 24px desktop gutters, compact toolbars, one
 bordered result region, and a quiet result count. Challenges and quizzes group
 search with filters and a sort control; narrow screens stack these controls.
+The shared page header owns the page title and primary action. Collections start
+with their controls, without a second title-and-divider row. Keep counts in tabs
+or the result summary.
 History uses a fixed-layout semantic table that gives the title the remaining
 width, while diagnostic tables scroll internally when their columns cannot fit.
 
@@ -335,3 +338,20 @@ rather than installing a second component vocabulary. Configuration reference:
 - Don't add decoration, oversized headings, nested cards, or redundant instructions.
 - Don't use monospace to make ordinary labels look technical.
 - Don't infer completion from a review score or change quiz autosave semantics.
+
+## Background generation
+
+Generating practice is a background task. Submit queues the request and returns
+control to the user; disable submission only while saving that request. Show real
+queued/checking/generating states in compact page rows and in the shared header’s
+notification popover. Keep existing tasks and navigation usable, with no blocking
+overlay or invented percentage. Use a persistent notification bell with an active count. Rows carry the running spinner or clarification state. Show an empty state when cleared. Open is the primary action for completed results; Clear and Clear all only dismiss finished notifications, scoped to profile and environment in this browser. Keep active work visible and offer a separate, explicitly labelled Cancel generation action.
+
+Completion uses a semantic success toast with the saved title and an explicit
+Open challenge/Open quiz action. Never redirect on completion. Toasts stack
+without obscuring navigation, pause dismissal while hovered, focused, or hidden,
+and remain recoverable through notifications. Failures use error feedback and an
+explicit retry; clarification offers Answer and returns to the original request.
+Progress and notifications survive route changes and reloads. Clear notifications
+when the selected profile changes. Preserve quiz autosave, filters, URLs, and
+keyboard focus when starting or opening background work.

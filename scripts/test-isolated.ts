@@ -37,7 +37,8 @@ try {
   started = true;
   const port = (await docker(["port", name, "5432/tcp"])).split(":").at(-1)!;
   let ready = false;
-  for (let attempt = 0; attempt < 80; attempt++) {
+  // Fresh PostgreSQL clusters can take over 20 seconds on slower Docker storage.
+  for (let attempt = 0; attempt < 240; attempt++) {
     try {
       await docker([
         "exec",

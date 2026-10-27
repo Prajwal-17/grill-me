@@ -53,7 +53,7 @@ function title(quiz: QuizSummary) {
     quiz.title?.trim() ||
     quiz.topic?.trim() ||
     quiz.prompt?.trim() ||
-    `Quiz ${quiz.number}`
+    `#${quiz.number}`
   );
 }
 
@@ -188,7 +188,7 @@ export function QuizTable({
   quizzes: QuizSummary[];
   loading?: boolean;
   disabled: boolean;
-  actions: ReactNode;
+  actions?: ReactNode;
   onOpen: (id: string) => void;
   onDelete: (quiz: QuizSummary) => void;
   onRestore: (quiz: QuizSummary) => void;
@@ -267,7 +267,7 @@ export function QuizTable({
         variant={isAction ? "ghost" : "link"}
         size="sm"
         data-quiz-open={isAction ? undefined : quiz.id}
-        aria-label={`${isAction ? action(quiz) : "Open"} quiz ${quiz.number}`}
+        aria-label={`${isAction ? action(quiz) : "Open"} quiz #${quiz.number}`}
         aria-keyshortcuts={isAction ? undefined : "ArrowUp ArrowDown"}
         disabled={disabled}
         onClick={() => onOpen(quiz.id)}
@@ -305,7 +305,7 @@ export function QuizTable({
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label={`Delete quiz ${quiz.number}`}
+            aria-label={`Delete quiz #${quiz.number}`}
             disabled={disabled}
             onClick={() => onDelete(quiz)}
           >
@@ -326,7 +326,7 @@ export function QuizTable({
         size="sm"
         variant="ghost"
         disabled={disabled}
-        aria-label={`Restore quiz ${quiz.number}`}
+        aria-label={`Restore quiz #${quiz.number}`}
         onClick={() => onRestore(quiz)}
       >
         <RotateCcw size={13} aria-hidden="true" />
@@ -337,15 +337,7 @@ export function QuizTable({
 
   return (
     <div className="shrink-0 space-y-4 @container/quiz-list">
-      <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
-        <h2 className="text-section font-semibold tracking-[-0.02em]">
-          Quiz library{" "}
-          <span className="ml-1 text-metadata font-normal text-muted tabular-nums">
-            {loading ? "–" : quizzes.filter((quiz) => !quiz.deletedAt).length}
-          </span>
-        </h2>
-        {actions}
-      </div>
+      {actions && <div className="flex justify-end">{actions}</div>}
       <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_140px_148px_160px]">
         <div
           role="search"
@@ -533,7 +525,7 @@ export function QuizTable({
                     >
                       {openButton(quiz)}
                       <p className="mt-1 text-metadata text-muted">
-                        Quiz {quiz.number} · {quiz.questionCount} questions
+                        #{quiz.number} · {quiz.questionCount} questions
                       </p>
                     </TableHead>
                     <TableCell
@@ -588,7 +580,7 @@ export function QuizTable({
                     <div className="min-w-0">
                       {openButton(quiz)}
                       <p className="mt-1 text-metadata text-muted">
-                        Quiz {quiz.number} · {quiz.questionCount} questions
+                        #{quiz.number} · {quiz.questionCount} questions
                         {quiz.difficulty && (
                           <>
                             {" "}

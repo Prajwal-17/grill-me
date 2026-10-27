@@ -1,5 +1,11 @@
 import { mkdir } from "node:fs/promises";
-import { test, expect, seedProfile, challenge } from "./fixtures";
+import {
+  test,
+  expect,
+  seedProfile,
+  challenge,
+  makeGenerationJob,
+} from "./fixtures";
 
 const screenshots = "/tmp/grill-me-practice-feature-qa";
 
@@ -21,9 +27,15 @@ test("home enhancement preserves the draft, supports undo, and generates only on
     await pending;
     await route.fulfill({ json: { data: { prompt: enhanced } } });
   });
-  await page.route("**/challenges/generate", async (route) => {
-    received = route.request().postDataJSON();
-    await route.fulfill({ json: { data: challenge } });
+  let generation: ReturnType<typeof makeGenerationJob> | null = null;
+  await page.route("**/generation-jobs", async (route) => {
+    if (route.request().method() === "POST") {
+      const payload = route.request().postDataJSON();
+      received = payload.input;
+      generation = makeGenerationJob(payload);
+      return route.fulfill({ status: 202, json: { data: generation } });
+    }
+    return route.fulfill({ json: { data: generation ? [generation] : [] } });
   });
   await page.goto("/");
   const input = page.getByRole("textbox", {
@@ -54,6 +66,9 @@ test("home enhancement preserves the draft, supports undo, and generates only on
   await expect(input).toHaveValue(enhanced);
   await input.fill(enhanced + " Avoid decorators.");
   await page.getByRole("button", { name: "Create build", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Open challenge", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/chat\?id=build-one/);
   expect(received).toMatchObject({
     prompt: enhanced + " Avoid decorators.",

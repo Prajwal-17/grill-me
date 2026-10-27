@@ -1,4 +1,8 @@
 import { test as base, expect } from "@playwright/test";
+import type {
+  GenerationJob,
+  GenerationRequest,
+} from "../src/features/generations/types";
 import { EMPTY_GUIDED } from "@repo/preferences";
 import type {
   Challenge,
@@ -12,6 +16,32 @@ export const profile: Profile = {
   email: "browser@example.test",
   createdAt: "2026-01-01T00:00:00Z",
 };
+export function makeGenerationJob(
+  request: GenerationRequest,
+  overrides: Partial<GenerationJob> = {},
+): GenerationJob {
+  const now = new Date().toISOString();
+  return {
+    id: crypto.randomUUID(),
+    profileId: profile.id,
+    kind: request.kind,
+    challengeId: request.kind === "challenge_quiz" ? request.challengeId : null,
+    request,
+    status: "completed",
+    phase: "completed",
+    clarification: null,
+    error: null,
+    resultId: "build-one",
+    resultTitle: "Group words",
+    resultNumber: 1,
+    createdAt: now,
+    updatedAt: now,
+    completedAt: now,
+    notifiedAt: null,
+    ...overrides,
+  };
+}
+
 export const preferences: ProfilePreferences = {
   ...EMPTY_GUIDED,
   profileId: profile.id,
@@ -82,6 +112,7 @@ export const test = base.extend<{ apiRequests: string[] }>({
   apiRequests: [
     async ({ page, context, baseURL }, use) => {
       const requests: string[] = [];
+      const jobs: GenerationJob[] = [];
       const unexpected: string[] = [];
       const errors: string[] = [];
       page.on("pageerror", (error) => errors.push(error.message));
@@ -99,6 +130,14 @@ export const test = base.extend<{ apiRequests: string[] }>({
         }
         let data: unknown;
         switch (url.pathname) {
+          case "/generation-jobs":
+            if (route.request().method() === "POST") {
+              const job = makeGenerationJob(route.request().postDataJSON());
+              jobs.push(job);
+              return route.fulfill({ status: 202, json: { data: job } });
+            }
+            data = jobs;
+            break;
           case "/profiles/start":
             data = profile;
             break;
@@ -163,7 +202,14 @@ export const test = base.extend<{ apiRequests: string[] }>({
                   .join("\n") + "\n",
             });
           default:
-            if (
+            if (url.pathname.startsWith("/generation-jobs/")) {
+              const id = url.pathname.split("/")[2];
+              const job = jobs.find((job) => job.id === id);
+              if (url.pathname.endsWith("/acknowledge")) {
+                if (job) job.notifiedAt = new Date().toISOString();
+                data = { acknowledged: true };
+              } else data = job;
+            } else if (
               [
                 "/projects",
                 "/progress",

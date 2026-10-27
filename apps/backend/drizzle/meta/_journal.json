@@ -50,6 +50,20 @@
       "when": 1793019241073,
       "tag": "0006_challenge_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793087469457,
+      "tag": "0007_generation_numbers",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793094489916,
+      "tag": "0008_background_generations",
+      "breakpoints": true
     }
   ]
 }

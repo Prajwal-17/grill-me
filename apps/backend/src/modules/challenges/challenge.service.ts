@@ -10,6 +10,7 @@ import type { MessageModel } from "../messages/message.model";
 import { toMessage } from "../messages/message.utils";
 import type { ProfileService } from "../profiles/profile.service";
 import type { ChallengeModel } from "./challenge.model";
+import type { GenerationRun } from "../generations/generation.schema";
 import {
   challengeContentSchema,
   buildGenerationResultSchema,
@@ -146,11 +147,13 @@ export function createChallengeService(dependencies: {
         difficulty: BuildDifficulty;
       },
       profileId: string,
+      signal?: AbortSignal,
     ) {
       await profiles.assertExists(profileId);
       const output = challengePreparationSchema.safeParse(
         await llm.prepareBuild({
           ...input,
+          signal,
           learner: await learnerContext(profileId),
         }),
       );
@@ -169,7 +172,11 @@ export function createChallengeService(dependencies: {
       return output.data;
     },
 
-    async generate(input: GenerateChallengeInput, profileId: string) {
+    async generate(
+      input: GenerateChallengeInput,
+      profileId: string,
+      generation?: GenerationRun,
+    ) {
       await profiles.assertExists(profileId);
       const history = [...input.clarificationHistory];
       if (
@@ -192,6 +199,7 @@ export function createChallengeService(dependencies: {
         needsClarification(pending);
       let modelInput: BuildModelInput = {
         ...input,
+        signal: generation?.signal,
         clarificationHistory: history,
         learner: await learnerContext(profileId),
       };
@@ -243,12 +251,18 @@ export function createChallengeService(dependencies: {
           contextualDifficulty: challenge.estimatedDifficultyBand,
         });
         const created = toChallenge(
-          await challenges.create(profileId, finalBuild, input.prompt, {
-            ...JSON.parse(requestPromptContext(modelInput)),
-            promptVersion: PROMPT_VERSION,
-            calibrationVersion: CALIBRATION_VERSION,
-            requestedModel: process.env.LLM_MODEL ?? "auto",
-          }),
+          await challenges.create(
+            profileId,
+            finalBuild,
+            input.prompt,
+            {
+              ...JSON.parse(requestPromptContext(modelInput)),
+              promptVersion: PROMPT_VERSION,
+              calibrationVersion: CALIBRATION_VERSION,
+              requestedModel: process.env.LLM_MODEL ?? "auto",
+            },
+            generation,
+          ),
         );
         pendingQuestions.delete(key);
         return created;

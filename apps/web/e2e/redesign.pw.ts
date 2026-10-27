@@ -7,6 +7,7 @@ import {
   challenge,
   preferences,
   profile,
+  makeGenerationJob,
 } from "./fixtures";
 import type { Challenge, ProfilePreferences } from "../src/shared/types/api";
 import type { QuizSummary, QuizAttempt } from "../src/features/quizzes/types";
@@ -92,7 +93,7 @@ const quizzes: QuizSummary[] = [
   },
 ];
 
-test("successful inline quiz generation moves keyboard focus to Start quiz", async ({
+test("background quiz completion opens from its toast and focuses Start quiz", async ({
   page,
 }) => {
   await seedProfile(page);
@@ -110,9 +111,17 @@ test("successful inline quiz generation moves keyboard focus to Start quiz", asy
   await page.route("http://127.0.0.1:18027/quizzes?*", (route) =>
     route.fulfill({ json: { data: created ? [generated] : [] } }),
   );
-  await page.route("http://127.0.0.1:18027/quizzes/generate", (route) => {
-    created = true;
-    return route.fulfill({ json: { data: generated } });
+  let job: ReturnType<typeof makeGenerationJob> | null = null;
+  await page.route("**/generation-jobs", (route) => {
+    if (route.request().method() === "POST") {
+      created = true;
+      job = makeGenerationJob(route.request().postDataJSON(), {
+        resultId: generated.id,
+        resultTitle: generated.title,
+      });
+      return route.fulfill({ status: 202, json: { data: job } });
+    }
+    return route.fulfill({ json: { data: job ? [job] : [] } });
   });
   await page.route("http://127.0.0.1:18027/quizzes/generated-quiz", (route) =>
     route.fulfill({ json: { data: { quiz: generated, attempts: [] } } }),
@@ -127,6 +136,7 @@ test("successful inline quiz generation moves keyboard focus to Start quiz", asy
   await page
     .getByRole("button", { name: "Generate quiz", exact: true })
     .press("Enter");
+  await page.getByRole("button", { name: "Open quiz", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Generated queue quiz" }),
   ).toBeVisible();
@@ -216,6 +226,10 @@ test("quiz controls compose, keep URL and storage state, and survive inline crea
   );
   await page.goto("/quizzes?extra=keep#library");
   const open = page.getByRole("button", { name: /^Open quiz/ });
+  const generate = page
+    .locator('[data-slot="page-header"]')
+    .getByRole("button", { name: "Generate quiz", exact: true });
+  await expect(generate).toBeVisible();
   await choose(page, "Sort quizzes", "Name A–Z");
   await expect(open).toHaveText([
     "Atomic operations",
@@ -226,13 +240,11 @@ test("quiz controls compose, keep URL and storage state, and survive inline crea
   await choose(page, "Filter by difficulty", "Hard");
   await choose(page, "Quiz status", "In progress");
   await expect(open).toHaveCount(1);
-  await expect(open).toHaveAttribute("aria-label", "Open quiz 3");
+  await expect(open).toHaveAttribute("aria-label", "Open quiz #3");
   await expect(page).toHaveURL(
     /extra=keep.*quizSearch=queue.*quizStatus=draft.*quizDifficulty=hard.*quizSort=name.*#library$/,
   );
-  await page
-    .getByRole("button", { name: "Generate quiz", exact: true })
-    .click();
+  await generate.click();
   await expect(
     page.getByRole("textbox", { name: "Quiz prompt" }),
   ).toBeVisible();
@@ -240,12 +252,13 @@ test("quiz controls compose, keep URL and storage state, and survive inline crea
     .getByRole("textbox", { name: "Quiz prompt" })
     .fill("Distributed transactions");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(generate).toBeFocused();
   await expect(open).toHaveCount(1);
   await page.reload();
   await expect(
     page.getByRole("searchbox", { name: "Search quizzes" }),
   ).toHaveValue("queue");
-  await expect(open).toHaveAttribute("aria-label", "Open quiz 3");
+  await expect(open).toHaveAttribute("aria-label", "Open quiz #3");
   expect(
     await page.evaluate(
       (id) =>
@@ -308,7 +321,7 @@ test("inline quiz creation keeps an active attempt and its autosave registered",
     },
   );
   await page.goto("/quizzes");
-  await page.getByRole("button", { name: "Open quiz 1", exact: true }).click();
+  await page.getByRole("button", { name: "Open quiz #1", exact: true }).click();
   await page.getByText("First", { exact: true }).click();
   await page
     .getByRole("button", { name: "Generate quiz", exact: true })

@@ -24,6 +24,7 @@ import type {
 } from "../quizzes/quiz.schema";
 
 export type QuizModelInput = {
+  signal?: AbortSignal;
   questionCount: QuestionCount;
   previousQuestions: string[];
 } & (
@@ -68,6 +69,7 @@ export type LearnerContext = {
 };
 
 export type BuildModelInput = {
+  signal?: AbortSignal;
   timeBudgetMinutes?: number | null;
   familiarity?: "new" | "practiced" | "comfortable" | null;
   emphasis?: string | null;

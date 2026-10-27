@@ -116,7 +116,7 @@ test("log detail deep links, breadcrumbs, and pagination retain filters", async 
   await expect(page).toHaveURL(/\/logs\?page=2&status=success&search=mock$/);
 });
 
-test("generation navigates to the new build and streams hints", async ({
+test("generation opens from its completion toast and streams hints", async ({
   page,
   apiRequests,
 }) => {
@@ -126,12 +126,15 @@ test("generation navigates to the new build and streams hints", async ({
     .getByLabel("Describe what you want to build")
     .fill("Practice grouping words");
   await page.getByRole("button", { name: "Create build", exact: true }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await page
+    .getByRole("button", { name: "Open challenge", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/chat\?id=build-one$/);
   await expect(
     page.getByRole("heading", { name: "#1 Group words", exact: true }),
   ).toBeVisible();
-  expect(apiRequests).toContain("/challenges/prepare");
-  expect(apiRequests).toContain("/challenges/generate");
+  expect(apiRequests).toContain("/generation-jobs");
   await page.getByRole("button", { name: "Hint", exact: true }).click();
   await expect(
     page.getByRole("region", { name: "Challenge hint" }),

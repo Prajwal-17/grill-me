@@ -1,67 +1,49 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import {
-  challengeKeys,
-  generateChallenge,
-  prepareChallenge,
-  enhanceBuildPrompt,
-} from "@/features/challenges/api/challenge-api";
-import { ApiClientError } from "@/shared/lib/api-client";
+import { enhanceBuildPrompt } from "@/features/challenges/api/challenge-api";
 import { useBuildStore } from "@/features/chat/stores/chat-store";
+import { useAppStore } from "@/shared/stores/app-store";
+import { useToast } from "@/shared/components/ui/toast";
+import type { Profile } from "@/shared/types/api";
+import {
+  answerGeneration,
+  cancelGeneration,
+  enqueueGeneration,
+  generationKeys,
+  getGenerationJob,
+  retryGeneration,
+} from "@/features/generations/api/generation-api";
+import { useSaveGenerationJob } from "@/features/generations/hooks/use-generation-jobs";
 import type {
-  ChallengePreparation,
-  ClarificationContext,
-  Profile,
-} from "@/shared/types/api";
-
-function clarificationFromError(error: unknown): ChallengePreparation | null {
-  if (
-    !(error instanceof ApiClientError) ||
-    error.code !== "CHALLENGE_NEEDS_CLARIFICATION"
-  )
-    return null;
-  const details = error.details;
-  if (
-    typeof details?.question !== "string" ||
-    !details.question.trim() ||
-    !Array.isArray(details.options) ||
-    ![0, 2, 3].includes(details.options.length) ||
-    !details.options.every(
-      (option) => typeof option === "string" && option.trim(),
-    )
-  )
-    return null;
-  return { question: details.question, options: details.options };
-}
+  GenerationJob,
+  GenerationRequest,
+} from "@/features/generations/types";
 
 export function useCreateBuild(profile: Profile) {
-  const navigate = useNavigate();
-  const queries = useQueryClient();
-  const {
-    prompt,
-    scope,
-    difficulty,
-    clarification,
-    choice,
-    custom,
-    ready,
-    lastAnswer,
-    clarificationHistory,
-    setClarificationHistory,
-    setPrompt,
-    setScope,
-    setDifficulty,
-    setClarification,
-    setChoice,
-    setCustom,
-    setReady,
-    setLastAnswer,
-    resetFlow,
-    resetBuild,
-  } = useBuildStore();
-
+  const store = useBuildStore();
+  const resetBuild = store.resetBuild;
+  const [params, setParams] = useSearchParams();
+  const generationId = params.get("generation") ?? "";
+  const jobQuery = useQuery({
+    queryKey: generationKeys.detail(profile.id, generationId),
+    queryFn: () => getGenerationJob(profile.id, generationId),
+    enabled: Boolean(generationId),
+  });
+  const job = jobQuery.data;
+  const source = job?.request.kind === "challenge" ? job.request.input : null;
+  const clarification =
+    job?.status === "needs_input" ? job.clarification : null;
+  const [choice, setChoice] = useState("");
+  const [custom, setCustom] = useState("");
+  const [originalPrompt, setOriginalPrompt] = useState<string | null>(null);
   const mounted = useRef(false);
+  const requestRef = useRef<{
+    signature: string;
+    request: GenerationRequest;
+  } | null>(null);
+  const saveJob = useSaveGenerationJob();
+  const { show } = useToast();
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -69,49 +51,59 @@ export function useCreateBuild(profile: Profile) {
       resetBuild();
     };
   }, [resetBuild]);
-  const [originalPrompt, setOriginalPrompt] = useState<string | null>(null);
-
+  const clearSelection = () =>
+    setParams(
+      (current) => {
+        current.delete("generation");
+        return current;
+      },
+      { replace: true },
+    );
+  function accepted(job: GenerationJob) {
+    saveJob(job);
+    if (useAppStore.getState().profile?.id !== profile.id) return;
+    show({
+      message: "Challenge queued",
+      description: "You can keep working while it generates.",
+      scope: `generation:${profile.id}`,
+    });
+    if (mounted.current) {
+      store.resetBuild();
+      setChoice("");
+      setCustom("");
+      setOriginalPrompt(null);
+      clearSelection();
+      requestRef.current = null;
+    }
+  }
   const generate = useMutation({
-    mutationFn: (history: ClarificationContext[]) =>
-      generateChallenge(profile.id, {
-        prompt,
-        scope,
-        difficulty,
-        clarificationContext: history.at(-1) ?? null,
-        clarificationHistory: history,
-      }),
-    onError: (error) => {
-      const clarification = clarificationFromError(error);
-      if (clarification) {
-        setClarification(clarification);
-        setChoice("");
-        setCustom("");
-      }
-    },
-    onSuccess: (created) => {
-      queries.setQueryData(
-        challengeKeys.detail(profile.id, created.id),
-        created,
-      );
-      void queries.invalidateQueries({
-        queryKey: challengeKeys.active(profile.id),
-      });
-      navigate("/chat?id=" + created.id, { replace: true });
-    },
+    mutationFn: (request: GenerationRequest) =>
+      enqueueGeneration(profile.id, request),
+    onSuccess: accepted,
   });
-  const prepare = useMutation({
-    mutationFn: () =>
-      prepareChallenge(profile.id, {
-        prompt,
-        scope,
-        difficulty,
-      }),
-    onSuccess: (result) => {
-      if (result.question) setClarification(result);
-      else {
-        setReady(true);
-        generate.mutate([]);
-      }
+  const answerMutation = useMutation({
+    mutationFn: (value: string) =>
+      answerGeneration(profile.id, job!.id, clarification!.question, value),
+    onSuccess: accepted,
+  });
+  const retry = useMutation({
+    mutationFn: () => retryGeneration(profile.id, job!.id, true),
+    onSuccess: accepted,
+  });
+  const edit = useMutation({
+    mutationFn: () => cancelGeneration(profile.id, job!.id),
+    onSuccess: (cancelled) => {
+      saveJob(cancelled);
+      if (!mounted.current || !source) return;
+      store.setPrompt(source.prompt);
+      store.setScope(source.scope);
+      store.setDifficulty(source.difficulty);
+      clearSelection();
+      setChoice("");
+      setCustom("");
+      requestAnimationFrame(() =>
+        document.getElementById("build-request")?.focus(),
+      );
     },
   });
   const enhance = useMutation({
@@ -119,101 +111,91 @@ export function useCreateBuild(profile: Profile) {
     onSuccess: (result, original) => {
       if (!mounted.current || useBuildStore.getState().prompt !== original)
         return;
-      resetFlow();
-      prepare.reset();
       generate.reset();
+      requestRef.current = null;
       setOriginalPrompt(original);
-      setPrompt(result.prompt);
+      store.setPrompt(result.prompt);
     },
   });
   const busy =
-    prepare.isPending ||
     generate.isPending ||
-    generate.isSuccess ||
+    answerMutation.isPending ||
+    edit.isPending ||
+    retry.isPending ||
     enhance.isPending;
-  const clarificationError = clarificationFromError(generate.error);
-  const error =
-    enhance.error ??
-    (clarificationError ? null : (generate.error ?? prepare.error));
-  const canFallback =
-    prepare.error instanceof TypeError ||
-    (prepare.error instanceof ApiClientError &&
-      prepare.error.code === "MODEL_UNAVAILABLE");
   function reset() {
-    resetFlow();
-    prepare.reset();
+    if (clarification) {
+      edit.mutate();
+      return;
+    }
     generate.reset();
     enhance.reset();
+    answerMutation.reset();
+    retry.reset();
+    requestRef.current = null;
     setOriginalPrompt(null);
   }
   function submit(event?: FormEvent) {
     event?.preventDefault();
-    if (busy || prompt.trim().length < 3 || clarification?.question) return;
-    if (ready)
-      generate.mutate(
-        clarificationHistory.length
-          ? clarificationHistory
-          : lastAnswer
-            ? [lastAnswer]
-            : [],
-      );
-    else prepare.mutate();
-  }
-  function answer(value: string) {
-    if (!clarification?.question || !value.trim() || busy) return;
-    const context = { question: clarification.question, answer: value.trim() };
-    const history = [...clarificationHistory, context];
-    setLastAnswer(context);
-    setClarificationHistory(history);
-    setClarification(null);
-    setReady(true);
-    prepare.reset();
-    generate.mutate(history);
-  }
-
-  function skipClarification() {
-    if (
-      busy ||
-      !canFallback ||
-      clarification?.question ||
-      prompt.trim().length < 3
-    )
-      return;
-    setClarification(null);
-    setReady(true);
-    setLastAnswer(null);
-    prepare.reset();
-    generate.mutate([]);
+    if (busy || clarification || store.prompt.trim().length < 3) return;
+    const input = {
+      prompt: store.prompt.trim(),
+      scope: store.scope,
+      difficulty: store.difficulty,
+      clarificationContext: null,
+      clarificationHistory: [],
+    };
+    const signature = JSON.stringify(input);
+    const request: GenerationRequest =
+      requestRef.current?.signature === signature
+        ? requestRef.current.request
+        : { kind: "challenge", requestId: crypto.randomUUID(), input };
+    requestRef.current = { signature, request };
+    generate.mutate(request);
   }
   return {
-    prompt,
-    setPrompt,
-    scope,
-    setScope,
-    difficulty,
-    setDifficulty,
+    prompt: clarification && source ? source.prompt : store.prompt,
+    setPrompt: store.setPrompt,
+    scope: clarification && source ? source.scope : store.scope,
+    setScope: store.setScope,
+    difficulty: clarification && source ? source.difficulty : store.difficulty,
+    setDifficulty: store.setDifficulty,
     clarification,
     choice,
     setChoice,
     custom,
     setCustom,
-    ready,
-    clarificationHistory,
-    canFallback,
+    clarificationHistory: source?.clarificationHistory ?? [],
+    generationId,
+    canFallback:
+      job?.status === "failed" &&
+      job.phase === "preparing" &&
+      Boolean(job.error?.retryable),
     generate,
-    prepare,
     enhance,
     originalPrompt,
     undoEnhancement: () => {
-      if (originalPrompt === null || busy) return;
-      setPrompt(originalPrompt);
-      reset();
+      if (originalPrompt !== null && !busy) {
+        store.setPrompt(originalPrompt);
+        reset();
+      }
     },
     busy,
-    error,
+    error:
+      enhance.error ??
+      generate.error ??
+      answerMutation.error ??
+      edit.error ??
+      retry.error ??
+      jobQuery.error,
     reset,
     submit,
-    answer,
-    skipClarification,
+    answer: (value: string) => {
+      if (clarification && value.trim() && !busy)
+        answerMutation.mutate(value.trim());
+    },
+    skipClarification: () => {
+      if (!busy) retry.mutate();
+    },
   };
 }

@@ -1,5 +1,12 @@
 import { QuizDetailSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { enqueueGeneration } from "@/features/generations/api/generation-api";
+import { useSaveGenerationJob } from "@/features/generations/hooks/use-generation-jobs";
+import { GenerationProgress } from "@/features/generations/components/generation-activity";
+import { useToast } from "@/shared/components/ui/toast";
+import { useAppStore } from "@/shared/stores/app-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -37,7 +44,6 @@ import {
 import {
   enhanceQuizPrompt,
   deleteQuiz,
-  generateQuiz,
   getQuiz,
   getQuizzes,
   quizKeys,
@@ -101,25 +107,43 @@ function quizLabel(quiz: QuizSummary) {
       ? ` · ${attempt.score}/${quiz.questionCount}`
       : ` · ${attempt.answered}/${quiz.questionCount} answered`
     : " · Not started";
-  return `${quiz.deletedAt ? "Deleted · " : ""}${quiz.title} · Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
+  return `${quiz.deletedAt ? "Deleted · " : ""}${quiz.title} · #${quiz.number} · ${quiz.questionCount} questions${progress}`;
 }
 
 export function QuizWorkspace({
   profileId,
   challengeId = null,
+  headerActionsTarget,
 }: {
   profileId: string;
   challengeId?: string | null;
+  headerActionsTarget?: HTMLElement | null;
 }) {
   const queries = useQueryClient();
-  const [quizId, setQuizId] = useState("");
+  const [params] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const quizId = params.get("quiz") ?? "";
+  const setQuizId = useCallback(
+    (id: string) => {
+      const next = new URLSearchParams(params);
+      if (id) next.set("quiz", id);
+      else next.delete("quiz");
+      void navigate(
+        { search: next.toString(), hash: location.hash },
+        { replace: true },
+      );
+    },
+    [params, navigate, location.hash],
+  );
+  const saveJob = useSaveGenerationJob();
+  const { show: showToast } = useToast();
   const [attemptId, setAttemptId] = useState("");
   const [allQuizzesOpen, setAllQuizzesOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const createRef = useRef<HTMLElement>(null);
   const generateRef = useRef<HTMLButtonElement>(null);
   const startButtonRef = useRef<HTMLButtonElement>(null);
-  const focusAfterGeneration = useRef(false);
   useEffect(() => {
     if (dialogOpen)
       createRef.current
@@ -145,14 +169,18 @@ export function QuizWorkspace({
     queryKey: listKey,
     queryFn: () => getQuizzes(profileId, challengeId, true),
   });
-  const selectedQuizId = allQuizzesOpen
-    ? ""
-    : ((list.isLoading && quizId ? quizId : undefined) ??
-      list.data?.find((quiz) => quiz.id === quizId)?.id ??
-      (challengeId === null
-        ? ""
-        : list.data?.find((quiz) => !quiz.deletedAt)?.id) ??
-      "");
+  const selectedQuizId =
+    allQuizzesOpen && !quizId
+      ? ""
+      : quizId ||
+        (challengeId === null
+          ? ""
+          : list.data?.find((quiz) => !quiz.deletedAt)?.id) ||
+        "";
+  useEffect(() => {
+    if (challengeId !== null && !quizId && !allQuizzesOpen && selectedQuizId)
+      setQuizId(selectedQuizId);
+  }, [challengeId, quizId, allQuizzesOpen, selectedQuizId, setQuizId]);
   const detailKey = quizKeys.detail(profileId, challengeId, selectedQuizId);
   const detail = useQuery({
     queryKey: detailKey,
@@ -163,6 +191,19 @@ export function QuizWorkspace({
   const selectedAttempt =
     detail.data?.attempts.find((attempt) => attempt.id === attemptId) ??
     detail.data?.attempts[0];
+  const focusedQuiz = useRef("");
+  useEffect(() => {
+    if (
+      quizId &&
+      detail.data &&
+      !selectedAttempt &&
+      startButtonRef.current &&
+      focusedQuiz.current !== quizId
+    ) {
+      focusedQuiz.current = quizId;
+      startButtonRef.current.focus();
+    }
+  }, [quizId, detail.data, selectedAttempt]);
   const selectedSummary = list.data?.find((quiz) => quiz.id === selectedQuizId);
 
   function updateAttempt(attempt: Attempt) {
@@ -215,25 +256,28 @@ export function QuizWorkspace({
           ? previous.request
           : { requestId: crypto.randomUUID(), ...settings };
       requestRef.current = { settings: signature, request };
-      return generateQuiz(profileId, challengeId, request);
-    },
-    onSuccess: (quiz) => {
-      focusAfterGeneration.current = true;
-      requestRef.current = null;
-      queries.setQueryData<QuizDetail>(
-        quizKeys.detail(profileId, challengeId, quiz.id),
-        { quiz, attempts: [] },
+      return enqueueGeneration(
+        profileId,
+        challengeId === null
+          ? { kind: "quiz", input: request as GenerateStandaloneQuizRequest }
+          : {
+              kind: "challenge_quiz",
+              challengeId,
+              input: request as GenerateQuizRequest,
+            },
       );
-      const { questions: _questions, ...summary } = quiz;
-      queries.setQueryData<QuizSummary[]>(listKey, (current) => [
-        { ...summary, latestAttempt: null },
-        ...(current ?? []).filter((item) => item.id !== quiz.id),
-      ]);
-      setQuizId(quiz.id);
-      setAllQuizzesOpen(false);
-      setAttemptId("");
+    },
+    onSuccess: (job) => {
+      saveJob(job);
+      requestRef.current = null;
+      if (useAppStore.getState().profile?.id !== profileId) return;
+      showToast({
+        message: "Quiz queued",
+        description: "You can keep working while it generates.",
+        scope: `generation:${profileId}`,
+      });
       setDialogOpen(false);
-      void queries.invalidateQueries({ queryKey: listKey });
+      requestAnimationFrame(() => generateRef.current?.focus());
     },
   });
   const titleGeneration = useMutation({
@@ -337,28 +381,21 @@ export function QuizWorkspace({
     start.isPending ||
     deletion.isPending ||
     restoration.isPending;
-  useEffect(() => {
-    if (
-      !dialogOpen &&
-      !busy &&
-      focusAfterGeneration.current &&
-      startButtonRef.current
-    ) {
-      startButtonRef.current.focus();
-      focusAfterGeneration.current = false;
-    }
-  }, [busy, dialogOpen, selectedQuizId, detail.data]);
   const showLibrary =
     !selectedQuizId &&
     !(list.isLoading && challengeId !== null && !allQuizzesOpen);
+  const hasHeaderActions = headerActionsTarget !== undefined;
+  const showGenerateLabel = showLibrary || hasHeaderActions;
   const generateButton = (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
           ref={generateRef}
-          size={showLibrary ? "default" : "icon-sm"}
-          className={showLibrary ? "h-9" : "ml-auto shrink-0"}
-          variant={selectedQuizId ? "secondary" : "primary"}
+          size={showGenerateLabel ? "default" : "icon-sm"}
+          className={showGenerateLabel ? undefined : "ml-auto shrink-0"}
+          variant={
+            selectedQuizId && !hasHeaderActions ? "secondary" : "primary"
+          }
           disabled={busy || list.isLoading}
           aria-label="Generate quiz"
           onClick={() => {
@@ -367,7 +404,7 @@ export function QuizWorkspace({
           }}
         >
           <Plus size={14} />
-          {showLibrary ? (
+          {showGenerateLabel ? (
             "Generate quiz"
           ) : (
             <span className="sr-only">Generate quiz</span>
@@ -380,7 +417,7 @@ export function QuizWorkspace({
     </Tooltip>
   );
 
-  return (
+  const workspace = (
     <section
       aria-label={
         challengeId === null ? "Standalone quizzes" : "Challenge quizzes"
@@ -391,6 +428,13 @@ export function QuizWorkspace({
           : "flex h-full min-h-0 flex-col gap-5 overflow-hidden"
       }`}
     >
+      {!dialogOpen && (
+        <GenerationProgress
+          profileId={profileId}
+          kind="quiz"
+          challengeId={challengeId}
+        />
+      )}
       <div
         className="flex min-h-0 flex-1 flex-col gap-4"
         style={dialogOpen ? { display: "none" } : undefined}
@@ -436,7 +480,7 @@ export function QuizWorkspace({
                 )}
               </div>
             )}
-            {generateButton}
+            {!hasHeaderActions && generateButton}
           </div>
         )}
         {list.error && !list.data ? (
@@ -458,7 +502,7 @@ export function QuizWorkspace({
               profileId={profileId}
               quizzes={list.data ?? []}
               loading={list.isLoading}
-              actions={generateButton}
+              actions={hasHeaderActions ? undefined : generateButton}
               disabled={busy}
               onDelete={(quiz) => {
                 deletion.reset();
@@ -516,7 +560,7 @@ export function QuizWorkspace({
                     </span>
                   )}
                   <span className="text-metadata text-muted">
-                    Quiz {detail.data.quiz.number} ·{" "}
+                    #{detail.data.quiz.number} ·{" "}
                     {detail.data.quiz.coverage === "topic"
                       ? detail.data.quiz.difficulty
                       : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
@@ -615,7 +659,7 @@ export function QuizWorkspace({
                       size="sm"
                       variant="secondary"
                       disabled={busy}
-                      aria-label={`Restore quiz ${detail.data.quiz.number}`}
+                      aria-label={`Restore quiz #${detail.data.quiz.number}`}
                       onClick={() => {
                         restoration.reset();
                         restoration.mutate(selectedQuizId);
@@ -658,7 +702,7 @@ export function QuizWorkspace({
                               size="icon-sm"
                               variant="ghost"
                               disabled={busy}
-                              aria-label={`Delete quiz ${detail.data.quiz.number}`}
+                              aria-label={`Delete quiz #${detail.data.quiz.number}`}
                               onClick={() => {
                                 deletion.reset();
                                 setDeleteTarget(selectedSummary);
@@ -672,7 +716,7 @@ export function QuizWorkspace({
                           </TooltipContent>
                         </Tooltip>
                       )}
-                      {generateButton}
+                      {!hasHeaderActions && generateButton}
                     </>
                   )}
                 </div>
@@ -724,7 +768,7 @@ export function QuizWorkspace({
                           {detail.data.quiz.title}
                         </h2>
                         <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ui text-muted">
-                          <span>Quiz {detail.data.quiz.number}</span>
+                          <span>#{detail.data.quiz.number}</span>
                           <span aria-hidden="true" className="text-line-strong">
                             ·
                           </span>
@@ -876,7 +920,7 @@ export function QuizWorkspace({
                           : prompt.trim().length === 0
                             ? "Enter a prompt to enable AI enhancement"
                             : generation.isPending
-                              ? "Wait for quiz generation to finish"
+                              ? "Wait for the request to be saved"
                               : "Enhance prompt with AI"}
                       </TooltipContent>
                     </Tooltip>
@@ -960,7 +1004,7 @@ export function QuizWorkspace({
                     (challengeId === null && prompt.trim().length === 0)
                   }
                 >
-                  {generation.isPending ? "Generating…" : "Generate quiz"}
+                  {generation.isPending ? "Queueing…" : "Generate quiz"}
                 </Button>
               </div>
             </form>
@@ -981,7 +1025,7 @@ export function QuizWorkspace({
             <AlertDialogTitle>Move quiz to Deleted?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget &&
-                `Quiz ${deleteTarget.number} will be hidden from the active list. You can find it under Deleted and restore it later. Its number will stay the same.`}
+                `Quiz #${deleteTarget.number} will be hidden from the active list. You can find it under Deleted and restore it later. Its number will stay the same.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deletion.error && (
@@ -1007,5 +1051,14 @@ export function QuizWorkspace({
         </AlertDialogContent>
       </AlertDialog>
     </section>
+  );
+
+  return (
+    <>
+      {headerActionsTarget &&
+        !dialogOpen &&
+        createPortal(generateButton, headerActionsTarget)}
+      {workspace}
+    </>
   );
 }
