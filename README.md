@@ -231,3 +231,27 @@ Structured generation and judging use validated JSON response schemas. Valid JSO
 Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses four tabs, with one selected quiz attempt, submission, or review run visible at a time. Shared layout, account navigation, and Markdown renderers live under `apps/web/src/shared/components`. The application frame stays within the viewport; page content scrolls inside it.
 
 For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. After a preparation transport failure, Create without clarification lets generation independently check whether it can proceed. An essential question requires an answer.
+
+## Background generation
+
+Challenge and quiz generation runs as jobs saved in PostgreSQL. Submitting a
+request queues it immediately, with progress in the page and in the shared
+header’s activity menu. You can navigate elsewhere, reload, or close the tab while
+the backend continues. A completion toast offers **Open challenge** or **Open quiz**;
+completion never redirects you. Saved results and recent jobs remain available in
+activity after a toast disappears.
+
+Essential clarification pauses a challenge job and offers **Answer**. Failed jobs
+show their error and a retry action when retry is supported. Retries use the same
+job; repeated submission of a request ID does not create another generation.
+Queued work and requests waiting for an answer can be cancelled. Existing quiz
+attempts keep their autosave behavior while another quiz is being generated.
+
+The backend claims jobs atomically, runs up to two at a time, and saves each
+result together with its completed job state. Queued jobs resume after a backend
+restart. A running job whose worker disappears is marked interrupted after its
+lease expires (up to 90 seconds); retry is explicit, so restarting does not
+silently repeat a model call. There is no additional queue service to configure.
+The additive `0008_background_generations` migration preserves existing practice
+data. All job endpoints and completion notifications are scoped to the selected
+profile.

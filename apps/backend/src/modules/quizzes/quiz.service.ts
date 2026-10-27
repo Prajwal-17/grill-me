@@ -7,6 +7,11 @@ import { toChallenge } from "../challenges/challenge.utils";
 import { db } from "../../shared/database/db";
 import { profiles, quizAttempts, quizzes } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
+import type { GenerationRun } from "../generations/generation.schema";
+import {
+  lockGeneration,
+  completeGeneration,
+} from "../generations/generation.lease";
 import {
   type EnhanceQuizPromptRequest,
   validateQuiz,
@@ -191,13 +196,20 @@ export function createQuizService(
       challengeId: string | null,
       profileId: string,
       request: GenerateQuizRequest | GenerateStandaloneQuizRequest,
+      generation?: GenerationRun,
     ) {
       const challenge =
         challengeId === null
           ? null
           : toChallenge(await challengeService.owned(challengeId, profileId));
       if (!challenge) await profileService.assertExists(profileId);
-      const key = profileId + ":" + challengeId + ":" + request.requestId;
+      const key =
+        profileId +
+        ":" +
+        challengeId +
+        ":" +
+        request.requestId +
+        (generation ? ":" + generation.token : "");
       const existing = (
         await db
           .select()
@@ -209,7 +221,14 @@ export function createQuizService(
             ),
           )
       )[0];
-      if (existing) return publicQuiz(existing);
+      if (existing) {
+        if (generation)
+          await db.transaction(async (tx) => {
+            await lockGeneration(tx, generation);
+            await completeGeneration(tx, generation, publicQuiz(existing));
+          });
+        return publicQuiz(existing);
+      }
       const running = generating.get(key);
       if (running) return running;
       const run = (async () => {
@@ -267,6 +286,7 @@ export function createQuizService(
           );
         }
         return db.transaction(async (tx) => {
+          await lockGeneration(tx, generation);
           // Serialize retry checks across processes. Number allocation itself
           // belongs to the database trigger. NO KEY UPDATE permits FK checks
           // from concurrent challenge generation for the same profile.
@@ -286,12 +306,15 @@ export function createQuizService(
                 ),
               )
           )[0];
-          if (duplicate) return publicQuiz(duplicate);
+          if (duplicate) {
+            await completeGeneration(tx, generation, publicQuiz(duplicate));
+            return publicQuiz(duplicate);
+          }
           const quiz = (
             await tx
               .insert(quizzes)
               .values({
-                id: crypto.randomUUID(),
+                id: generation?.id ?? crypto.randomUUID(),
                 challengeId,
                 profileId,
                 title: normalizeQuizTitle(
@@ -313,6 +336,7 @@ export function createQuizService(
               })
               .returning()
           )[0]!;
+          await completeGeneration(tx, generation, publicQuiz(quiz));
           return publicQuiz(quiz);
         });
       })();

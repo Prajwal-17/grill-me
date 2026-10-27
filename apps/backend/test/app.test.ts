@@ -3726,3 +3726,438 @@ describe("browser CORS configuration", () => {
     }
   });
 });
+
+describe("background generations", () => {
+  type Job =
+    import("../src/modules/generations/generation.service").PublicGenerationJob;
+  async function setup() {
+    const model = new FakeModel();
+    const app = createApp({ llm: model });
+    const owner = await startProfile(
+      app,
+      `jobs-${crypto.randomUUID()}@test.dev`,
+    );
+    const input = {
+      kind: "challenge",
+      requestId: crypto.randomUUID(),
+      input: {
+        prompt: "Build string grouping in TypeScript",
+        scope: "focused",
+        difficulty: "medium",
+        clarificationContext: null,
+        clarificationHistory: [],
+      },
+    };
+    const enqueue = async (value: unknown = input) => {
+      const response = await request(app, "/generation-jobs", owner.id, value);
+      expect(response.status).toBe(202);
+      return (await json<{ data: Job }>(response)).data;
+    };
+    const detail = async (id: string, target = app) =>
+      (
+        await json<{ data: Job }>(
+          await request(target, `/generation-jobs/${id}`, owner.id),
+        )
+      ).data;
+    return { model, app, owner, input, enqueue, detail };
+  }
+
+  test("acknowledges immediately, survives a new app instance, and claims a generation only once", async () => {
+    const state = await setup();
+    const job = await state.enqueue();
+    expect(job.status).toBe("queued");
+    expect(state.model.generationInputs).toHaveLength(0);
+    expect((await state.enqueue()).id).toBe(job.id);
+    const restarted = createApp({ llm: state.model });
+    let release!: () => void;
+    let began!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const generate = state.model.generateBuild.bind(state.model);
+    state.model.generateBuild = async (input) => {
+      began();
+      await gate;
+      return generate(input);
+    };
+    const running = restarted.generations.processNext();
+    await started;
+    expect((await state.detail(job.id)).status).toBe("running");
+    expect((await request(state.app, "/health", state.owner.id)).status).toBe(
+      200,
+    );
+    expect(await state.app.generations.processNext()).toBe(false);
+    release();
+    expect(await running).toBe(true);
+    const completed = await state.detail(job.id);
+    expect(completed).toMatchObject({
+      status: "completed",
+      resultId: job.id,
+      resultNumber: 1,
+    });
+    expect(state.model.generationInputs).toHaveLength(1);
+    expect(
+      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
+        job.id,
+      ]),
+    ).toHaveLength(1);
+    const acknowledged = await request(
+      state.app,
+      `/generation-jobs/${job.id}/acknowledge`,
+      state.owner.id,
+      { status: completed.status, updatedAt: completed.updatedAt },
+    );
+    expect(acknowledged.status).toBe(200);
+    expect((await state.detail(job.id)).notifiedAt).not.toBeNull();
+    expect((await state.enqueue()).id).toBe(job.id);
+    expect(await restarted.generations.processNext()).toBe(false);
+  });
+
+  test("the background worker drains queued jobs with bounded concurrency", async () => {
+    const state = await setup();
+    let release!: () => void;
+    let began!: () => void;
+    let calls = 0;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const original = state.model.generateBuild.bind(state.model);
+    state.model.generateBuild = async (input) => {
+      if (++calls === 2) began();
+      await gate;
+      return original(input);
+    };
+    state.app.generations.start();
+    try {
+      const jobs = await Promise.all(
+        Array.from({ length: 3 }, () =>
+          state.enqueue({ ...state.input, requestId: crypto.randomUUID() }),
+        ),
+      );
+      await started;
+      const current = await Promise.all(
+        jobs.map((job) => state.detail(job.id)),
+      );
+      expect(current.filter((job) => job.status === "running")).toHaveLength(2);
+      expect(current.filter((job) => job.status === "queued")).toHaveLength(1);
+      release();
+      let completed = 0;
+      for (let attempt = 0; attempt < 100 && completed !== 3; attempt++) {
+        completed = (
+          await Promise.all(jobs.map((job) => state.detail(job.id)))
+        ).filter((job) => job.status === "completed").length;
+        if (completed !== 3)
+          await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(completed).toBe(3);
+      expect(calls).toBe(3);
+    } finally {
+      release();
+      state.app.generations.stop();
+    }
+  });
+
+  test("queues standalone and challenge quizzes and saves their completed job atomically", async () => {
+    const state = await setup();
+    const challenge = await createChallenge(state.app, state.owner.id);
+    for (const input of [
+      {
+        kind: "quiz",
+        input: {
+          requestId: crypto.randomUUID(),
+          prompt: "SQL indexes",
+          difficulty: "hard",
+          questionCount: 5,
+        },
+      },
+      {
+        kind: "challenge_quiz",
+        challengeId: challenge.id,
+        input: {
+          requestId: crypto.randomUUID(),
+          questionCount: 5,
+          coverage: "mixed",
+        },
+      },
+    ]) {
+      const job = await state.enqueue(input);
+      await state.app.generations.processNext();
+      const completed = await state.detail(job.id);
+      expect(completed.status).toBe("completed");
+      expect(completed.resultId).toBe(job.id);
+      expect(completed).not.toHaveProperty("questions");
+      const path =
+        input.kind === "quiz"
+          ? `/quizzes/${job.id}`
+          : `/challenges/${challenge.id}/quizzes/${job.id}`;
+      const detail = await json<{
+        data: { quiz: { id: string; questions: unknown[]; number: number } };
+      }>(await request(state.app, path, state.owner.id));
+      expect(detail.data.quiz.questions).toHaveLength(5);
+      expect(detail.data.quiz.number).toBe(input.kind === "quiz" ? 1 : 2);
+    }
+  });
+
+  test("persists essential clarification across app restarts and rejects stale answers or bypasses", async () => {
+    const state = await setup();
+    state.model.preparation = {
+      question: "Which input format must be supported?",
+      options: ["JSON", "CSV"],
+    };
+    const job = await state.enqueue();
+    await state.app.generations.processNext();
+    const waiting = await state.detail(job.id);
+    expect(waiting.status).toBe("needs_input");
+    expect(state.model.generationInputs).toHaveLength(0);
+    const restarted = createApp({ llm: state.model });
+    expect(
+      (
+        await request(
+          restarted,
+          `/generation-jobs/${job.id}/retry`,
+          state.owner.id,
+          { skipPreparation: true },
+        )
+      ).status,
+    ).toBe(409);
+    expect(
+      (
+        await request(
+          restarted,
+          `/generation-jobs/${job.id}/answer`,
+          state.owner.id,
+          { question: "An outdated question?", answer: "JSON" },
+        )
+      ).status,
+    ).toBe(409);
+    const response = await request(
+      restarted,
+      `/generation-jobs/${job.id}/answer`,
+      state.owner.id,
+      { question: waiting.clarification!.question, answer: "JSON" },
+    );
+    expect(response.status).toBe(202);
+    await restarted.generations.processNext();
+    const completed = await state.detail(job.id);
+    expect(completed.status).toBe("completed");
+    expect(state.model.generationInputs[0]!.clarificationHistory).toEqual([
+      { question: waiting.clarification!.question, answer: "JSON" },
+    ]);
+    // A delayed receipt for the question must not acknowledge the new completion.
+    await request(
+      restarted,
+      `/generation-jobs/${job.id}/acknowledge`,
+      state.owner.id,
+      { status: waiting.status, updatedAt: waiting.updatedAt },
+    );
+    expect((await state.detail(job.id)).notifiedAt).toBeNull();
+  });
+
+  test("keeps failures retryable without automatically repeating model calls", async () => {
+    const state = await setup();
+    state.model.generationError = new AppError(
+      "MODEL_UNAVAILABLE",
+      "Provider is unavailable.",
+      503,
+      true,
+    );
+    const job = await state.enqueue();
+    await state.app.generations.processNext();
+    expect(await state.detail(job.id)).toMatchObject({
+      status: "failed",
+      error: { retryable: true },
+    });
+    expect(await state.app.generations.processNext()).toBe(false);
+    expect(state.model.generationInputs).toHaveLength(1);
+    state.model.generationError = null;
+    const retry = await request(
+      state.app,
+      `/generation-jobs/${job.id}/retry`,
+      state.owner.id,
+      {},
+    );
+    expect(retry.status).toBe(202);
+    await state.app.generations.processNext();
+    expect(await state.detail(job.id)).toMatchObject({
+      status: "completed",
+      resultNumber: 1,
+    });
+    expect(state.model.generationInputs).toHaveLength(2);
+  });
+
+  test("expired workers cannot save late results, and queued jobs can be cancelled", async () => {
+    const state = await setup();
+    let release!: () => void;
+    let began!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const generate = state.model.generateBuild.bind(state.model);
+    state.model.generateBuild = async (input) => {
+      began();
+      await gate;
+      return generate(input);
+    };
+    const job = await state.enqueue();
+    const running = state.app.generations.processNext();
+    await started;
+    await db.$client.unsafe(
+      "UPDATE generation_jobs SET lease_until = now() - interval '1 second' WHERE id = $1",
+      [job.id],
+    );
+    await state.app.generations.recover();
+    release();
+    await running;
+    expect(await state.detail(job.id)).toMatchObject({
+      status: "failed",
+      error: { code: "GENERATION_INTERRUPTED" },
+    });
+    expect(
+      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
+        job.id,
+      ]),
+    ).toHaveLength(0);
+    const queued = await state.enqueue({
+      ...state.input,
+      requestId: crypto.randomUUID(),
+    });
+    expect(
+      (
+        await request(
+          state.app,
+          `/generation-jobs/${queued.id}/cancel`,
+          state.owner.id,
+          {},
+        )
+      ).status,
+    ).toBe(200);
+    expect((await state.detail(queued.id)).status).toBe("cancelled");
+    expect(await state.app.generations.processNext()).toBe(false);
+  });
+
+  test("a quiz retry cannot attach to an expired worker's in-flight generation", async () => {
+    const state = await setup();
+    let release!: () => void;
+    let began!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const original = state.model.generateQuiz.bind(state.model);
+    let calls = 0;
+    state.model.generateQuiz = async (input) => {
+      if (calls++ === 0) {
+        began();
+        await gate;
+      }
+      return original(input);
+    };
+    const job = await state.enqueue({
+      kind: "quiz",
+      input: {
+        requestId: crypto.randomUUID(),
+        questionCount: 5,
+        prompt: "SQL indexes",
+        difficulty: "hard",
+      },
+    });
+    const oldRun = state.app.generations.processNext();
+    await started;
+    await db.$client.unsafe(
+      "UPDATE generation_jobs SET lease_until = now() - interval '1 second' WHERE id = $1",
+      [job.id],
+    );
+    await state.app.generations.recover();
+    await request(
+      state.app,
+      `/generation-jobs/${job.id}/retry`,
+      state.owner.id,
+      {},
+    );
+    await state.app.generations.processNext();
+    expect(await state.detail(job.id)).toMatchObject({
+      status: "completed",
+      resultNumber: 1,
+    });
+    release();
+    await oldRun;
+    expect((await state.detail(job.id)).status).toBe("completed");
+    expect(calls).toBe(2);
+    expect(
+      await db.$client.unsafe("SELECT id FROM quizzes WHERE id = $1", [job.id]),
+    ).toHaveLength(1);
+  });
+
+  test("isolates every job endpoint by profile and validates requests before generation", async () => {
+    const state = await setup();
+    const other = await startProfile(
+      state.app,
+      `${crypto.randomUUID()}@test.dev`,
+    );
+    const job = await state.enqueue();
+    for (const path of ["", "/retry", "/cancel", "/answer", "/acknowledge"]) {
+      const body =
+        path === "/answer"
+          ? { question: "Which input format?", answer: "JSON" }
+          : path === "/acknowledge"
+            ? { status: "failed", updatedAt: new Date().toISOString() }
+            : {};
+      const response = await request(
+        state.app,
+        `/generation-jobs/${job.id}${path}`,
+        other.id,
+        path ? body : undefined,
+      );
+      expect(response.status).toBe(404);
+    }
+    expect(
+      (
+        await json<{ data: Job[] }>(
+          await request(state.app, "/generation-jobs", other.id),
+        )
+      ).data,
+    ).toEqual([]);
+    const response = await request(
+      state.app,
+      "/generation-jobs",
+      state.owner.id,
+      {
+        kind: "quiz",
+        input: {
+          requestId: crypto.randomUUID(),
+          questionCount: 99,
+          prompt: "SQL",
+        },
+      },
+    );
+    expect(response.status).toBe(400);
+    const challenge = await createChallenge(state.app, other.id);
+    expect(
+      (
+        await request(state.app, "/generation-jobs", state.owner.id, {
+          kind: "challenge_quiz",
+          challengeId: challenge.id,
+          input: { requestId: crypto.randomUUID(), questionCount: 5 },
+        })
+      ).status,
+    ).toBe(404);
+    expect(state.model.quizInputs).toHaveLength(0);
+    await request(
+      state.app,
+      `/generation-jobs/${job.id}/cancel`,
+      state.owner.id,
+      {},
+    );
+  });
+});

@@ -1,6 +1,12 @@
 import { QuizDetailSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { enqueueGeneration } from "@/features/generations/api/generation-api";
+import { useSaveGenerationJob } from "@/features/generations/hooks/use-generation-jobs";
+import { GenerationProgress } from "@/features/generations/components/generation-activity";
+import { useToast } from "@/shared/components/ui/toast";
+import { useAppStore } from "@/shared/stores/app-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -38,7 +44,6 @@ import {
 import {
   enhanceQuizPrompt,
   deleteQuiz,
-  generateQuiz,
   getQuiz,
   getQuizzes,
   quizKeys,
@@ -115,14 +120,30 @@ export function QuizWorkspace({
   headerActionsTarget?: HTMLElement | null;
 }) {
   const queries = useQueryClient();
-  const [quizId, setQuizId] = useState("");
+  const [params] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const quizId = params.get("quiz") ?? "";
+  const setQuizId = useCallback(
+    (id: string) => {
+      const next = new URLSearchParams(params);
+      if (id) next.set("quiz", id);
+      else next.delete("quiz");
+      void navigate(
+        { search: next.toString(), hash: location.hash },
+        { replace: true },
+      );
+    },
+    [params, navigate, location.hash],
+  );
+  const saveJob = useSaveGenerationJob();
+  const { show: showToast } = useToast();
   const [attemptId, setAttemptId] = useState("");
   const [allQuizzesOpen, setAllQuizzesOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const createRef = useRef<HTMLElement>(null);
   const generateRef = useRef<HTMLButtonElement>(null);
   const startButtonRef = useRef<HTMLButtonElement>(null);
-  const focusAfterGeneration = useRef(false);
   useEffect(() => {
     if (dialogOpen)
       createRef.current
@@ -148,14 +169,18 @@ export function QuizWorkspace({
     queryKey: listKey,
     queryFn: () => getQuizzes(profileId, challengeId, true),
   });
-  const selectedQuizId = allQuizzesOpen
-    ? ""
-    : ((list.isLoading && quizId ? quizId : undefined) ??
-      list.data?.find((quiz) => quiz.id === quizId)?.id ??
-      (challengeId === null
-        ? ""
-        : list.data?.find((quiz) => !quiz.deletedAt)?.id) ??
-      "");
+  const selectedQuizId =
+    allQuizzesOpen && !quizId
+      ? ""
+      : quizId ||
+        (challengeId === null
+          ? ""
+          : list.data?.find((quiz) => !quiz.deletedAt)?.id) ||
+        "";
+  useEffect(() => {
+    if (challengeId !== null && !quizId && !allQuizzesOpen && selectedQuizId)
+      setQuizId(selectedQuizId);
+  }, [challengeId, quizId, allQuizzesOpen, selectedQuizId, setQuizId]);
   const detailKey = quizKeys.detail(profileId, challengeId, selectedQuizId);
   const detail = useQuery({
     queryKey: detailKey,
@@ -166,6 +191,19 @@ export function QuizWorkspace({
   const selectedAttempt =
     detail.data?.attempts.find((attempt) => attempt.id === attemptId) ??
     detail.data?.attempts[0];
+  const focusedQuiz = useRef("");
+  useEffect(() => {
+    if (
+      quizId &&
+      detail.data &&
+      !selectedAttempt &&
+      startButtonRef.current &&
+      focusedQuiz.current !== quizId
+    ) {
+      focusedQuiz.current = quizId;
+      startButtonRef.current.focus();
+    }
+  }, [quizId, detail.data, selectedAttempt]);
   const selectedSummary = list.data?.find((quiz) => quiz.id === selectedQuizId);
 
   function updateAttempt(attempt: Attempt) {
@@ -218,25 +256,28 @@ export function QuizWorkspace({
           ? previous.request
           : { requestId: crypto.randomUUID(), ...settings };
       requestRef.current = { settings: signature, request };
-      return generateQuiz(profileId, challengeId, request);
-    },
-    onSuccess: (quiz) => {
-      focusAfterGeneration.current = true;
-      requestRef.current = null;
-      queries.setQueryData<QuizDetail>(
-        quizKeys.detail(profileId, challengeId, quiz.id),
-        { quiz, attempts: [] },
+      return enqueueGeneration(
+        profileId,
+        challengeId === null
+          ? { kind: "quiz", input: request as GenerateStandaloneQuizRequest }
+          : {
+              kind: "challenge_quiz",
+              challengeId,
+              input: request as GenerateQuizRequest,
+            },
       );
-      const { questions: _questions, ...summary } = quiz;
-      queries.setQueryData<QuizSummary[]>(listKey, (current) => [
-        { ...summary, latestAttempt: null },
-        ...(current ?? []).filter((item) => item.id !== quiz.id),
-      ]);
-      setQuizId(quiz.id);
-      setAllQuizzesOpen(false);
-      setAttemptId("");
+    },
+    onSuccess: (job) => {
+      saveJob(job);
+      requestRef.current = null;
+      if (useAppStore.getState().profile?.id !== profileId) return;
+      showToast({
+        message: "Quiz queued",
+        description: "You can keep working while it generates.",
+        scope: `generation:${profileId}`,
+      });
       setDialogOpen(false);
-      void queries.invalidateQueries({ queryKey: listKey });
+      requestAnimationFrame(() => generateRef.current?.focus());
     },
   });
   const titleGeneration = useMutation({
@@ -340,17 +381,6 @@ export function QuizWorkspace({
     start.isPending ||
     deletion.isPending ||
     restoration.isPending;
-  useEffect(() => {
-    if (
-      !dialogOpen &&
-      !busy &&
-      focusAfterGeneration.current &&
-      startButtonRef.current
-    ) {
-      startButtonRef.current.focus();
-      focusAfterGeneration.current = false;
-    }
-  }, [busy, dialogOpen, selectedQuizId, detail.data]);
   const showLibrary =
     !selectedQuizId &&
     !(list.isLoading && challengeId !== null && !allQuizzesOpen);
@@ -398,6 +428,13 @@ export function QuizWorkspace({
           : "flex h-full min-h-0 flex-col gap-5 overflow-hidden"
       }`}
     >
+      {!dialogOpen && (
+        <GenerationProgress
+          profileId={profileId}
+          kind="quiz"
+          challengeId={challengeId}
+        />
+      )}
       <div
         className="flex min-h-0 flex-1 flex-col gap-4"
         style={dialogOpen ? { display: "none" } : undefined}
@@ -883,7 +920,7 @@ export function QuizWorkspace({
                           : prompt.trim().length === 0
                             ? "Enter a prompt to enable AI enhancement"
                             : generation.isPending
-                              ? "Wait for quiz generation to finish"
+                              ? "Wait for the request to be saved"
                               : "Enhance prompt with AI"}
                       </TooltipContent>
                     </Tooltip>
@@ -967,7 +1004,7 @@ export function QuizWorkspace({
                     (challengeId === null && prompt.trim().length === 0)
                   }
                 >
-                  {generation.isPending ? "Generating…" : "Generate quiz"}
+                  {generation.isPending ? "Queueing…" : "Generate quiz"}
                 </Button>
               </div>
             </form>

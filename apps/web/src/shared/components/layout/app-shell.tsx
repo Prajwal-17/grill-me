@@ -13,6 +13,7 @@ import type { Profile } from "@/shared/types/api";
 import { Navigation } from "@/shared/components/layout/navigation";
 import { MobileNavigation } from "@/shared/components/layout/mobile-navigation";
 import { useAppNavigation } from "@/shared/components/layout/use-app-navigation";
+import { GenerationActivity } from "@/features/generations/components/generation-activity";
 
 export function AppShell({
   profile,
@@ -123,6 +124,7 @@ export function AppShell({
                 </li>
               </ol>
             </nav>
+            <GenerationActivity />
           </div>
           {actions && (
             <div className="flex max-w-full flex-wrap items-center gap-2">

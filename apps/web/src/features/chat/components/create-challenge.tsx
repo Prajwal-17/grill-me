@@ -24,6 +24,7 @@ import {
 import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
 import { useCreateBuild } from "@/features/chat/hooks/use-create-challenge";
 import { BuildOptionMenu } from "@/features/chat/components/build-option-menu";
+import { GenerationProgress } from "@/features/generations/components/generation-activity";
 const SCOPES = [
   {
     id: "focused",
@@ -79,11 +80,10 @@ export function GenerationHome({ profile }: { profile: Profile }) {
     setChoice,
     custom,
     setCustom,
-    ready,
     clarificationHistory,
     canFallback,
     generate,
-    prepare,
+    generationId,
     enhance,
     originalPrompt,
     undoEnhancement,
@@ -249,13 +249,9 @@ export function GenerationHome({ profile }: { profile: Profile }) {
                       variant="primary"
                       size="icon"
                       aria-label={
-                        prepare.isPending
-                          ? "Checking request"
-                          : generate.isPending || generate.isSuccess
-                            ? "Creating build"
-                            : generate.error && ready
-                              ? "Try creating build again"
-                              : "Create build"
+                        generate.isPending
+                          ? "Queueing challenge"
+                          : "Create build"
                       }
                       disabled={
                         busy ||
@@ -298,6 +294,13 @@ export function GenerationHome({ profile }: { profile: Profile }) {
             </p>
           )}
         </section>
+        <div className="mt-4">
+          <GenerationProgress
+            profileId={profile.id}
+            kind="challenge"
+            excludeId={generationId}
+          />
+        </div>
         <RecentBuilds profileId={profile.id} />
       </div>
     </main>

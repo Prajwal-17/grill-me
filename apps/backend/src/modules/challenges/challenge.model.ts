@@ -17,6 +17,11 @@ import {
 import { db, first } from "../../shared/database/db";
 import { challenges, messages } from "../../shared/database/schema";
 import type { ChallengeContent } from "./challenge.schema";
+import type { GenerationRun } from "../generations/generation.schema";
+import {
+  lockGeneration,
+  completeGeneration,
+} from "../generations/generation.lease";
 
 export type ChallengeRow = typeof challenges.$inferSelect;
 
@@ -104,11 +109,13 @@ export const challengeModel = {
     content: ChallengeContent,
     prompt: string,
     contextSnapshot: Record<string, unknown> | null = null,
+    generation?: GenerationRun,
   ) {
-    const id = crypto.randomUUID();
+    const id = generation?.id ?? crypto.randomUUID();
     const now = new Date();
 
     return db.transaction(async (tx) => {
+      await lockGeneration(tx, generation);
       const challenge = (
         await tx
           .insert(challenges)
@@ -162,6 +169,8 @@ export const challengeModel = {
           createdAt: new Date(now.getTime() + 1),
         },
       ]);
+
+      await completeGeneration(tx, generation, challenge);
 
       return challenge;
     });

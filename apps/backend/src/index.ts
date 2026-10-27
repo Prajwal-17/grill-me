@@ -13,6 +13,13 @@ const app = createApp({
   webOrigin: process.env.WEB_ORIGIN,
 });
 
+const runtime = globalThis as typeof globalThis & {
+  grillGenerationWorker?: typeof app.generations;
+};
+runtime.grillGenerationWorker?.stop();
+runtime.grillGenerationWorker = app.generations;
+app.generations.start();
+
 export default {
   hostname: process.env.API_HOST ?? "localhost",
   port: Number(process.env.API_PORT ?? 17017),

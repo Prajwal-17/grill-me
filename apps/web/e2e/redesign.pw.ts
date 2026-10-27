@@ -7,6 +7,7 @@ import {
   challenge,
   preferences,
   profile,
+  makeGenerationJob,
 } from "./fixtures";
 import type { Challenge, ProfilePreferences } from "../src/shared/types/api";
 import type { QuizSummary, QuizAttempt } from "../src/features/quizzes/types";
@@ -92,7 +93,7 @@ const quizzes: QuizSummary[] = [
   },
 ];
 
-test("successful inline quiz generation moves keyboard focus to Start quiz", async ({
+test("background quiz completion opens from its toast and focuses Start quiz", async ({
   page,
 }) => {
   await seedProfile(page);
@@ -110,9 +111,17 @@ test("successful inline quiz generation moves keyboard focus to Start quiz", asy
   await page.route("http://127.0.0.1:18027/quizzes?*", (route) =>
     route.fulfill({ json: { data: created ? [generated] : [] } }),
   );
-  await page.route("http://127.0.0.1:18027/quizzes/generate", (route) => {
-    created = true;
-    return route.fulfill({ json: { data: generated } });
+  let job: ReturnType<typeof makeGenerationJob> | null = null;
+  await page.route("**/generation-jobs", (route) => {
+    if (route.request().method() === "POST") {
+      created = true;
+      job = makeGenerationJob(route.request().postDataJSON(), {
+        resultId: generated.id,
+        resultTitle: generated.title,
+      });
+      return route.fulfill({ status: 202, json: { data: job } });
+    }
+    return route.fulfill({ json: { data: job ? [job] : [] } });
   });
   await page.route("http://127.0.0.1:18027/quizzes/generated-quiz", (route) =>
     route.fulfill({ json: { data: { quiz: generated, attempts: [] } } }),
@@ -127,6 +136,7 @@ test("successful inline quiz generation moves keyboard focus to Start quiz", asy
   await page
     .getByRole("button", { name: "Generate quiz", exact: true })
     .press("Enter");
+  await page.getByRole("button", { name: "Open quiz", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Generated queue quiz" }),
   ).toBeVisible();

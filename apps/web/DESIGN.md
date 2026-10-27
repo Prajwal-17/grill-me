@@ -338,3 +338,22 @@ rather than installing a second component vocabulary. Configuration reference:
 - Don't add decoration, oversized headings, nested cards, or redundant instructions.
 - Don't use monospace to make ordinary labels look technical.
 - Don't infer completion from a review score or change quiz autosave semantics.
+
+## Background generation
+
+Generating practice is a background task. Submit queues the request and returns
+control to the user; disable submission only while saving that request. Show real
+queued/checking/generating states in compact page rows and in the shared header’s
+activity popover. Keep existing tasks and navigation usable, with no blocking
+overlay or invented percentage. The activity control uses a spinner while work is
+running, a question icon for essential clarification, and a quiet history control
+for recent results. Hide it when there is no activity.
+
+Completion uses a semantic success toast with the saved title and an explicit
+Open challenge/Open quiz action. Never redirect on completion. Toasts stack
+without obscuring navigation, pause dismissal while hovered, focused, or hidden,
+and remain recoverable through activity. Failures use error feedback and an
+explicit retry; clarification offers Answer and returns to the original request.
+Progress and notifications survive route changes and reloads. Clear notifications
+when the selected profile changes. Preserve quiz autosave, filters, URLs, and
+keyboard focus when starting or opening background work.

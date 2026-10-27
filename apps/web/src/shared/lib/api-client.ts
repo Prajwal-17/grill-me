@@ -6,9 +6,10 @@ const API_URL = env.apiUrl;
 
 type JsonResponse<T> = { data?: T } | ApiError;
 
-function recoverInvalidProfile(code: string) {
+function recoverInvalidProfile(code: string, profileId?: string) {
   if (code === "PROFILE_NOT_FOUND" && typeof window !== "undefined") {
-    useAppStore.getState().clearProfile();
+    if (useAppStore.getState().profile?.id === profileId)
+      useAppStore.getState().clearProfile();
   }
 }
 
@@ -82,7 +83,7 @@ export async function apiRequest<T>(
             message: "The API returned an unexpected response.",
             retryable: false,
           };
-    recoverInvalidProfile(error.code);
+    recoverInvalidProfile(error.code, profileId);
     throw new ApiClientError(
       error.message,
       error.code,
@@ -167,7 +168,7 @@ export async function streamRequest<T>(
     }
     if (event.type === "done") completed = event.data;
     if (event.type === "error") {
-      recoverInvalidProfile(event.error.code);
+      recoverInvalidProfile(event.error.code, profileId);
       throw new ApiClientError(
         event.error.message,
         event.error.code,

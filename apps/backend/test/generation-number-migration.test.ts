@@ -113,6 +113,10 @@ test("generation numbering migrates all quiz scopes without losing historical da
           tx.savepoint((nested) => nested.unsafe(statement)),
         ).rejects.toThrow("immutable");
       }
+      const beforeJobs = await snapshot();
+      await apply("0008_background_generations.sql");
+      expect(await snapshot()).toEqual(beforeJobs);
+      expect(await tx.unsafe("SELECT id FROM generation_jobs")).toHaveLength(0);
       await tx.unsafe(`DROP SCHEMA "${schema}" CASCADE`);
     });
   } finally {

@@ -22,6 +22,8 @@ import { createReviewService } from "./modules/reviews/review.service";
 import { createQuizRoutes } from "./modules/quizzes/quiz.routes";
 import { createQuizService } from "./modules/quizzes/quiz.service";
 import { handleError } from "./shared/http/error-handler";
+import { createGenerationService } from "./modules/generations/generation.service";
+import { createGenerationRoutes } from "./modules/generations/generation.routes";
 
 type AppDependencies = {
   llm: ModelGateway;
@@ -82,9 +84,15 @@ export function createApp({
     createMessageRoutes(createMessageController(messageService)),
   );
   const quizService = createQuizService(llm, challengeService, profileService);
+  const generations = createGenerationService({
+    profiles: profileService,
+    challenges: challengeService,
+    quizzes: quizService,
+  });
+  app.route("/generation-jobs", createGenerationRoutes(generations));
   app.route("/challenges", createQuizRoutes(quizService));
   app.route("/quizzes", createQuizRoutes(quizService, true));
   app.onError(handleError);
 
-  return app;
+  return Object.assign(app, { generations });
 }

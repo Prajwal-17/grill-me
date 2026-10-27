@@ -1,4 +1,8 @@
 import type { GuidedPreferences } from "@repo/preferences";
+import type {
+  GenerationError,
+  GenerationRequest,
+} from "../../modules/generations/generation.schema";
 import { sql } from "drizzle-orm";
 import type {
   QuizAnswers,
@@ -203,6 +207,79 @@ export const quizzes = pgTable(
     check(
       "quizzes_scope_check",
       sql`(${table.challengeId} is not null and ${table.coverage} in ('challenge', 'related', 'mixed')) or (${table.challengeId} is null and ${table.coverage} = 'topic' and ${table.topic} is not null and ${table.difficulty} is not null)`,
+    ),
+  ],
+);
+
+export const generationJobs = pgTable(
+  "generation_jobs",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    requestId: text("request_id").notNull(),
+    kind: text("kind", {
+      enum: ["challenge", "quiz", "challenge_quiz"],
+    }).notNull(),
+    challengeId: text("challenge_id").references(() => challenges.id, {
+      onDelete: "set null",
+    }),
+    request: jsonb("request").$type<GenerationRequest>().notNull(),
+    status: text("status", {
+      enum: [
+        "queued",
+        "running",
+        "needs_input",
+        "completed",
+        "failed",
+        "cancelled",
+      ],
+    })
+      .notNull()
+      .default("queued"),
+    phase: text("phase", {
+      enum: ["queued", "preparing", "generating", "completed"],
+    })
+      .notNull()
+      .default("queued"),
+    clarification: jsonb("clarification").$type<{
+      question: string;
+      options: string[];
+    }>(),
+    error: jsonb("error").$type<GenerationError>(),
+    resultId: text("result_id"),
+    resultTitle: text("result_title"),
+    resultNumber: integer("result_number"),
+    skipPreparation: boolean("skip_preparation").notNull().default(false),
+    runToken: text("run_token"),
+    leaseUntil: contextTimestamp("lease_until"),
+    createdAt: contextTimestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: contextTimestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    completedAt: contextTimestamp("completed_at"),
+    notifiedAt: contextTimestamp("notified_at"),
+  },
+  (table) => [
+    uniqueIndex("generation_jobs_profile_request_unique").on(
+      table.profileId,
+      table.requestId,
+    ),
+    index("generation_jobs_queue_idx").on(table.status, table.createdAt),
+    index("generation_jobs_profile_created_idx").on(
+      table.profileId,
+      table.createdAt,
+    ),
+    check(
+      "generation_jobs_status_check",
+      sql`${table.status} in ('queued', 'running', 'needs_input', 'completed', 'failed', 'cancelled')`,
+    ),
+    check(
+      "generation_jobs_kind_check",
+      sql`${table.kind} in ('challenge', 'quiz', 'challenge_quiz')`,
     ),
   ],
 );
