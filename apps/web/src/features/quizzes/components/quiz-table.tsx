@@ -188,7 +188,7 @@ export function QuizTable({
   quizzes: QuizSummary[];
   loading?: boolean;
   disabled: boolean;
-  actions: ReactNode;
+  actions?: ReactNode;
   onOpen: (id: string) => void;
   onDelete: (quiz: QuizSummary) => void;
   onRestore: (quiz: QuizSummary) => void;
@@ -337,15 +337,7 @@ export function QuizTable({
 
   return (
     <div className="shrink-0 space-y-4 @container/quiz-list">
-      <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
-        <h2 className="text-section font-semibold tracking-[-0.02em]">
-          Quiz library{" "}
-          <span className="ml-1 text-metadata font-normal text-muted tabular-nums">
-            {loading ? "–" : quizzes.filter((quiz) => !quiz.deletedAt).length}
-          </span>
-        </h2>
-        {actions}
-      </div>
+      {actions && <div className="flex justify-end">{actions}</div>}
       <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_140px_148px_160px]">
         <div
           role="search"

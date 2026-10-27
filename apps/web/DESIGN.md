@@ -240,6 +240,9 @@ account controls; challenge collections belong in the main content.
 Collections use 16px mobile and 24px desktop gutters, compact toolbars, one
 bordered result region, and a quiet result count. Challenges and quizzes group
 search with filters and a sort control; narrow screens stack these controls.
+The shared page header owns the page title and primary action. Collections start
+with their controls, without a second title-and-divider row. Keep counts in tabs
+or the result summary.
 History uses a fixed-layout semantic table that gives the title the remaining
 width, while diagnostic tables scroll internally when their columns cannot fit.
 

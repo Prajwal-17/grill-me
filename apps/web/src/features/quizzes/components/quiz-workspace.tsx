@@ -1,5 +1,6 @@
 import { QuizDetailSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -107,9 +108,11 @@ function quizLabel(quiz: QuizSummary) {
 export function QuizWorkspace({
   profileId,
   challengeId = null,
+  headerActionsTarget,
 }: {
   profileId: string;
   challengeId?: string | null;
+  headerActionsTarget?: HTMLElement | null;
 }) {
   const queries = useQueryClient();
   const [quizId, setQuizId] = useState("");
@@ -351,14 +354,18 @@ export function QuizWorkspace({
   const showLibrary =
     !selectedQuizId &&
     !(list.isLoading && challengeId !== null && !allQuizzesOpen);
+  const hasHeaderActions = headerActionsTarget !== undefined;
+  const showGenerateLabel = showLibrary || hasHeaderActions;
   const generateButton = (
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
           ref={generateRef}
-          size={showLibrary ? "default" : "icon-sm"}
-          className={showLibrary ? "h-9" : "ml-auto shrink-0"}
-          variant={selectedQuizId ? "secondary" : "primary"}
+          size={showGenerateLabel ? "default" : "icon-sm"}
+          className={showGenerateLabel ? undefined : "ml-auto shrink-0"}
+          variant={
+            selectedQuizId && !hasHeaderActions ? "secondary" : "primary"
+          }
           disabled={busy || list.isLoading}
           aria-label="Generate quiz"
           onClick={() => {
@@ -367,7 +374,7 @@ export function QuizWorkspace({
           }}
         >
           <Plus size={14} />
-          {showLibrary ? (
+          {showGenerateLabel ? (
             "Generate quiz"
           ) : (
             <span className="sr-only">Generate quiz</span>
@@ -380,7 +387,7 @@ export function QuizWorkspace({
     </Tooltip>
   );
 
-  return (
+  const workspace = (
     <section
       aria-label={
         challengeId === null ? "Standalone quizzes" : "Challenge quizzes"
@@ -436,7 +443,7 @@ export function QuizWorkspace({
                 )}
               </div>
             )}
-            {generateButton}
+            {!hasHeaderActions && generateButton}
           </div>
         )}
         {list.error && !list.data ? (
@@ -458,7 +465,7 @@ export function QuizWorkspace({
               profileId={profileId}
               quizzes={list.data ?? []}
               loading={list.isLoading}
-              actions={generateButton}
+              actions={hasHeaderActions ? undefined : generateButton}
               disabled={busy}
               onDelete={(quiz) => {
                 deletion.reset();
@@ -672,7 +679,7 @@ export function QuizWorkspace({
                           </TooltipContent>
                         </Tooltip>
                       )}
-                      {generateButton}
+                      {!hasHeaderActions && generateButton}
                     </>
                   )}
                 </div>
@@ -1007,5 +1014,14 @@ export function QuizWorkspace({
         </AlertDialogContent>
       </AlertDialog>
     </section>
+  );
+
+  return (
+    <>
+      {headerActionsTarget &&
+        !dialogOpen &&
+        createPortal(generateButton, headerActionsTarget)}
+      {workspace}
+    </>
   );
 }

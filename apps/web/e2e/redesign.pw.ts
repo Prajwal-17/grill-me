@@ -216,6 +216,10 @@ test("quiz controls compose, keep URL and storage state, and survive inline crea
   );
   await page.goto("/quizzes?extra=keep#library");
   const open = page.getByRole("button", { name: /^Open quiz/ });
+  const generate = page
+    .locator('[data-slot="page-header"]')
+    .getByRole("button", { name: "Generate quiz", exact: true });
+  await expect(generate).toBeVisible();
   await choose(page, "Sort quizzes", "Name A–Z");
   await expect(open).toHaveText([
     "Atomic operations",
@@ -230,9 +234,7 @@ test("quiz controls compose, keep URL and storage state, and survive inline crea
   await expect(page).toHaveURL(
     /extra=keep.*quizSearch=queue.*quizStatus=draft.*quizDifficulty=hard.*quizSort=name.*#library$/,
   );
-  await page
-    .getByRole("button", { name: "Generate quiz", exact: true })
-    .click();
+  await generate.click();
   await expect(
     page.getByRole("textbox", { name: "Quiz prompt" }),
   ).toBeVisible();
@@ -240,6 +242,7 @@ test("quiz controls compose, keep URL and storage state, and survive inline crea
     .getByRole("textbox", { name: "Quiz prompt" })
     .fill("Distributed transactions");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(generate).toBeFocused();
   await expect(open).toHaveCount(1);
   await page.reload();
   await expect(
