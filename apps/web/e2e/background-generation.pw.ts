@@ -47,6 +47,13 @@ async function mockJobs(page: Page) {
           },
         },
       });
+    if (parts[2] === "cancel") {
+      Object.assign(job, {
+        status: "cancelled",
+        updatedAt: new Date().toISOString(),
+      });
+      return route.fulfill({ json: { data: job } });
+    }
     if (parts[2] === "acknowledge") {
       const receipt = route.request().postDataJSON();
       if (receipt.status === job.status && receipt.updatedAt === job.updatedAt)
@@ -117,7 +124,7 @@ test("challenge generation stays active across navigation and reload, then opens
   await expect(page).toHaveURL(/\/history$/);
   await page.reload();
   await expect(
-    page.getByRole("button", { name: /Generation activity, 1 generating/ }),
+    page.getByRole("button", { name: /Notifications, 1 generating/ }),
   ).toBeVisible();
   server.complete(server.jobs[0]!);
   await expect(
@@ -135,7 +142,7 @@ test("challenge generation stays active across navigation and reload, then opens
   await expect(
     page.getByRole("button", { name: "Open challenge", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: /Generation activity/ }).click();
+  await page.getByRole("button", { name: /Notifications/ }).click();
   await expect(
     page.getByRole("link", { name: "Open challenge", exact: true }),
   ).toBeVisible();
@@ -275,9 +282,9 @@ test("progress, activity, and completion notices fit desktop and mobile in both 
   const server = await mockJobs(page);
   await mkdir(artifacts, { recursive: true });
   await createChallenge(page);
-  await page.getByRole("button", { name: /Generation activity/ }).click();
+  await page.getByRole("button", { name: /Notifications/ }).click();
   await expect(
-    page.getByRole("heading", { name: "Generation activity", exact: true }),
+    page.getByRole("heading", { name: "Notifications", exact: true }),
   ).toBeVisible();
   await page.screenshot({
     path: `${artifacts}/desktop-light-progress.png`,
@@ -287,7 +294,7 @@ test("progress, activity, and completion notices fit desktop and mobile in both 
   await page.getByRole("button", { name: "Appearance", exact: true }).click();
   await page.getByRole("menuitemradio", { name: "Dark", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: /Generation activity/ }).click();
+  await page.getByRole("button", { name: /Notifications/ }).click();
   await page.screenshot({
     path: `${artifacts}/mobile-dark-progress.png`,
     animations: "disabled",
@@ -325,9 +332,9 @@ test("a profile change clears the previous profile’s generation notifications"
   await expect(
     page.getByRole("button", { name: "Open challenge", exact: true }),
   ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: /Generation activity/ }),
-  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Notifications/ })).toHaveCount(
+    0,
+  );
   expect(server.jobs[0]!.profileId).toBe(profile.id);
 });
 
@@ -437,4 +444,33 @@ test("finishing a challenge quiz keeps the current attempt selected and saving",
   ).toHaveCount(0);
   await page.getByText("First", { exact: true }).click();
   await expect.poll(() => saves).toBe(1);
+});
+
+test("notifications separate cancellation from clearing and preserve results", async ({
+  page,
+}) => {
+  await seedProfile(page);
+  const server = await mockJobs(page);
+  await createChallenge(page);
+  await page.getByRole("button", { name: /Notifications/ }).click();
+  const panel = page.getByRole("dialog");
+  await expect(panel.getByRole("button", { name: "Clear all" })).toBeDisabled();
+  await panel
+    .getByRole("button", { name: "Cancel challenge generation" })
+    .click();
+  await expect.poll(() => server.jobs[0]?.status).toBe("cancelled");
+  await panel.getByRole("button", { name: "Clear all" }).click();
+  await expect(panel.getByText("No notifications")).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: /Notifications/ }).click();
+  await expect(page.getByText("No notifications")).toBeVisible();
+  await page.keyboard.press("Escape");
+  server.complete(server.jobs[0]!);
+  await page.getByRole("button", { name: /Notifications/ }).click();
+  await expect(panel.getByRole("link", { name: "Open challenge" })).toBeVisible(
+    { timeout: 10000 },
+  );
+  await panel.getByRole("button", { name: "Clear all" }).click();
+  expect(server.jobs[0]?.status).toBe("completed");
+  expect(server.jobs[0]?.resultId).toBe("build-one");
 });

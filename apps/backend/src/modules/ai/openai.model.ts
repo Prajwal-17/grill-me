@@ -447,6 +447,7 @@ Do not infer seniority, years of experience, mastery, learning goals, topic fami
     },
     generateQuiz(input) {
       return requestStructured({
+        signal: input.signal,
         context: {
           profileId: input.challenge
             ? input.challenge.profileId
@@ -527,6 +528,7 @@ Do not infer seniority, years of experience, mastery, learning goals, topic fami
     },
     prepareBuild(input) {
       return requestStructured({
+        signal: input.signal,
         context: {
           profileId: input.learner.profileId,
           operation: "preparation",
@@ -543,6 +545,7 @@ Do not infer seniority, years of experience, mastery, learning goals, topic fami
 
     generateBuild(input) {
       return requestStructured({
+        signal: input.signal,
         context: {
           profileId: input.learner.profileId,
           operation: "generation",

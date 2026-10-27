@@ -42,6 +42,7 @@ export function createGenerationService(dependencies: {
 }) {
   const { profiles, challenges, quizzes } = dependencies;
   let timer: ReturnType<typeof setInterval> | undefined;
+  const controllers = new Map<string, AbortController>();
   let active = 0;
   let pumping = false;
   const get = async (id: string) =>
@@ -99,12 +100,22 @@ export function createGenerationService(dependencies: {
     });
   }
   async function run(job: Job) {
-    const lease = { id: job.id, token: job.runToken! };
+    const controller = new AbortController();
+    controllers.set(job.id, controller);
+    const lease = {
+      id: job.id,
+      token: job.runToken!,
+      signal: controller.signal,
+    };
     const heartbeat = setInterval(() => {
       void db
         .update(generationJobs)
         .set({ leaseUntil: new Date(Date.now() + LEASE_MS) })
         .where(runScope(lease))
+        .returning({ id: generationJobs.id })
+        .then((rows) => {
+          if (!rows.length) controller.abort();
+        })
         .catch((error) => console.error("Generation heartbeat failed", error));
     }, 15_000);
     heartbeat.unref();
@@ -122,6 +133,7 @@ export function createGenerationService(dependencies: {
             const preparation = await challenges.prepare(
               request.input,
               job.profileId,
+              controller.signal,
             );
             if (preparation.question) {
               await db
@@ -159,6 +171,20 @@ export function createGenerationService(dependencies: {
       };
       const result = await Promise.race([
         execute(),
+        new Promise<never>((_, reject) => {
+          controller.signal.addEventListener(
+            "abort",
+            () =>
+              reject(
+                new AppError(
+                  "GENERATION_INTERRUPTED",
+                  "Generation stopped.",
+                  409,
+                ),
+              ),
+            { once: true },
+          );
+        }),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(
             () =>
@@ -228,6 +254,8 @@ export function createGenerationService(dependencies: {
           .where(runScope(lease));
       }
     } finally {
+      controller.abort();
+      controllers.delete(job.id);
       clearInterval(heartbeat);
       if (timeout) clearTimeout(timeout);
     }
@@ -520,6 +548,8 @@ export function createGenerationService(dependencies: {
         .update(generationJobs)
         .set({
           status: "cancelled",
+          runToken: null,
+          leaseUntil: null,
           updatedAt: new Date(),
           completedAt: new Date(),
           notifiedAt: new Date(),
@@ -527,16 +557,21 @@ export function createGenerationService(dependencies: {
         .where(
           and(
             eq(generationJobs.id, id),
-            inArray(generationJobs.status, ["queued", "needs_input"]),
+            inArray(generationJobs.status, [
+              "queued",
+              "running",
+              "needs_input",
+            ]),
           ),
         )
         .returning();
       if (!job)
         throw new AppError(
-          "GENERATION_ALREADY_RUNNING",
-          "This generation has already started and cannot be cancelled.",
+          "GENERATION_ALREADY_FINISHED",
+          "This generation has already finished.",
           409,
         );
+      controllers.get(id)?.abort();
       return publicJob(job);
     },
   };

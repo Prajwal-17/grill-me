@@ -6,10 +6,11 @@ import {
   CircleAlert,
   CircleHelp,
   Clock3,
-  History,
+  Bell,
   LoaderCircle,
-  X,
+  Square,
 } from "lucide-react";
+import { env } from "@/shared/config/env";
 import { useAppStore } from "@/shared/stores/app-store";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -52,7 +53,7 @@ function JobActions({
         showError(error.message);
     },
   });
-  if (job.status === "running" || job.status === "cancelled") return null;
+  if (job.status === "cancelled") return null;
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1">
       {(job.status === "completed" || job.status === "needs_input") && (
@@ -86,15 +87,16 @@ function JobActions({
             Create without clarification
           </Button>
         )}
-      {(job.status === "queued" || job.status === "needs_input") && (
+      {(isGenerating(job) || job.status === "needs_input") && (
         <Button
-          size="icon-sm"
+          size="sm"
           variant="ghost"
           disabled={mutation.isPending}
           aria-label={`Cancel ${generationNoun(job)} generation`}
           onClick={() => mutation.mutate("cancel")}
         >
-          <X size={14} />
+          <Square size={12} />
+          {mutation.isPending ? "Cancelling…" : "Cancel generation"}
         </Button>
       )}
     </div>
@@ -103,9 +105,11 @@ function JobActions({
 export function GenerationJobRow({
   job,
   onOpen,
+  onClear,
 }: {
   job: GenerationJob;
   onOpen?: () => void;
+  onClear?: () => void;
 }) {
   const Icon = isGenerating(job)
     ? job.status === "queued"
@@ -135,6 +139,16 @@ export function GenerationJobRow({
         </div>
         <JobActions job={job} onOpen={onOpen} />
       </div>
+      {onClear && (
+        <Button
+          size="sm"
+          variant="ghost"
+          aria-label={`Clear notification: ${generationTitle(job)}`}
+          onClick={onClear}
+        >
+          Clear
+        </Button>
+      )}
     </div>
   );
 }
@@ -142,38 +156,48 @@ export function GenerationActivity() {
   const profileId = useAppStore((state) => state.profile?.id);
   const jobs = useGenerationJobs(profileId);
   const [open, setOpen] = useState(false);
-  const running = jobs.data?.filter(isGenerating).length ?? 0;
-  const needsInput =
-    jobs.data?.filter((job) => job.status === "needs_input").length ?? 0;
-  if (!jobs.data?.length && !jobs.error) return null;
+  const storageKey = `grill-me.generations.cleared.${env.appEnv}.${profileId}`;
+  const [cleared, setCleared] = useState<Record<string, string[]>>({});
+  const saved = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(storageKey) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  })();
+  const hidden = cleared[storageKey] ?? (Array.isArray(saved) ? saved : []);
+  const key = (job: GenerationJob) =>
+    `${job.id}:${job.status}:${job.updatedAt}`;
+  const visible = (jobs.data ?? []).filter((job) => !hidden.includes(key(job)));
+  const clearable = visible.filter(
+    (job) => !isGenerating(job) && job.status !== "needs_input",
+  );
+  const clear = (items: GenerationJob[]) => {
+    const next = [...new Set([...hidden, ...items.map(key)])].slice(-1000);
+    setCleared((current) => ({ ...current, [storageKey]: next }));
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {
+      /* Keep this session usable without storage. */
+    }
+  };
+  const running = visible.filter(isGenerating).length;
+  const needsInput = visible.filter(
+    (job) => job.status === "needs_input",
+  ).length;
+  if (!profileId) return null;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
           className="shrink-0 px-2"
-          aria-label={`Generation activity${running ? `, ${running} generating` : needsInput ? `, ${needsInput} needs attention` : ""}`}
+          aria-label={`Notifications${running ? `, ${running} generating` : needsInput ? `, ${needsInput} needs attention` : ""}`}
         >
-          {running ? (
-            <LoaderCircle
-              size={16}
-              className="animate-spin motion-reduce:animate-none"
-            />
-          ) : needsInput ? (
-            <CircleHelp size={16} />
-          ) : (
-            <History size={16} />
-          )}
-          <span className="hidden text-supporting sm:inline">
-            {running
-              ? `${running} generating`
-              : needsInput
-                ? "Needs attention"
-                : "Activity"}
-          </span>
+          <Bell size={16} aria-hidden="true" />
           {(running > 0 || needsInput > 0) && (
-            <span className="text-metadata tabular-nums sm:hidden">
-              {running || needsInput}
+            <span className="text-metadata tabular-nums">
+              {running + needsInput}
             </span>
           )}
         </Button>
@@ -182,9 +206,20 @@ export function GenerationActivity() {
         align="end"
         className="max-h-[min(480px,70dvh)] w-[min(380px,calc(100vw-2rem))] overflow-y-auto p-0"
       >
-        <h2 className="border-b border-line px-3 py-3 text-ui font-medium">
-          Generation activity
-        </h2>
+        <div className="flex items-center justify-between border-b border-line px-3 py-2">
+          <h2 className="text-ui font-medium">Notifications</h2>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={!clearable.length}
+            onClick={() => clear(clearable)}
+          >
+            Clear all
+          </Button>
+        </div>
+        {!visible.length && !jobs.error && (
+          <p className="p-4 text-supporting text-muted">No notifications</p>
+        )}
         {jobs.error && (
           <div className="space-y-2 p-3 text-supporting text-muted">
             <p role="status">
@@ -196,7 +231,7 @@ export function GenerationActivity() {
           </div>
         )}
         <div className="divide-y divide-line">
-          {[...(jobs.data ?? [])]
+          {[...visible]
             .sort(
               (a, b) =>
                 Number(isGenerating(b) || b.status === "needs_input") -
@@ -207,6 +242,11 @@ export function GenerationActivity() {
                 key={job.id}
                 job={job}
                 onOpen={() => setOpen(false)}
+                onClear={
+                  !isGenerating(job) && job.status !== "needs_input"
+                    ? () => clear([job])
+                    : undefined
+                }
               />
             ))}
         </div>

@@ -236,15 +236,15 @@ For compatible providers, an empty clarification question with no choices is tre
 
 Challenge and quiz generation runs as jobs saved in PostgreSQL. Submitting a
 request queues it immediately, with progress in the page and in the shared
-header’s activity menu. You can navigate elsewhere, reload, or close the tab while
+header’s notification bell. You can navigate elsewhere, reload, or close the tab while
 the backend continues. A completion toast offers **Open challenge** or **Open quiz**;
 completion never redirects you. Saved results and recent jobs remain available in
-activity after a toast disappears.
+notifications after a toast disappears. Clear dismisses finished notifications in the current browser and profile without removing generated content.
 
 Essential clarification pauses a challenge job and offers **Answer**. Failed jobs
 show their error and a retry action when retry is supported. Retries use the same
 job; repeated submission of a request ID does not create another generation.
-Queued work and requests waiting for an answer can be cancelled. Existing quiz
+Queued, running, and waiting-for-answer jobs offer **Cancel generation**. Cancellation aborts the provider request, releases the worker slot, and fences out late results. Existing quiz
 attempts keep their autosave behavior while another quiz is being generated.
 
 The backend claims jobs atomically, runs up to two at a time, and saves each

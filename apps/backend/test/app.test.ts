@@ -114,7 +114,9 @@ class FakeModel implements ModelGateway {
   }
 
   async generateBuild(input: BuildModelInput): Promise<BuildGenerationResult> {
-    this.generationInputs.push(structuredClone(input));
+    this.generationInputs.push(
+      structuredClone({ ...input, signal: undefined }),
+    );
     if (this.generationError) throw this.generationError;
     return (
       this.generationResults.shift() ??
@@ -3989,6 +3991,45 @@ describe("background generations", () => {
       resultNumber: 1,
     });
     expect(state.model.generationInputs).toHaveLength(2);
+  });
+
+  test("running generation cancellation releases the worker and fences late results", async () => {
+    const state = await setup();
+    let release!: () => void;
+    let began!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      began = resolve;
+    });
+    const generate = state.model.generateBuild.bind(state.model);
+    state.model.generateBuild = async (input) => {
+      began();
+      await gate;
+      return generate(input);
+    };
+    const job = await state.enqueue();
+    const running = state.app.generations.processNext();
+    await started;
+    const response = await request(
+      state.app,
+      `/generation-jobs/${job.id}/cancel`,
+      state.owner.id,
+      {},
+    );
+    expect(response.status).toBe(200);
+    await running;
+    expect(state.model.generationInputs).toHaveLength(0);
+    expect((await state.detail(job.id)).status).toBe("cancelled");
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(
+      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
+        job.id,
+      ]),
+    ).toHaveLength(0);
+    expect((await state.detail(job.id)).status).toBe("cancelled");
   });
 
   test("expired workers cannot save late results, and queued jobs can be cancelled", async () => {

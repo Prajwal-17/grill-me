@@ -35,4 +35,4 @@ export type GenerationError = {
   message: string;
   retryable: boolean;
 };
-export type GenerationRun = { id: string; token: string };
+export type GenerationRun = { id: string; token: string; signal?: AbortSignal };

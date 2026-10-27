@@ -273,7 +273,10 @@ export function createQuizService(
             400,
           );
         }
-        const generated = await llm.generateQuiz(input);
+        const generated = await llm.generateQuiz({
+          ...input,
+          signal: generation?.signal,
+        });
         let content;
         try {
           content = validateQuiz(generated, request.questionCount);

@@ -344,15 +344,13 @@ rather than installing a second component vocabulary. Configuration reference:
 Generating practice is a background task. Submit queues the request and returns
 control to the user; disable submission only while saving that request. Show real
 queued/checking/generating states in compact page rows and in the shared header’s
-activity popover. Keep existing tasks and navigation usable, with no blocking
-overlay or invented percentage. The activity control uses a spinner while work is
-running, a question icon for essential clarification, and a quiet history control
-for recent results. Hide it when there is no activity.
+notification popover. Keep existing tasks and navigation usable, with no blocking
+overlay or invented percentage. Use a persistent notification bell with an active count. Rows carry the running spinner or clarification state. Show an empty state when cleared. Open is the primary action for completed results; Clear and Clear all only dismiss finished notifications, scoped to profile and environment in this browser. Keep active work visible and offer a separate, explicitly labelled Cancel generation action.
 
 Completion uses a semantic success toast with the saved title and an explicit
 Open challenge/Open quiz action. Never redirect on completion. Toasts stack
 without obscuring navigation, pause dismissal while hovered, focused, or hidden,
-and remain recoverable through activity. Failures use error feedback and an
+and remain recoverable through notifications. Failures use error feedback and an
 explicit retry; clarification offers Answer and returns to the original request.
 Progress and notifications survive route changes and reloads. Clear notifications
 when the selected profile changes. Preserve quiz autosave, filters, URLs, and

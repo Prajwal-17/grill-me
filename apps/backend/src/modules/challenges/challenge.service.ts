@@ -147,11 +147,13 @@ export function createChallengeService(dependencies: {
         difficulty: BuildDifficulty;
       },
       profileId: string,
+      signal?: AbortSignal,
     ) {
       await profiles.assertExists(profileId);
       const output = challengePreparationSchema.safeParse(
         await llm.prepareBuild({
           ...input,
+          signal,
           learner: await learnerContext(profileId),
         }),
       );
@@ -197,6 +199,7 @@ export function createChallengeService(dependencies: {
         needsClarification(pending);
       let modelInput: BuildModelInput = {
         ...input,
+        signal: generation?.signal,
         clarificationHistory: history,
         learner: await learnerContext(profileId),
       };
