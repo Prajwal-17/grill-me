@@ -235,7 +235,7 @@ test("populated collections and active quiz retain readable layouts", async ({
       await page.setViewportSize({ width: 1440, height: 900 });
     }
     await page
-      .getByRole("button", { name: "Open quiz 1", exact: true })
+      .getByRole("button", { name: "Open quiz #1", exact: true })
       .first()
       .click();
     await expect(

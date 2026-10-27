@@ -109,21 +109,12 @@ export const challengeModel = {
     const now = new Date();
 
     return db.transaction(async (tx) => {
-      const nextNumber = (
-        await tx
-          .select({
-            value: sql<number>`coalesce(max(${challenges.number}), 0) + 1`,
-          })
-          .from(challenges)
-          .where(eq(challenges.profileId, profileId))
-      )[0]!.value;
       const challenge = (
         await tx
           .insert(challenges)
           .values({
             id,
             profileId,
-            number: nextNumber,
             title: content.title,
             scope: content.scope,
             difficulty: content.difficulty,

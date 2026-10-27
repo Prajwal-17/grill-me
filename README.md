@@ -33,6 +33,14 @@ Standalone quizzes use your saved learner preferences and stay separate from
 challenge quizzes and challenge progress. Apply tracked migrations with
 `bun db:migrate` when updating an existing installation.
 
+Quizzes and challenges display permanent generation numbers such as **#1**, **#2**,
+and **#3**. PostgreSQL allocates a separate sequence for each type within each
+profile; standalone and challenge quizzes share the quiz sequence. Deleted quizzes
+and archived challenges keep their numbers, and removed numbers are never reused.
+The numbering migration merges existing quizzes in creation order (including
+soft-deleted quizzes), preserves challenge numbers, and retains all saved content,
+relationships, answers, scores, and history.
+
 The tabbed workspace keeps the task, submission, and selected review separate. Reviews assess correctness (4), implementation reasoning (3), and engineering judgment (3), each with evidence. Unknown dimensions remain unassessed. Submission scores are separate from challenge difficulty; hints and retries do not reduce the score. Topic progress appears in History without a global intelligence score.
 
 System challenges request a bounded working core and assess design choices in code. No written explanation is required. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews do not complete the challenge. Mark completed records your decision independently; high scores cannot override unmet review requirements.

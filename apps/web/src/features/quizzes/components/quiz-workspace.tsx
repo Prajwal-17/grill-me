@@ -101,7 +101,7 @@ function quizLabel(quiz: QuizSummary) {
       ? ` · ${attempt.score}/${quiz.questionCount}`
       : ` · ${attempt.answered}/${quiz.questionCount} answered`
     : " · Not started";
-  return `${quiz.deletedAt ? "Deleted · " : ""}${quiz.title} · Quiz ${quiz.number} · ${quiz.questionCount} questions${progress}`;
+  return `${quiz.deletedAt ? "Deleted · " : ""}${quiz.title} · #${quiz.number} · ${quiz.questionCount} questions${progress}`;
 }
 
 export function QuizWorkspace({
@@ -516,7 +516,7 @@ export function QuizWorkspace({
                     </span>
                   )}
                   <span className="text-metadata text-muted">
-                    Quiz {detail.data.quiz.number} ·{" "}
+                    #{detail.data.quiz.number} ·{" "}
                     {detail.data.quiz.coverage === "topic"
                       ? detail.data.quiz.difficulty
                       : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
@@ -615,7 +615,7 @@ export function QuizWorkspace({
                       size="sm"
                       variant="secondary"
                       disabled={busy}
-                      aria-label={`Restore quiz ${detail.data.quiz.number}`}
+                      aria-label={`Restore quiz #${detail.data.quiz.number}`}
                       onClick={() => {
                         restoration.reset();
                         restoration.mutate(selectedQuizId);
@@ -658,7 +658,7 @@ export function QuizWorkspace({
                               size="icon-sm"
                               variant="ghost"
                               disabled={busy}
-                              aria-label={`Delete quiz ${detail.data.quiz.number}`}
+                              aria-label={`Delete quiz #${detail.data.quiz.number}`}
                               onClick={() => {
                                 deletion.reset();
                                 setDeleteTarget(selectedSummary);
@@ -724,7 +724,7 @@ export function QuizWorkspace({
                           {detail.data.quiz.title}
                         </h2>
                         <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ui text-muted">
-                          <span>Quiz {detail.data.quiz.number}</span>
+                          <span>#{detail.data.quiz.number}</span>
                           <span aria-hidden="true" className="text-line-strong">
                             ·
                           </span>
@@ -981,7 +981,7 @@ export function QuizWorkspace({
             <AlertDialogTitle>Move quiz to Deleted?</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget &&
-                `Quiz ${deleteTarget.number} will be hidden from the active list. You can find it under Deleted and restore it later. Its number will stay the same.`}
+                `Quiz #${deleteTarget.number} will be hidden from the active list. You can find it under Deleted and restore it later. Its number will stay the same.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {deletion.error && (

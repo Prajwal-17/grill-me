@@ -13,6 +13,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -60,6 +61,27 @@ export const profilePreferences = pgTable("profile_preferences", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
+
+// Allocated by database triggers, independently for each profile and kind.
+// Keeping the counters outside the records prevents number reuse after deletion.
+export const generationCounters = pgTable(
+  "generation_counters",
+  {
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["quiz", "challenge"] }).notNull(),
+    value: integer("value").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.profileId, table.kind] }),
+    check("generation_counters_value_check", sql`${table.value} > 0`),
+    check(
+      "generation_counters_kind_check",
+      sql`${table.kind} in ('quiz', 'challenge')`,
+    ),
+  ],
+);
 
 export const challenges = pgTable(
   "challenges",
@@ -115,6 +137,7 @@ export const challenges = pgTable(
     archivedAt: timestamp("archived_at", { mode: "date" }),
   },
   (table) => [
+    check("challenges_number_positive", sql`${table.number} > 0`),
     uniqueIndex("challenges_profile_number_unique").on(
       table.profileId,
       table.number,
@@ -137,7 +160,8 @@ export const quizzes = pgTable(
     difficulty: text("difficulty", {
       enum: ["easy", "medium", "hard", "grill"],
     }),
-    number: integer("quiz_number").notNull(),
+    // The BEFORE INSERT trigger replaces this default with the next number.
+    number: integer("quiz_number").notNull().default(0),
     requestId: text("request_id").notNull(),
     questionCount: integer("question_count").notNull(),
     coverage: text("coverage", {
@@ -154,17 +178,15 @@ export const quizzes = pgTable(
     deletedAt: timestamp("deleted_at", { mode: "date" }),
   },
   (table) => [
-    uniqueIndex("quizzes_challenge_number_unique").on(
-      table.challengeId,
-      table.number,
-    ),
+    check("quizzes_number_positive", sql`${table.number} > 0`),
     uniqueIndex("quizzes_challenge_request_unique").on(
       table.challengeId,
       table.requestId,
     ),
-    uniqueIndex("quizzes_profile_number_unique")
-      .on(table.profileId, table.number)
-      .where(sql`${table.challengeId} is null`),
+    uniqueIndex("quizzes_profile_number_unique").on(
+      table.profileId,
+      table.number,
+    ),
     uniqueIndex("quizzes_profile_request_unique")
       .on(table.profileId, table.requestId)
       .where(sql`${table.challengeId} is null`),

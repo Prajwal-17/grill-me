@@ -226,7 +226,7 @@ test("quiz controls compose, keep URL and storage state, and survive inline crea
   await choose(page, "Filter by difficulty", "Hard");
   await choose(page, "Quiz status", "In progress");
   await expect(open).toHaveCount(1);
-  await expect(open).toHaveAttribute("aria-label", "Open quiz 3");
+  await expect(open).toHaveAttribute("aria-label", "Open quiz #3");
   await expect(page).toHaveURL(
     /extra=keep.*quizSearch=queue.*quizStatus=draft.*quizDifficulty=hard.*quizSort=name.*#library$/,
   );
@@ -245,7 +245,7 @@ test("quiz controls compose, keep URL and storage state, and survive inline crea
   await expect(
     page.getByRole("searchbox", { name: "Search quizzes" }),
   ).toHaveValue("queue");
-  await expect(open).toHaveAttribute("aria-label", "Open quiz 3");
+  await expect(open).toHaveAttribute("aria-label", "Open quiz #3");
   expect(
     await page.evaluate(
       (id) =>
@@ -308,7 +308,7 @@ test("inline quiz creation keeps an active attempt and its autosave registered",
     },
   );
   await page.goto("/quizzes");
-  await page.getByRole("button", { name: "Open quiz 1", exact: true }).click();
+  await page.getByRole("button", { name: "Open quiz #1", exact: true }).click();
   await page.getByText("First", { exact: true }).click();
   await page
     .getByRole("button", { name: "Generate quiz", exact: true })

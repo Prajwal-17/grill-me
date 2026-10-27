@@ -601,6 +601,7 @@ describe("standalone quizzes", () => {
         }),
       )
     ).data;
+    expect(challengeQuiz.number).toBe(4);
     const list = (
       await json<{ data: Quiz[] }>(
         await request(state.app, "/quizzes", state.owner.id),
@@ -719,6 +720,46 @@ describe("standalone quizzes", () => {
       state.make({ ...state.input, requestId: crypto.randomUUID() }),
     ]);
     expect(next.map((quiz) => quiz.number).sort()).toEqual([2, 3]);
+  });
+
+  test("numbers concurrent standalone and challenge quizzes across app instances", async () => {
+    const state = await setup();
+    const otherApp = createApp({ llm: state.model });
+    const builds = await Promise.all([
+      createChallenge(state.app, state.owner.id),
+      createChallenge(otherApp, state.owner.id),
+      createChallenge(state.app, state.owner.id),
+    ]);
+    expect(builds.map((build) => build.number).sort()).toEqual([1, 2, 3]);
+    const quizzes = await Promise.all([
+      state.make(),
+      ...builds.map(async (build, index) => {
+        const response = await request(
+          index % 2 ? state.app : otherApp,
+          `/challenges/${build.id}/quizzes/generate`,
+          state.owner.id,
+          {
+            requestId: state.input.requestId,
+            questionCount: 5,
+            coverage: "mixed",
+          },
+        );
+        expect(response.status).toBe(201);
+        return (await json<{ data: Quiz }>(response)).data;
+      }),
+    ]);
+    expect(quizzes.map((quiz) => quiz.number).sort()).toEqual([1, 2, 3, 4]);
+    const other = await startProfile(
+      state.app,
+      `${crypto.randomUUID()}@test.dev`,
+    );
+    const first = await request(
+      state.app,
+      "/quizzes/generate",
+      other.id,
+      state.input,
+    );
+    expect((await json<{ data: Quiz }>(first)).data.number).toBe(1);
   });
 
   test("resumes drafts, rejects conflicts and incomplete submissions, and preserves scored retakes", async () => {

@@ -5,12 +5,7 @@ import { quizPrompt, QUIZ_PROMPT_VERSION } from "../ai/prompts/generate-quiz";
 import type { ChallengeService } from "../challenges/challenge.service";
 import { toChallenge } from "../challenges/challenge.utils";
 import { db } from "../../shared/database/db";
-import {
-  challenges,
-  profiles,
-  quizAttempts,
-  quizzes,
-} from "../../shared/database/schema";
+import { profiles, quizAttempts, quizzes } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
 import {
   type EnhanceQuizPromptRequest,
@@ -25,9 +20,9 @@ type AttemptRow = typeof quizAttempts.$inferSelect;
 
 const QUIZ_TITLE_MAX_LENGTH = 72;
 
-function normalizeQuizTitle(value: string | null | undefined, number: number) {
+function normalizeQuizTitle(value: string | null | undefined) {
   const title = value?.replace(/\s+/g, " ").trim();
-  if (!title) return `Quiz ${number}`;
+  if (!title) return "Untitled quiz";
   if (title.length <= QUIZ_TITLE_MAX_LENGTH) return title;
   return title.slice(0, QUIZ_TITLE_MAX_LENGTH - 1).trimEnd() + "…";
 }
@@ -67,7 +62,6 @@ function publicQuiz(quiz: QuizRow) {
     title: normalizeQuizTitle(
       quiz.title ??
         (quiz.challengeId === null ? quiz.topic : challengeTitle(quiz)),
-      quiz.number,
     ),
     topic: quiz.topic,
     prompt: quiz.challengeId === null ? quiz.topic : null,
@@ -273,19 +267,14 @@ export function createQuizService(
           );
         }
         return db.transaction(async (tx) => {
-          if (challengeId !== null) {
-            await tx
-              .select({ id: challenges.id })
-              .from(challenges)
-              .where(eq(challenges.id, challengeId))
-              .for("update");
-          } else {
-            await tx
-              .select({ id: profiles.id })
-              .from(profiles)
-              .where(eq(profiles.id, profileId))
-              .for("update");
-          }
+          // Serialize retry checks across processes. Number allocation itself
+          // belongs to the database trigger. NO KEY UPDATE permits FK checks
+          // from concurrent challenge generation for the same profile.
+          await tx
+            .select({ id: profiles.id })
+            .from(profiles)
+            .where(eq(profiles.id, profileId))
+            .for("no key update");
           const duplicate = (
             await tx
               .select()
@@ -298,15 +287,6 @@ export function createQuizService(
               )
           )[0];
           if (duplicate) return publicQuiz(duplicate);
-          // Keep deleted quizzes in the sequence so generation numbers are never reused.
-          const number = (
-            await tx
-              .select({
-                value: sql<number>`coalesce(max(${quizzes.number}), 0) + 1`,
-              })
-              .from(quizzes)
-              .where(scope(challengeId, profileId))
-          )[0]!.value;
           const quiz = (
             await tx
               .insert(quizzes)
@@ -317,12 +297,10 @@ export function createQuizService(
                 title: normalizeQuizTitle(
                   content.title ??
                     (input.challenge ? input.challenge.title : input.prompt),
-                  number,
                 ),
                 // The existing text column also stores full standalone prompts.
                 topic: input.challenge ? null : input.prompt,
                 difficulty: input.challenge ? null : input.difficulty,
-                number,
                 requestId: request.requestId,
                 questionCount: request.questionCount,
                 coverage: input.coverage,
@@ -431,7 +409,6 @@ export function createQuizService(
           currentTitle: normalizeQuizTitle(
             quiz.title ??
               (quiz.challengeId === null ? quiz.topic : challengeTitle(quiz)),
-            quiz.number,
           ),
           questionCount: quiz.questionCount as 5 | 10 | 15,
           difficulty: quiz.difficulty,
@@ -440,7 +417,6 @@ export function createQuizService(
             .slice(0, 5)
             .map((question) => question.question.slice(0, 240)),
         }),
-        quiz.number,
       );
       const saved = (
         await db
@@ -460,7 +436,7 @@ export function createQuizService(
         assertActiveQuiz(current);
         throw new AppError("QUIZ_NOT_FOUND", "Quiz not found.", 404);
       }
-      return { title: normalizeQuizTitle(saved.title, quiz.number) };
+      return { title: normalizeQuizTitle(saved.title) };
     },
 
     async start(challengeId: string | null, quizId: string, profileId: string) {

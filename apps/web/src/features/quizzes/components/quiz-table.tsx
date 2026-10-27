@@ -53,7 +53,7 @@ function title(quiz: QuizSummary) {
     quiz.title?.trim() ||
     quiz.topic?.trim() ||
     quiz.prompt?.trim() ||
-    `Quiz ${quiz.number}`
+    `#${quiz.number}`
   );
 }
 
@@ -267,7 +267,7 @@ export function QuizTable({
         variant={isAction ? "ghost" : "link"}
         size="sm"
         data-quiz-open={isAction ? undefined : quiz.id}
-        aria-label={`${isAction ? action(quiz) : "Open"} quiz ${quiz.number}`}
+        aria-label={`${isAction ? action(quiz) : "Open"} quiz #${quiz.number}`}
         aria-keyshortcuts={isAction ? undefined : "ArrowUp ArrowDown"}
         disabled={disabled}
         onClick={() => onOpen(quiz.id)}
@@ -305,7 +305,7 @@ export function QuizTable({
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label={`Delete quiz ${quiz.number}`}
+            aria-label={`Delete quiz #${quiz.number}`}
             disabled={disabled}
             onClick={() => onDelete(quiz)}
           >
@@ -326,7 +326,7 @@ export function QuizTable({
         size="sm"
         variant="ghost"
         disabled={disabled}
-        aria-label={`Restore quiz ${quiz.number}`}
+        aria-label={`Restore quiz #${quiz.number}`}
         onClick={() => onRestore(quiz)}
       >
         <RotateCcw size={13} aria-hidden="true" />
@@ -533,7 +533,7 @@ export function QuizTable({
                     >
                       {openButton(quiz)}
                       <p className="mt-1 text-metadata text-muted">
-                        Quiz {quiz.number} · {quiz.questionCount} questions
+                        #{quiz.number} · {quiz.questionCount} questions
                       </p>
                     </TableHead>
                     <TableCell
@@ -588,7 +588,7 @@ export function QuizTable({
                     <div className="min-w-0">
                       {openButton(quiz)}
                       <p className="mt-1 text-metadata text-muted">
-                        Quiz {quiz.number} · {quiz.questionCount} questions
+                        #{quiz.number} · {quiz.questionCount} questions
                         {quiz.difficulty && (
                           <>
                             {" "}
