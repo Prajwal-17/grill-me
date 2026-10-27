@@ -21,7 +21,9 @@ services:
     build:
       context: .
       target: backend
-    env_file: apps/backend/.env
+    env_file:
+      - apps/backend/.env
+      - apps/backend/.env.production
     environment:
       APP_ENV: production
       NODE_ENV: production

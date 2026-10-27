@@ -111,8 +111,8 @@ cp apps/backend/.env.production.example apps/backend/.env.production
 cp apps/web/.env.local.example apps/web/.env.local
 ```
 
-Start OmniRoute locally, add its API key/model to `apps/backend/.env`, then start
-the app:
+Start OmniRoute locally, add its API key to `apps/backend/.env`, set the model for
+each environment in `.env.development` / `.env.production`, then start the app:
 
 ```bash
 bun dev
@@ -171,11 +171,11 @@ The backend loads `.env.development` for `bun dev` and uses `grill-me-dev`.
 production counterparts are `bun db:migrate:prod` and `bun db:studio:prod`.
 Docker always sets `APP_ENV=production` and connects to `grill-me`; it never
 uses the development database. Shared model credentials remain in ignored
-`.env`, while database/storage settings live in the ignored environment-specific
-files. Keep database settings out of `.env.local`, which Bun loads after the
-selected environment and would otherwise override production settings. Copy
-`.env.development.example` and `.env.production.example` when setting up a new
-checkout.
+`.env`, while the model choice, database, and storage settings live in the
+ignored environment-specific files. Keep database and model settings out of
+`.env.local`, which Bun loads after the selected environment and would otherwise
+override production settings. Copy `.env.development.example` and
+`.env.production.example` when setting up a new checkout.
 
 ## Quality checks
 
@@ -199,7 +199,10 @@ Backend variables:
 - `XDG_CONFIG_HOME`: standard config root used when `GRILL_ME_HOME` is unset
 - `LLM_BASE_URL`: OpenAI-compatible base URL
 - `LLM_API_KEY`: API key expected by the model gateway
-- `LLM_MODEL`: model or OmniRoute alias
+- `LLM_MODEL`: model or OmniRoute alias, set per environment in `.env.development`
+  (`auto/fast`) and `.env.production` (`grill-me/priority-models`). The shared
+  `.env` holds the credentials only; the environment file is loaded after it and
+  wins. Docker Compose loads both the shared `.env` and `.env.production`.
 - `DATABASE_URL`: PostgreSQL connection URL
 - `SNAPSHOT_ROOT`: override submission snapshot storage
 - `UPLOAD_ROOT`: override resumable upload storage
