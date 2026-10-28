@@ -96,6 +96,7 @@ export type JudgeInput = {
   assistance: { hints: number; guidance: boolean };
   followup?: string | null;
   previousReview?: ReviewResult | null;
+  reviewCorrection?: { error: string; rejectedReview: unknown };
   signal?: AbortSignal;
 };
 export interface ModelGateway {

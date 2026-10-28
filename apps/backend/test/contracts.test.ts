@@ -18,6 +18,8 @@ import {
   QUIZ_PROMPT_VERSION,
 } from "../src/modules/ai/prompts/generate-quiz";
 import { profilePreferencesSchema } from "../src/modules/profiles/profile.schema";
+import type { JudgeInput } from "../src/modules/ai/model-gateway";
+import { validatedReview } from "../src/modules/reviews/validated-review";
 
 const build = {
   title: "Group words",
@@ -330,6 +332,147 @@ test("revision requires mapped unmet criteria; uncertainty stays unscored and ne
   expect(judgePrompt(input).instructions).toContain(
     "Environment failures and missing execution are not source defects",
   );
+});
+
+test("review correction supplies missing finding IDs and preserves supported revision findings", async () => {
+  const invalid: ReviewResult = {
+    ...accepted(),
+    verdict: "needs_revision",
+    criteria: accepted().criteria.map((criterion) => ({
+      ...criterion,
+      status: "unmet",
+    })),
+    findings: [
+      {
+        criterionId: "C1",
+        location: "answer.ts:3",
+        issue: "Words are dropped.",
+        evidence: "Only one word is retained.",
+      },
+    ],
+    correctness: { score: 2, evidence: "Both required behaviors have gaps." },
+    nextStep: "Handle all words and empty input.",
+  };
+  const input: JudgeInput = {
+    challenge,
+    content: "source",
+    attachments: [],
+    evidence,
+    assistance: { hints: 0, guidance: false },
+  };
+  let calls = 0;
+  let corrections = 0;
+  const reviewed = await validatedReview(
+    input,
+    async (request) => {
+      calls++;
+      if (calls === 1) return invalid;
+      expect(request.reviewCorrection?.error).toContain(
+        "Missing criterion IDs: C2",
+      );
+      const prompt = JSON.parse(judgePrompt(request).input);
+      expect(prompt.reviewCorrection.rejectedReview).toEqual(invalid);
+      expect(prompt.submission).toBe("source");
+      return {
+        ...invalid,
+        findings: [
+          ...invalid.findings,
+          {
+            criterionId: "C2",
+            location: "answer.ts:1",
+            issue: "Empty input throws.",
+            evidence: "The function accesses words[0] unconditionally.",
+          },
+        ],
+      };
+    },
+    () => {
+      corrections++;
+    },
+  );
+  expect(calls).toBe(2);
+  expect(corrections).toBe(1);
+  expect(reviewed.result.verdict).toBe("needs_revision");
+  expect(reviewed.result.findings).toHaveLength(2);
+  expect(reviewed.result.verification).toBe("incomplete");
+  expect(reviewed.score).toBe(7);
+});
+
+test("review correction is bounded and never retries provider errors or cancellation", async () => {
+  const input = (): JudgeInput => ({
+    challenge,
+    content: "source",
+    attachments: [],
+    evidence,
+    assistance: { hints: 0, guidance: false },
+  });
+  let calls = 0;
+  await expect(
+    validatedReview(
+      input(),
+      async () => {
+        calls++;
+        return {
+          ...accepted(),
+          verdict: "needs_revision",
+          criteria: accepted().criteria.map((criterion) => ({
+            ...criterion,
+            status: "unmet",
+          })),
+        };
+      },
+      () => {},
+    ),
+  ).rejects.toThrow("Missing criterion IDs: C1, C2");
+  expect(calls).toBe(3);
+  calls = 0;
+  await expect(
+    validatedReview(
+      input(),
+      async () => {
+        calls++;
+        throw new Error("Provider unavailable");
+      },
+      () => {},
+    ),
+  ).rejects.toThrow("Provider unavailable");
+  expect(calls).toBe(1);
+  const controller = new AbortController();
+  calls = 0;
+  await expect(
+    validatedReview(
+      { ...input(), signal: controller.signal },
+      async () => {
+        calls++;
+        controller.abort(new Error("Review cancelled"));
+        return accepted();
+      },
+      () => {},
+    ),
+  ).rejects.toThrow("Review cancelled");
+  expect(calls).toBe(1);
+});
+
+test("valid reviews finish without a correction request", async () => {
+  let calls = 0;
+  const reviewed = await validatedReview(
+    {
+      challenge,
+      content: "source",
+      attachments: [],
+      evidence,
+      assistance: { hints: 0, guidance: false },
+    },
+    async () => {
+      calls++;
+      return accepted();
+    },
+    () => {
+      throw new Error("Unexpected correction");
+    },
+  );
+  expect(calls).toBe(1);
+  expect(reviewed.result.verdict).toBe("accepted");
 });
 
 test("project matching respects short custom technologies and distinguishes C from C#", async () => {

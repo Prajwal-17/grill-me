@@ -2750,6 +2750,70 @@ createInterface({input: process.stdin}).on("line", line => {
     await request(app, `/challenges/${challenge.id}/restore`, owner.id, {});
     expect(await service.list(challenge.id, owner.id)).toEqual(beforeArchive);
   });
+  for (const route of ["omniroute", "codex"] as const) {
+    test(`${route} reviews correct missing findings within the original job`, async () => {
+      const { model, owner, challenge } = await fixture();
+      const { createReviewService } =
+        await import("../src/modules/reviews/review.service");
+      let calls = 0;
+      const invalid = {
+        ...result(challenge),
+        verdict: "needs_revision" as const,
+        criteria: result(challenge).criteria.map((criterion) => ({
+          ...criterion,
+          status: "unmet" as const,
+        })),
+        correctness: { score: 2, evidence: "Required cases fail." },
+        nextStep: "Address the required cases.",
+      };
+      const judge = async (
+        input: import("../src/modules/ai/model-gateway").JudgeInput,
+      ) => {
+        calls++;
+        if (calls === 1) return invalid;
+        expect(input.reviewCorrection?.rejectedReview).toEqual(invalid);
+        expect(input.reviewCorrection?.error).toContain(
+          "Missing criterion IDs:",
+        );
+        return {
+          ...invalid,
+          findings: invalid.criteria.map((criterion) => ({
+            criterionId: criterion.id,
+            location: "answer.py:1",
+            issue: "Required behavior is missing.",
+            evidence: "The function always returns an empty map.",
+          })),
+        };
+      };
+      const service = createReviewService(
+        Object.assign(model, { judge }),
+        judge,
+        inspection,
+      );
+      const started = await service.submit(challenge.id, owner.id, {
+        content:
+          route === "codex"
+            ? "Review this source. ".repeat(2000)
+            : "Review this source.",
+        attachments: [
+          { filename: "answer.py", text: "def group(words): return {}" },
+        ],
+        projectId: null,
+        subdirectory: "",
+        baseRevision: "",
+        uploadIds: [],
+      });
+      expect(started.review.judge).toBe(route);
+      const review = await finished(service, started.review.id, owner.id);
+      expect(review.status).toBe("completed");
+      expect(review.response?.verdict).toBe("needs_revision");
+      expect(review.response?.findings).toHaveLength(
+        challenge.completionCriteria.length,
+      );
+      expect(calls).toBe(2);
+      expect(await service.list(challenge.id, owner.id)).toHaveLength(1);
+    });
+  }
   test("failed reviews retain the submission and can retry without duplicating attempts", async () => {
     const { model, owner, challenge } = await fixture();
     const { createReviewService } =

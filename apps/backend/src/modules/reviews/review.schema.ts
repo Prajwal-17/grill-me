@@ -109,15 +109,15 @@ export function validateReview(
     throw new Error(
       "Required findings must refer to an unmet frozen requirement.",
     );
-  if (
-    unmet.some(
-      (criterion) =>
-        !result.findings.some(
-          (finding) => finding.criterionId === criterion.id,
-        ),
-    )
-  )
-    throw new Error("Every unmet criterion needs a corresponding finding.");
+  const missingFindings = unmet.filter(
+    (criterion) =>
+      !result.findings.some((finding) => finding.criterionId === criterion.id),
+  );
+  if (missingFindings.length)
+    throw new Error(
+      "Every unmet criterion needs a corresponding finding. Missing criterion IDs: " +
+        missingFindings.map((criterion) => criterion.id).join(", "),
+    );
   if (uncertain && result.verdict !== "needs_evidence")
     throw new Error("Essential uncertainty requires a needs_evidence verdict.");
   if (result.verdict === "needs_evidence" && !uncertain)

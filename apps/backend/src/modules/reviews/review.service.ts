@@ -22,7 +22,8 @@ import {
   readSnapshot,
   readSnapshotFile,
 } from "../projects/snapshot";
-import { validateReview, type VerificationEvidence } from "./review.schema";
+import type { VerificationEvidence } from "./review.schema";
+import { validatedReview } from "./validated-review";
 import type { JudgeInput, ModelGateway } from "../ai/model-gateway";
 import { codexJudge } from "../judges/codex";
 import { verifySubmission } from "../verification/runner";
@@ -175,30 +176,33 @@ export function createReviewService(
             ? "Inspecting project files"
             : "Reviewing implementation",
       });
-      const raw =
-        row.judge === "codex"
-          ? await judge(input, attempt.snapshotPath, (progress, ids) => {
-              void update(id, {
-                progress,
-                ...(ids?.logId ? { aiLogId: ids.logId } : {}),
-                ...(ids?.threadId ? { providerThreadId: ids.threadId } : {}),
-                ...(ids?.turnId ? { providerTurnId: ids.turnId } : {}),
-              });
-            })
-          : llm.judge
-            ? await llm.judge(input)
-            : (() => {
-                throw new Error(
-                  "This model gateway does not support structured judging.",
-                );
-              })();
+      const { result, score } = await validatedReview(
+        input,
+        async (input) =>
+          row.judge === "codex"
+            ? await judge(input, attempt.snapshotPath, (progress, ids) => {
+                void update(id, {
+                  progress,
+                  ...(ids?.logId ? { aiLogId: ids.logId } : {}),
+                  ...(ids?.threadId ? { providerThreadId: ids.threadId } : {}),
+                  ...(ids?.turnId ? { providerTurnId: ids.turnId } : {}),
+                });
+              })
+            : llm.judge
+              ? await llm.judge(input)
+              : (() => {
+                  throw new Error(
+                    "This model gateway does not support structured judging.",
+                  );
+                })(),
+        () => update(id, { progress: "Correcting inconsistent review output" }),
+      );
       controller.signal.throwIfAborted();
       await db.insert(verificationRuns).values({
         id: crypto.randomUUID(),
         reviewId: id,
         evidence: input.evidence,
       });
-      const { result, score } = validateReview(raw, challenge, input.evidence);
       await db.transaction(async (tx) => {
         await tx
           .update(reviewJobs)
