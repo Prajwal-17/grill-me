@@ -27,6 +27,13 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
     save.reset();
     setDraft({ ...runtime, ...patch });
   }
+  const chooseFolder = useMutation({
+    mutationFn: (currentPath: string) =>
+      window.desktopBridge!.selectProjectsFolder(currentPath),
+    onSuccess: (path) => {
+      if (path !== null) update({ projectsRoot: path });
+    },
+  });
   return (
     <>
       <SettingsHeading
@@ -39,23 +46,47 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           save.mutate({ path: "/settings/runtime", body: runtime });
         }}
       >
-        <fieldset disabled={save.isPending} className="min-w-0">
+        <fieldset
+          disabled={save.isPending || chooseFolder.isPending}
+          className="min-w-0"
+        >
           <SettingsGroup title="Workspace">
             <SettingsRow
               label="Projects folder"
               htmlFor="projects-root"
               description="Default location for local projects."
             >
-              <Input
-                id="projects-root"
-                maxLength={4096}
-                pattern="(/.*)?"
-                title="Use an absolute path."
-                value={runtime.projectsRoot}
-                onChange={(e) => update({ projectsRoot: e.target.value })}
-                placeholder="/absolute/path/to/projects"
-                spellCheck={false}
-              />
+              <div className="flex min-w-0 items-center gap-2">
+                <Input
+                  id="projects-root"
+                  maxLength={4096}
+                  pattern="(/.*)?"
+                  title="Use an absolute path."
+                  value={runtime.projectsRoot}
+                  onChange={(e) => {
+                    chooseFolder.reset();
+                    update({ projectsRoot: e.target.value });
+                  }}
+                  placeholder="/absolute/path/to/projects"
+                  spellCheck={false}
+                  className="min-w-0 flex-1"
+                />
+                {window.desktopBridge && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    aria-label="Browse for projects folder"
+                    title="Browse for projects folder"
+                    onClick={() => chooseFolder.mutate(runtime.projectsRoot)}
+                  >
+                    {chooseFolder.isPending ? (
+                      <LoaderCircle size={16} className="animate-spin" />
+                    ) : (
+                      <FolderOpen size={16} />
+                    )}
+                  </Button>
+                )}
+              </div>
             </SettingsRow>
           </SettingsGroup>
           <SettingsGroup title="Review limits">
@@ -81,7 +112,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           </SettingsGroup>
         </fieldset>
         <SettingsFeedback
-          error={save.error}
+          error={save.error ?? chooseFolder.error}
           message={
             save.isSuccess && !dirty ? "Runtime settings saved." : undefined
           }
@@ -95,10 +126,11 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           <Button
             type="button"
             variant="ghost"
-            disabled={!dirty || save.isPending}
+            disabled={!dirty || save.isPending || chooseFolder.isPending}
             onClick={() => {
               setDraft(null);
               save.reset();
+              chooseFolder.reset();
             }}
           >
             Discard changes
@@ -106,7 +138,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           <Button
             type="submit"
             variant="primary"
-            disabled={!dirty || save.isPending}
+            disabled={!dirty || save.isPending || chooseFolder.isPending}
           >
             {save.isPending && (
               <LoaderCircle size={14} className="animate-spin" />

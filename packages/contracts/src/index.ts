@@ -129,6 +129,7 @@ export interface DesktopBridge {
   zoom(direction: "in" | "out" | "reset"): Promise<DesktopState>;
   toggleFullscreen(): Promise<DesktopState>;
   openDataFolder(): Promise<void>;
+  selectProjectsFolder(currentPath?: string): Promise<string | null>;
 }
 export const apiCallSchema = z.object({
   path: z

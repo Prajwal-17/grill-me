@@ -8,6 +8,9 @@ Use Settings for installed Codex/OpenCode connections, model selection,
 OpenAI-compatible endpoints, credentials, project folders, and review timeouts.
 CLI authentication is scoped to each edition. API keys use Linux Secret Service
 or an explicit in-memory session. No backend environment files are inherited.
+In Local runtime, enter the projects folder path directly or use the folder
+button to choose a directory. Save runtime settings applies either choice;
+canceling the picker leaves the current path unchanged.
 
 The app opens maximized; `Ctrl++`, `Ctrl+-`, and `Ctrl+0` adjust persistent zoom.
 `F11` toggles fullscreen, `Ctrl+,` opens Settings, and the header supplies compact

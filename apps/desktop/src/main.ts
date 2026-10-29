@@ -12,7 +12,7 @@ import {
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { backendEnvironment } from "./config";
 import { windowSettingsStore } from "./window-settings";
@@ -370,6 +370,36 @@ async function start() {
       if (error) throw new Error("Could not open the data folder.");
     });
   });
+  ipcMain.handle(
+    "desktop:select-projects-folder",
+    async (event, currentPath: unknown) => {
+      trusted(event);
+      if (
+        currentPath !== undefined &&
+        (typeof currentPath !== "string" ||
+          currentPath.length > 4096 ||
+          currentPath.includes("\0"))
+      )
+        throw new Error("Invalid projects folder path.");
+      if (!window || window.isDestroyed())
+        throw new Error("The application window is unavailable.");
+      try {
+        const result = await dialog.showOpenDialog(window, {
+          title: "Choose projects folder",
+          buttonLabel: "Select folder",
+          properties: ["openDirectory"],
+          ...(typeof currentPath === "string" && isAbsolute(currentPath)
+            ? { defaultPath: currentPath }
+            : {}),
+        });
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      } catch {
+        throw new Error(
+          "Could not open the folder picker. Try again or enter the path manually.",
+        );
+      }
+    },
+  );
   window.once("ready-to-show", () => {
     if (preferences.get().startup === "maximized") window?.maximize();
     window?.show();

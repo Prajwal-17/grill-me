@@ -10,6 +10,8 @@ const bridge: DesktopBridge = {
   zoom: (direction) => ipcRenderer.invoke("desktop:zoom", direction),
   toggleFullscreen: () => ipcRenderer.invoke("desktop:fullscreen"),
   openDataFolder: () => ipcRenderer.invoke("desktop:data-folder"),
+  selectProjectsFolder: (currentPath) =>
+    ipcRenderer.invoke("desktop:select-projects-folder", currentPath),
   onWindowState: (listener) => {
     const receive = (_event: unknown, value: Parameters<typeof listener>[0]) =>
       listener(value);
