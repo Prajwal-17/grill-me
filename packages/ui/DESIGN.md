@@ -263,6 +263,14 @@ row and fields stack. Profile, Practice, Projects, and Code reviews remain
 mounted so switching sections preserves drafts. Saving reveals and focuses any
 invalid field, including one in a hidden section.
 
+Application settings use a 224px category rail from 768px, with horizontally
+scrolling category navigation below that breakpoint. Appearance, AI providers,
+Local runtime, and Data & connection share a scrolling content panel capped at
+800px. Settings rows stack below 600px of available panel width; wider rows align
+labels and descriptions with controls. Category links update the `section` query
+parameter while preserving unrelated URL state. Sections remain mounted so
+switching categories preserves unsaved drafts.
+
 ## Elevation & Depth
 
 Most depth comes from tonal separation and 1px borders. Forms and collections
@@ -313,6 +321,14 @@ rather than installing a second component vocabulary. Configuration reference:
   styles, and retained limits. `SearchField` composes the input with search and
   clear affordances. `PreferenceRow` aligns labels and controls without arbitrary
   left margins. Custom multi-select and model choices retain their existing behavior.
+- **Application settings:** `SettingsGroup` uses a bordered surface with quiet row
+  dividers. Appearance changes save automatically on this device; runtime changes
+  show an unsaved state with explicit save and discard actions. Providers show
+  their active state, endpoint, model, key-storage status, and connection results
+  beside the tested provider. Add and edit use an inline form with a masked API
+  key and reveal control, preserving Linux keyring and session-only choices.
+  Pending legacy import stays in a disclosure. Provider deletion uses the shared
+  Radix alert dialog and names the saved-key removal before confirmation.
 - **Collections:** `Table` supplies the semantic table primitives;
   `CollectionToolbar` and `CollectionSummary` supply recurring framing. Domain
   collections retain suitable responsive layouts. Search/filter empty states
