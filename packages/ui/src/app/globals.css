@@ -545,6 +545,17 @@ html[data-desktop="true"] {
   z-index: 20;
   -webkit-app-region: drag;
 }
+/* The fallback is only for loading/error screens without their own header.
+   A body-level drag rectangle painted after the page can swallow native clicks
+   even when controls underneath it declare no-drag. */
+html[data-desktop="true"]:has(
+    [data-slot="page-header"],
+    .desktop-app-header,
+    .desktop-sidebar-header
+  )
+  .desktop-window-drag-region {
+  display: none;
+}
 .desktop-window-controls {
   position: fixed;
   /* Counter-zoom keeps native controls 24px at every app zoom. */
@@ -605,7 +616,13 @@ html[data-desktop="true"] .desktop-sidebar-header {
 }
 html[data-desktop="true"]
   :is([data-slot="page-header"], .desktop-app-header, .desktop-sidebar-header)
-  :is(button, a, input, select, textarea, [role="button"], [role="combobox"]) {
+  :is(button, a, input, select, textarea, [role="button"], [role="combobox"]),
+html[data-desktop="true"]
+  :is([data-slot="page-header"], .desktop-app-header, .desktop-sidebar-header)
+  :is(button, a, input, select, textarea, [role="button"], [role="combobox"])
+  *,
+html[data-desktop="true"] [data-slot="header-actions"],
+html[data-desktop="true"] [data-slot="header-actions"] * {
   -webkit-app-region: no-drag;
 }
 html[data-desktop="true"] [data-slot="page-header"] {

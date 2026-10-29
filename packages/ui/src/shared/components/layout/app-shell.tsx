@@ -124,10 +124,15 @@ export function AppShell({
                 </li>
               </ol>
             </nav>
-            <GenerationActivity />
+            <div data-slot="header-actions" className="shrink-0">
+              <GenerationActivity />
+            </div>
           </div>
           {actions && (
-            <div className="flex max-w-full flex-wrap items-center gap-2">
+            <div
+              data-slot="header-actions"
+              className="flex max-w-full flex-wrap items-center gap-2"
+            >
               {actions}
             </div>
           )}
