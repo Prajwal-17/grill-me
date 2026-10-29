@@ -13,6 +13,8 @@ files:
   - package.json
   - "!**/.env*"
 extraResources:
+  - from: resources/icon.png
+    to: icon.png
   - from: out/renderer
     to: renderer
   - from: resources/backend

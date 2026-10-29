@@ -189,6 +189,9 @@ async function start() {
   });
   window = new BrowserWindow({
     title: identity.productName,
+    icon: app.isPackaged
+      ? join(process.resourcesPath, "icon.png")
+      : join(desktopRoot, "resources/icon.png"),
     width: 1360,
     height: 900,
     minWidth: 900,
