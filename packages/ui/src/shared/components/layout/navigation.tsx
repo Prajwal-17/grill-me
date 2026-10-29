@@ -212,7 +212,7 @@ export function Navigation({
               <TooltipContent side="top">{label}</TooltipContent>
             </Tooltip>
           ))}
-          <div className="ml-auto w-8">
+          <div className="ml-auto w-11 md:w-8">
             <ThemeSelect compact />
           </div>
         </div>

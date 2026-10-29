@@ -673,6 +673,11 @@ html[data-desktop="true"] #app-content {
     color: var(--foreground);
     border-color: var(--control-border);
   }
+  .workspace-context-actions
+    :is(button, a)[class*="bg-primary"]:not(:disabled):hover {
+    background: var(--elevated);
+    border-color: var(--control-border-hover);
+  }
 }
 @media (max-width: 767px) {
   :root {
@@ -687,7 +692,27 @@ html[data-desktop="true"] #app-content {
     min-height: 40px;
   }
   .sidebar-nav-item {
-    min-height: 40px;
+    min-height: 44px;
     font-size: 14px;
+  }
+}
+
+@media (max-width: 767px) {
+  .workspace-navigation .sidebar-create,
+  .workspace-navigation button[aria-label="Account"] {
+    height: 44px;
+    min-height: 44px;
+  }
+  .workspace-navigation [aria-label="Workspace tools"] :is(button, a) {
+    height: 44px;
+    min-height: 44px;
+    width: 44px;
+    min-width: 44px;
+    padding-inline: 0;
+  }
+  .desktop-sidebar-header > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
 }
