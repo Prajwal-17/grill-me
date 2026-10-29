@@ -55,7 +55,7 @@ Acceptance: profile/settings/challenge/quiz flows work over WebSockets, live pro
 
 ## 4. In-app settings and secrets
 
-- [x] Add a Settings route reachable before profile selection, from app navigation, the native menu and Ctrl+,.
+- [x] Add a Settings route reachable before profile selection, from app navigation and Ctrl+,.
 - [x] Keep machine/provider settings separate from existing profile learning preferences.
 - [x] Add provider creation, editing, deletion, active selection, endpoint/model fields, key replacement/removal, and connection testing.
 - [x] Persist non-secret settings and credential references; return only saved-key status after saving.
@@ -74,12 +74,15 @@ Acceptance: settings survive restart, persisted secrets are OS-protected, failed
 
 - [x] Add maximized and windowed startup choices; maximized is the first-launch default.
 - [x] Add F11 fullscreen toggling and persist the selected startup preference independently of temporary window toggles.
-- [x] Add Ctrl++/Ctrl+= and Ctrl+- zoom, Ctrl+0 reset, native menu commands and settings controls.
+- [x] Add Ctrl++/Ctrl+= and Ctrl+- zoom, Ctrl+0 reset and settings controls.
 - [x] Clamp zoom to usable bounds, persist it, and show the current percentage.
+- [x] Use a frameless window with minimize, maximize/restore and close controls in the existing header; remove the native menu and separate title bar without changing page/navigation structure.
+- [x] Keep caption controls available across routes, profile selection and open menus; retain draggable header backgrounds and clickable header actions.
+- [x] Retain Ctrl+, settings, F11 fullscreen, Ctrl+R/F5 reload, Ctrl+Shift+I developer tools and Ctrl+W/Ctrl+Q close shortcuts without a native menu. Open the data folder through Settings.
 - [x] Expose only a narrow, validated preload bridge for bootstrap/window/native actions, with sender checks.
 - [x] Preserve context isolation, disabled Node integration and packaged renderer sandboxing.
 
-Acceptance: keyboard/menu/settings controls agree, settings persist after restart, and the renderer cannot invoke arbitrary Electron/filesystem APIs.
+Acceptance: caption/keyboard/settings controls agree, settings persist after restart, the browser host has no desktop captions, and the renderer cannot invoke arbitrary Electron/filesystem APIs.
 
 ## 6. Relay-inspired CI and packaging
 
@@ -123,3 +126,4 @@ Tests must use temporary data roots and fake providers. Live production PostgreS
 - The legacy PostgreSQL/Docker deployment entry points were retained and their source paths updated; production databases and deployments were not accessed.
 
 - Follow-up: startup now defaults to maximized, migrates legacy fullscreen settings without discarding zoom, and restores saved zoom after navigation. The Electron source smoke verifies zoom across a complete process restart.
+- Frameless follow-up: source smoke verifies native maximize/restore and close, both themes, and saved zoom after reload and a complete process restart. Browser smoke confirms desktop captions are absent. Finish review accepted all four captures with no material fixes; no local package build or production access was used.

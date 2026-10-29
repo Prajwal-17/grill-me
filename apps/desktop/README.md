@@ -40,8 +40,8 @@ explicitly supplies `--no-sandbox` for its disposable test process only.
 
 ## Application settings
 
-Open **Settings** in the sidebar, **Application → Settings…**, or press `Ctrl+,`.
-Settings are also available on the profile-selection screen.
+Open **Settings** in the sidebar or on the profile-selection screen, or press
+`Ctrl+,`. Open the local data folder from Settings.
 
 - Save multiple OpenAI-compatible providers with endpoint, model and optional key.
 - Select the provider used by new requests; use **Test connection** to check it.
@@ -50,6 +50,12 @@ Settings are also available on the profile-selection screen.
 - The app starts maximized by default, with an optional windowed startup mode.
 - Use `Ctrl++` / `Ctrl+=`, `Ctrl+-` and `Ctrl+0` for persistent application zoom.
   `F11` toggles fullscreen without changing the selected startup mode.
+
+The frameless desktop window places minimize, maximize/restore and close controls
+in the existing app header. Drag its background to move the window. There is no
+native menu or separate title bar; the browser host has no desktop caption controls.
+`Ctrl+R` / `F5` reload, `Ctrl+Shift+I` toggles developer tools, and `Ctrl+W` /
+`Ctrl+Q` close the window.
 
 API keys use Linux Secret Service through `@napi-rs/keyring`, requiring its
 persistent `secret-service` backend. GNOME Keyring and compatible Secret Service

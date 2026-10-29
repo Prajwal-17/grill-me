@@ -237,6 +237,11 @@ minimum header that wraps actions. Content regions own their scrolling.
 The sidebar contains standard navigation, workspace settings, appearance, and
 account controls; challenge collections belong in the main content.
 
+Electron uses a frameless window: caption controls occupy the existing header,
+with reserved space on the right rather than another title-bar row. Header
+backgrounds are draggable; their interactive children remain clickable. The browser
+host keeps its existing header without desktop captions.
+
 Collections use 16px mobile and 24px desktop gutters, compact toolbars, one
 bordered result region, and a quiet result count. Challenges and quizzes group
 search with filters and a sort control; narrow screens stack these controls.
@@ -327,6 +332,12 @@ rather than installing a second component vocabulary. Configuration reference:
   feedback uses an aria-live region, and disabled controls stay distinct.
 - **Overlays:** menus, dialogs, sheets, confirmations, and tooltips share the
   primitive palette, radius, focus behavior, and portal layering.
+- **Desktop captions:** minimize, maximize/restore, and close are circular 28px
+  controls using the existing elevated surface and foreground tokens. Hover uses
+  the line tone; close uses the destructive tone on hover. Keyboard focus has a
+  visible outline, and reduced motion removes transitions. The controls are
+  portaled outside route content and remain available during profile selection,
+  loading, errors, and open menus.
 
 ## Do's and Don'ts
 

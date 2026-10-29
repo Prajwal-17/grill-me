@@ -24,7 +24,7 @@ bun run test:desktop       # Disposable SQLite; no Docker or paid AI calls
 ```
 
 Use the manual **Desktop Development Build** workflow to create a Debian artifact.
-Open **Grill Me Dev**, then use **Application → Settings…** (`Ctrl+,`) to manage
+Open **Grill Me Dev**, then use **Settings** (`Ctrl+,`) to manage
 providers and protected API keys without restarting. Desktop data stays
 in `~/.config/grill-me-desktop-dev/`, isolated from PostgreSQL and web storage.
 The package includes its backend runtime. See [desktop setup and verification](apps/desktop/README.md)
