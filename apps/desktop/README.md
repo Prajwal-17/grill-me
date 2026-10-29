@@ -4,9 +4,10 @@ The Electron shell and standalone web host share `@repo/ui`, `@repo/client`,
 `@repo/contracts` and `@repo/backend`. The local backend runs in a separate Bun
 process with SQLite. Docker and PostgreSQL are not needed for either local mode.
 The Debian package bundles the backend runtime; installed users do not need Bun
-or Node. AI requests require an OpenAI-compatible provider supporting the Responses API
-and structured output used by the existing backend. Native Codex reviews
-also require a Codex CLI installation and its login.
+or Node. AI requests use a connected, already-installed Codex/OpenCode CLI or an
+OpenAI-compatible provider supporting the Responses API and structured output.
+Grill Me does not install either CLI. Configure connections and model selection
+inside Settings.
 
 ## Source development
 
@@ -43,10 +44,11 @@ explicitly supplies `--no-sandbox` for its disposable test process only.
 Open **Settings** in the sidebar or on the profile-selection screen, or press
 `Ctrl+,`. Open the local data folder from Settings.
 
+- Connect installed Codex/OpenCode CLIs, sign in, and choose a model.
 - Save multiple OpenAI-compatible providers with endpoint, model and optional key.
 - Select the provider used by new requests; use **Test connection** to check it.
 - Replace or remove a saved key without reading it back into the UI.
-- Configure native Codex paths/models, project folders and review limits.
+- Override a CLI executable per connection; configure project folders and review limits.
 - The app starts maximized by default, with an optional windowed startup mode.
 - Use `Ctrl++` / `Ctrl+=`, `Ctrl+-` and `Ctrl+0` for persistent application zoom.
   `F11` toggles fullscreen without changing the selected startup mode.
@@ -57,12 +59,18 @@ native menu or separate title bar; the browser host has no desktop caption contr
 `Ctrl+R` / `F5` reload, `Ctrl+Shift+I` toggles developer tools, and `Ctrl+W` /
 `Ctrl+Q` close the window.
 
-API keys use Linux Secret Service through `@napi-rs/keyring`, requiring its
+OpenAI-compatible API keys use Linux Secret Service through `@napi-rs/keyring`, requiring its
 persistent `secret-service` backend. GNOME Keyring and compatible Secret Service
 implementations can supply it. When unavailable/locked, Settings offers an explicit
 **Session only** mode. Session keys disappear when the backend closes. The app
 does not silently save plaintext keys. Keys are not stored in SQLite, browser
 storage, process arguments, child environment variables or application logs.
+
+CLI account credentials use the CLI's storage in a private
+`providers/<id>/` directory. They are separate from the API-key keyring and your
+normal CLI home. Sign in specifically for Grill Me; no global credentials are
+copied. Disconnect stops that connection until you explicitly reconnect or use
+the provider. CLI sign-in files remain available for reconnection.
 
 Existing desktop `backend.env` files are detected in Settings. **Import to keyring**
 verifies the stored key before removing the plaintext key assignment. A failed

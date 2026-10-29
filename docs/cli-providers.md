@@ -33,8 +33,9 @@ not Grill Me's API-key keyring. This is local access protection, not encryption
 of the whole data directory.
 
 Grill Me starts and stops only the processes it owns. Disconnecting stops the
-connection and clears its active-provider selection; authentication remains for
-reconnection. Removing a provider also removes its configuration and any
+connection and clears its active-provider selection; the disconnected state
+survives reloads and backend restarts until Connect or Use provider is selected.
+Authentication remains for reconnection. Removing a provider also removes its configuration and any
 Grill Me-managed API key. CLI sign-in files remain in the private installation
 data directory. No global CLI installation, credentials, or history are deleted.
 

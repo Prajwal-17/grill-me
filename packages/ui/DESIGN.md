@@ -324,9 +324,17 @@ rather than installing a second component vocabulary. Configuration reference:
 - **Application settings:** `SettingsGroup` uses a bordered surface with quiet row
   dividers. Appearance changes save automatically on this device; runtime changes
   show an unsaved state with explicit save and discard actions. Providers show
-  their active state, endpoint, model, key-storage status, and connection results
-  beside the tested provider. Add and edit use an inline form with a masked API
-  key and reveal control, preserving Linux keyring and session-only choices.
+  their active state, connection type, model, and connection results beside the
+  relevant provider. Add and edit retain the inline form. Connection type selects
+  Codex CLI, OpenCode CLI, or an OpenAI-compatible API. CLI connections use an
+  installed executable, detected automatically or specified by absolute path.
+  Their saved row contains connection status, executable/version, sign-in,
+  available model selection, and Connect/Refresh/Disconnect actions. OpenCode
+  account and sign-in-method choices stay within that row; authentication fields
+  appear only when required. Disconnect stays explicit and persists until Connect
+  or Use provider is selected. API connections retain endpoint, key-storage
+  status, and a masked key with reveal control, preserving Linux keyring and
+  session-only choices.
   Pending legacy import stays in a disclosure. Provider deletion uses the shared
   Radix alert dialog and names the saved-key removal before confirmation.
 - **Collections:** `Table` supplies the semantic table primitives;
@@ -337,6 +345,12 @@ rather than installing a second component vocabulary. Configuration reference:
   attempt mounted and registered for autosave. Collection state persists in the
   existing per-profile namespace and in URL parameters; unrelated URL state is
   preserved. Resume, retake, recovery, deletion/restore, and scoring are unchanged.
+- **Discussion recovery:** Questions & follow-ups stays in the task's reading
+  column, separated by quiet dividers. Stop response replaces Send message while
+  streaming. Failed, cancelled, and interrupted replies retain saved partial text
+  with a nearby Retry response action; retry keeps the original user message.
+  Recovery text and actions wrap on narrow screens. Reopening a discussion shows
+  saved replies without automatically repeating a request.
 - **Feedback:** initial loads use layout-specific skeletons for collections,
   preferences, build/quiz details, reviews, source files, folders, and recent builds.
   They use static surface blocks, reserve geometry immediately, and reveal after

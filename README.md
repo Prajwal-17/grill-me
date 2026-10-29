@@ -36,7 +36,7 @@ for configuration, storage, packaging, and the inspection-only review behavior.
 2. Describe the topic, choose Focused / Feature / System and Easy / Medium / Hard / Grill, and generate a challenge.
 3. Read a concise task with stable acceptance criteria. New challenges show a difficulty band and freeze the projected developer context used to generate them. Historical numeric estimates remain available.
 4. Code in your editor. Paste an implementation, upload source files, or connect a local project. There are no application file-count or file-size limits; attachments upload in chunks.
-5. Submit for review. Self-contained exercises use OmniRoute; projects and submissions that need incremental exploration use the local Codex app-server judge.
+5. Submit for review. Local mode uses the provider selected in Settings, with read-only access to the saved submission snapshot for project reviews.
 6. Use Overview, Submit, Reviews, and Quizzes tabs. Submit code without a written explanation, select an earlier submission or review run when needed, and mark completed when you decide. Pause and resume anytime.
 
 Quizzes generates separate sets of 5, 10, or 15 multiple-choice questions from a
@@ -73,7 +73,7 @@ System challenges request a bounded working core and assess design choices in co
 
 Prompts live under `packages/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one corrective attempt for a difficulty mismatch; a second mismatch returns a retryable error without saving. Essential clarification returns a structured question, and answers accumulate in order.
 
-Preferences include an optional “Send recent challenges to AI” setting, off by default. Connect a folder by entering its path or browsing the folders available to Grill Me; connecting does not upload files. Archive unwanted challenges from the workspace and restore them from the Archived tab in Challenges. Archiving retains the task, submissions, reviews, quizzes, and completion state; older saved-for-later challenges appear in Archived too. Codex reviews use ephemeral sessions and link to their database-saved prompts, responses, and complete app-server protocol activity. Preferences includes a Codex model picker, defaulting to GPT-5.6 Sol. Run `bun run db:studio` to browse the local database.
+Preferences include an optional “Send recent challenges to AI” setting, off by default. Connect a folder by entering its path or browsing the folders available to Grill Me; connecting does not upload files. Archive unwanted challenges from the workspace and restore them from the Archived tab in Challenges. Archiving retains the task, submissions, reviews, quizzes, and completion state; older saved-for-later challenges appear in Archived too. Settings manages local Codex/OpenCode connections and model selection. Questions and follow-ups on Overview save locally, including partial replies with stop, retry, and restart recovery.
 
 The home composer’s Enhance action rewrites rough topic requests without generating a challenge. Review or edit the result, use Undo to restore the original, then generate when ready. Enhancement preserves the topic and explicit requirements without adding a project or new learning goal. Both quiz modes use versioned principal-engineer assessment prompts: direct wording, reasoning-based difficulty, plausible choices, and post-submission explanations. Standalone quizzes use relevant projected developer context; challenge quizzes use the frozen contract and developer context, with coverage-specific rules and protection against revealing the implementation.
 
@@ -88,8 +88,9 @@ See [CLI provider connections](docs/cli-providers.md) for installed Codex/OpenCo
 Logs records each new AI operation: request checks, build and quiz generation, clarification,
 solution reviews, resume imports, and hints. The paginated `/logs` page provides status and
 operation filters plus request/model search. Each `/logs/:id` detail page shows
-the complete instructions, input, response text, raw provider response, stream
-events, and errors, with copy actions. Requested and returned models are shown
+the instructions, input, response text, available provider payloads, stream
+events, and errors, with copy actions. CLI authentication traffic and raw app-server
+protocol messages are excluded. Requested and returned models are shown
 separately, alongside duration, time to first token, and provider-reported token
 usage and cost. Unreported values are left empty, not estimated.
 
@@ -101,7 +102,8 @@ on the backend console without changing the model result. Each log represents
 one application AI call; provider routing and internal retries are only visible
 when the provider includes that information in its response.
 
-Log payloads stay in the local PostgreSQL database, scoped to the active profile.
+Log payloads stay in SQLite for local mode, or PostgreSQL for the legacy web host,
+scoped to the active profile.
 Transport credentials and known configured API keys are redacted. Full prompts,
 personal context, attached code, and responses can still contain private data:
 this local profile selector is not authentication, so do not expose the API or
@@ -167,7 +169,7 @@ Native development uses ports `8028` (web) and `8027` (API). The production-mode
 Compose services use `17018` (web) and `17017` (API), so both environments can run
 at the same time without competing for ports.
 
-## Local data
+## Legacy PostgreSQL data
 
 PostgreSQL runs in the `primary-pg` Docker container. Its data persists
 in the external `primary-pg-data` named volume. The cluster contains:
@@ -178,14 +180,16 @@ in the external `primary-pg-data` named volume. The cluster contains:
 
 Submission files and other runtime data use these host paths:
 
-- `/mnt/hdd/.config/grill-me/`: production submissions, uploads, evaluations, and Codex CLI
+- `/mnt/hdd/.config/grill-me/`: production submissions, uploads, and evaluations
 - `/mnt/hdd/.config/grill-me-dev/`: development runtime files
 - `submissions/`: immutable submission snapshots
 - `uploads/`: resumable file uploads
 - `evaluations/`: prompt evaluation reports
 - `providers/`: installation-scoped Codex/OpenCode authentication and temporary runtime data
 
-Start PostgreSQL and apply tracked migrations before native development:
+The legacy PostgreSQL workflow requires its database and tracked migrations.
+Desktop and standalone SQLite development use the commands at the top of this
+document and do not require these steps.
 
 ```bash
 docker volume create primary-pg-data # Only needed on a new installation
@@ -223,7 +227,7 @@ bun run build
 Backend variables:
 
 - `APP_ENV`: selects `development`, `production`, or `test` defaults
-- `GRILL_ME_HOME`: override submission/upload/evaluation/Codex storage
+- `GRILL_ME_HOME`: override submission/upload/evaluation storage in the legacy host
 - `XDG_CONFIG_HOME`: standard config root used when `GRILL_ME_HOME` is unset
 - `LLM_BASE_URL`: OpenAI-compatible base URL
 - `LLM_API_KEY`: API key expected by the model gateway

@@ -65,7 +65,7 @@ Acceptance: profile/settings/challenge/quiz flows work over WebSockets, live pro
 - [x] Keep API keys out of SQLite, browser persistence, logs, URLs, process arguments and the backend child environment.
 - [x] Apply settings to new provider calls without restarting; snapshot a running job's provider configuration.
 - [x] Migrate existing desktop `backend.env` settings once. Remove a plaintext key only after the keyring write/read is verified; preserve the file if migration fails.
-- [x] Support the existing native Codex/project/review settings through validated controls without accepting arbitrary environment overrides.
+- [x] Support CLI executable/model selection per provider, plus project/review settings, through validated controls without arbitrary environment overrides.
 - [x] Provide local backend status, data-folder access and redacted diagnostics.
 
 Acceptance: settings survive restart, persisted secrets are OS-protected, failed saves preserve previous settings, API responses/logs do not reveal saved keys, and standalone mode has the same settings behavior.
@@ -119,7 +119,7 @@ Tests must use temporary data roots and fake providers. Live production PostgreS
 - Plan committed before implementation; shared packages and the local runtime/settings were committed separately on the existing PR branch.
 - Shared backend import is tested without valid database configuration or listeners.
 - Source-mode desktop and standalone browser smoke tests cover the shared UI, provider settings and SQLite profiles. Browser application requests use WebSockets.
-- 121 isolated tests cover the existing domain behavior, transactions, provider persistence/failures, connection authentication/ticket reuse, cancellation and reconnect without mutation replay.
+- 131 isolated tests cover the existing domain behavior, transactions, provider persistence/failures, connection authentication/ticket reuse, cancellation and reconnect without mutation replay.
 - Native Secret Service storage passed a round-trip in a private D-Bus session with a disposable encrypted GNOME keyring; the normal user keyring was not accessed.
 - Electron builder inheritance and schema were validated without invoking a build. Workflow YAML was parsed locally.
 - Formatting, lint and TypeScript checks are required before final handoff. Linux Debian packaging and the packaged-app smoke are configured for manual CI and have deliberately not been run locally.
@@ -127,3 +127,17 @@ Tests must use temporary data roots and fake providers. Live production PostgreS
 
 - Follow-up: startup now defaults to maximized, migrates legacy fullscreen settings without discarding zoom, and restores saved zoom after navigation. The Electron source smoke verifies zoom across a complete process restart.
 - Frameless follow-up: source smoke verifies native maximize/restore and close, both themes, and saved zoom after reload and a complete process restart. Browser smoke confirms desktop captions are absent. Finish review accepted all four captures with no material fixes; no local package build or production access was used.
+
+## Installed CLI providers and local discussion follow-up
+
+- [x] Connect installed Codex and OpenCode executables without downloading, bundling, or installing them; remove the legacy setup/doctor scripts and Docker Codex installation/mounts.
+- [x] Use app-server authentication/models for Codex, and authenticated loopback adapters for OpenCode 1.x and 2.x; expose sign-in, dynamic model selection, reconnect, and disconnect in existing settings.
+- [x] Scope CLI config/authentication/runtime files to owner-only installation directories. Keep existing OpenAI-compatible keyring/session connections compatible.
+- [x] Route all local AI operations through the selected provider. Limit project review to submitted snapshots, with execution/editing denied and inspection-only evidence.
+- [x] Keep SQLite as the local discussion archive. Save user/pending replies before inference; checkpoint partial replies; retain failures and cancellation; recover interrupted replies without automatic replay.
+- [x] Add minimal follow-ups in the existing Overview, with Stop and Retry. Retry reuses the original user message. Codex requests are ephemeral; OpenCode sessions are deleted after use.
+- [x] Cover CLI protocols with fake executables and source-mode UI flows. Check installed Codex/OpenCode startup/catalog only in temporary directories, without real credentials or inference.
+
+See [CLI provider connections](cli-providers.md) for lifecycle, authentication,
+conversation storage, and verification details. Production SQL migrations remain
+unchanged. Desktop packaging remains deferred to the manual CI workflow.
