@@ -90,11 +90,6 @@ export const runtimeSettingsSchema = z.object({
     .refine((v) => !v || v.startsWith("/"), "Use an absolute path.")
     .default(""),
   codexModel: z.string().max(160).default(""),
-  projectsRoot: z
-    .string()
-    .max(4096)
-    .refine((v) => !v || v.startsWith("/"), "Use an absolute path.")
-    .default(""),
   contextTokens: z.number().int().min(1024).max(1000000).default(12000),
   judgeTimeoutMs: z.number().int().min(1000).max(3600000).default(900000),
 });

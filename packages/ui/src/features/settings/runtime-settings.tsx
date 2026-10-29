@@ -24,13 +24,6 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
     save.reset();
     setDraft({ ...runtime, ...patch });
   }
-  const chooseFolder = useMutation({
-    mutationFn: (currentPath: string) =>
-      window.desktopBridge!.selectProjectsFolder(currentPath),
-    onSuccess: (path) => {
-      if (path !== null) update({ projectsRoot: path });
-    },
-  });
   const openDataFolder = useMutation({
     mutationFn: () => window.desktopBridge!.openDataFolder(),
   });
@@ -38,7 +31,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
     <>
       <SettingsHeading
         title="Local runtime"
-        description="Configure the tools and folders used for local code reviews."
+        description="Configure local code reviews."
       />
       <form
         onSubmit={(e) => {
@@ -46,50 +39,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           save.mutate({ path: "/settings/runtime", body: runtime });
         }}
       >
-        <fieldset
-          disabled={save.isPending || chooseFolder.isPending}
-          className="min-w-0"
-        >
-          <SettingsGroup title="Workspace">
-            <SettingsRow
-              label="Projects folder"
-              htmlFor="projects-root"
-              controlClassName="@min-[600px]:w-96"
-              description="Default location for local projects."
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <Input
-                  id="projects-root"
-                  maxLength={4096}
-                  pattern="(/.*)?"
-                  title="Use an absolute path."
-                  value={runtime.projectsRoot}
-                  onChange={(e) => {
-                    chooseFolder.reset();
-                    update({ projectsRoot: e.target.value });
-                  }}
-                  placeholder="/absolute/path/to/projects"
-                  spellCheck={false}
-                  className="min-w-0 flex-1"
-                />
-                {window.desktopBridge && (
-                  <Button
-                    type="button"
-                    size="icon"
-                    aria-label="Browse for projects folder"
-                    title="Browse for projects folder"
-                    onClick={() => chooseFolder.mutate(runtime.projectsRoot)}
-                  >
-                    {chooseFolder.isPending ? (
-                      <LoaderCircle size={16} className="animate-spin" />
-                    ) : (
-                      <FolderOpen size={16} />
-                    )}
-                  </Button>
-                )}
-              </div>
-            </SettingsRow>
-          </SettingsGroup>
+        <fieldset disabled={save.isPending} className="min-w-0">
           <SettingsGroup title="Review limits">
             <SettingsRow
               label="Review timeout (seconds)"
@@ -113,7 +63,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           </SettingsGroup>
         </fieldset>
         <SettingsFeedback
-          error={save.error ?? chooseFolder.error ?? openDataFolder.error}
+          error={save.error ?? openDataFolder.error}
           message={
             save.isSuccess && !dirty ? "Runtime settings saved." : undefined
           }
@@ -127,11 +77,10 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           <Button
             type="button"
             variant="ghost"
-            disabled={!dirty || save.isPending || chooseFolder.isPending}
+            disabled={!dirty || save.isPending}
             onClick={() => {
               setDraft(null);
               save.reset();
-              chooseFolder.reset();
             }}
           >
             Discard changes
@@ -139,7 +88,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           <Button
             type="submit"
             variant="primary"
-            disabled={!dirty || save.isPending || chooseFolder.isPending}
+            disabled={!dirty || save.isPending}
           >
             {save.isPending && (
               <LoaderCircle size={14} className="animate-spin" />

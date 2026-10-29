@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
 import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -112,6 +113,40 @@ test("session-only keys disappear after restart and are never silently persisted
     settings = createSettingsService(root, { keyring: sessionSecretStore() });
     expect((await settings.get()).providers[0]?.hasKey).toBe(false);
     await expect(settings.snapshot()).rejects.toThrow("again");
+  } finally {
+    settings.close();
+  }
+});
+test("legacy projects-root settings are ignored without losing providers or review limits", async () => {
+  const root = await temp();
+  const vault = sessionSecretStore();
+  const savedProvider = provider();
+  let settings = createSettingsService(root, { keyring: vault });
+  try {
+    await settings.saveProvider(savedProvider);
+    settings.close();
+    const database = new Database(join(root, "settings.sqlite"));
+    try {
+      const row = database
+        .query("SELECT document FROM settings WHERE id=1")
+        .get() as { document: string };
+      const document = JSON.parse(row.document);
+      document.runtime.projectsRoot = "/old/default/no-longer-available";
+      document.runtime.judgeTimeoutMs = 45000;
+      database
+        .query("UPDATE settings SET document=? WHERE id=1")
+        .run(JSON.stringify(document));
+    } finally {
+      database.close();
+    }
+    settings = createSettingsService(root, { keyring: vault });
+    const current = await settings.get();
+    expect(current.runtime).not.toHaveProperty("projectsRoot");
+    expect(current.runtime.judgeTimeoutMs).toBe(45000);
+    expect(current.activeProviderId).toBe(savedProvider.id);
+    expect((await settings.snapshot()).apiKey).toBe(savedProvider.apiKey);
+    const saved = await settings.saveRuntime(current.runtime);
+    expect(saved.runtime).not.toHaveProperty("projectsRoot");
   } finally {
     settings.close();
   }

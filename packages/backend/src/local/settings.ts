@@ -309,7 +309,6 @@ export function createSettingsService(
       await api.saveRuntime({
         codexBin: old.CODEX_BIN ?? "",
         codexModel: old.CODEX_MODEL ?? "",
-        projectsRoot: old.PROJECTS_ROOT ?? "",
         contextTokens: Number(old.DIRECT_REVIEW_CONTEXT_TOKENS ?? 12000),
         judgeTimeoutMs: Number(old.JUDGE_TIMEOUT_MS ?? 900000),
       });
@@ -334,7 +333,6 @@ export function createSettingsService(
     for (const [k, v] of Object.entries({
       CODEX_BIN: r.codexBin,
       CODEX_MODEL: r.codexModel,
-      PROJECTS_ROOT: r.projectsRoot,
       DIRECT_REVIEW_CONTEXT_TOKENS: String(r.contextTokens),
       JUDGE_TIMEOUT_MS: String(r.judgeTimeoutMs),
     })) {

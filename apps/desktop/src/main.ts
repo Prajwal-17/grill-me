@@ -383,12 +383,12 @@ async function start() {
           currentPath.length > 4096 ||
           currentPath.includes("\0"))
       )
-        throw new Error("Invalid projects folder path.");
+        throw new Error("Invalid project folder path.");
       if (!window || window.isDestroyed())
         throw new Error("The application window is unavailable.");
       try {
         const result = await dialog.showOpenDialog(window, {
-          title: "Choose projects folder",
+          title: "Choose project folder",
           buttonLabel: "Select folder",
           properties: ["openDirectory"],
           ...(typeof currentPath === "string" && isAbsolute(currentPath)

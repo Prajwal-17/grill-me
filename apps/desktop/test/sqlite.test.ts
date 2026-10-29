@@ -116,6 +116,7 @@ test("desktop configuration cannot inherit production database or storage paths"
         DATABASE_URL: "postgresql://forbidden",
         GRILL_ME_HOME: "/production",
         CODEX_MODEL: "fixture",
+        PROJECTS_ROOT: "/retired/default",
       },
       inherited: {
         APP_ENV: "production",
@@ -123,6 +124,7 @@ test("desktop configuration cannot inherit production database or storage paths"
         DATABASE_URL: "postgresql://forbidden",
         SNAPSHOT_ROOT: "/production/submissions",
         CODEX_HOME: "/production/codex",
+        PROJECTS_ROOT: "/retired/inherited",
         PATH: "/usr/bin",
       },
     });
@@ -137,6 +139,7 @@ test("desktop configuration cannot inherit production database or storage paths"
     expect(env).not.toHaveProperty("DATABASE_URL");
     expect(env).not.toHaveProperty("SNAPSHOT_ROOT");
     expect(env).not.toHaveProperty("CODEX_HOME");
+    expect(env).not.toHaveProperty("PROJECTS_ROOT");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

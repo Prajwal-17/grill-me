@@ -346,7 +346,6 @@ export function PracticeWorkspace({
   const error =
     submit.error ??
     upload.error ??
-    connection.error ??
     lifecycle.error ??
     reviewAction.error ??
     hint.error;
@@ -734,7 +733,7 @@ export function PracticeWorkspace({
           profileId={profile.id}
           open={folderOpen}
           onOpenChange={setFolderOpen}
-          onSelect={(path) => connection.mutate(path)}
+          onSelect={(path) => connection.mutateAsync(path)}
         />
       </main>
     </AppShell>

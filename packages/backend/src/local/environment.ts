@@ -2,7 +2,6 @@ import { join } from "node:path";
 export const settingKeys = [
   "CODEX_BIN",
   "CODEX_MODEL",
-  "PROJECTS_ROOT",
   "DIRECT_REVIEW_CONTEXT_TOKENS",
   "JUDGE_TIMEOUT_MS",
 ] as const;

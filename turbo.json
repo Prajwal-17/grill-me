@@ -19,7 +19,6 @@
     "SNAPSHOT_ROOT",
     "UPLOAD_ROOT",
     "EVALUATION_ROOT",
-    "PROJECTS_ROOT",
     "CODEX_BIN",
     "CODEX_HOME",
     "XDG_DATA_HOME",

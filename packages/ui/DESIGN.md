@@ -300,9 +300,10 @@ including one in a hidden section.
 Application settings contain Appearance, AI providers, and Local runtime.
 Appearance exposes theme and persistent zoom; startup/fullscreen controls and
 static database/connection/keyring diagnostics are omitted. Existing maximized
-startup and F11 remain available independently. Runtime retains the project-folder
-input and native picker, review timeout, save/discard actions, and a quiet app-data
-folder action. Credential availability and errors stay with provider settings,
+startup and F11 remain available independently. Runtime retains review timeout,
+save/discard actions, and a quiet app-data folder action. Project selection belongs
+to each submission; there is no global default or allowed-projects root.
+Credential availability and errors stay with provider settings,
 where they affect the user's choices. Settings rows stack below 600px of panel
 width; wider rows align labels and descriptions with controls. Category links
 update the `section` query parameter while preserving unrelated URL state.
@@ -372,8 +373,14 @@ rather than installing a second component vocabulary. Configuration reference:
 - **Project folders:** the Connect folder dialog supports manual paths and file
   URLs, in-app navigation, and a labelled Browse action for the native desktop
   folder chooser. Native selection fills the path and loads its folder listing
-  before connection. Cancelling preserves the current selection; picker failures
-  appear inline and manual entry remains available.
+  before connection. Any accessible local folder can be selected, independent of
+  retired projects-root settings. Cancelling preserves the current selection;
+  picker and connection failures appear inline and manual entry remains available.
+  Connect uses the typed path directly without requiring Open first. Connection
+  keeps the dialog open while saving and closes only after success.
+  Connecting records the original folder path without importing its contents.
+  Starting a review saves a filtered snapshot in the current app edition's data
+  folder; later source edits do not change that saved review.
 - **Application settings:** `SettingsGroup` uses a bordered surface with quiet row
   dividers. Appearance changes save automatically on this device; runtime changes
   show an unsaved state with explicit save and discard actions. Providers show

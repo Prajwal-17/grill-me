@@ -1,12 +1,9 @@
-import {
-  configuredProjectsRoot,
-  isWithinProjectsRoot,
-  submissionPath,
-} from "./paths";
+import { submissionPath } from "./paths";
 import { createHash } from "node:crypto";
-import { createReadStream } from "node:fs";
+import { constants, createReadStream } from "node:fs";
 import {
   mkdir,
+  access,
   readdir,
   lstat,
   realpath,
@@ -74,22 +71,13 @@ export async function projectRoot(path: string) {
   });
   if (!(await lstat(root)).isDirectory() || root === sep)
     throw new AppError("INVALID_PROJECT", "Select a project folder.", 400);
-  const configuredRoot = configuredProjectsRoot();
-  if (configuredRoot) {
-    const projectsRoot = await realpath(configuredRoot).catch(() => {
-      throw new AppError(
-        "PROJECTS_ROOT_UNAVAILABLE",
-        "The projects folder is unavailable. Choose an existing folder in Settings → Local runtime.",
-        500,
-      );
-    });
-    if (!isWithinProjectsRoot(projectsRoot, root))
-      throw new AppError(
-        "PROJECT_OUTSIDE_PROJECTS_ROOT",
-        `Choose a project inside ${projectsRoot}.`,
-        400,
-      );
-  }
+  await access(root, constants.R_OK | constants.X_OK).catch(() => {
+    throw new AppError(
+      "PROJECT_UNREADABLE",
+      "This project folder cannot be read. Check its permissions or choose another folder.",
+      400,
+    );
+  });
   return root;
 }
 export async function hashFile(path: string) {

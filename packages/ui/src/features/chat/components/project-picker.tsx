@@ -86,11 +86,15 @@ export function ProjectPicker({
   profileId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelect: (path: string) => void;
+  onSelect: (path: string) => Promise<unknown>;
 }) {
   const [path, setPath] = useState("");
   const [typedPath, setTypedPath] = useState("");
   const [folderSearch, setFolderSearch] = useState("");
+  const connect = useMutation({
+    mutationFn: onSelect,
+    onSuccess: () => onOpenChange(false),
+  });
   const listing = useQuery({
     queryKey: ["folders", profileId, path],
     queryFn: () => browseFolders(profileId, path),
@@ -98,12 +102,14 @@ export function ProjectPicker({
     retry: false,
   });
   const selectedPath = listing.data?.path ?? path;
+  const candidatePath = normalizeLocalPath(typedPath) || selectedPath;
   const folders =
     listing.data?.folders.filter((folder) =>
       folder.name.toLowerCase().includes(folderSearch.trim().toLowerCase()),
     ) ?? [];
 
   function navigate(next: string) {
+    connect.reset();
     setPath(next);
     setTypedPath("");
     setFolderSearch("");
@@ -111,10 +117,7 @@ export function ProjectPicker({
 
   const bridge = window.desktopBridge;
   const nativePicker = useMutation({
-    mutationFn: () =>
-      bridge!.selectProjectsFolder(
-        normalizeLocalPath(typedPath) || selectedPath,
-      ),
+    mutationFn: () => bridge!.selectProjectsFolder(candidatePath),
     onSuccess: (selected) => {
       if (selected !== null) {
         navigate(selected);
@@ -124,7 +127,15 @@ export function ProjectPicker({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (connect.isPending) return;
+        connect.reset();
+        nativePicker.reset();
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
         <DialogHeader className="border-b border-line px-5 py-4">
           <DialogTitle>Connect folder</DialogTitle>
@@ -133,7 +144,7 @@ export function ProjectPicker({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 px-5 py-4">
+        <fieldset disabled={connect.isPending} className="space-y-3 px-5 py-4">
           <form
             className="flex flex-wrap gap-2"
             onSubmit={(event) => {
@@ -148,6 +159,7 @@ export function ProjectPicker({
               maxLength={4096}
               onChange={(event) => {
                 nativePicker.reset();
+                connect.reset();
                 setTypedPath(event.target.value);
               }}
               placeholder="Path or file:// URL"
@@ -178,9 +190,9 @@ export function ProjectPicker({
               </Button>
             </div>
           </form>
-          {nativePicker.error && (
+          {(nativePicker.error || connect.error) && (
             <p role="alert" className="text-supporting text-destructive">
-              {nativePicker.error.message}
+              {(nativePicker.error ?? connect.error)?.message}
             </p>
           )}
 
@@ -270,27 +282,34 @@ export function ProjectPicker({
               </div>
             )}
           </div>
-        </div>
+        </fieldset>
 
         <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="ghost"
+            disabled={connect.isPending}
+            onClick={() => {
+              connect.reset();
+              nativePicker.reset();
+              onOpenChange(false);
+            }}
+          >
             Cancel
           </Button>
           <Button
             variant="primary"
             disabled={
-              !listing.data ||
-              listing.isFetching ||
-              listing.isError ||
+              !candidatePath ||
               nativePicker.isPending ||
-              listing.data.path === "/"
+              connect.isPending ||
+              candidatePath === "/"
             }
-            onClick={() => {
-              onSelect(listing.data!.path);
-              onOpenChange(false);
-            }}
+            onClick={() => connect.mutate(candidatePath)}
           >
-            Connect folder
+            {connect.isPending && (
+              <LoaderCircle size={15} className="animate-spin" />
+            )}
+            {connect.isPending ? "Connecting…" : "Connect folder"}
           </Button>
         </div>
       </DialogContent>
