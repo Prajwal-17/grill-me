@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-29T17:39:57.047Z",
+        "reason": "User confirmed keeping Grill Me identity and typography while polishing the existing desktop layout; Inter is documented in packages/ui/DESIGN.md. Both findings predate the header click fix."
+      }
+    ]
+  }
+}
