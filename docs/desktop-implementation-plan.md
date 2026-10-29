@@ -6,7 +6,7 @@
 - Keep Electron, electron-vite, Vite, React, Bun, Hono, Drizzle and SQLite.
 - Support Linux Debian packages only. Do not build an executable or package locally during this work.
 - Develop and verify against disposable/local SQLite databases. Never connect to, migrate, copy or delete production data.
-- Support both fullscreen and maximized startup, with fullscreen as the initial default and a windowed option.
+- Start maximized by default, offer windowed startup, and retain F11 for manual fullscreen.
 - Support multiple OpenAI-compatible providers first. Native Anthropic/Gemini adapters are outside this iteration.
 - Use T3Code as an architectural reference and Relay as the build/workflow reference.
 - Retain the existing web deployment entry points and PostgreSQL behavior until an explicit deployment.
@@ -72,7 +72,7 @@ Acceptance: settings survive restart, persisted secrets are OS-protected, failed
 
 ## 5. Desktop window controls
 
-- [x] Add fullscreen, maximized and windowed startup choices; fullscreen is the first-launch default.
+- [x] Add maximized and windowed startup choices; maximized is the first-launch default.
 - [x] Add F11 fullscreen toggling and persist the selected startup preference independently of temporary window toggles.
 - [x] Add Ctrl++/Ctrl+= and Ctrl+- zoom, Ctrl+0 reset, native menu commands and settings controls.
 - [x] Clamp zoom to usable bounds, persist it, and show the current percentage.
@@ -116,8 +116,10 @@ Tests must use temporary data roots and fake providers. Live production PostgreS
 - Plan committed before implementation; shared packages and the local runtime/settings were committed separately on the existing PR branch.
 - Shared backend import is tested without valid database configuration or listeners.
 - Source-mode desktop and standalone browser smoke tests cover the shared UI, provider settings and SQLite profiles. Browser application requests use WebSockets.
-- 120 isolated tests cover the existing domain behavior, transactions, provider persistence/failures, connection authentication/ticket reuse, cancellation and reconnect without mutation replay.
+- 121 isolated tests cover the existing domain behavior, transactions, provider persistence/failures, connection authentication/ticket reuse, cancellation and reconnect without mutation replay.
 - Native Secret Service storage passed a round-trip in a private D-Bus session with a disposable encrypted GNOME keyring; the normal user keyring was not accessed.
 - Electron builder inheritance and schema were validated without invoking a build. Workflow YAML was parsed locally.
 - Formatting, lint and TypeScript checks are required before final handoff. Linux Debian packaging and the packaged-app smoke are configured for manual CI and have deliberately not been run locally.
 - The legacy PostgreSQL/Docker deployment entry points were retained and their source paths updated; production databases and deployments were not accessed.
+
+- Follow-up: startup now defaults to maximized, migrates legacy fullscreen settings without discarding zoom, and restores saved zoom after navigation. The Electron source smoke verifies zoom across a complete process restart.

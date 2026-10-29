@@ -182,7 +182,7 @@ async function start() {
     minHeight: 650,
     backgroundColor: "#0a0a0a",
     show: false,
-    fullscreen: preferences.get().startup === "fullscreen",
+    fullscreen: false,
     webPreferences: {
       session: desktopSession,
       preload: join(import.meta.dirname, "../preload/index.cjs"),
@@ -253,7 +253,11 @@ async function start() {
       window?.webContents.send("desktop:open-settings");
     }
   });
-  window.webContents.setZoomFactor(preferences.get().zoom);
+  const restoreZoom = () =>
+    window?.webContents.setZoomFactor(preferences.get().zoom);
+  restoreZoom();
+  // Chromium applies origin-specific zoom during navigation; restore afterwards.
+  window.webContents.on("did-finish-load", restoreZoom);
   window.webContents.on("zoom-changed", (_event, direction) => zoom(direction));
   window.on("enter-full-screen", publish);
   window.on("leave-full-screen", publish);

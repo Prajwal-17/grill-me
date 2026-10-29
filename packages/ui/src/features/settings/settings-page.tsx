@@ -303,7 +303,6 @@ function LocalSettingsPanel() {
                     })
                   }
                   options={[
-                    { id: "fullscreen", label: "Fullscreen" },
                     { id: "maximized", label: "Maximized" },
                     { id: "windowed", label: "Windowed" },
                   ]}

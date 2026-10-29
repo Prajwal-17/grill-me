@@ -1,4 +1,5 @@
 // Exercises the actual source-mode launcher; no standalone or package build.
+import type { DesktopBridge } from "@repo/contracts";
 import { chromium, expect, type Browser } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
@@ -24,21 +25,52 @@ const [debugPort, apiPort] = await Promise.all([
   availablePort(),
   availablePort(),
 ]);
-const child = spawn(process.execPath, ["run", "dev"], {
-  cwd: root,
-  detached: true,
-  env: {
-    ...process.env,
-    XDG_CONFIG_HOME: temp,
-    DBUS_SESSION_BUS_ADDRESS: `unix:path=${temp}/no-keyring`,
-    REMOTE_DEBUGGING_PORT: String(debugPort),
-    DESKTOP_DEV_API_PORT: String(apiPort),
-  },
-  stdio: ["ignore", "pipe", "pipe"],
-});
+let child: ReturnType<typeof spawnDev>;
+function spawnDev() {
+  return spawn(process.execPath, ["run", "dev"], {
+    cwd: root,
+    detached: true,
+    env: {
+      ...process.env,
+      XDG_CONFIG_HOME: temp,
+      DBUS_SESSION_BUS_ADDRESS: `unix:path=${temp}/no-keyring`,
+      REMOTE_DEBUGGING_PORT: String(debugPort),
+      DESKTOP_DEV_API_PORT: String(apiPort),
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
+
 let output = "";
 let browser: Browser | undefined;
-try {
+async function stopDev() {
+  await browser?.close();
+  if (child.pid && child.exitCode === null) {
+    try {
+      process.kill(-child.pid, "SIGINT");
+    } catch {
+      /* already stopped */
+    }
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => {
+        try {
+          process.kill(-child.pid!, "SIGKILL");
+        } catch {
+          /* already stopped */
+        }
+        resolve();
+      }, 5000);
+      child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+}
+
+async function launch() {
+  child = spawnDev();
+  output = "";
   const endpoint = await new Promise<string>((resolve, reject) => {
     const timeout = setTimeout(
       () => reject(new Error("Devtools startup timed out")),
@@ -66,6 +98,12 @@ try {
   browser = await chromium.connectOverCDP(endpoint);
   const context = browser.contexts()[0]!;
   const page = context.pages()[0] ?? (await context.waitForEvent("page"));
+
+  return page;
+}
+
+try {
+  const page = await launch();
   const errors: string[] = [];
   page.on("pageerror", (error) => {
     errors.push(error.message);
@@ -173,35 +211,36 @@ try {
   );
   expect(metadata.includes("source-smoke-secret")).toBe(false);
   await page.screenshot({ path: join(captures, "desktop-settings.png") });
+
+  await page.keyboard.press("Control+Equal");
+  await expect(page.locator("output")).toHaveText("110%");
+  await page.reload();
+  await expect(page.locator("output")).toHaveText("110%");
+  await stopDev();
+  const restarted = await launch();
+  await restarted.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(
+    restarted.getByRole("heading", { name: "Application settings" }),
+  ).toBeVisible({ timeout: 30000 });
+  await expect(restarted.locator("output")).toHaveText("110%");
+  expect(
+    await restarted.evaluate(() =>
+      (
+        window as unknown as { desktopBridge: DesktopBridge }
+      ).desktopBridge.getWindowState(),
+    ),
+  ).toMatchObject({ startup: "maximized", fullscreen: false, zoom: 1.1 });
+  const session = await restarted.context().newCDPSession(restarted);
+  const metrics = await session.send("Page.getLayoutMetrics");
+  expect(metrics.cssVisualViewport.zoom).toBeCloseTo(1.1, 1);
   expect(errors).toEqual([]);
   console.log(
-    "Dev renderer smoke passed: styled profile screen, fonts, sizing, SQLite login, and sidebar layout.",
+    "Dev renderer smoke passed: styled UI, SQLite login, maximized startup, and zoom persistence across reload and full app restart.",
   );
 } catch (error) {
   console.error(output);
   throw error;
 } finally {
-  await browser?.close();
-  if (child.pid && child.exitCode === null) {
-    try {
-      process.kill(-child.pid, "SIGINT");
-    } catch {
-      /* already stopped */
-    }
-    await new Promise<void>((resolve) => {
-      const timer = setTimeout(() => {
-        try {
-          process.kill(-child.pid!, "SIGKILL");
-        } catch {
-          /* already stopped */
-        }
-        resolve();
-      }, 5000);
-      child.once("exit", () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
-  }
+  await stopDev();
   await rm(temp, { recursive: true, force: true });
 }

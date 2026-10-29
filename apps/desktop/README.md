@@ -47,7 +47,7 @@ Settings are also available on the profile-selection screen.
 - Select the provider used by new requests; use **Test connection** to check it.
 - Replace or remove a saved key without reading it back into the UI.
 - Configure native Codex paths/models, project folders and review limits.
-- Choose fullscreen, maximized or windowed startup. Fullscreen is the first-run default.
+- The app starts maximized by default, with an optional windowed startup mode.
 - Use `Ctrl++` / `Ctrl+=`, `Ctrl+-` and `Ctrl+0` for persistent application zoom.
   `F11` toggles fullscreen without changing the selected startup mode.
 

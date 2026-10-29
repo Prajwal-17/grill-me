@@ -64,9 +64,7 @@ export type LocalSettings = {
   migration: { pending: boolean; message: string | null };
 };
 export const windowSettingsSchema = z.object({
-  startup: z
-    .enum(["fullscreen", "maximized", "windowed"])
-    .default("fullscreen"),
+  startup: z.enum(["maximized", "windowed"]).default("maximized"),
   zoom: z.number().min(0.5).max(2).default(1),
 });
 export type WindowSettings = z.infer<typeof windowSettingsSchema>;

@@ -147,7 +147,7 @@ test("window settings persist startup mode and zoom while rejecting invalid valu
   try {
     const { windowSettingsStore } = await import("../src/window-settings");
     const first = windowSettingsStore(root);
-    expect(first.get()).toEqual({ startup: "fullscreen", zoom: 1 });
+    expect(first.get()).toEqual({ startup: "maximized", zoom: 1 });
     first.set({ startup: "maximized", zoom: 1.2 });
     expect(windowSettingsStore(root).get()).toEqual({
       startup: "maximized",
@@ -155,6 +155,24 @@ test("window settings persist startup mode and zoom while rejecting invalid valu
     });
     expect(() => first.set({ zoom: 3 })).toThrow();
     expect(first.get().zoom).toBe(1.2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("legacy fullscreen settings migrate to maximized without losing zoom", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-legacy-window-"));
+  try {
+    const { writeFile } = await import("node:fs/promises");
+    await writeFile(
+      join(root, "desktop-settings.json"),
+      JSON.stringify({ startup: "fullscreen", zoom: 1.3 }),
+    );
+    const { windowSettingsStore } = await import("../src/window-settings");
+    expect(windowSettingsStore(root).get()).toEqual({
+      startup: "maximized",
+      zoom: 1.3,
+    });
   } finally {
     await rm(root, { recursive: true, force: true });
   }

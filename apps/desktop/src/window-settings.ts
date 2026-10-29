@@ -5,7 +5,12 @@ export function windowSettingsStore(root: string) {
   const path = join(root, "desktop-settings.json");
   let value: WindowSettings;
   try {
-    value = windowSettingsSchema.parse(JSON.parse(readFileSync(path, "utf8")));
+    const stored = JSON.parse(readFileSync(path, "utf8"));
+    // Older versions persisted fullscreen alongside zoom. Preserve their zoom.
+    value = windowSettingsSchema.parse({
+      ...stored,
+      startup: stored.startup === "fullscreen" ? "maximized" : stored.startup,
+    });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT")
       console.error("Window settings could not be read; using defaults.");
