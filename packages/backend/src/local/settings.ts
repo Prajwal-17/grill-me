@@ -14,6 +14,7 @@ import {
 } from "@repo/contracts";
 import { AppError } from "../shared/errors/app-error";
 import { changed } from "./changes";
+import type { CliProviders } from "./providers";
 import {
   linuxSecretStore,
   sessionSecretStore,
@@ -37,6 +38,7 @@ export function createSettingsService(
     keyring?: SecretStore;
     session?: SecretStore;
     modulePath?: string;
+    cli?: CliProviders;
   } = {},
 ) {
   const db = new Database(join(root, "settings.sqlite"), {
@@ -137,6 +139,12 @@ export function createSettingsService(
       const parsed = providerInputSchema.parse(input);
       const { apiKey, removeKey, ...provider } = parsed;
       const previous = document.providers.find((p) => p.id === provider.id);
+      if (previous && previous.kind !== provider.kind)
+        throw new AppError(
+          "PROVIDER_KIND_IMMUTABLE",
+          "Add a new provider to use a different connection type.",
+          400,
+        );
       let credential = previous?.credential;
       let mode = previous?.storage ?? provider.storage;
       if (apiKey) {
@@ -169,7 +177,14 @@ export function createSettingsService(
         mode = provider.storage;
         credential = await protect(mode, value);
       }
-      const record = { ...provider, storage: mode, credential };
+      const record = {
+        ...provider,
+        endpoint: provider.kind === "openai" ? provider.endpoint : undefined,
+        storage: mode,
+        credential,
+      };
+      if (previous && previous.binaryPath !== provider.binaryPath)
+        options.cli?.disconnect(provider.id);
       try {
         persist({
           ...document,
@@ -200,6 +215,7 @@ export function createSettingsService(
       exclusive(async () => {
         z.string().uuid().parse(id);
         const previous = document.providers.find((p) => p.id === id);
+        options.cli?.disconnect(id);
         persist({
           ...document,
           providers: document.providers.filter((p) => p.id !== id),
@@ -231,7 +247,11 @@ export function createSettingsService(
       }),
     testProvider: async (id) => {
       const value = await snapshot(id);
-      const url = new URL(value.endpoint + "/models");
+      if (value.kind !== "openai") {
+        const status = await options.cli!.status(value);
+        return { ok: status.connected, message: status.message };
+      }
+      const url = new URL(value.endpoint! + "/models");
       try {
         const response = await fetch(url, {
           headers: value.apiKey
@@ -333,6 +353,22 @@ export function createSettingsService(
     return { ...provider, apiKey };
   }
   applyRuntime();
-  return { ...api, snapshot, applyRuntime, close: () => db.close() };
+  async function provider(id: string) {
+    const value = document.providers.find((p) => p.id === id);
+    if (!value)
+      throw new AppError(
+        "PROVIDER_NOT_FOUND",
+        "Choose an existing provider.",
+        404,
+      );
+    if (value.kind === "openai")
+      throw new AppError(
+        "PROVIDER_TYPE_INVALID",
+        "This action requires a CLI provider.",
+        400,
+      );
+    return value;
+  }
+  return { ...api, snapshot, provider, applyRuntime, close: () => db.close() };
 }
 export type SettingsService = ReturnType<typeof createSettingsService>;

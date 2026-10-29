@@ -23,7 +23,11 @@ export function redactLogValue<T>(value: T, secret?: string): T {
 function safeEndpoint(value: string) {
   try {
     const url = new URL(value);
-    return url.origin + url.pathname;
+    return (
+      (url.origin === "null"
+        ? `${url.protocol}//${url.hostname}`
+        : url.origin) + url.pathname
+    );
   } catch {
     return "Configured model endpoint";
   }

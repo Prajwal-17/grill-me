@@ -30,6 +30,7 @@ export const getSubmissionFile = (
 export const getProjects = (profile: string) =>
   apiRequest<ConnectedProject[]>("/projects", {}, profile);
 export type JudgeStatus = {
+  providerManaged?: boolean;
   codex: {
     installed: boolean;
     authenticated: boolean;

@@ -40,38 +40,6 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
         }}
       >
         <fieldset disabled={save.isPending} className="min-w-0">
-          <SettingsGroup title="Codex">
-            <SettingsRow
-              label="Codex executable"
-              htmlFor="codex-bin"
-              description="Leave empty to find Codex in PATH."
-            >
-              <Input
-                id="codex-bin"
-                maxLength={4096}
-                pattern="(/.*)?"
-                title="Use an absolute path, or leave empty to find Codex in PATH."
-                value={runtime.codexBin}
-                onChange={(e) => update({ codexBin: e.target.value })}
-                placeholder="/absolute/path/to/codex"
-                spellCheck={false}
-              />
-            </SettingsRow>
-            <SettingsRow
-              label="Codex model"
-              htmlFor="codex-model"
-              description="Leave empty to use the default model."
-            >
-              <Input
-                id="codex-model"
-                maxLength={160}
-                value={runtime.codexModel}
-                onChange={(e) => update({ codexModel: e.target.value })}
-                placeholder="Default model"
-                spellCheck={false}
-              />
-            </SettingsRow>
-          </SettingsGroup>
           <SettingsGroup title="Workspace">
             <SettingsRow
               label="Projects folder"
@@ -91,25 +59,6 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
             </SettingsRow>
           </SettingsGroup>
           <SettingsGroup title="Review limits">
-            <SettingsRow
-              label="Review context tokens"
-              htmlFor="context-tokens"
-              description="Maximum context passed to a review."
-            >
-              <Input
-                id="context-tokens"
-                type="number"
-                min={1024}
-                max={1000000}
-                step={1}
-                required
-                value={runtime.contextTokens}
-                onChange={(e) =>
-                  update({ contextTokens: Number(e.target.value) })
-                }
-                className="tabular-nums"
-              />
-            </SettingsRow>
             <SettingsRow
               label="Review timeout (seconds)"
               htmlFor="review-timeout"

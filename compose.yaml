@@ -33,7 +33,6 @@ services:
       DATABASE_URL: postgresql://prajwal-17:prajwal2004@postgres:5432/grill-me
       LLM_BASE_URL: ${OMNIROUTE_BASE_URL:-http://host.docker.internal:20128/v1}
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:17018,http://127.0.0.1:17018}
-      CODEX_HOME: /codex-state
       PROJECTS_ROOT: /mnt/hdd/code/challenges
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -41,7 +40,6 @@ services:
       - "127.0.0.1:17017:17017"
     volumes:
       - /mnt/hdd/.config/grill-me:/mnt/hdd/.config/grill-me
-      - codex-state:/codex-state
       - /mnt/hdd/code/challenges:/mnt/hdd/code/challenges:ro
     depends_on:
       postgres:
@@ -61,4 +59,3 @@ volumes:
   primary-pg-data:
     external: true
     name: primary-pg-data
-  codex-state:

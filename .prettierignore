@@ -4,6 +4,7 @@ packages/backend/drizzle/meta/
 
 # Local runtime and review artifacts
 .data/
+**/.impeccable/hook.cache.json
 
 **/dist/
 **/playwright-report/

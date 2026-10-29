@@ -2,7 +2,7 @@ import { chromium, expect } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { createServer as createHttpServer } from "node:http";
-import { mkdtemp, rm, mkdir } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, writeFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 async function port() {
@@ -15,13 +15,79 @@ async function port() {
 }
 const root = resolve(import.meta.dirname, "../../..");
 const temp = await mkdtemp(join(tmpdir(), "grill-web-smoke-"));
+const cliBinary = join(temp, "fixture-codex");
+await writeFile(
+  cliBinary,
+  `#!${process.execPath}\nimport ${JSON.stringify(resolve(root, "apps/desktop/test/fixtures/cli-provider.ts"))};\n`,
+);
+await chmod(cliBinary, 0o700);
+const openCodeBinary = join(temp, "fixture-opencode2");
+await writeFile(
+  openCodeBinary,
+  `#!${process.execPath}\nimport ${JSON.stringify(resolve(root, "apps/desktop/test/fixtures/opencode2-provider.ts"))};\n`,
+);
+await chmod(openCodeBinary, 0o700);
 const [apiPort, webPort, providerPort] = await Promise.all([
   port(),
   port(),
   port(),
 ]);
 let providerStatus = 200;
-const providerServer = createHttpServer((_request, response) => {
+let failDiscussion = true;
+let holdDiscussion = false;
+const providerServer = createHttpServer(async (request, response) => {
+  if (request.url?.endsWith("/responses")) {
+    let raw = "";
+    for await (const chunk of request) raw += String(chunk);
+    const body = JSON.parse(raw);
+    if (body.stream) {
+      response.writeHead(200, { "content-type": "text/event-stream" });
+      response.write(
+        `data: ${JSON.stringify({ type: "response.output_text.delta", delta: "Review discussion survives a provider failure." })}\n\n`,
+      );
+      if (holdDiscussion) return;
+      response.end(
+        `data: ${JSON.stringify({ type: failDiscussion ? "response.failed" : "response.completed", response: { status: failDiscussion ? "failed" : "completed" } })}\n\n`,
+      );
+      return;
+    }
+    const output =
+      body.text?.format?.name === "build_preparation"
+        ? { question: null, options: [] }
+        : {
+            status: "ready",
+            question: null,
+            options: [],
+            challenge: {
+              title: "Local discussion fixture",
+              estimatedDifficultyBand: "medium",
+              difficultyReason: "Direct application of known syntax.",
+              topic: "TypeScript",
+              implementationBoundary: "",
+              durationEstimate: { minMinutes: 35, maxMinutes: 50 },
+              implementationMilestones: [],
+              problemStatement:
+                "Build a function that groups words by their first letter.",
+              expectedOutcome:
+                "A function with deterministic, observable return values.",
+              constraints: [],
+              starterCode: null,
+              completionCriteria: [
+                "Returns an empty object for empty input.",
+                "Groups repeated first letters without dropping words.",
+              ],
+            },
+          };
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(
+      JSON.stringify({
+        status: "completed",
+        output_text: JSON.stringify(output),
+        output: [],
+      }),
+    );
+    return;
+  }
   response.writeHead(providerStatus, { "content-type": "application/json" });
   response.end(JSON.stringify({ data: [] }));
 });
@@ -120,6 +186,10 @@ try {
   ).toBeVisible();
   await capture("settings-empty.png");
   await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await page.getByLabel("Connection type", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "OpenAI-compatible API", exact: true })
+    .click();
   await page
     .getByLabel("Provider name", { exact: true })
     .fill("Standalone provider");
@@ -184,12 +254,12 @@ try {
   await capture("settings-providers.png");
   await selectSection("Local runtime");
   await page
-    .getByLabel("Codex model", { exact: true })
-    .fill("local-review-model");
+    .getByLabel("Projects folder", { exact: true })
+    .fill("/tmp/local-review-projects");
   await selectSection("Appearance");
   await selectSection("Local runtime");
-  await expect(page.getByLabel("Codex model", { exact: true })).toHaveValue(
-    "local-review-model",
+  await expect(page.getByLabel("Projects folder", { exact: true })).toHaveValue(
+    "/tmp/local-review-projects",
   );
   await capture("settings-runtime-unsaved.png");
   await page.getByRole("button", { name: "Save runtime settings" }).click();
@@ -197,14 +267,18 @@ try {
     page.getByText("Runtime settings saved.", { exact: true }),
   ).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Codex model", { exact: true })).toHaveValue(
-    "local-review-model",
+  await expect(page.getByLabel("Projects folder", { exact: true })).toHaveValue(
+    "/tmp/local-review-projects",
   );
   await selectSection("Data & connection");
   await expect(page.getByRole("status")).toContainText("Connected");
   await capture("settings-data.png");
   await selectSection("AI providers");
   await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await page.getByLabel("Connection type", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "OpenAI-compatible API", exact: true })
+    .click();
   const longName =
     "Local provider with a deliberately long name for narrow desktop layouts";
   await page.getByLabel("Provider name", { exact: true }).fill(longName);
@@ -253,6 +327,65 @@ try {
   await expect(
     page.getByText("Standalone provider", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await page
+    .getByLabel("Provider name", { exact: true })
+    .fill("Connected Codex");
+  await page.getByLabel("CLI executable", { exact: true }).fill(cliBinary);
+  await page
+    .getByRole("button", { name: "Save provider", exact: true })
+    .click();
+  await expect(
+    page.getByText("Sign in to Codex to connect this installation.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await capture("settings-cli-signin.png");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "Open sign-in page" }),
+  ).toHaveAttribute("href", "https://auth.openai.com/fixture-login");
+  await expect(
+    page.getByText("Codex is connected.", { exact: true }),
+  ).toBeVisible({ timeout: 10000 });
+  await page.getByLabel("Model for Connected Codex", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "Fixture model", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("Model for Connected Codex", { exact: true }),
+  ).toContainText("Fixture model");
+  await capture("settings-cli-connected.png");
+  await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await page.getByLabel("Connection type", { exact: true }).click();
+  await page.getByRole("option", { name: "OpenCode CLI", exact: true }).click();
+  await page
+    .getByLabel("Provider name", { exact: true })
+    .fill("Connected OpenCode");
+  await page.getByLabel("CLI executable", { exact: true }).fill(openCodeBinary);
+  await page
+    .getByRole("button", { name: "Save provider", exact: true })
+    .click();
+  const openCode = page.getByRole("listitem").filter({
+    has: page.getByRole("heading", {
+      name: "Connected OpenCode",
+      exact: true,
+    }),
+  });
+  await expect(
+    openCode.getByText("Connect an account to use OpenCode models.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await openCode
+    .getByLabel("Account API key", { exact: true })
+    .fill("fixture-key");
+  await capture("settings-opencode-account.png");
+  await openCode.getByRole("button", { name: "Sign in", exact: true }).click();
+  await expect(
+    openCode.getByText("OpenCode is connected.", { exact: true }),
+  ).toBeVisible();
+  await capture("settings-opencode-connected.png");
   await selectSection("Appearance");
   await capture("desktop.png");
   await page.setViewportSize({ width: 1920, height: 978 });
@@ -280,7 +413,16 @@ try {
   ).toBe(true);
   await capture("mobile.png");
   await selectSection("AI providers");
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
+  await page
+    .getByRole("listitem")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Standalone provider",
+        exact: true,
+      }),
+    })
+    .getByRole("button", { name: "Edit", exact: true })
+    .click();
   await capture("settings-editor-narrow.png");
   expect(
     await page.evaluate(
@@ -292,6 +434,104 @@ try {
   await expect(
     page.getByRole("button", { name: "Show API key" }),
   ).toBeFocused();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`http://127.0.0.1:${webPort}`);
+  const challenge = (await page.evaluate(async (modulePath) => {
+    const { localClient } = await import(/* @vite-ignore */ modulePath);
+    const state = Object.values(localStorage)
+      .map((value) => {
+        try {
+          return JSON.parse(value);
+        } catch {
+          return null;
+        }
+      })
+      .find(
+        (value) => value?.state?.profile?.email === "web-smoke@example.test",
+      );
+    return localClient().request({
+      path: "/challenges/generate",
+      method: "POST",
+      profileId: state.state.profile.id,
+      body: {
+        prompt: "Build string grouping in TypeScript",
+        scope: "focused",
+        difficulty: "medium",
+        clarificationContext: null,
+      },
+    });
+  }, `/@fs${root}/packages/ui/src/shared/lib/local-client.ts`)) as {
+    id: string;
+  };
+  await page.goto(`http://127.0.0.1:${webPort}/chat?id=${challenge.id}`);
+  await page
+    .getByLabel("Ask about this challenge", { exact: true })
+    .fill("Can you explain this requirement?");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Retry response", exact: true }),
+  ).toBeVisible();
+  await capture("discussion-failed.png");
+  await page.reload();
+  await expect(
+    page.getByText("Review discussion survives a provider failure.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  failDiscussion = false;
+  await page
+    .getByRole("button", { name: "Retry response", exact: true })
+    .click();
+  await expect(
+    page.getByText("Review discussion survives a provider failure.", {
+      exact: true,
+    }),
+  ).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "Stop response", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Can you explain this requirement?", { exact: true }),
+  ).toHaveCount(1);
+  await page
+    .getByText("Review discussion survives a provider failure.", {
+      exact: true,
+    })
+    .last()
+    .scrollIntoViewIfNeeded();
+  await page
+    .getByRole("button", { name: "Send message", exact: true })
+    .scrollIntoViewIfNeeded();
+  await capture("discussion-recovered.png");
+  holdDiscussion = true;
+  await page
+    .getByLabel("Ask about this challenge", { exact: true })
+    .fill("Stop this response");
+  await page.getByRole("button", { name: "Send message", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Stop response", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Stop response", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Retry response", exact: true }),
+  ).toHaveCount(2);
+  await page
+    .getByRole("button", { name: "Retry response", exact: true })
+    .last()
+    .scrollIntoViewIfNeeded();
+  await capture("discussion-cancelled.png");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByLabel("Ask about this challenge", { exact: true })
+    .scrollIntoViewIfNeeded();
+  await capture("discussion-narrow.png");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
   expect(errors).toEqual([]);
   expect(applicationHttp).toEqual([]);
   console.log(

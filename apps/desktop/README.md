@@ -81,7 +81,7 @@ repository's ignored `.data/standalone-dev/`.
 - `settings.sqlite`: non-secret provider/runtime settings and opaque key references.
 - `desktop-settings.json`: desktop startup mode and zoom.
 - `backend.log`: desktop backend diagnostics.
-- Uploads, submissions, Codex state and Electron's development browser session.
+- Uploads, submissions, isolated `providers/<id>/` state, and Electron's development browser session.
 
 Local data directories have owner-only permissions. Keyring entries are scoped
 to the development edition and the data root. There is no full-database encryption;
@@ -147,3 +147,5 @@ owns the dev application identity. The backend, parser worker and native keyring
 loader/binding live outside ASAR. Main/preload workspace dependencies are bundled.
 Package creation, when explicitly requested or run in CI, is `bun run desktop:deb`.
 No package build is part of `bun dev` or the source checks above.
+
+See [CLI provider connections](../../docs/cli-providers.md) for Codex/OpenCode sign-in, local history, and recovery.

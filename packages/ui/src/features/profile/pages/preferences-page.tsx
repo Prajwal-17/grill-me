@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+import { localTransport } from "@/shared/lib/local-client";
 import { PreferencesSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
@@ -42,7 +44,7 @@ export function PreferencesPage() {
         {},
         profile!.id,
       ),
-    enabled: Boolean(profile),
+    enabled: Boolean(profile) && !localTransport,
     retry: false,
     staleTime: 60_000,
   });
@@ -187,47 +189,60 @@ export function PreferencesPage() {
                   >
                     Code reviews
                   </h2>
-                  <PreferenceRow label="Codex model" htmlFor="codex-model">
-                    <div className="space-y-2">
-                      <Input
-                        id="codex-model"
-                        list="codex-model-options"
-                        value={form.codexModel}
-                        required
-                        maxLength={160}
-                        onChange={(e) => update("codexModel", e.target.value)}
-                        className="w-full"
-                      />
-                      <datalist id="codex-model-options">
-                        {(
-                          codexModels.data?.models ?? [
-                            { id: DEFAULT_CODEX_MODEL, label: "GPT-5.6 Sol" },
-                          ]
-                        ).map((model) => (
-                          <option key={model.id} value={model.id}>
-                            {model.label}
-                          </option>
-                        ))}
-                      </datalist>
-                      {codexModels.isLoading && (
-                        <p className="text-supporting text-muted">
-                          Loading available models…
-                        </p>
-                      )}
-                      {codexModels.error && (
-                        <p className="text-supporting text-muted">
-                          Could not load models: {codexModels.error.message}{" "}
-                          <button
-                            type="button"
-                            className="underline"
-                            onClick={() => codexModels.refetch()}
-                          >
-                            Retry
-                          </button>
-                        </p>
-                      )}
-                    </div>
-                  </PreferenceRow>
+                  {localTransport ? (
+                    <p className="py-4 text-ui text-muted">
+                      Review providers and models are managed in{" "}
+                      <Link
+                        to="/settings?section=providers"
+                        className="text-foreground underline underline-offset-4"
+                      >
+                        AI provider settings
+                      </Link>
+                      .
+                    </p>
+                  ) : (
+                    <PreferenceRow label="Codex model" htmlFor="codex-model">
+                      <div className="space-y-2">
+                        <Input
+                          id="codex-model"
+                          list="codex-model-options"
+                          value={form.codexModel}
+                          required
+                          maxLength={160}
+                          onChange={(e) => update("codexModel", e.target.value)}
+                          className="w-full"
+                        />
+                        <datalist id="codex-model-options">
+                          {(
+                            codexModels.data?.models ?? [
+                              { id: DEFAULT_CODEX_MODEL, label: "GPT-5.6 Sol" },
+                            ]
+                          ).map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.label}
+                            </option>
+                          ))}
+                        </datalist>
+                        {codexModels.isLoading && (
+                          <p className="text-supporting text-muted">
+                            Loading available models…
+                          </p>
+                        )}
+                        {codexModels.error && (
+                          <p className="text-supporting text-muted">
+                            Could not load models: {codexModels.error.message}{" "}
+                            <button
+                              type="button"
+                              className="underline"
+                              onClick={() => codexModels.refetch()}
+                            >
+                              Retry
+                            </button>
+                          </p>
+                        )}
+                      </div>
+                    </PreferenceRow>
+                  )}
                 </section>
                 <PreferencesFields
                   section={section}

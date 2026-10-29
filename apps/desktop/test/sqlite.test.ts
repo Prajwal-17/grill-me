@@ -177,3 +177,61 @@ test("legacy fullscreen settings migrate to maximized without losing zoom", asyn
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("SQLite v1 upgrades retain existing conversations and initialize completed status", async () => {
+  const { Database } = await import("bun:sqlite");
+  const { createSqliteDatabase } =
+    await import("@repo/backend/shared/database/db.sqlite");
+  const { readFile } = await import("node:fs/promises");
+  const root = await mkdtemp(join(tmpdir(), "grill-v1-upgrade-"));
+  const path = join(root, "legacy.sqlite");
+  try {
+    const legacy = new Database(path);
+    legacy.exec(
+      await readFile(
+        new URL(
+          "../../../packages/backend/drizzle-sqlite/0000_desktop.sql",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    );
+    legacy.exec("PRAGMA user_version=1");
+    legacy
+      .query(
+        "INSERT INTO profiles(id,email,created_at,updated_at) VALUES('legacy-owner','legacy@example.test',1,1)",
+      )
+      .run();
+    legacy
+      .query(
+        "INSERT INTO challenges(id,profile_id,challenge_number,title,scope,difficulty,contextual_difficulty,duration_min_minutes,duration_max_minutes,implementation_milestones,problem_statement,expected_outcome,constraints,completion_criteria,created_at) VALUES('legacy-challenge','legacy-owner',1,'Legacy','focused','medium','medium',1,2,'[]','Task','Result','[]','[]',1)",
+      )
+      .run();
+    legacy
+      .query(
+        "INSERT INTO messages(id,challenge_id,role,mode,content,attachments,created_at) VALUES('legacy-message','legacy-challenge','assistant','clarify','Saved before upgrade','[]',2)",
+      )
+      .run();
+    legacy.close();
+    const upgraded = createSqliteDatabase(path);
+    await upgraded.migrateDatabase();
+    expect(upgraded.sqlite.query("PRAGMA user_version").get()).toEqual({
+      user_version: 2,
+    });
+    expect(
+      upgraded.sqlite
+        .query("SELECT content,status FROM messages WHERE id='legacy-message'")
+        .get(),
+    ).toEqual({ content: "Saved before upgrade", status: "completed" });
+    const columns = upgraded.sqlite
+      .query("PRAGMA table_info(messages)")
+      .all() as { name: string; dflt_value: string | null }[];
+    expect(columns.find((c) => c.name === "status")?.dflt_value).toBe(
+      "'completed'",
+    );
+    await upgraded.migrateDatabase();
+    upgraded.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -64,12 +64,6 @@ export function evaluationsPath() {
   );
 }
 
-export function codexInstallPath() {
-  return resolve(
-    configured("CODEX_INSTALL_ROOT") ?? join(appConfigRoot(), "codex-cli"),
-  );
-}
-
 function copyMissing(source: string, destination: string): boolean {
   const sourceStat = lstatSync(source);
   if (sourceStat.isDirectory()) {

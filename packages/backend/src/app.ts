@@ -33,11 +33,16 @@ type AppDependencies = {
     online: boolean;
     message: string;
   }>;
+  providerModels?: () => Promise<{
+    models: { id: string; label: string }[];
+    defaultModel: string;
+  }>;
 };
 
 export function createApp({
   llm,
   providerStatus,
+  providerModels,
   webOrigin = "http://localhost:17018,http://127.0.0.1:17018",
 }: AppDependencies) {
   const app = new Hono();
@@ -76,7 +81,12 @@ export function createApp({
 
   app.route(
     "/",
-    createReviewRoutes(reviewService, profileService, providerStatus),
+    createReviewRoutes(
+      reviewService,
+      profileService,
+      providerStatus,
+      providerModels,
+    ),
   );
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
   app.route("/logs", createLogRoutes(profileService));

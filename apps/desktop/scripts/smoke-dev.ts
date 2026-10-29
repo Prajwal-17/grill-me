@@ -170,6 +170,10 @@ try {
   ).toBeVisible();
   await page.getByRole("link", { name: "AI providers", exact: true }).click();
   await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await page.getByLabel("Connection type", { exact: true }).click();
+  await page
+    .getByRole("option", { name: "OpenAI-compatible API", exact: true })
+    .click();
   await page
     .getByLabel("Provider name", { exact: true })
     .fill("Smoke local provider");

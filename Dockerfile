@@ -10,11 +10,10 @@ COPY apps ./apps
 COPY packages ./packages
 
 FROM base AS backend
-RUN bun install --global @openai/codex@0.153.4
 WORKDIR /app/apps/backend
 RUN bun run build
 EXPOSE 17017
-ENV NODE_ENV=production APP_ENV=production API_HOST=0.0.0.0 API_PORT=17017 CODEX_HOME=/codex-state
+ENV NODE_ENV=production APP_ENV=production API_HOST=0.0.0.0 API_PORT=17017
 CMD ["bun", "run", "start"]
 
 FROM base AS web-build

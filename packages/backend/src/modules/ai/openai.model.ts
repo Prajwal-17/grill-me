@@ -43,6 +43,8 @@ import {
   structuredOutputInstruction,
 } from "./prompts";
 
+import type { TextTransport } from "../../local/providers/common";
+
 type StructuredPrompt = {
   instructions: string;
   input: string;
@@ -144,6 +146,7 @@ export function createOpenAIModel(
     apiKey?: string;
     baseURL?: string;
     model?: string;
+    transport?: TextTransport;
   } = {},
 ): ModelGateway {
   const apiKey =
@@ -183,6 +186,7 @@ export function createOpenAIModel(
       | "resume_import";
     // Each action has its own instructions and schema.
     signal?: AbortSignal;
+    workspace?: string;
     schema: Record<string, unknown>;
     validator: z.ZodType<T>;
     normalize?: (value: unknown) => unknown;
@@ -211,9 +215,20 @@ export function createOpenAIModel(
       apiKey,
     );
     try {
-      const response = await client().responses.create(request, {
-        signal: input.signal,
-      });
+      const response = options.transport
+        ? await (async () => {
+            let output_text = "";
+            for await (const delta of options.transport!.run({
+              instructions: request.instructions,
+              input: request.input,
+              schema: input.schema,
+              signal: input.signal,
+              workspace: input.workspace,
+            }))
+              output_text += delta;
+            return { status: "completed" as const, output_text, output: [] };
+          })()
+        : await client().responses.create(request, { signal: input.signal });
       log.response(response);
       const stage =
         input.stage === "preparation"
@@ -313,6 +328,7 @@ export function createOpenAIModel(
   async function* textStream(
     input: StructuredPrompt,
     context: LogContext,
+    signal?: AbortSignal,
   ): AsyncGenerator<string> {
     const request = {
       model,
@@ -330,7 +346,23 @@ export function createOpenAIModel(
     let receivedText = false;
     let completed = false;
     try {
-      const events = await client().responses.create(request);
+      if (options.transport) {
+        for await (const delta of options.transport.run({ ...input, signal })) {
+          receivedText = true;
+          log.delta(delta);
+          yield delta;
+        }
+        if (!receivedText)
+          throw new AppError(
+            "EMPTY_MODEL_RESPONSE",
+            "The provider returned an empty response. Retry the saved request.",
+            502,
+            true,
+          );
+        await log.finish("success");
+        return;
+      }
+      const events = await client().responses.create(request, { signal });
       for await (const event of events) {
         log.event(event);
         const eventRecord = event as unknown as Record<string, unknown>;
@@ -386,8 +418,15 @@ export function createOpenAIModel(
         );
       await log.finish("success");
     } catch (error) {
-      await log.finish("error", error);
-      return modelUnavailable(error);
+      const failure = signal?.aborted
+        ? new AppError(
+            "REQUEST_CANCELLED",
+            "The response was stopped. Your conversation is saved.",
+            499,
+          )
+        : error;
+      await log.finish(signal?.aborted ? "cancelled" : "error", failure);
+      return modelUnavailable(failure);
     } finally {
       await log.finish(
         "cancelled",
@@ -517,6 +556,7 @@ Do not infer seniority, years of experience, mastery, learning goals, topic fami
         schema: reviewJsonSchema,
         validator: reviewResultSchema,
         signal: input.signal,
+        workspace: input.workspace,
       });
     },
     planVerification(input) {
@@ -580,6 +620,7 @@ Do not infer seniority, years of experience, mastery, learning goals, topic fami
           operation: input.mode,
           preview: input.content || input.challenge.title,
         },
+        input.signal,
       );
     },
 

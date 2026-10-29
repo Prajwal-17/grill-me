@@ -15,6 +15,10 @@ export function createReviewRoutes(
   service: ReturnType<typeof createReviewService>,
   profiles: ProfileService,
   providerStatus = omnirouteStatus,
+  providerModels?: () => Promise<{
+    models: { id: string; label: string }[];
+    defaultModel: string;
+  }>,
 ) {
   const routes = new Hono();
   const profile = async (c: Context) => {
@@ -69,14 +73,24 @@ export function createReviewRoutes(
   });
   routes.get("/judges/models", async (c) => {
     await profile(c);
-    return c.json({ data: await codexModels() });
+    return c.json({
+      data: await (providerModels ? providerModels() : codexModels()),
+    });
   });
   routes.get("/judges/status", async (c) => {
     await profile(c);
     const omniroute = await providerStatus();
     return c.json({
       data: {
-        codex: await codexStatus(),
+        codex: providerModels
+          ? {
+              installed: omniroute.configured,
+              authenticated: omniroute.online,
+              version: null,
+              message: omniroute.message,
+            }
+          : await codexStatus(),
+        providerManaged: Boolean(providerModels),
         verificationAvailable: verificationAvailable(),
         omniroute,
         omnirouteConfigured: omniroute.configured,

@@ -76,6 +76,7 @@ export function sqliteDatabase() {
   if (value.dialect !== "sqlite") throw new Error("Not a SQLite runtime.");
   return value;
 }
+export const databaseDialect = () => current().dialect;
 export async function closeDatabase() {
   if (adapter) {
     await adapter.close();

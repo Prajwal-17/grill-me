@@ -1420,7 +1420,7 @@ describe("solution attachments", () => {
       mode: "review",
       content: "Review this",
     });
-    expect(notOwned.status).toBe(200);
+    expect(notOwned.status).toBe(404);
     expect(await notOwned.text()).toContain("CHALLENGE_NOT_FOUND");
   });
 });
@@ -4267,3 +4267,107 @@ describe("background generations", () => {
     );
   });
 });
+
+describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
+  "local durable discussions",
+  () => {
+    test("failed partial responses survive reload and retry without duplicating the user's request", async () => {
+      class InterruptedModel extends FakeModel {
+        fail = true;
+        async *respond(input: (typeof this.responseInputs)[number]) {
+          this.responseInputs.push(input);
+          yield "Partial review";
+          if (this.fail)
+            throw new AppError(
+              "PROVIDER_EXITED",
+              "The provider exited. Reconnect and retry.",
+              503,
+              true,
+            );
+          yield " completed";
+        }
+      }
+      const model = new InterruptedModel();
+      const app = createApp({ llm: model });
+      const owner = await startProfile(
+        app,
+        `durable-${crypto.randomUUID()}@test.dev`,
+      );
+      const challenge = await createChallenge(app, owner.id);
+      const path = `/challenges/${challenge.id}/messages`;
+      const first = await request(app, path, owner.id, {
+        content: "Explain this requirement",
+        mode: "clarify",
+      });
+      expect(await first.text()).toContain("PROVIDER_EXITED");
+      const saved = (
+        await json<{ data: ChatMessage[] }>(await request(app, path, owner.id))
+      ).data.filter((m) => m.mode === "clarify");
+      expect(saved).toHaveLength(2);
+      expect(saved[0]!.content).toBe("Explain this requirement");
+      expect(saved[1]).toMatchObject({
+        content: "Partial review",
+        status: "failed",
+        replyTo: saved[0]!.id,
+      });
+      const other = await startProfile(
+        app,
+        `outsider-${crypto.randomUUID()}@test.dev`,
+      );
+      expect(
+        (await request(app, `${path}/${saved[1]!.id}/retry`, other.id, {}))
+          .status,
+      ).toBe(404);
+      model.fail = false;
+      expect(
+        await (
+          await request(app, `${path}/${saved[1]!.id}/retry`, owner.id, {})
+        ).text(),
+      ).toContain('"type":"done"');
+      const retried = (
+        await json<{ data: ChatMessage[] }>(await request(app, path, owner.id))
+      ).data.filter((m) => m.mode === "clarify");
+      expect(retried.filter((m) => m.role === "user")).toHaveLength(1);
+      expect(retried.at(-1)).toMatchObject({
+        status: "completed",
+        content: "Partial review completed",
+      });
+      expect(
+        model.responseInputs
+          .at(-1)
+          ?.messages.some((m) => m.status === "failed"),
+      ).toBe(false);
+    });
+    test("in-flight discussions reject concurrent sends and restart recovery preserves partial text", async () => {
+      const { messageModel } =
+        await import("../../../packages/backend/src/modules/messages/message.model");
+      const app = createApp({ llm: new FakeModel() });
+      const owner = await startProfile(
+        app,
+        `recover-${crypto.randomUUID()}@test.dev`,
+      );
+      const challenge = await createChallenge(app, owner.id);
+      const input = {
+        challengeId: challenge.id,
+        content: "Persist before generation",
+        mode: "clarify" as const,
+        attachments: [],
+      };
+      const turn = await messageModel.beginExchange(input);
+      await messageModel.checkpoint(turn.assistantId, "Partial before restart");
+      await expect(messageModel.beginExchange(input)).rejects.toMatchObject({
+        code: "CONVERSATION_BUSY",
+      });
+      await messageModel.recover();
+      const rows = (
+        await json<{ data: ChatMessage[] }>(
+          await request(app, `/challenges/${challenge.id}/messages`, owner.id),
+        )
+      ).data;
+      expect(rows.find((m) => m.id === turn.assistantId)).toMatchObject({
+        status: "interrupted",
+        content: "Partial before restart",
+      });
+    });
+  },
+);

@@ -22,11 +22,13 @@ export function sendMessage(
   mode: ComposerMode,
   attachments: MessageAttachment[],
   onDelta: (delta: string) => void,
+  signal?: AbortSignal,
 ) {
   return streamRequest<ChatMessage>(
     `/challenges/${challengeId}/messages`,
     {
       method: "POST",
+      signal,
       body: JSON.stringify({ content, mode, attachments }),
     },
     profileId,
@@ -43,6 +45,21 @@ export function getHint(
   return streamRequest<Challenge>(
     `/challenges/${challengeId}/hint?kind=${kind}`,
     { method: "POST", body: "{}" },
+    profileId,
+    onDelta,
+  );
+}
+
+export function retryMessage(
+  profileId: string,
+  challengeId: string,
+  messageId: string,
+  onDelta: (delta: string) => void,
+  signal?: AbortSignal,
+) {
+  return streamRequest<ChatMessage>(
+    `/challenges/${challengeId}/messages/${messageId}/retry`,
+    { method: "POST", body: "{}", signal },
     profileId,
     onDelta,
   );

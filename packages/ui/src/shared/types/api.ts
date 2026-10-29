@@ -62,6 +62,9 @@ export type MessageAttachment = {
 };
 
 export type ChatMessage = {
+  status?: "streaming" | "completed" | "failed" | "cancelled" | "interrupted";
+  error?: string | null;
+  replyTo?: string | null;
   id: string;
   challengeId: string;
   role: "user" | "assistant";

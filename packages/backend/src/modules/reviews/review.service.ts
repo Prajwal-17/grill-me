@@ -105,7 +105,19 @@ export function createReviewService(
     values: Partial<typeof reviewJobs.$inferInsert>,
   ) => db.update(reviewJobs).set(values).where(eq(reviewJobs.id, id));
   async function run(id: string) {
-    return withModelSnapshot(() => runSnapshot(id));
+    try {
+      await withModelSnapshot(() => runSnapshot(id));
+    } catch (error) {
+      await update(id, {
+        status: "failed",
+        progress: "Provider connection required",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Connect a provider in Settings, then retry.",
+        completedAt: new Date(),
+      });
+    }
   }
   async function runSnapshot(id: string) {
     const row = await job(id);
@@ -172,7 +184,14 @@ export function createReviewService(
         signal: controller.signal,
       };
       await update(id, { progress: "Checking verification environment" });
-      input.evidence = await verifier(llm, input, attempt.snapshotPath);
+      input.evidence = llm.reviewWorkspace
+        ? {
+            status: "inspection_only",
+            reason:
+              "Local review inspects the saved submission without executing code.",
+            checks: [],
+          }
+        : await verifier(llm, input, attempt.snapshotPath);
       controller.signal.throwIfAborted();
       await update(id, {
         progress:
@@ -183,22 +202,30 @@ export function createReviewService(
       const { result, score } = await validatedReview(
         input,
         async (input) =>
-          row.judge === "codex"
-            ? await judge(input, attempt.snapshotPath, (progress, ids) => {
-                void update(id, {
-                  progress,
-                  ...(ids?.logId ? { aiLogId: ids.logId } : {}),
-                  ...(ids?.threadId ? { providerThreadId: ids.threadId } : {}),
-                  ...(ids?.turnId ? { providerTurnId: ids.turnId } : {}),
-                });
-              })
-            : llm.judge
-              ? await llm.judge(input)
-              : (() => {
-                  throw new Error(
-                    "This model gateway does not support structured judging.",
-                  );
-                })(),
+          llm.reviewWorkspace
+            ? await llm.reviewWorkspace(
+                input,
+                attempt.snapshotPath,
+                attempt.manifest,
+              )
+            : row.judge === "codex"
+              ? await judge(input, attempt.snapshotPath, (progress, ids) => {
+                  void update(id, {
+                    progress,
+                    ...(ids?.logId ? { aiLogId: ids.logId } : {}),
+                    ...(ids?.threadId
+                      ? { providerThreadId: ids.threadId }
+                      : {}),
+                    ...(ids?.turnId ? { providerTurnId: ids.turnId } : {}),
+                  });
+                })
+              : llm.judge
+                ? await llm.judge(input)
+                : (() => {
+                    throw new Error(
+                      "This model gateway does not support structured judging.",
+                    );
+                  })(),
         () => update(id, { progress: "Correcting inconsistent review output" }),
       );
       controller.signal.throwIfAborted();

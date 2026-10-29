@@ -88,6 +88,7 @@ export type BuildModelInput = {
 };
 
 export type JudgeInput = {
+  workspace?: string;
   codexModel?: string;
   challenge: Challenge;
   content: string;
@@ -100,6 +101,11 @@ export type JudgeInput = {
   signal?: AbortSignal;
 };
 export interface ModelGateway {
+  reviewWorkspace?(
+    input: JudgeInput,
+    workspace: string,
+    manifest: import("../projects/snapshot").Manifest,
+  ): Promise<ReviewResult>;
   enhanceBuildPrompt?(input: {
     profileId: string;
     prompt: string;
@@ -123,6 +129,7 @@ export interface ModelGateway {
   ): Promise<ChallengePreparation>;
   generateBuild(input: BuildModelInput): Promise<BuildGenerationResult>;
   respond(input: {
+    signal?: AbortSignal;
     challenge: Challenge;
     messages: ChatMessage[];
     content: string;

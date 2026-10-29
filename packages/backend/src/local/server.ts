@@ -20,6 +20,7 @@ import { createSettingsService } from "./settings";
 import { settingsRoutes } from "./settings-routes";
 import { configuredModel } from "./model";
 import type { SecretStore } from "./secrets";
+import { createCliProviders } from "./providers";
 
 type SocketData = {
   pending: Map<string, AbortController>;
@@ -89,6 +90,8 @@ export async function startLocalServer(options: LocalServerOptions) {
       "Local servers require development mode and a strong launcher token.",
     );
   const root = resolve(options.dataRoot);
+  process.umask(0o077);
+  const cli = createCliProviders(root);
   const release = ownDirectory(root);
   let settings: ReturnType<typeof createSettingsService> | undefined;
   let runtime: Awaited<ReturnType<typeof createBackend>> | undefined;
@@ -96,11 +99,12 @@ export async function startLocalServer(options: LocalServerOptions) {
     settings = createSettingsService(root, {
       keyring: options.keyring,
       modulePath: options.keyringModule,
+      cli,
     });
     const config = settings;
     runtime = await createBackend({
       database: { dialect: "sqlite", path: join(root, "grill-me.sqlite") },
-      llm: configuredModel(settings),
+      llm: configuredModel(settings, cli),
       providerStatus: async () => {
         try {
           const provider = await config.snapshot();
@@ -118,11 +122,34 @@ export async function startLocalServer(options: LocalServerOptions) {
           };
         }
       },
+      providerModels: async () => {
+        const provider = await config.snapshot();
+        if (provider.kind === "openai")
+          return {
+            models: [{ id: provider.model, label: provider.model }],
+            defaultModel: provider.model,
+          };
+        const status = await cli.status(provider);
+        if (!status.connected)
+          throw new (await import("../shared/errors/app-error")).AppError(
+            status.code ?? "PROVIDER_DISCONNECTED",
+            status.message,
+            503,
+            true,
+          );
+        return {
+          models: status.models.map((m) => ({ id: m.id, label: m.name })),
+          defaultModel:
+            provider.model === "auto"
+              ? (status.models[0]?.id ?? "auto")
+              : provider.model,
+        };
+      },
       webOrigin: options.origins.join(","),
     });
     const backend = runtime;
     const app = runtime.app;
-    app.route("/settings", settingsRoutes(settings));
+    app.route("/settings", settingsRoutes(settings, cli));
     const renderer = options.rendererRoot
       ? resolve(options.rendererRoot)
       : null;
@@ -407,12 +434,14 @@ export async function startLocalServer(options: LocalServerOptions) {
         notify();
         for (const socket of clients) socket.close(1001, "Backend closing");
         await server.stop(true);
+        await cli.close();
         await backend.stop();
         config.close();
         release();
       },
     };
   } catch (error) {
+    await cli.close();
     await runtime?.stop();
     settings?.close();
     release();

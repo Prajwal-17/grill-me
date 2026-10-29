@@ -17,6 +17,10 @@ export async function createBackend(options: {
     online: boolean;
     message: string;
   }>;
+  providerModels?: () => Promise<{
+    models: { id: string; label: string }[];
+    defaultModel: string;
+  }>;
 }) {
   await initializeDatabase(options.database);
   await migrateDatabase();
@@ -33,11 +37,15 @@ export async function createBackend(options: {
   ]);
   const llm = options.llm ?? createOpenAIModel();
   await logModel.markInterrupted();
+  await (
+    await import("./modules/messages/message.model")
+  ).messageModel.recover();
   await createReviewService(llm).recover();
   const app = createApp({
     llm,
     webOrigin: options.webOrigin,
     providerStatus: options.providerStatus,
+    providerModels: options.providerModels,
   });
   return {
     app,

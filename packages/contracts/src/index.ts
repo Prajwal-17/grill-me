@@ -12,7 +12,14 @@ export const endpointSchema = z
 export const providerSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(80),
-  endpoint: endpointSchema,
+  kind: z.enum(["openai", "codex", "opencode"]).default("openai"),
+  endpoint: endpointSchema.optional(),
+  binaryPath: z
+    .string()
+    .trim()
+    .max(4096)
+    .refine((v) => !v || v.startsWith("/"), "Use an absolute executable path.")
+    .default(""),
   model: z.string().trim().min(1).max(160),
 });
 export type Provider = z.infer<typeof providerSchema>;
@@ -34,11 +41,47 @@ export const providerInputSchema = providerSchema
   .refine(
     (v) => !(v.apiKey && v.removeKey),
     "Choose either key replacement or removal.",
-  );
+  )
+  .superRefine((value, context) => {
+    if (value.kind === "openai" && !value.endpoint)
+      context.addIssue({
+        code: "custom",
+        path: ["endpoint"],
+        message: "Enter an API endpoint.",
+      });
+    if (value.kind !== "openai" && (value.apiKey || value.removeKey))
+      context.addIssue({
+        code: "custom",
+        path: ["apiKey"],
+        message: "Use the CLI provider's sign-in flow.",
+      });
+  });
 export type ProviderInput = z.input<typeof providerInputSchema>;
 export type SavedProvider = Provider & {
   hasKey: boolean;
   storage: "keyring" | "session";
+};
+export type ProviderConnection = {
+  installed: boolean;
+  connected: boolean;
+  authenticated: boolean;
+  version: string | null;
+  binaryPath: string | null;
+  message: string;
+  code?: string;
+  models: { id: string; name: string }[];
+  login?: {
+    url?: string;
+    instructions?: string;
+    method?: "auto" | "code";
+    providerId?: string;
+    methodIndex?: number;
+  };
+  authMethods?: {
+    providerId: string;
+    name: string;
+    methods: { type: "oauth" | "api"; label: string; index: number }[];
+  }[];
 };
 export const runtimeSettingsSchema = z.object({
   codexBin: z

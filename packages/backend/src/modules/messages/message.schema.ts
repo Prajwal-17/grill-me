@@ -115,6 +115,11 @@ export const messageSchema = z.object({
   content: z.string(),
   attachments: z.array(messageAttachmentSchema).default([]),
   createdAt: z.string(),
+  status: z
+    .enum(["streaming", "completed", "failed", "cancelled", "interrupted"])
+    .default("completed"),
+  error: z.string().nullable().default(null),
+  replyTo: z.string().nullable().default(null),
 });
 
 export const createMessageRequestSchema = z

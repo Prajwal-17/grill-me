@@ -21,6 +21,7 @@ export async function runSqliteTests() {
         "./apps/backend/test/resume.test.ts",
         "./apps/backend/test/judge-tools.test.ts",
         "./apps/desktop/test/sqlite.test.ts",
+        "./apps/desktop/test/cli-providers.test.ts",
       ],
       {
         cwd: root,

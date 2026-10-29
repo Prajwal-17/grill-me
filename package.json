@@ -16,8 +16,6 @@
     "db:migrate": "bun run --cwd apps/backend db:migrate",
     "db:migrate:dev": "bun run --cwd apps/backend db:migrate:dev",
     "db:migrate:prod": "bun run --cwd apps/backend db:migrate:prod",
-    "codex:setup": "bun run --cwd apps/backend codex:setup",
-    "codex:doctor": "bun run --cwd apps/backend codex:doctor",
     "db:studio": "bun run --cwd apps/backend db:studio",
     "db:studio:dev": "bun run --cwd apps/backend db:studio:dev",
     "db:studio:prod": "bun run --cwd apps/backend db:studio:prod",

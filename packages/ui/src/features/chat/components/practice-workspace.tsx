@@ -1,3 +1,4 @@
+import { ReviewDiscussion } from "./review-discussion";
 import { localTransport } from "@/shared/lib/local-client";
 import { ReviewSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useNavigate, useSearchParams } from "react-router";
@@ -317,16 +318,20 @@ export function PracticeWorkspace({
     Boolean(draft.projectId) ||
     draft.uploads.some((file) => file.filename.includes("/"));
   const reviewIssue = judgeStatus.data
-    ? projectReview
-      ? !judgeStatus.data.codex.installed
-        ? "Codex is not installed. " + judgeStatus.data.codex.message
-        : !judgeStatus.data.codex.authenticated
-          ? "Codex is not signed in. " + judgeStatus.data.codex.message
-          : null
-      : !judgeStatus.data.omniroute.configured ||
-          !judgeStatus.data.omniroute.online
+    ? judgeStatus.data.providerManaged
+      ? !judgeStatus.data.omniroute.online
         ? judgeStatus.data.omniroute.message
         : null
+      : projectReview
+        ? !judgeStatus.data.codex.installed
+          ? "Codex is not installed. " + judgeStatus.data.codex.message
+          : !judgeStatus.data.codex.authenticated
+            ? "Codex is not signed in. " + judgeStatus.data.codex.message
+            : null
+        : !judgeStatus.data.omniroute.configured ||
+            !judgeStatus.data.omniroute.online
+          ? judgeStatus.data.omniroute.message
+          : null
     : null;
   const busy =
     connection.isPending ||
@@ -548,6 +553,13 @@ export function PracticeWorkspace({
                         </p>
                       )}
                     </section>
+                  )}
+                  {localTransport && (
+                    <ReviewDiscussion
+                      profileId={profile.id}
+                      challengeId={challenge.id}
+                      active={active}
+                    />
                   )}
                   {!!savedHints.length && (
                     <details className="border-t border-line pt-4 text-ui">

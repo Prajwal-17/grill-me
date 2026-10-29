@@ -81,7 +81,7 @@ Existing history is preserved. Old manual completions are labeled as legacy; his
 
 See [developer context, resume import, and rollout](docs/practice-workflow.md) for the new contracts and migration rehearsal.
 
-See [runtime setup](docs/runtime-setup.md) for native Codex setup, optional Docker, verification images, storage, and diagnostics.
+See [CLI provider connections](docs/cli-providers.md) for installed Codex/OpenCode connections, local history, and recovery.
 
 ## AI request logs
 
@@ -183,7 +183,7 @@ Submission files and other runtime data use these host paths:
 - `submissions/`: immutable submission snapshots
 - `uploads/`: resumable file uploads
 - `evaluations/`: prompt evaluation reports
-- `codex-cli/`: the app-managed Codex CLI, when installed
+- `providers/`: installation-scoped Codex/OpenCode authentication and temporary runtime data
 
 Start PostgreSQL and apply tracked migrations before native development:
 
@@ -235,7 +235,6 @@ Backend variables:
 - `SNAPSHOT_ROOT`: override submission snapshot storage
 - `UPLOAD_ROOT`: override resumable upload storage
 - `EVALUATION_ROOT`: override prompt evaluation output
-- `CODEX_INSTALL_ROOT`: override the app-managed Codex CLI directory
 - `API_PORT`: Hono port
 - `WEB_ORIGIN`: comma-separated allowed browser origins for direct API access; defaults include localhost and 127.0.0.1 on the environment’s web port
 

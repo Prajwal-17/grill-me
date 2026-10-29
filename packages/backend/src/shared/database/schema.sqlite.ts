@@ -314,6 +314,13 @@ export const messages = sqliteTable("messages", {
     enum: ["generate", "clarify", "review", "hint"],
   }).notNull(),
   content: text("content").notNull(),
+  status: text("status", {
+    enum: ["streaming", "completed", "failed", "cancelled", "interrupted"],
+  })
+    .notNull()
+    .default("completed"),
+  error: text("error"),
+  replyTo: text("reply_to"),
   attachments: jsonb("attachments")
     .$type<{ filename: string; text: string }[]>()
     .notNull()

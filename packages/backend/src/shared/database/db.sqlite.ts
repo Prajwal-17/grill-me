@@ -106,21 +106,25 @@ export function createSqliteDatabase(path: string) {
     const version = (
       sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    if (version > 1)
+    if (version > 2)
       throw new Error("This database needs a newer desktop application.");
-    if (version === 1) return;
+    if (version === 2) return;
     sqlite
       .transaction(() => {
-        sqlite.exec(initialSchema);
-        for (const [table, column] of [
-          ["challenges", "challenge_number"],
-          ["quizzes", "quiz_number"],
-        ]) {
-          sqlite.exec(`CREATE TRIGGER ${table}_immutable_number BEFORE UPDATE OF profile_id, ${column} ON ${table}
+        if (version === 0) {
+          sqlite.exec(initialSchema);
+          for (const [table, column] of [
+            ["challenges", "challenge_number"],
+            ["quizzes", "quiz_number"],
+          ]) {
+            sqlite.exec(`CREATE TRIGGER ${table}_immutable_number BEFORE UPDATE OF profile_id, ${column} ON ${table}
         WHEN NEW.profile_id != OLD.profile_id OR NEW.${column} != OLD.${column}
         BEGIN SELECT RAISE(ABORT, 'Generation numbers and profiles are immutable'); END;`);
+          }
         }
-        sqlite.exec("PRAGMA user_version = 1");
+        sqlite.exec(
+          "ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'completed' CHECK(status IN ('streaming','completed','failed','cancelled','interrupted')); ALTER TABLE messages ADD COLUMN error TEXT; ALTER TABLE messages ADD COLUMN reply_to TEXT; PRAGMA user_version = 2;",
+        );
       })
       .immediate();
     const violations = sqlite.query("PRAGMA foreign_key_check").all();
@@ -128,6 +132,11 @@ export function createSqliteDatabase(path: string) {
       throw new Error("SQLite foreign-key validation failed.");
   }
 
+  function local<T>(work: (database: Database) => T): Promise<T> {
+    return owner.getStore()?.active
+      ? Promise.resolve(work(sqlite))
+      : exclusive(async () => work(sqlite));
+  }
   return {
     dialect: "sqlite" as const,
     db: sqliteDb,
@@ -137,6 +146,7 @@ export function createSqliteDatabase(path: string) {
     databaseNow,
     caseInsensitiveLike,
     nextGenerationNumber,
+    local,
     close: () => sqlite.close(),
   };
 }
