@@ -1,5 +1,12 @@
 # Grill-Me
 
+Desktop and standalone local development share the same backend and React packages.
+Use `bun dev` for Electron, `bun dev:web` for the browser + SQLite server,
+`bun dev:backend` for the server alone, and `bun dev:ui` for the UI alone.
+Configure providers and keys inside **Settings** (`Ctrl+,`).
+See [desktop development](apps/desktop/README.md) and the
+[detailed implementation plan](docs/desktop-implementation-plan.md).
+
 Grill-Me is a local-first practice companion for developers. Describe what you
 want to build, choose its scope and difficulty, work in your normal editor, ask
 for a hint, submit your implementation, and mark the challenge completed when you have finished learning.
@@ -14,12 +21,11 @@ Existing production databases and the web deployment are unchanged.
 bun install
 bun dev                    # Open the desktop app with frontend hot reload
 bun run test:desktop       # Disposable SQLite; no Docker or paid AI calls
-bun run desktop:deb        # Build apps/desktop/release/*.deb
 ```
 
-Install the generated package with `sudo apt install ./apps/desktop/release/grill-me-dev-0.1.1-amd64.deb`
-on x86-64 Linux. Open **Grill Me Dev**, then use **Application → Configure AI…**
-to enter your provider settings and restart the app. Desktop data starts fresh
+Use the manual **Desktop Development Build** workflow to create a Debian artifact.
+Open **Grill Me Dev**, then use **Application → Settings…** (`Ctrl+,`) to manage
+providers and protected API keys without restarting. Desktop data stays
 in `~/.config/grill-me-desktop-dev/`, isolated from PostgreSQL and web storage.
 The package includes its backend runtime. See [desktop setup and verification](apps/desktop/README.md)
 for configuration, storage, packaging, and the inspection-only review behavior.
@@ -65,7 +71,7 @@ The tabbed workspace keeps the task, submission, and selected review separate. R
 
 System challenges request a bounded working core and assess design choices in code. No written explanation is required. Grill Me generates verification checks when a supported isolated runtime is available; you do not need to author tests. Inspection-only reviews state their execution limits. Accepted reviews do not complete the challenge. Mark completed records your decision independently; high scores cannot override unmet review requirements.
 
-Prompts live under `apps/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one corrective attempt for a difficulty mismatch; a second mismatch returns a retryable error without saving. Essential clarification returns a structured question, and answers accumulate in order.
+Prompts live under `packages/backend/src/modules/ai/prompts/`, with a shared policy, selected scope/difficulty policies, and short action-specific instructions. Context and requirements are frozen per challenge. Invalid output is never saved as a successful review. Generation allows one corrective attempt for a difficulty mismatch; a second mismatch returns a retryable error without saving. Essential clarification returns a structured question, and answers accumulate in order.
 
 Preferences include an optional “Send recent challenges to AI” setting, off by default. Connect a folder by entering its path or browsing the folders available to Grill Me; connecting does not upload files. Archive unwanted challenges from the workspace and restore them from the Archived tab in Challenges. Archiving retains the task, submissions, reviews, quizzes, and completion state; older saved-for-later challenges appear in Archived too. Codex reviews use ephemeral sessions and link to their database-saved prompts, responses, and complete app-server protocol activity. Preferences includes a Codex model picker, defaulting to GPT-5.6 Sol. Run `bun run db:studio` to browse the local database.
 
@@ -137,14 +143,14 @@ Start OmniRoute locally, add its API key to `apps/backend/.env`, set the model f
 each environment in `.env.development` / `.env.production`, then start the app:
 
 ```bash
-bun dev:web
+bun dev:postgres
 ```
 
 - Web: http://localhost:8028
 - API: http://localhost:8027
 - Health check: http://localhost:8027/health
 
-`bun dev:web` starts only the web and backend workspaces. Vite serves the frontend
+`bun dev:postgres` starts only the web and backend workspaces. Vite serves the frontend
 with React Fast Refresh. Routes load on demand without server rendering.
 Browser requests use `/api`; Vite proxies them to `127.0.0.1:8027`. This works
 with both `localhost` and `127.0.0.1` without cross-origin browser requests.
@@ -188,7 +194,7 @@ bun db:generate
 bun db:migrate
 ```
 
-The backend loads `.env.development` for `bun dev:web` and uses `grill-me-dev`.
+The backend loads `.env.development` for `bun dev:postgres` and uses `grill-me-dev`.
 `bun db:migrate` and `bun db:studio` are development aliases. Their explicit
 production counterparts are `bun db:migrate:prod` and `bun db:studio:prod`.
 Docker always sets `APP_ENV=production` and connects to `grill-me`; it never
@@ -253,7 +259,7 @@ browser tests, static serving, and Docker build details.
 
 Structured generation and judging use validated JSON response schemas. Valid JSON wrapped in prose or code fences is accepted; empty, truncated, and schema-invalid responses produce retryable diagnostics without automatic regeneration. Provider-specific combo behavior still depends on Responses API support.
 
-Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses four tabs, with one selected quiz attempt, submission, or review run visible at a time. Shared layout, account navigation, and Markdown renderers live under `apps/web/src/shared/components`. The application frame stays within the viewport; page content scrolls inside it.
+Frontend pages compose feature components; workspace state, selection queries, creation, scrolling, and attachment reads live in dedicated hooks. The workspace uses four tabs, with one selected quiz attempt, submission, or review run visible at a time. Shared layout, account navigation, and Markdown renderers live under `packages/ui/src/shared/components`. The application frame stays within the viewport; page content scrolls inside it.
 
 For compatible providers, an empty clarification question with no choices is treated as no clarification. Invalid questions and choices remain rejected. After a preparation transport failure, Create without clarification lets generation independently check whether it can proceed. An essential question requires an answer.
 

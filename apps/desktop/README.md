@@ -1,134 +1,143 @@
 # Grill Me desktop development edition
 
-Electron + electron-vite reuses the React interface and Hono services. A compiled
-Bun executable supplies the backend and SQLite runtime inside the Linux package.
-Using the installed app requires neither Docker, PostgreSQL, Node.js, nor Bun.
-AI generation still needs a running OpenAI-compatible provider such as OmniRoute;
-Codex project reviews need a native Codex CLI and its login.
+The Electron shell and standalone web host share `@repo/ui`, `@repo/client`,
+`@repo/contracts` and `@repo/backend`. The local backend runs in a separate Bun
+process with SQLite. Docker and PostgreSQL are not needed for either local mode.
+The Debian package bundles the backend runtime; installed users do not need Bun
+or Node. AI requests require an OpenAI-compatible provider supporting the Responses API
+and structured output used by the existing backend. Native Codex reviews
+also require a Codex CLI installation and its login.
 
-## Develop
+## Source development
 
-On Linux, install the repository's Bun version and Node.js 24 or newer, then:
+Use the repository's Bun version and Node.js 24 or newer:
 
 ```sh
 bun install
-bun dev
+bun dev                # Electron + private backend + React HMR
+bun dev:web            # browser UI + local SQLite backend
+bun dev:backend        # backend independently
+bun dev:ui             # UI against the standalone backend
 ```
 
-This opens Electron, starts its private backend, and enables React hot reload.
-The backend runs directly from source in development. Restart `bun dev` after
-backend changes; development never compiles the standalone executable or packages the app.
-Do not start a database container or run PostgreSQL migrations for desktop use.
-The separate web/PostgreSQL development workflow remains `bun dev:web`.
+Desktop and standalone commands use the same packages and separate local data.
+The standalone UI defaults to `http://127.0.0.1:8028`; its backend uses port 18028.
+`LOCAL_WEB_PORT`, `LOCAL_BACKEND_PORT` and an absolute `GRILL_LOCAL_HOME` can
+select another isolated standalone instance. Restart the launcher after backend
+changes. React changes hot reload. Source development does not compile the
+standalone backend executable or create packages.
+
+`bun dev:postgres` retains the legacy PostgreSQL web development workflow.
+Production hosting still uses the existing backend entry point and HTTP API.
+Neither local launcher reads backend environment files or accepts an inherited
+production database URL/storage root.
 
 On Linux hosts that restrict unprivileged user namespaces and lack a configured
-Chromium SUID helper, the development launcher automatically adds `--noSandbox`
-and prints a warning. This relaxes Chromium's operating-system sandbox only for
-source development; renderer Node integration remains disabled and context
-isolation stays enabled. The packaged launcher never adds this fallback.
+Chromium SUID helper, the source launcher adds `--noSandbox` with a warning.
+Renderer Node integration remains disabled and context isolation remains enabled.
+The packaged application does not add this fallback. CI's headless packaged smoke
+explicitly supplies `--no-sandbox` for its disposable test process only.
 
-## Build and install a Debian package
+## Application settings
+
+Open **Settings** in the sidebar, **Application → Settings…**, or press `Ctrl+,`.
+Settings are also available on the profile-selection screen.
+
+- Save multiple OpenAI-compatible providers with endpoint, model and optional key.
+- Select the provider used by new requests; use **Test connection** to check it.
+- Replace or remove a saved key without reading it back into the UI.
+- Configure native Codex paths/models, project folders and review limits.
+- Choose fullscreen, maximized or windowed startup. Fullscreen is the first-run default.
+- Use `Ctrl++` / `Ctrl+=`, `Ctrl+-` and `Ctrl+0` for persistent application zoom.
+  `F11` toggles fullscreen without changing the selected startup mode.
+
+API keys use Linux Secret Service through `@napi-rs/keyring`, requiring its
+persistent `secret-service` backend. GNOME Keyring and compatible Secret Service
+implementations can supply it. When unavailable/locked, Settings offers an explicit
+**Session only** mode. Session keys disappear when the backend closes. The app
+does not silently save plaintext keys. Keys are not stored in SQLite, browser
+storage, process arguments, child environment variables or application logs.
+
+Existing desktop `backend.env` files are detected in Settings. **Import to keyring**
+verifies the stored key before removing the plaintext key assignment. A failed
+vault write preserves the original file. Session-only import leaves that file
+intact and can be repeated after restart. New installations do not create it.
+Provider changes apply without restarting; running generation/review jobs retain
+the provider configuration captured when they started.
+
+## Data and lifecycle
+
+Desktop data remains in `$XDG_CONFIG_HOME/grill-me-desktop-dev`, normally
+`~/.config/grill-me-desktop-dev/`. Standalone development defaults to the
+repository's ignored `.data/standalone-dev/`.
+
+- `grill-me.sqlite`: profiles, practice, jobs and redacted AI logs.
+- `settings.sqlite`: non-secret provider/runtime settings and opaque key references.
+- `desktop-settings.json`: desktop startup mode and zoom.
+- `backend.log`: desktop backend diagnostics.
+- Uploads, submissions, Codex state and Electron's development browser session.
+
+Local data directories have owner-only permissions. Keyring entries are scoped
+to the development edition and the data root. There is no full-database encryption;
+use operating-system disk encryption when that is required. Close the app before
+backing up its data; keyring credentials must be configured again on a new machine.
+Uninstalling retains local data. Existing desktop SQLite data and browser storage
+keys remain compatible.
+
+One backend owns each local data folder. Starting another against that folder
+fails with an actionable error. A stale lock from an exited process is recovered.
+Closing Electron stops its backend and child process group. The standalone
+launcher stops both its UI and server on exit. Interrupted jobs recover under the
+existing lease/retry rules. Local reviews inspect submitted code without running
+it; Docker verification stays disabled for local mode.
+
+## Communication and package boundaries
+
+`@repo/backend` exposes an explicit factory: importing it does not start listeners,
+open a database or run migrations. Database adapters use real SQLite/PostgreSQL
+tables and execution behind one small typed boundary; no source-rewriting plugin
+is involved. SQLite transactions serialize reads/writes and notify subscribers
+after committed mutations. Production SQL migration contents are unchanged.
+
+Application reads/writes and streamed responses use a validated, versioned
+WebSocket protocol. Shared HTTP handlers retain domain validation and errors.
+Committed database changes invalidate active client queries, replacing local job
+polling. Reconnect refreshes subscriptions/state and never replays mutations.
+HTTP remains for files, health, assets and connection bootstrap.
+
+The backend binds only to loopback and requires a launcher token. WebSocket
+upgrades require a short-lived, single-use ticket and an allowed origin. Desktop
+uses a narrow, sender-checked preload bridge to obtain connection bootstrap and
+native window actions. The stable `grill-me://app` origin serves packaged assets;
+WebSockets connect directly to the backend. Standalone Vite proxies bootstrap,
+WebSocket and HTTP file traffic; its token stays server-side in an owner-only
+connection file. The renderer has no Node integration or arbitrary native API.
+
+## Verification
 
 ```sh
-bun run desktop:deb
-sudo apt install ./apps/desktop/release/grill-me-dev-0.1.1-amd64.deb
-```
-
-Open **Grill Me Dev** from the application menu or run `grill-me-dev`.
-Builds target the Linux host architecture; the example above is for x86-64.
-The package manager installs ordinary Electron system-library dependencies.
-The build downloads Electron and packaging tools on the first run.
-`bun run desktop:build` builds without creating or installing a package.
-
-## Configure AI
-
-Choose **Application → Configure AI…**, edit `backend.env`, and choose
-**Application → Restart**. Supply the provider's URL, API key, and model:
-
-```dotenv
-LLM_BASE_URL=http://127.0.0.1:20128/v1
-LLM_API_KEY=your-local-provider-key
-LLM_MODEL=auto
-# Optional; useful when the desktop launcher cannot find Codex in PATH:
-# CODEX_BIN=/absolute/path/to/codex
-# CODEX_MODEL=your-codex-model
-# PROJECTS_ROOT=/absolute/path/to/projects
-```
-
-Credentials are not copied from the backend's environment files and are never
-bundled in the `.deb`. Only the documented AI, Codex, project-root, and review
-limit settings are accepted. Database URLs and storage overrides are ignored.
-The app runs without an AI key; generation reports configuration instructions.
-
-## Data and production isolation
-
-Desktop files live in `$XDG_CONFIG_HOME/grill-me-desktop-dev`, normally
-`~/.config/grill-me-desktop-dev/`:
-
-- `grill-me.sqlite`, plus SQLite WAL/SHM files while running
-- `backend.env` and `backend.log`
-- submissions, uploads, and app-managed Codex storage
-- Electron's session, profile selection, theme, and quiz recovery storage
-
-**Application → Open desktop data folder** opens this directory. SQLite schema
-migrations run automatically at startup. Close the app before backing up the
-entire directory; retain any WAL/SHM files if backing up a running instance.
-Uninstalling the package retains this directory. Reinstalling retains your data.
-
-This development edition starts with an empty SQLite database. It does not
-connect to, copy, migrate, or delete the existing development or production
-PostgreSQL databases. Existing Docker and PostgreSQL production configuration
-and migrations are retained for the web deployment. Changing the desktop build
-mode does not enable production database access.
-
-Desktop reviews inspect submitted source without executing it. Docker-based
-verification is disabled for this edition, even if Docker is installed. Native
-Codex exploration still works. Closing the last window stops the backend and
-its child processes. Queued jobs resume when reopened; interrupted running jobs
-become explicitly retryable after their lease expires.
-
-## Verify
-
-```sh
-bun run test:desktop
 bun run check
+bun run test:desktop
 xvfb-run -a bun run --cwd apps/desktop test:dev
-bun run desktop:deb
-xvfb-run -a bun run --cwd apps/desktop test:smoke
+bun run --cwd apps/desktop test:web
+bun run --cwd apps/desktop test:keyring  # requires GNOME Keyring and dbus-run-session
 ```
 
-The SQLite suite uses a disposable directory and a fake provider. It exercises
-the existing backend integration suite plus SQLite transaction and configuration
-isolation checks. It never starts Docker or uses a real database/provider.
-The development smoke test starts `bun dev` with a temporary profile and checks
-actual rendered typography, layout, logo/input sizing, and SQLite profile login.
-It runs entirely from source and does not build an executable or package.
-The smoke script launches the packaged executable with a temporary Electron
-profile and mock provider; it checks real profile creation, preference saving,
-PDF/DOCX imports, deep links, renderer isolation, and restart persistence. It
-requires Xvfb on headless Linux. It does not install the package on the host.
+Tests use temporary data and fake providers/vaults. Source smoke tests exercise
+both actual hosts, settings, SQLite login and WebSocket application traffic. UI
+captures are written into ignored `.data/`. The PostgreSQL suite remains available
+only through the explicit isolated PostgreSQL test runner.
 
-## Implementation boundaries
+## Development CI and Debian artifacts
 
-`electron.vite.config.ts` builds the existing web source with development storage
-keys and a separate configuration directory. `scripts/build-backend.ts` replaces
-the PostgreSQL database and schema modules with their SQLite counterparts and
-compiles the backend into an executable and bundles the resume worker beside it. A PostgreSQL guard
-fails closed if a desktop entry ever imports the wrong database module.
+`checks.yml` runs source checks, isolated tests and both source smoke tests.
+`desktop-dev-build.yml` follows Relay's manually dispatched workflow with a
+branch/tag/commit input. It builds Linux `.deb` only, smoke-tests the packaged app,
+and uploads the package, SHA-256 checksum and source commit. It does not publish
+a release, deploy services or require real AI/database credentials.
 
-The SQLite adapter uses Drizzle's asynchronous SQLite proxy dialect backed by
-`bun:sqlite`, preserving the services' asynchronous transactions. A process-wide
-queue includes both reads and writes; `BEGIN IMMEDIATE` replaces PostgreSQL row
-locks. Counters are allocated in the same transaction as generated content.
-SQLite timestamps retain milliseconds, JSON uses typed text columns, foreign
-keys are enabled, and WAL supports local persistence. The small database type
-boundary exposes the existing service query types; actual SQL and column mapping
-come entirely from SQLite. Update both schemas when adding shared fields, and
-run the SQLite and isolated PostgreSQL suites when changing shared queries.
-
-Packaged assets sit outside ASAR so the standalone backend can read them. The
-sandboxed renderer has no Node integration or privileged IPC API. A stable
-`grill-me://app` protocol forwards to a random loopback port with an ephemeral
-secret supplied only by Electron. Other local HTTP clients cannot access that
-backend without its secret. Development uses electron-vite's same-origin proxy
-on a separate loopback port. External links open in the system browser.
+`electron-builder.yml` owns common packaging resources; `electron-builder.dev.yml`
+owns the dev application identity. The backend, parser worker and native keyring
+loader/binding live outside ASAR. Main/preload workspace dependencies are bundled.
+Package creation, when explicitly requested or run in CI, is `bun run desktop:deb`.
+No package build is part of `bun dev` or the source checks above.

@@ -4,6 +4,7 @@ COPY package.json bun.lock turbo.json ./
 COPY packages ./packages
 COPY apps/backend/package.json ./apps/backend/package.json
 COPY apps/web/package.json ./apps/web/package.json
+COPY apps/desktop/package.json ./apps/desktop/package.json
 RUN bun install --frozen-lockfile
 COPY apps ./apps
 COPY packages ./packages
