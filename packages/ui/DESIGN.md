@@ -25,7 +25,7 @@ colors:
   light-line-strong: "#929292"
   light-control-border: "#d4d4d4"
   light-control-border-hover: "#aaaaaa"
-  light-chrome: "#f7f7f7"
+  light-chrome: "#f1f1f1"
   light-panel: "#f1f1f1"
   light-selection-surface: "#ededed"
   light-selection-ink: "#202020"
@@ -38,16 +38,16 @@ colors:
   dark-success: "#6ed6a1"
   dark-warning: "#e8c16a"
   dark-canvas: "#171717"
-  dark-surface: "#222222"
+  dark-surface: "#202020"
   dark-foreground: "#f2f2f2"
-  dark-elevated: "#303030"
+  dark-elevated: "#292929"
   dark-muted: "#aaaaaa"
   dark-line: "#383838"
   dark-line-strong: "#7d7d7d"
   dark-control-border: "#414141"
   dark-control-border-hover: "#5a5a5a"
-  dark-chrome: "#171717"
-  dark-panel: "#2a2a2a"
+  dark-chrome: "#121212"
+  dark-panel: "#242424"
   dark-selection-surface: "#303030"
   dark-selection-ink: "#f2f2f2"
   dark-focus: "#f2f2f2"
@@ -60,7 +60,7 @@ colors:
   light-nav-active-ink: "#202020"
   light-overlay: "#ffffff"
   dark-action-hover: "#d8d8d8"
-  dark-nav-active: "#303030"
+  dark-nav-active: "#292929"
   dark-nav-active-ink: "#f2f2f2"
   dark-overlay: "#2a2a2a"
 typography:
@@ -92,6 +92,16 @@ typography:
     fontSize: "0.875rem"
     fontWeight: 500
     lineHeight: 1.5
+  navigation-label:
+    fontFamily: "Inter Variable, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 500
+    lineHeight: 1.5
+  toolbar-label:
+    fontFamily: "Inter Variable, system-ui, sans-serif"
+    fontSize: "12px"
+    fontWeight: 500
+    lineHeight: 1.5
   supporting:
     fontFamily: "Inter Variable, system-ui, sans-serif"
     fontSize: "0.8125rem"
@@ -121,36 +131,48 @@ spacing:
   control-gap: "8px"
   control-inset: "12px"
   mobile-page: "16px"
-  desktop-page: "24px"
+  desktop-page: "20px"
 components:
   button-primary:
     backgroundColor: "{colors.light-action}"
     textColor: "{colors.light-action-ink}"
     typography: "{typography.label}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.md}"
     padding: "0 12px"
+    height: "30px"
   button-secondary:
     backgroundColor: "{colors.light-surface}"
     textColor: "{colors.light-foreground}"
     typography: "{typography.label}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.md}"
     padding: "0 12px"
+    height: "30px"
   button-ghost:
     textColor: "{colors.light-muted}"
     typography: "{typography.label}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.md}"
     padding: "0 12px"
+    height: "30px"
+  button-header-primary:
+    backgroundColor: "{colors.light-surface}"
+    textColor: "{colors.light-foreground}"
+    typography: "{typography.toolbar-label}"
+    rounded: "{rounded.md}"
+    padding: "0 8px"
+    height: "28px"
   input:
     backgroundColor: "{colors.light-surface}"
     textColor: "{colors.light-foreground}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.md}"
     padding: "4px 12px"
+    height: "32px"
   navigation-current:
     backgroundColor: "{colors.light-nav-active}"
     textColor: "{colors.light-nav-active-ink}"
-    typography: "{typography.label}"
+    typography: "{typography.navigation-label}"
     rounded: "{rounded.md}"
     padding: "0 10px"
+    height: "32px"
   metadata-badge:
     backgroundColor: "{colors.light-selection-surface}"
     textColor: "{colors.light-selection-ink}"
@@ -185,7 +207,8 @@ The workspace preserves the original Grill Me palette from Git: neutral charcoal
 The normative colors above are extracted from `src/app/globals.css`. Runtime
 variables switch on `html[data-theme="dark"]`; stored theme behavior
 is unchanged. Component frontmatter describes light defaults; components use
-variables, so all states follow the active theme.
+variables, so all states follow the active theme. Component heights describe
+desktop defaults; the responsive control and navigation sizes are defined below.
 
 - `chrome` and `canvas` frame the workspace. `surface` holds raised content and controls; `overlay` gives floating menus a brighter plane.
 - `panel` gives headers and supporting areas a second tonal layer. `elevated`
@@ -216,7 +239,9 @@ Tailwind role tokens in `globals.css` own the scale; `cn.ts` registers them with
 Tailwind Merge so size overrides never swallow text-color classes. At the default
 16px root: `text-ui` is 14/21, `text-supporting` 13/20, `text-metadata` 12/18,
 `text-reading` 16/28, `text-question` 18/28, `text-section` 20/28, `text-title`
-24/32, and `text-code` 13/22. Sizes are rem-based and respect browser text scaling.
+24/32, and `text-code` 13/22. These role sizes are rem-based and respect browser text scaling.
+The compact shell uses 13px desktop main-navigation labels and 12px toolbar
+action labels; mobile main-navigation labels increase to 14px.
 Use 400 for reading, 500 for controls and row titles, and 600 for headings. Do not
 reintroduce 10–11px labels or arbitrary font-size literals.
 
@@ -231,19 +256,28 @@ figures. Font sizes, weight, and spacing carry hierarchy without recoloring text
 ## Layout
 
 The shell fills the dynamic viewport. The 232px desktop sidebar begins at
-768px; it collapses immediately, with Ctrl+B preserved. A shadcn Sheet provides
-mobile navigation. The content frame has a single left divider, with a 52px
-minimum header that wraps actions. Content regions own their scrolling.
-The sidebar contains standard navigation, workspace settings, appearance, and
-account controls; challenge collections belong in the main content.
+768px; it collapses immediately, with Ctrl+B preserved and focus restored to the
+visible sidebar toggle when needed. A 280px shadcn Sheet provides mobile
+navigation. The content frame has a single left divider and a compact 42px
+desktop toolbar. On mobile, the header uses a 52px reference minimum and wraps
+into a title/navigation row followed by an actions row. Content regions own their
+scrolling.
+The sidebar holds 32px creation and main-navigation rows, followed by up to eight
+real active-practice links from the selected profile, newest creation first.
+Recent-practice links wrap titles and show challenge number and scope. Full
+challenge collections and their filters remain in the main content. Workspace
+settings, logs, preferences, appearance, and account controls sit in the sidebar
+footer. Mobile main links, creation, tools, and account controls use targets at
+least 44px high; footer icon targets are also 44px wide.
 
 Electron uses a frameless window: caption controls occupy the existing header,
 with reserved space on the right rather than another title-bar row. Header
 backgrounds are draggable; their interactive children remain clickable. The browser
 host keeps its existing header without desktop captions.
 
-Collections use 16px mobile and 24px desktop gutters, compact toolbars, one
-bordered result region, and a quiet result count. Challenges and quizzes group
+Collections use 16px mobile and 20px desktop gutters, compact toolbars, one
+bordered result region, and a quiet result count. Challenges and quizzes use a
+centered content region capped at 1440px and group
 search with filters and a sort control; narrow screens stack these controls.
 The shared page header owns the page title and primary action. Collections start
 with their controls, without a second title-and-divider row. Keep counts in tabs
@@ -263,7 +297,7 @@ row and fields stack. Profile, Practice, Projects, and Code reviews remain
 mounted so switching sections preserves drafts. Saving reveals and focuses any
 invalid field, including one in a hidden section.
 
-Application settings use a 224px category rail from 768px, with horizontally
+Application settings use a 176px category rail from 768px, with horizontally
 scrolling category navigation below that breakpoint. Appearance, AI providers,
 Local runtime, and Data & connection share a scrolling content panel capped at
 800px. Settings rows stack below 600px of available panel width; wider rows align
@@ -276,7 +310,9 @@ switching categories preserves unsaved drafts.
 Most depth comes from tonal separation and 1px borders. Forms and collections
 have no ambient card shadows. Menus/popovers use the existing shadcn overlay
 shadows; dialogs and sheets remain portaled. Focus is visible independently of
-hover. Inputs use a focused border plus a 2px translucent ring. Buttons, inputs, textareas, and select triggers share 8px corners; table and menu dividers remain 1px and quiet.
+hover. Inputs use a focused border plus a 2px translucent ring. Buttons, inputs,
+and select triggers share 6px corners; textareas retain 8px corners. Table and
+menu dividers remain 1px and quiet.
 
 Press feedback uses 120ms easing and pointer-only scale 0.97. Disabled controls
 and popup anchors never shrink. Navigation and tab colors use 100ms; repeated
@@ -301,9 +337,9 @@ layout dimensions, new animation dependency, or permanent `will-change`.
 
 ## Shapes
 
-The shared radius scale is 4 / 6 / 8 / 12px. Controls and navigation use 6px;
-collections and field groups use 8px; composers and larger overlays may use
-12px. Line icons use Lucide with consistent 14–16px sizes. Pills are limited to
+The shared radius scale is 4 / 6 / 8 / 12px. Buttons, inputs, select triggers, and
+navigation use 6px; textareas, collections, and field groups use 8px; composers
+and larger overlays may use 12px. Line icons use Lucide with consistent 14–16px sizes. Pills are limited to
 compact status treatments. No decorative gradients, glass, or technical motifs.
 
 ## Components
@@ -315,8 +351,18 @@ rather than installing a second component vocabulary. Configuration reference:
 [shadcn components.json](https://ui.shadcn.com/docs/components-json).
 
 - **Buttons:** primary for the main commit action, secondary for ordinary actions,
-  ghost for low-priority controls. Default height is 44px on mobile and 32px on
-  desktop; inputs/selects are 44px / 36px. Explicit small variants remain compact.
+  ghost for low-priority controls. Default height is 44px on mobile and 30px on
+  desktop; inputs/selects are 44px / 32px. Explicit small button and icon-small
+  variants remain 32px. Desktop toolbar actions use 28px height, 8px horizontal
+  padding, 12px labels, and 6px corners. Within that toolbar only, primary
+  context actions use the quiet surface, foreground, and control border; hover
+  moves to elevated with the control-hover border. Their primary semantics
+  remain intact. Commit actions elsewhere keep the inverted monochrome fill.
+- **Navigation:** main links use compact 13px desktop labels, neutral active
+  fills, muted resting text, and elevated hover fills with foreground text.
+  Mobile labels use 14px and the larger targets described in Layout. The recent
+  practice area scrolls with the sidebar content; footer utilities and account
+  remain anchored below it. Current routes retain `aria-current`.
 - **Fields:** visible labels, surface backgrounds, shared hover/focus/invalid
   styles, and retained limits. `SearchField` composes the input with search and
   clear affordances. `PreferenceRow` aligns labels and controls without arbitrary
