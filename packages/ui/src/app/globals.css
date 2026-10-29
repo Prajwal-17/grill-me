@@ -699,16 +699,10 @@ html[data-desktop="true"] #app-content {
 
 @media (max-width: 767px) {
   .workspace-navigation .sidebar-create,
-  .workspace-navigation button[aria-label="Account"] {
+  .workspace-navigation button[aria-label="Account"],
+  .workspace-navigation button[aria-label="Appearance"] {
     height: 44px;
     min-height: 44px;
-  }
-  .workspace-navigation [aria-label="Workspace tools"] :is(button, a) {
-    height: 44px;
-    min-height: 44px;
-    width: 44px;
-    min-width: 44px;
-    padding-inline: 0;
   }
   .desktop-sidebar-header > a {
     display: inline-flex;

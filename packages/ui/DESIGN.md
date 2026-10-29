@@ -262,13 +262,12 @@ navigation. The content frame has a single left divider and a compact 42px
 desktop toolbar. On mobile, the header uses a 52px reference minimum and wraps
 into a title/navigation row followed by an actions row. Content regions own their
 scrolling.
-The sidebar holds 32px creation and main-navigation rows, followed by up to eight
-real active-practice links from the selected profile, newest creation first.
-Recent-practice links wrap titles and show challenge number and scope. Full
-challenge collections and their filters remain in the main content. Workspace
-settings, logs, preferences, appearance, and account controls sit in the sidebar
-footer. Mobile main links, creation, tools, and account controls use targets at
-least 44px high; footer icon targets are also 44px wide.
+The sidebar holds 32px creation and labeled navigation rows for Home,
+Challenges, Quizzes, History, Settings, Logs, and Preferences. Practice lists and
+filters stay in the main content; do not add a recent-practice feed to the
+sidebar. Appearance and account controls remain anchored in the footer. Mobile
+navigation, creation, appearance, and account controls use targets at least 44px
+high.
 
 Electron uses a frameless window: caption controls occupy the existing header,
 with reserved space on the right rather than another title-bar row. Header
@@ -360,9 +359,10 @@ rather than installing a second component vocabulary. Configuration reference:
   remain intact. Commit actions elsewhere keep the inverted monochrome fill.
 - **Navigation:** main links use compact 13px desktop labels, neutral active
   fills, muted resting text, and elevated hover fills with foreground text.
-  Mobile labels use 14px and the larger targets described in Layout. The recent
-  practice area scrolls with the sidebar content; footer utilities and account
-  remain anchored below it. Current routes retain `aria-current`.
+  Mobile labels use 14px and the larger targets described in Layout. Settings,
+  Logs, and Preferences are labeled links alongside the main workflows. Appearance
+  and account remain anchored below the scrolling navigation. Current routes
+  retain `aria-current`, including Challenges while viewing a build.
 - **Fields:** visible labels, surface backgrounds, shared hover/focus/invalid
   styles, and retained limits. `SearchField` composes the input with search and
   clear affordances. `PreferenceRow` aligns labels and controls without arbitrary

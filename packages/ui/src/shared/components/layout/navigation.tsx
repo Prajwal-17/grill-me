@@ -1,5 +1,4 @@
 import { Link, useLocation } from "react-router";
-import { useQuery } from "@tanstack/react-query";
 import {
   BookOpen,
   ListChecks,
@@ -22,10 +21,6 @@ import { BrandLockup } from "@/shared/components/brand";
 import { cn } from "@/shared/lib/cn";
 import type { Profile } from "@/shared/types/api";
 import { AccountMenu } from "./account-menu";
-import {
-  challengeKeys,
-  getActiveChallenges,
-} from "@/features/challenges/api/challenge-api";
 
 export function Navigation({
   profile,
@@ -36,23 +31,14 @@ export function Navigation({
   close?: () => void;
   onCollapse?: () => void;
 }) {
-  const { pathname, search } = useLocation();
-  const currentChallenge = new URLSearchParams(search).get("id");
-  const active = useQuery({
-    queryKey: challengeKeys.active(profile.id),
-    queryFn: () => getActiveChallenges(profile.id),
-    staleTime: 30000,
-  });
-  const recent = [...(active.data ?? [])]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 8);
+  const { pathname } = useLocation();
   const mainLinks = [
     { href: "/", label: "Home", icon: House, active: pathname === "/" },
     {
       href: "/challenges",
       label: "Challenges",
       icon: BookOpen,
-      active: pathname === "/challenges",
+      active: pathname === "/challenges" || pathname === "/chat",
     },
     {
       href: "/quizzes",
@@ -66,11 +52,24 @@ export function Navigation({
       icon: History,
       active: pathname === "/history",
     },
-  ];
-  const utilityLinks = [
-    { href: "/settings", label: "Settings", icon: Settings2 },
-    { href: "/logs", label: "Logs", icon: ScrollText },
-    { href: "/preferences", label: "Preferences", icon: SlidersHorizontal },
+    {
+      href: "/settings",
+      label: "Settings",
+      icon: Settings2,
+      active: pathname === "/settings",
+    },
+    {
+      href: "/logs",
+      label: "Logs",
+      icon: ScrollText,
+      active: pathname === "/logs" || pathname.startsWith("/logs/"),
+    },
+    {
+      href: "/preferences",
+      label: "Preferences",
+      icon: SlidersHorizontal,
+      active: pathname === "/preferences",
+    },
   ];
   return (
     <div className="workspace-navigation flex h-full min-w-0 flex-col">
@@ -138,83 +137,10 @@ export function Navigation({
             </Link>
           ))}
         </nav>
-        {recent.length > 0 && (
-          <section className="mt-7" aria-labelledby="sidebar-recent-title">
-            <h2
-              id="sidebar-recent-title"
-              className="mb-2 px-2.5 text-metadata font-medium text-muted"
-            >
-              Recent practice
-            </h2>
-            <nav aria-label="Recent practice" className="grid gap-1">
-              {recent.map((challenge) => (
-                <Link
-                  key={challenge.id}
-                  to={`/chat?id=${challenge.id}`}
-                  onClick={close}
-                  aria-current={
-                    pathname === "/chat" && currentChallenge === challenge.id
-                      ? "page"
-                      : undefined
-                  }
-                  className={cn(
-                    "sidebar-recent-item group min-w-0 rounded-md px-2.5 py-2 transition-colors duration-100",
-                    pathname === "/chat" && currentChallenge === challenge.id
-                      ? "bg-nav-active text-foreground"
-                      : "text-muted hover:bg-elevated hover:text-foreground",
-                  )}
-                >
-                  <span className="line-clamp-2 text-ui leading-5 text-foreground">
-                    {challenge.title}
-                  </span>
-                  <span className="mt-1 flex items-center gap-1.5 text-metadata">
-                    <span className="tabular-nums">#{challenge.number}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="capitalize">{challenge.scope}</span>
-                  </span>
-                </Link>
-              ))}
-            </nav>
-          </section>
-        )}
       </div>
       <div className="shrink-0 border-t border-line/60 px-2 pb-2 pt-1.5">
-        <div
-          className="mb-1 flex items-center gap-0.5"
-          role="group"
-          aria-label="Workspace tools"
-        >
-          {utilityLinks.map(({ href, label, icon: Icon }) => (
-            <Tooltip key={href}>
-              <TooltipTrigger asChild>
-                <Button
-                  asChild
-                  size="icon-sm"
-                  variant="ghost"
-                  className={
-                    pathname.startsWith(href)
-                      ? "bg-elevated text-foreground"
-                      : undefined
-                  }
-                >
-                  <Link
-                    to={href}
-                    onClick={close}
-                    aria-label={label}
-                    aria-current={
-                      pathname.startsWith(href) ? "page" : undefined
-                    }
-                  >
-                    <Icon size={15} strokeWidth={1.7} />
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">{label}</TooltipContent>
-            </Tooltip>
-          ))}
-          <div className="ml-auto w-11 md:w-8">
-            <ThemeSelect compact />
-          </div>
+        <div className="mb-1">
+          <ThemeSelect />
         </div>
         <AccountMenu profile={profile} close={close} />
       </div>
