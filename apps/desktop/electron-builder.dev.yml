@@ -1,0 +1,14 @@
+extends: ./electron-builder.yml
+appId: local.grill-me.desktop-dev
+productName: Grill Me Dev
+executableName: grill-me-dev
+extraMetadata:
+  name: grill-me-dev
+  desktopName: grill-me-dev.desktop
+linux:
+  artifactName: grill-me-dev-${version}-${arch}.${ext}
+  desktop:
+    entry:
+      StartupWMClass: grill-me-dev
+deb:
+  packageName: grill-me-dev

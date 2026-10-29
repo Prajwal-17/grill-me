@@ -2,7 +2,7 @@
 import { chromium, expect, type Browser } from "@playwright/test";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
-import { mkdtemp, rm, mkdir } from "node:fs/promises";
+import { mkdtemp, rm, mkdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -30,6 +30,7 @@ const child = spawn(process.execPath, ["run", "dev"], {
   env: {
     ...process.env,
     XDG_CONFIG_HOME: temp,
+    DBUS_SESSION_BUS_ADDRESS: `unix:path=${temp}/no-keyring`,
     REMOTE_DEBUGGING_PORT: String(debugPort),
     DESKTOP_DEV_API_PORT: String(apiPort),
   },
@@ -118,6 +119,56 @@ try {
       .evaluate((element) => element.getBoundingClientRect().width),
   ).toBe(232);
   await page.screenshot({ path: join(captures, "desktop-dev-smoke.png") });
+
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Application settings" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Add provider", exact: true }).click();
+  await page
+    .getByLabel("Provider name", { exact: true })
+    .fill("Smoke local provider");
+  await page.getByLabel("Model", { exact: true }).fill("smoke-model");
+  await page.getByLabel("API key", { exact: true }).fill("source-smoke-secret");
+  await page.getByLabel("Key storage", { exact: true }).click();
+  await page.getByRole("option", { name: "Session only", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Save provider", exact: true })
+    .click();
+  await expect(
+    page.getByText("Smoke local provider", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Key available for this session", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect(page.locator("output")).toHaveText("110%");
+  await page.keyboard.press("Control+0");
+  await expect(page.locator("output")).toHaveText("100%");
+  await page.getByLabel("Startup window mode").click();
+  await page.getByRole("option", { name: "Maximized", exact: true }).click();
+  await expect
+    .poll(
+      async () =>
+        JSON.parse(
+          await readFile(
+            join(temp, "grill-me-desktop-dev/desktop-settings.json"),
+            "utf8",
+          ),
+        ).startup,
+    )
+    .toBe("maximized");
+  await page.reload();
+  await expect(
+    page.getByText("Smoke local provider", { exact: true }),
+  ).toBeVisible();
+  const persisted = await page.evaluate(() => JSON.stringify(localStorage));
+  expect(persisted).not.toContain("source-smoke-secret");
+  const metadata = await readFile(
+    join(temp, "grill-me-desktop-dev/settings.sqlite"),
+  );
+  expect(metadata.includes("source-smoke-secret")).toBe(false);
+  await page.screenshot({ path: join(captures, "desktop-settings.png") });
   expect(errors).toEqual([]);
   console.log(
     "Dev renderer smoke passed: styled profile screen, fonts, sizing, SQLite login, and sidebar layout.",

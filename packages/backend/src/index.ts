@@ -12,6 +12,11 @@ export async function createBackend(options: {
   database: DatabaseOptions;
   llm?: ModelGateway;
   webOrigin?: string;
+  providerStatus?: () => Promise<{
+    configured: boolean;
+    online: boolean;
+    message: string;
+  }>;
 }) {
   await initializeDatabase(options.database);
   await migrateDatabase();
@@ -29,7 +34,11 @@ export async function createBackend(options: {
   const llm = options.llm ?? createOpenAIModel();
   await logModel.markInterrupted();
   await createReviewService(llm).recover();
-  const app = createApp({ llm, webOrigin: options.webOrigin });
+  const app = createApp({
+    llm,
+    webOrigin: options.webOrigin,
+    providerStatus: options.providerStatus,
+  });
   return {
     app,
     start: () => app.generations.start(),

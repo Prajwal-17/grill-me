@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { backendEnvironment, desktopConfiguration } from "../src/config";
+import { backendEnvironment } from "../src/config";
 
 // Ordinary PostgreSQL runs can discover this file without opening SQLite.
 describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
@@ -107,8 +107,6 @@ describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
 test("desktop configuration cannot inherit production database or storage paths", async () => {
   const root = await mkdtemp(join(tmpdir(), "desktop-config-"));
   try {
-    const config = desktopConfiguration(root);
-    expect(config.values.LLM_MODEL).toBe("auto");
     const env = backendEnvironment({
       dataRoot: root,
       token: "test-token",
@@ -117,7 +115,7 @@ test("desktop configuration cannot inherit production database or storage paths"
       settings: {
         DATABASE_URL: "postgresql://forbidden",
         GRILL_ME_HOME: "/production",
-        LLM_MODEL: "fixture",
+        CODEX_MODEL: "fixture",
       },
       inherited: {
         APP_ENV: "production",
@@ -133,7 +131,7 @@ test("desktop configuration cannot inherit production database or storage paths"
       NODE_ENV: "development",
       GRILL_ME_HOME: root,
       GRILL_ME_SQLITE_PATH: join(root, "grill-me.sqlite"),
-      LLM_MODEL: "fixture",
+      CODEX_MODEL: "fixture",
       PATH: "/usr/bin",
     });
     expect(env).not.toHaveProperty("DATABASE_URL");

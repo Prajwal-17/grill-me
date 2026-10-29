@@ -5,14 +5,6 @@ import type { LogQuery } from "./log.schema";
 
 export type LogInsert = typeof aiLogs.$inferInsert;
 export type LogRow = typeof aiLogs.$inferSelect;
-const {
-  requestBody: _request,
-  responseBody: _response,
-  responseText: _text,
-  streamEvents: _events,
-  error: _error,
-  ...summaryColumns
-} = getTableColumns(aiLogs);
 const PAGE_SIZE = 25;
 
 export const logModel = {
@@ -46,6 +38,15 @@ export const logModel = {
     };
   },
   list(profileId: string, query: LogQuery) {
+    const {
+      requestBody: _request,
+      responseBody: _response,
+      responseText: _text,
+      streamEvents: _events,
+      error: _error,
+      ...summaryColumns
+    } = getTableColumns(aiLogs);
+
     const search = query.search.toLowerCase();
     const where = and(
       eq(aiLogs.profileId, profileId),

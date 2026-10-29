@@ -1,0 +1,63 @@
+import { createHash } from "node:crypto";
+export interface SecretStore {
+  get(id: string): Promise<string | undefined>;
+  set(id: string, value: string): Promise<void>;
+  remove(id: string): Promise<void>;
+  status(): Promise<{ available: boolean; message: string }>;
+}
+export function sessionSecretStore(): SecretStore {
+  const secrets = new Map<string, string>();
+  return {
+    get: async (id) => secrets.get(id),
+    set: async (id, value) => {
+      secrets.set(id, value);
+    },
+    remove: async (id) => {
+      secrets.delete(id);
+    },
+    status: async () => ({
+      available: true,
+      message: "Keys are held in memory until the backend closes.",
+    }),
+  };
+}
+export function linuxSecretStore(
+  dataRoot: string,
+  modulePath?: string,
+): SecretStore {
+  const service =
+    "grill-me-dev." +
+    createHash("sha256").update(dataRoot).digest("hex").slice(0, 24);
+  const entry = async (id: string) => {
+    const { AsyncEntry } = (await import(
+      modulePath ?? "@napi-rs/keyring"
+    )) as typeof import("@napi-rs/keyring");
+    // A kernel keyring fallback is not persistent across reboot. Require Secret Service.
+    return new AsyncEntry(service, id, { linux: { store: "secret-service" } });
+  };
+  return {
+    get: async (id) => (await (await entry(id)).getPassword()) ?? undefined,
+    set: async (id, value) => {
+      await (await entry(id)).setPassword(value);
+    },
+    remove: async (id) => {
+      const item = await entry(id);
+      if ((await item.getPassword()) != null) await item.deletePassword();
+    },
+    status: async () => {
+      try {
+        await (await entry("availability-probe")).getPassword();
+        return {
+          available: true,
+          message: "Saved keys are protected by your Linux keyring.",
+        };
+      } catch {
+        return {
+          available: false,
+          message:
+            "The Linux keyring is locked or unavailable. Unlock it to save keys, or choose session only.",
+        };
+      }
+    },
+  };
+}

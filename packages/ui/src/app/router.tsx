@@ -10,6 +10,13 @@ export const router = createBrowserRouter([
     HydrateFallback: LoadingScreen,
     children: [
       {
+        path: "settings",
+        lazy: async () => ({
+          Component: (await import("@/features/settings/settings-page"))
+            .SettingsPage,
+        }),
+      },
+      {
         index: true,
         lazy: async () => ({
           Component: (

@@ -33,7 +33,12 @@ async function nextGenerationNumber(
 }
 
 export function createPostgresDatabase(url: string) {
-  const client = new SQL(url);
+  const runtime = globalThis as typeof globalThis & {
+    grillDatabaseClients?: Map<string, SQL>;
+  };
+  const clients = (runtime.grillDatabaseClients ??= new Map());
+  const client = clients.get(url) ?? new SQL(url);
+  clients.set(url, client);
   const db = drizzle(client, { schema });
   async function migrateDatabase() {
     await migrate(db, {
@@ -51,6 +56,9 @@ export function createPostgresDatabase(url: string) {
     databaseNow,
     caseInsensitiveLike,
     nextGenerationNumber,
-    close: () => client.close(),
+    close: async () => {
+      clients.delete(url);
+      await client.close();
+    },
   };
 }

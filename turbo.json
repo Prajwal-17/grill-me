@@ -37,7 +37,13 @@
     "DESKTOP_SMOKE_EXECUTABLE",
     "DESKTOP_RESUME_WORKER",
     "DESKTOP_DEV_BUN",
-    "ELECTRON_RUN_AS_NODE"
+    "ELECTRON_RUN_AS_NODE",
+    "GRILL_LOCAL_HOME",
+    "LOCAL_BACKEND_PORT",
+    "LOCAL_WEB_PORT",
+    "GRILL_LOCAL_DEV",
+    "GRILL_KEYRING_MODULE",
+    "VITE_LOCAL_TRANSPORT"
   ],
   "tasks": {
     "build": {
@@ -55,5 +61,6 @@
       "cache": false,
       "persistent": true
     }
-  }
+  },
+  "globalPassThroughEnv": ["PATH", "HOME", "DBUS_SESSION_BUS_ADDRESS"]
 }

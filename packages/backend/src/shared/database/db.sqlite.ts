@@ -1,4 +1,5 @@
 import { Database, type SQLQueryBindings } from "bun:sqlite";
+import { changed } from "../../local/changes";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { mkdirSync } from "node:fs";
 import { dirname, isAbsolute } from "node:path";
@@ -17,7 +18,10 @@ export function createSqliteDatabase(path: string) {
 
   // Serialize *all* database work, including reads, around asynchronous write
   // transactions. A concurrent request must never join another request's transaction.
-  const owner = new AsyncLocalStorage<{ active: boolean }>();
+  const owner = new AsyncLocalStorage<{
+    active: boolean;
+    tables: Set<string>;
+  }>();
   let tail: Promise<unknown> = Promise.resolve();
   function exclusive<T>(work: () => Promise<T>): Promise<T> {
     const result = tail.then(work);
@@ -29,11 +33,22 @@ export function createSqliteDatabase(path: string) {
       const execute = async () => {
         const statement = sqlite.query(query);
         const bindings = params as SQLQueryBindings[];
+        const write = /^(?:insert into|update|delete from)\s+"?(\w+)/i.exec(
+          query.trim(),
+        );
+        const notify = () => {
+          if (!write) return;
+          const context = owner.getStore();
+          if (context?.active) context.tables.add(write[1]!);
+          else changed(write[1]);
+        };
         if (method === "run") {
           statement.run(...bindings);
+          notify();
           return { rows: [] };
         }
         const rows = statement.values(...bindings);
+        notify();
         return { rows: method === "get" ? (rows[0] ?? []) : rows };
       };
       return owner.getStore()?.active ? execute() : exclusive(execute);
@@ -43,13 +58,15 @@ export function createSqliteDatabase(path: string) {
   const nativeTransaction = sqliteDb.transaction.bind(sqliteDb);
   const transaction: typeof sqliteDb.transaction = (work, options) =>
     exclusive(() => {
-      const context = { active: true };
+      const context = { active: true, tables: new Set<string>() };
       return owner.run(context, async () => {
         try {
-          return await nativeTransaction(work, {
+          const result = await nativeTransaction(work, {
             ...options,
             behavior: "immediate",
           });
+          for (const table of context.tables) changed(table);
+          return result;
         } finally {
           context.active = false;
         }

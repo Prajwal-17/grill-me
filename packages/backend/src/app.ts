@@ -28,10 +28,16 @@ import { createGenerationRoutes } from "./modules/generations/generation.routes"
 type AppDependencies = {
   llm: ModelGateway;
   webOrigin?: string;
+  providerStatus?: () => Promise<{
+    configured: boolean;
+    online: boolean;
+    message: string;
+  }>;
 };
 
 export function createApp({
   llm,
+  providerStatus,
   webOrigin = "http://localhost:17018,http://127.0.0.1:17018",
 }: AppDependencies) {
   const app = new Hono();
@@ -68,7 +74,10 @@ export function createApp({
     llm,
   });
 
-  app.route("/", createReviewRoutes(reviewService, profileService));
+  app.route(
+    "/",
+    createReviewRoutes(reviewService, profileService, providerStatus),
+  );
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
   app.route("/logs", createLogRoutes(profileService));
   app.route(

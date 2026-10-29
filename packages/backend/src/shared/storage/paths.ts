@@ -12,7 +12,10 @@ import { fileURLToPath } from "node:url";
 export const APP_NAME = "grill-me";
 export const LEGACY_DATABASE_PATH = "./.data/grill-me.sqlite";
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
-const LEGACY_DATA_ROOT = resolve(MODULE_DIR, "../../../.data");
+const LEGACY_DATA_ROOT = resolve(
+  MODULE_DIR,
+  "../../../../../apps/backend/.data",
+);
 
 function configured(name: string) {
   const value = process.env[name]?.trim();

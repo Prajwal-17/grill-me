@@ -1,3 +1,5 @@
+import { localClient, localTransport } from "./local-client";
+import { RpcClientError } from "@repo/client";
 import { env } from "@/shared/config/env";
 import type { ApiError } from "@/shared/types/api";
 import { useAppStore } from "@/shared/stores/app-store";
@@ -68,6 +70,35 @@ export async function apiRequest<T>(
   init: RequestInit = {},
   profileId?: string,
 ): Promise<T> {
+  if (
+    localTransport &&
+    !(init.body instanceof FormData) &&
+    !path.startsWith("/uploads")
+  ) {
+    try {
+      return await localClient().request<T>(
+        {
+          path,
+          method: (init.method ?? "GET") as "GET" | "POST" | "DELETE",
+          body:
+            typeof init.body === "string" ? JSON.parse(init.body) : undefined,
+          profileId,
+        },
+        { signal: init.signal ?? undefined },
+      );
+    } catch (error) {
+      if (error instanceof RpcClientError) {
+        recoverInvalidProfile(error.code, profileId);
+        throw new ApiClientError(
+          error.message,
+          error.code,
+          error.retryable,
+          error.error.details,
+        );
+      }
+      throw error;
+    }
+  }
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: requestHeaders(init, profileId),
@@ -121,6 +152,17 @@ export async function streamRequest<T>(
   profileId: string,
   onDelta: (delta: string) => void,
 ): Promise<T> {
+  if (localTransport)
+    return localClient().request<T>(
+      {
+        path,
+        method: (init.method ?? "POST") as "GET" | "POST" | "DELETE",
+        body: typeof init.body === "string" ? JSON.parse(init.body) : undefined,
+        profileId,
+        stream: true,
+      },
+      { signal: init.signal ?? undefined, onDelta },
+    );
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     cache: "no-store",

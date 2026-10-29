@@ -27,7 +27,10 @@
     "desktop:build": "bun run --cwd apps/desktop build",
     "desktop:deb": "bun run --cwd apps/desktop package:deb",
     "test:desktop": "bun run test:isolated --sqlite",
-    "dev:web": "turbo run dev --filter=web --filter=backend"
+    "dev:web": "bun run scripts/dev-web.ts",
+    "dev:backend": "bun run --cwd apps/backend dev:local",
+    "dev:ui": "bun run --cwd apps/web dev:local",
+    "dev:postgres": "turbo run dev --filter=web --filter=backend"
   },
   "devDependencies": {
     "@babel/core": "8.0.1",

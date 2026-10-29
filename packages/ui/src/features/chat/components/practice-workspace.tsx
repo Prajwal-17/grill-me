@@ -1,3 +1,4 @@
+import { localTransport } from "@/shared/lib/local-client";
 import { ReviewSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useNavigate, useSearchParams } from "react-router";
 import { useRef, useState } from "react";
@@ -148,11 +149,15 @@ export function PracticeWorkspace({
     queryKey: ["submissions", challenge.id],
     queryFn: () => getSubmissions(profile.id, challenge.id),
     refetchInterval: (query) =>
-      query.state.data?.some((s) =>
-        s.reviews.some((r) => r.status === "running" || r.status === "queued"),
-      )
-        ? 1500
-        : false,
+      localTransport
+        ? false
+        : query.state.data?.some((s) =>
+              s.reviews.some(
+                (r) => r.status === "running" || r.status === "queued",
+              ),
+            )
+          ? 1500
+          : false,
   });
   const projects = useQuery({
     queryKey: ["projects", profile.id],

@@ -14,6 +14,7 @@ import { AppError } from "../../shared/errors/app-error";
 export function createReviewRoutes(
   service: ReturnType<typeof createReviewService>,
   profiles: ProfileService,
+  providerStatus = omnirouteStatus,
 ) {
   const routes = new Hono();
   const profile = async (c: Context) => {
@@ -72,7 +73,7 @@ export function createReviewRoutes(
   });
   routes.get("/judges/status", async (c) => {
     await profile(c);
-    const omniroute = await omnirouteStatus();
+    const omniroute = await providerStatus();
     return c.json({
       data: {
         codex: await codexStatus(),

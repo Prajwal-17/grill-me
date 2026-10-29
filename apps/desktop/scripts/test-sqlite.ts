@@ -16,6 +16,8 @@ export async function runSqliteTests() {
         "./apps/desktop/scripts/sqlite-preload.ts",
         "./apps/backend/test/app.test.ts",
         "./apps/backend/test/contracts.test.ts",
+        "./apps/backend/test/local-runtime.test.ts",
+        "./packages/client/src/index.test.ts",
         "./apps/backend/test/resume.test.ts",
         "./apps/backend/test/judge-tools.test.ts",
         "./apps/desktop/test/sqlite.test.ts",

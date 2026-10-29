@@ -1,3 +1,4 @@
+import { localTransport } from "@/shared/lib/local-client";
 import { CollectionSkeleton } from "@/shared/components/ui/loading-layouts";
 import { Link } from "react-router";
 import { useNavigate, useSearchParams } from "react-router";
@@ -39,7 +40,7 @@ export function LogsPage() {
       previousQuery?.queryKey[1] === profile?.id
         ? keepPreviousData(previous)
         : undefined,
-    refetchInterval: filters.page === 1 ? 5000 : false,
+    refetchInterval: !localTransport && filters.page === 1 ? 5000 : false,
   });
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;

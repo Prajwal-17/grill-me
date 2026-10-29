@@ -17,7 +17,8 @@
     "codex:doctor": "bun run scripts/codex-doctor.ts",
     "db:studio": "bun run db:studio:dev",
     "db:studio:dev": "NODE_ENV=development APP_ENV=development drizzle-kit studio",
-    "db:studio:prod": "NODE_ENV=production APP_ENV=production drizzle-kit studio"
+    "db:studio:prod": "NODE_ENV=production APP_ENV=production drizzle-kit studio",
+    "dev:local": "bun --no-env-file run src/local.ts"
   },
   "dependencies": {
     "@repo/preferences": "*",

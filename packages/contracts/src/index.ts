@@ -18,7 +18,16 @@ export const providerSchema = z.object({
 export type Provider = z.infer<typeof providerSchema>;
 export const providerInputSchema = providerSchema
   .extend({
-    apiKey: z.string().min(1).max(8192).optional(),
+    apiKey: z
+      .string()
+      .trim()
+      .min(1)
+      .max(8192)
+      .refine(
+        (value) => !/[\r\n]/.test(value),
+        "API keys must be a single line.",
+      )
+      .optional(),
     removeKey: z.boolean().optional(),
     storage: z.enum(["keyring", "session"]).default("keyring"),
   })
@@ -64,6 +73,8 @@ export type WindowSettings = z.infer<typeof windowSettingsSchema>;
 export type DesktopState = WindowSettings & { fullscreen: boolean };
 export type ConnectionBootstrap = { wsUrl: string; ticket: string };
 export interface DesktopBridge {
+  onWindowState(listener: (state: DesktopState) => void): () => void;
+  onOpenSettings(listener: () => void): () => void;
   getConnection(): Promise<ConnectionBootstrap>;
   getWindowState(): Promise<DesktopState>;
   setWindowSettings(input: Partial<WindowSettings>): Promise<DesktopState>;
@@ -125,7 +136,11 @@ export const serverFrameSchema = z.discriminatedUnion("type", [
     id: z.string().uuid(),
     delta: z.string(),
   }),
-  z.object({ type: z.literal("changed"), revision: z.number().int() }),
+  z.object({
+    type: z.literal("changed"),
+    revision: z.number().int(),
+    tables: z.array(z.string()).optional(),
+  }),
   z.object({ type: z.literal("pong") }),
 ]);
 export type ServerFrame = z.infer<typeof serverFrameSchema>;

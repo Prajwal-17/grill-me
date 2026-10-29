@@ -1,3 +1,4 @@
+import { localTransport } from "@/shared/lib/local-client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { generationKeys, getGenerationJobs } from "../api/generation-api";
@@ -8,9 +9,10 @@ export function useGenerationJobs(profileId?: string, poll = false) {
     queryKey: generationKeys.list(profileId),
     queryFn: ({ signal }) => getGenerationJobs(profileId!, signal),
     enabled: Boolean(profileId),
-    refetchInterval: poll
-      ? (query) => (query.state.data?.some(isGenerating) ? 1500 : 10_000)
-      : false,
+    refetchInterval:
+      poll && !localTransport
+        ? (query) => (query.state.data?.some(isGenerating) ? 1500 : 10_000)
+        : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     staleTime: 1000,

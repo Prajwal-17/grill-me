@@ -1,3 +1,4 @@
+import { localTransport } from "@/shared/lib/local-client";
 import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
 import { LogDetailSkeleton } from "@/shared/components/ui/loading-layouts";
 import { Link } from "react-router";
@@ -34,7 +35,11 @@ export function LogDetailPage({ id }: { id: string }) {
     queryFn: () => getLog(profile!.id, id),
     enabled: Boolean(profile),
     refetchInterval: (query) =>
-      query.state.data?.status === "running" ? 1500 : false,
+      localTransport
+        ? false
+        : query.state.data?.status === "running"
+          ? 1500
+          : false,
   });
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;

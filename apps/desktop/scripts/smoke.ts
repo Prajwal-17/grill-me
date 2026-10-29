@@ -52,7 +52,12 @@ async function launch() {
   ) as Record<string, string>;
   electron = await _electron.launch({
     executablePath: executable,
-    env: { ...env, XDG_CONFIG_HOME: temp },
+    env: {
+      ...env,
+      XDG_CONFIG_HOME: temp,
+      DBUS_SESSION_BUS_ADDRESS: `unix:path=${temp}/no-keyring`,
+    },
+    args: process.env.CI ? ["--no-sandbox"] : [],
     timeout: 30_000,
   });
   electron
@@ -79,6 +84,14 @@ try {
     `LLM_BASE_URL=http://127.0.0.1:${model.port}/v1\nLLM_API_KEY=smoke-only\nLLM_MODEL=fixture\nCODEX_BIN=/nonexistent/desktop-smoke-codex\n`,
   );
   let page = await launch();
+  await page.getByRole("link", { name: "Settings", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Use for this session", exact: true })
+    .click();
+  await expect(
+    page.getByText("Imported provider", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Back to profile" }).click();
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await expect(

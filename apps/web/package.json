@@ -10,7 +10,8 @@
     "lint": "eslint --max-warnings 0",
     "check-types": "tsc --noEmit",
     "test:e2e": "playwright test",
-    "test:e2e:build": "playwright test --config playwright.build.config.ts"
+    "test:e2e:build": "playwright test --config playwright.build.config.ts",
+    "dev:local": "GRILL_LOCAL_DEV=1 vite --host 127.0.0.1"
   },
   "dependencies": {
     "@pierre/diffs": "^1.4.2",

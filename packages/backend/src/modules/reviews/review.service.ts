@@ -1,3 +1,4 @@
+import { withModelSnapshot } from "../../local/model";
 import { guidedPreferencesSchema } from "../profiles/profile.schema";
 import { rm } from "node:fs/promises";
 import { uploadInfo } from "../projects/uploads";
@@ -104,6 +105,9 @@ export function createReviewService(
     values: Partial<typeof reviewJobs.$inferInsert>,
   ) => db.update(reviewJobs).set(values).where(eq(reviewJobs.id, id));
   async function run(id: string) {
+    return withModelSnapshot(() => runSnapshot(id));
+  }
+  async function runSnapshot(id: string) {
     const row = await job(id);
     if (!row || row.status !== "queued") return;
     const attempt = (await submission(row.submissionId))!;

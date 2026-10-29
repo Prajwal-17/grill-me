@@ -139,11 +139,18 @@ export async function omnirouteStatus() {
 }
 
 export function createOpenAIModel(
-  options: { client?: OpenAI } = {},
+  options: {
+    client?: OpenAI;
+    apiKey?: string;
+    baseURL?: string;
+    model?: string;
+  } = {},
 ): ModelGateway {
-  const apiKey = options.client?.apiKey ?? process.env.LLM_API_KEY;
-  const baseURL = process.env.LLM_BASE_URL ?? "http://localhost:20128/v1";
-  const model = process.env.LLM_MODEL ?? "auto";
+  const apiKey =
+    options.apiKey ?? options.client?.apiKey ?? process.env.LLM_API_KEY;
+  const baseURL =
+    options.baseURL ?? process.env.LLM_BASE_URL ?? "http://localhost:20128/v1";
+  const model = options.model ?? process.env.LLM_MODEL ?? "auto";
 
   function client() {
     if (options.client) return options.client;

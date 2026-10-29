@@ -1,3 +1,4 @@
+import { localClient, localTransport } from "@/shared/lib/local-client";
 import { useEffect, useRef } from "react";
 import { Outlet, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,6 +26,80 @@ export function GenerationMonitor() {
   const navigate = useNavigate();
   const queries = useQueryClient();
   const save = useSaveGenerationJob();
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      const bridge = window.desktopBridge;
+      if (bridge && event.key === "F11") {
+        event.preventDefault();
+        void bridge.toggleFullscreen();
+        return;
+      }
+      if (
+        bridge &&
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey &&
+        ["+", "=", "-", "0"].includes(event.key)
+      ) {
+        event.preventDefault();
+        void bridge
+          .zoom(event.key === "0" ? "reset" : event.key === "-" ? "out" : "in")
+          .then((state) => queries.setQueryData(["desktop-window"], state));
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && event.key === ",") {
+        event.preventDefault();
+        navigate("/settings");
+      }
+    };
+    document.addEventListener("keydown", key);
+    const offOpen = window.desktopBridge?.onOpenSettings(() =>
+      navigate("/settings"),
+    );
+    const offWindow = window.desktopBridge?.onWindowState(() => {
+      void queries.invalidateQueries({ queryKey: ["desktop-window"] });
+    });
+    const off = localTransport
+      ? localClient().onChange((tables) => {
+          void queries.invalidateQueries({
+            predicate: (q) => {
+              const key = String(q.queryKey[0]);
+              if (key === "desktop-window") return false;
+              if (!tables || tables.includes("*")) return true;
+              const affected: Record<string, string[]> = {
+                settings: ["local-settings", "judge-status"],
+                profiles: ["profile"],
+                profile_preferences: ["profile"],
+                generation_jobs: ["generation-jobs", "generation-job"],
+                ai_logs: ["ai-logs", "ai-log"],
+                ai_log_events: ["ai-logs", "ai-log"],
+                challenges: ["challenges", "progress"],
+                messages: ["messages", "challenges"],
+                quizzes: ["quizzes", "quiz", "challenges"],
+                quiz_attempts: [
+                  "quizzes",
+                  "quiz",
+                  "quiz-attempt",
+                  "quiz-attempts",
+                  "progress",
+                ],
+                submissions: ["submissions", "challenges", "progress"],
+                review_jobs: ["submissions", "challenges", "progress"],
+                verification_runs: ["submissions"],
+                projects: ["projects"],
+              };
+              return tables.some((table) => affected[table]?.includes(key));
+            },
+          });
+        })
+      : undefined;
+    return () => {
+      document.removeEventListener("keydown", key);
+      offOpen?.();
+      offWindow?.();
+      off?.();
+    };
+  }, [navigate, queries]);
   const seen = useRef(new Set<string>());
   const completed = useRef(new Set<string>());
   const notificationScope = profile ? `generation:${profile.id}` : null;

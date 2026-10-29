@@ -5,12 +5,22 @@ import { defineConfig } from "electron-vite";
 export default defineConfig({
   main: {
     build: {
+      externalizeDeps: { exclude: ["@repo/backend", "@repo/contracts"] },
       rollupOptions: {
         input: { index: resolve(import.meta.dirname, "src/main.ts") },
       },
     },
   },
+  preload: {
+    build: {
+      rollupOptions: {
+        input: { index: resolve(import.meta.dirname, "src/preload.ts") },
+        output: { format: "cjs", entryFileNames: "index.cjs" },
+      },
+    },
+  },
   renderer: {
+    cacheDir: resolve(import.meta.dirname, "node_modules/.vite-electron"),
     root: resolve(import.meta.dirname, "../web"),
     envDir: resolve(import.meta.dirname, "env"),
     plugins: [
@@ -35,10 +45,21 @@ export default defineConfig({
       alias: { "@": resolve(import.meta.dirname, "../../packages/ui/src") },
     },
     define: {
+      "import.meta.env.VITE_LOCAL_TRANSPORT": "true",
       "import.meta.env.VITE_API_URL": JSON.stringify("/api"),
       "import.meta.env.VITE_APP_ENV": JSON.stringify("development"),
     },
     server: {
+      fs: {
+        deny: [
+          "**/.env*",
+          "**/.git/**",
+          "**/.data/**",
+          "**/connection.json",
+          "**/*.sqlite*",
+          "**/backend.env",
+        ],
+      },
       host: "127.0.0.1",
       proxy: {
         "/api": {

@@ -9,12 +9,15 @@
   "scripts": {
     "dev": "bun run scripts/dev.ts",
     "build": "bun run scripts/build-backend.ts && electron-vite build",
-    "package:deb": "bun run build && electron-builder --linux deb --publish never",
+    "package:deb": "bun run build && electron-builder --linux deb --config electron-builder.dev.yml --publish never",
     "check-types": "tsc --noEmit",
     "lint": "eslint src scripts test *.ts --max-warnings 0",
     "test:smoke": "bun run scripts/smoke.ts",
     "test:dev": "bun run scripts/smoke-dev.ts",
-    "package:dir": "electron-builder --linux --dir --publish never"
+    "package:dir": "electron-builder --linux --dir --config electron-builder.dev.yml --publish never",
+    "test:web": "bun run scripts/smoke-web.ts",
+    "playwright:install": "playwright install chromium --with-deps",
+    "test:keyring": "dbus-run-session -- bun run scripts/keyring-roundtrip.ts"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
@@ -30,12 +33,11 @@
     "typescript": "7.0.2",
     "vite": "^7.3.1",
     "@playwright/test": "^1.64.1",
-    "drizzle-orm": "^0.44.0"
+    "drizzle-orm": "^0.44.0",
+    "@repo/backend": "workspace:*",
+    "@repo/ui": "workspace:*",
+    "@repo/contracts": "workspace:*"
   },
   "homepage": "https://github.com/Prajwal-17/grill-me",
-  "desktopName": "grill-me-dev.desktop",
-  "dependencies": {
-    "@repo/backend": "workspace:*",
-    "@repo/ui": "workspace:*"
-  }
+  "desktopName": "grill-me-dev.desktop"
 }

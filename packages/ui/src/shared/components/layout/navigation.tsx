@@ -46,6 +46,12 @@ export function Navigation({
   ];
   const utilityLinks = [
     {
+      href: "/settings",
+      label: "Settings",
+      icon: Settings2,
+      active: pathname === "/settings",
+    },
+    {
       href: "/logs",
       label: "Logs",
       icon: ScrollText,

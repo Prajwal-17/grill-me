@@ -27,7 +27,20 @@ export class LocalClient {
   private socket?: WebSocket;
   private connecting?: Promise<WebSocket>;
   private pending = new Map<string, Pending>();
-  private listeners = new Set<() => void>();
+  private statusListeners = new Set<() => void>();
+  get isConnected() {
+    return this.socket?.readyState === WebSocket.OPEN;
+  }
+  onStatus(listener: () => void) {
+    this.statusListeners.add(listener);
+    return () => {
+      this.statusListeners.delete(listener);
+    };
+  }
+  private statusChanged() {
+    for (const listener of this.statusListeners) listener();
+  }
+  private listeners = new Set<(tables?: string[]) => void>();
   private reconnectTimer?: ReturnType<typeof setTimeout>;
   private heartbeat?: ReturnType<typeof setInterval>;
   private stopped = false;
@@ -52,6 +65,7 @@ export class LocalClient {
         socket.onopen = () => {
           clearTimeout(timer);
           this.socket = socket;
+          this.statusChanged();
           this.attempt = 0;
           socket.send(JSON.stringify({ type: "subscribe" }));
           this.heartbeat = setInterval(() => {
@@ -71,7 +85,7 @@ export class LocalClient {
             return;
           }
           if (frame.type === "changed") {
-            for (const listener of this.listeners) listener();
+            for (const listener of this.listeners) listener(frame.tables);
             return;
           }
           if (frame.type === "pong") return;
@@ -93,21 +107,25 @@ export class LocalClient {
         };
         socket.onclose = () => {
           clearTimeout(timer);
-          clearInterval(this.heartbeat);
-          if (this.socket === socket) this.socket = undefined;
           reject(new Error("Local backend disconnected."));
-          for (const pending of this.pending.values()) {
-            pending.cleanup();
-            pending.reject(
-              new RpcClientError({
-                code: "CONNECTION_LOST",
-                message:
-                  "Connection lost. Refresh the result before retrying this action.",
-                retryable: true,
-              }),
-            );
+          if (this.socket === socket) {
+            clearInterval(this.heartbeat);
+            this.socket = undefined;
+            this.statusChanged();
+            reject(new Error("Local backend disconnected."));
+            for (const pending of this.pending.values()) {
+              pending.cleanup();
+              pending.reject(
+                new RpcClientError({
+                  code: "CONNECTION_LOST",
+                  message:
+                    "Connection lost. Refresh the result before retrying this action.",
+                  retryable: true,
+                }),
+              );
+            }
+            this.pending.clear();
           }
-          this.pending.clear();
           this.scheduleReconnect();
         };
       });
@@ -188,7 +206,7 @@ export class LocalClient {
       }
     });
   }
-  onChange(listener: () => void) {
+  onChange(listener: (tables?: string[]) => void) {
     this.listeners.add(listener);
     void this.connect().catch(() => this.scheduleReconnect());
     return () => {

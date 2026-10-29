@@ -14,7 +14,8 @@ test("reloading database modules reuses a connection pool instead of exhausting 
     const pids = new Set();
     let client;
     for (let reload = 0; reload < 20; reload++) {
-      const { db } = await import(${JSON.stringify(moduleUrl)} + "?reload=" + reload);
+      const { db,initializeDatabase } = await import(${JSON.stringify(moduleUrl)} + "?reload=" + reload);
+      await initializeDatabase({dialect:"postgres",url:process.env.DATABASE_URL});
       client = db.$client;
       const rows = await client.unsafe("SELECT pg_backend_pid() AS pid");
       pids.add(rows[0].pid);

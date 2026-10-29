@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import { useMutation } from "@tanstack/react-query";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -23,8 +24,16 @@ export function ProfileGatePage() {
     <main className="flex min-h-dvh flex-col gap-12 bg-chrome px-5 pb-16">
       <header className="-mx-5 flex min-h-[52px] items-center justify-between gap-4 border-b border-line px-5 py-2">
         <BrandLockup markClassName="size-7" wordmarkClassName="text-ui" />
-        <div className="w-40">
-          <ThemeSelect />
+        <div className="flex items-center gap-3">
+          <Link
+            to="/settings"
+            className="text-ui text-muted hover:text-foreground"
+          >
+            Settings
+          </Link>
+          <div className="w-40">
+            <ThemeSelect />
+          </div>
         </div>
       </header>
       <section className="mx-auto my-auto w-full max-w-[420px] rounded-xl border border-line bg-surface p-6 sm:p-8">

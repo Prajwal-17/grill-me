@@ -6,13 +6,17 @@ import {
   shell,
   session,
   protocol,
+  ipcMain,
+  type IpcMainInvokeEvent,
 } from "electron";
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
 import { dirname, join, resolve } from "node:path";
-import { appendFileSync } from "node:fs";
-import { backendEnvironment, desktopConfiguration } from "./config";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { backendEnvironment } from "./config";
+import { windowSettingsStore } from "./window-settings";
+import { windowSettingsSchema, type DesktopState } from "@repo/contracts";
 
 app.setName("Grill Me Dev");
 protocol.registerSchemesAsPrivileged([
@@ -77,7 +81,8 @@ else {
 
 async function start() {
   const dataRoot = app.getPath("userData");
-  const config = desktopConfiguration(dataRoot);
+  mkdirSync(dataRoot, { recursive: true, mode: 0o700 });
+  const preferences = windowSettingsStore(dataRoot);
   const devUrl = !app.isPackaged
     ? process.env.ELECTRON_RENDERER_URL
     : undefined;
@@ -94,12 +99,7 @@ async function start() {
       : join(desktopRoot, "resources/backend/grill-me-backend");
   if (!executable) throw new Error("Use bun dev to start the source backend.");
   const args = devUrl
-    ? [
-        "--no-env-file",
-        "--preload",
-        join(desktopRoot, "scripts/sqlite-preload.ts"),
-        join(desktopRoot, "src/backend.ts"),
-      ]
+    ? ["--no-env-file", join(desktopRoot, "src/backend.ts")]
     : [];
   const logPath = join(dataRoot, "backend.log");
   const child = spawn(executable, args, {
@@ -108,12 +108,15 @@ async function start() {
     env: backendEnvironment({
       dataRoot,
       token,
-      settings: config.values,
+      settings: {},
       port: devUrl ? Number(process.env.DESKTOP_DEV_API_PORT) : 0,
       rendererRoot: app.isPackaged
         ? join(process.resourcesPath, "renderer")
         : resolve(import.meta.dirname, "../renderer"),
       webOrigin: devUrl ? new URL(devUrl).origin : "grill-me://app",
+      keyringModule: devUrl
+        ? undefined
+        : join(dirname(executable), "node_modules/@napi-rs/keyring/index.js"),
       workerPath: devUrl
         ? undefined
         : join(dirname(executable), "resume.worker.js"),
@@ -179,8 +182,10 @@ async function start() {
     minHeight: 650,
     backgroundColor: "#0a0a0a",
     show: false,
+    fullscreen: preferences.get().startup === "fullscreen",
     webPreferences: {
       session: desktopSession,
+      preload: join(import.meta.dirname, "../preload/index.cjs"),
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
@@ -210,7 +215,105 @@ async function start() {
       external(url);
     }
   });
-  window.once("ready-to-show", () => window?.show());
+  const state = (): DesktopState => ({
+    ...preferences.get(),
+    fullscreen: window?.isFullScreen() ?? false,
+  });
+  const publish = () =>
+    window?.webContents.send("desktop:window-state", state());
+  const zoom = (direction: "in" | "out" | "reset") => {
+    const current = preferences.get().zoom;
+    const next =
+      direction === "reset"
+        ? 1
+        : Math.round(
+            Math.max(
+              0.5,
+              Math.min(2, current + (direction === "in" ? 0.1 : -0.1)),
+            ) * 100,
+          ) / 100;
+    preferences.set({ zoom: next });
+    window?.webContents.setZoomFactor(next);
+    publish();
+    return state();
+  };
+  window.webContents.on("before-input-event", (event, input) => {
+    if (input.type !== "keyDown") return;
+    if (input.key === "F11") {
+      event.preventDefault();
+      window?.setFullScreen(!window.isFullScreen());
+      return;
+    }
+    if (!(input.control || input.meta) || input.alt) return;
+    if (["+", "=", "-", "0"].includes(input.key)) {
+      event.preventDefault();
+      zoom(input.key === "0" ? "reset" : input.key === "-" ? "out" : "in");
+    } else if (input.key === ",") {
+      event.preventDefault();
+      window?.webContents.send("desktop:open-settings");
+    }
+  });
+  window.webContents.setZoomFactor(preferences.get().zoom);
+  window.webContents.on("zoom-changed", (_event, direction) => zoom(direction));
+  window.on("enter-full-screen", publish);
+  window.on("leave-full-screen", publish);
+  const trusted = (event: IpcMainInvokeEvent) => {
+    if (
+      event.sender !== window?.webContents ||
+      event.senderFrame !== event.sender.mainFrame
+    )
+      throw new Error("Untrusted desktop request.");
+    const url = new URL(event.senderFrame.url);
+    if (
+      devUrl
+        ? url.origin !== new URL(devUrl).origin
+        : url.protocol !== "grill-me:" || url.host !== "app"
+    )
+      throw new Error("Untrusted desktop origin.");
+  };
+  ipcMain.handle("desktop:connection", async (event) => {
+    trusted(event);
+    const response = await fetch(origin + "/_local/bootstrap", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error("Local backend connection failed.");
+    return response.json();
+  });
+  ipcMain.handle("desktop:window", (event) => {
+    trusted(event);
+    return state();
+  });
+  ipcMain.handle("desktop:set-window", (event, input: unknown) => {
+    trusted(event);
+    const parsed = windowSettingsSchema.partial().strict().parse(input);
+    preferences.set(parsed);
+    if (parsed.zoom !== undefined)
+      window?.webContents.setZoomFactor(parsed.zoom);
+    publish();
+    return state();
+  });
+  ipcMain.handle("desktop:zoom", (event, direction: unknown) => {
+    trusted(event);
+    if (direction !== "in" && direction !== "out" && direction !== "reset")
+      throw new Error("Invalid zoom direction.");
+    return zoom(direction);
+  });
+  ipcMain.handle("desktop:fullscreen", (event) => {
+    trusted(event);
+    window?.setFullScreen(!window.isFullScreen());
+    return state();
+  });
+  ipcMain.handle("desktop:data-folder", (event) => {
+    trusted(event);
+    return shell.openPath(dataRoot).then((error) => {
+      if (error) throw new Error("Could not open the data folder.");
+    });
+  });
+  window.once("ready-to-show", () => {
+    if (preferences.get().startup === "maximized") window?.maximize();
+    window?.show();
+  });
   child.on("exit", () => {
     if (!quitting) {
       dialog.showErrorBox(
@@ -226,9 +329,10 @@ async function start() {
         label: "Application",
         submenu: [
           {
-            label: "Configure AI…",
+            label: "Settings…",
+            accelerator: "Ctrl+,",
             click: () => {
-              void shell.openPath(config.path);
+              window?.webContents.send("desktop:open-settings");
             },
           },
           {
@@ -265,10 +369,40 @@ async function start() {
         submenu: [
           { role: "reload" },
           { role: "toggleDevTools" },
-          { role: "resetZoom" },
-          { role: "zoomIn" },
-          { role: "zoomOut" },
-          { role: "togglefullscreen" },
+          {
+            label: "Actual size",
+            accelerator: "Ctrl+0",
+            click: () => zoom("reset"),
+          },
+          { label: "Zoom in", accelerator: "Ctrl+=", click: () => zoom("in") },
+          {
+            label: "Zoom in",
+            accelerator: "Ctrl+Plus",
+            visible: false,
+            click: () => zoom("in"),
+          },
+          {
+            label: "Zoom in",
+            accelerator: "Ctrl+numadd",
+            visible: false,
+            click: () => zoom("in"),
+          },
+          {
+            label: "Zoom out",
+            accelerator: "Ctrl+-",
+            click: () => zoom("out"),
+          },
+          {
+            label: "Zoom out",
+            accelerator: "Ctrl+numsub",
+            visible: false,
+            click: () => zoom("out"),
+          },
+          {
+            label: "Toggle fullscreen",
+            accelerator: "F11",
+            click: () => window?.setFullScreen(!window.isFullScreen()),
+          },
         ],
       },
     ]),
