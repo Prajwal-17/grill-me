@@ -189,6 +189,9 @@ test("disconnect survives a backend restart until explicit Connect or Use provid
     });
     const saved = await settings.provider(p.id);
     expect((await manager.status(saved)).code).toBe("PROVIDER_DISCONNECTED");
+    await settings.saveProvider({ ...p, name: "Edited while disconnected" });
+    expect((await settings.get()).activeProviderId).toBeNull();
+    expect((await manager.status(saved)).connected).toBe(false);
     expect((await settings.connectProvider(p.id)).connected).toBe(true);
     await settings.disconnectProvider(p.id);
     await settings.activateProvider(p.id);

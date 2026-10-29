@@ -195,7 +195,11 @@ export function createSettingsService(
             ...document.providers.filter((p) => p.id !== record.id),
             record,
           ],
-          activeProviderId: document.activeProviderId ?? record.id,
+          activeProviderId:
+            document.activeProviderId ??
+            (document.disconnectedProviders.includes(record.id)
+              ? null
+              : record.id),
         });
       } catch (error) {
         if (credential && credential !== previous?.credential)
