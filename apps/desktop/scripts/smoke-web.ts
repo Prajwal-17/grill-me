@@ -77,6 +77,9 @@ try {
     }),
   );
   await page.goto(`http://127.0.0.1:${webPort}`);
+  await expect(
+    page.getByRole("group", { name: "Window controls" }),
+  ).toHaveCount(0);
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Application settings" }),

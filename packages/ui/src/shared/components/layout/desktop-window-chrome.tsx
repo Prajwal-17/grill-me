@@ -1,0 +1,81 @@
+import { createPortal } from "react-dom";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Minus, Square, Copy, X } from "lucide-react";
+import { useToast } from "@/shared/components/ui/toast";
+
+/** Caption controls stay available during profile selection, loading and errors. */
+export function DesktopWindowChrome() {
+  const bridge = window.desktopBridge;
+  const queries = useQueryClient();
+  const { show } = useToast();
+  const state = useQuery({
+    queryKey: ["desktop-window"],
+    queryFn: () => bridge!.getWindowState(),
+    enabled: Boolean(bridge),
+    staleTime: Infinity,
+  });
+  useEffect(
+    () =>
+      bridge?.onWindowState((value) =>
+        queries.setQueryData(["desktop-window"], value),
+      ),
+    [bridge, queries],
+  );
+  if (!bridge) return null;
+  const perform = (action: Promise<unknown>) => {
+    void action.catch(() =>
+      show({
+        message: "Could not update the window. Try again.",
+        variant: "error",
+      }),
+    );
+  };
+  const maximized = state.data?.maximized ?? false;
+  const MaximizeIcon = maximized ? Copy : Square;
+  return createPortal(
+    <>
+      <div
+        className="desktop-window-drag-region"
+        aria-hidden="true"
+        onDoubleClick={() => perform(bridge.toggleMaximize())}
+      />
+      <div
+        className="desktop-window-controls"
+        role="group"
+        aria-live="off"
+        aria-label="Window controls"
+        data-focused={state.data?.focused ?? true}
+      >
+        <button
+          type="button"
+          className="desktop-caption-button"
+          aria-label="Minimize window"
+          title="Minimize"
+          onClick={() => perform(bridge.minimizeWindow())}
+        >
+          <Minus size={13} strokeWidth={1.6} />
+        </button>
+        <button
+          type="button"
+          className="desktop-caption-button"
+          aria-label={maximized ? "Restore window" : "Maximize window"}
+          title={maximized ? "Restore" : "Maximize"}
+          onClick={() => perform(bridge.toggleMaximize())}
+        >
+          <MaximizeIcon size={maximized ? 12 : 11} strokeWidth={1.6} />
+        </button>
+        <button
+          type="button"
+          className="desktop-caption-button desktop-caption-close"
+          aria-label="Close window"
+          title="Close"
+          onClick={() => perform(bridge.closeWindow())}
+        >
+          <X size={13} strokeWidth={1.6} />
+        </button>
+      </div>
+    </>,
+    document.body,
+  );
+}

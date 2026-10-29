@@ -533,3 +533,86 @@
     opacity: 1;
   }
 }
+
+/* Linux desktop caption lives in the existing app header, not an extra row. */
+html[data-desktop="true"] {
+  --desktop-caption-space: 120px;
+}
+.desktop-window-drag-region {
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--workspace-header-height);
+  z-index: 20;
+  -webkit-app-region: drag;
+}
+.desktop-window-controls {
+  position: fixed;
+  top: 11px;
+  right: 12px;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  -webkit-app-region: no-drag;
+  pointer-events: auto;
+}
+.desktop-caption-button {
+  -webkit-app-region: no-drag;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--elevated);
+  color: var(--foreground);
+  transition:
+    background-color 100ms,
+    color 100ms;
+}
+.desktop-caption-button:hover {
+  background: var(--line);
+}
+.desktop-caption-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+.desktop-caption-close:hover {
+  background: var(--destructive);
+  color: var(--canvas);
+}
+.desktop-window-controls[data-focused="false"] {
+  color: var(--muted);
+}
+.desktop-window-controls[data-focused="false"] .desktop-caption-button {
+  color: inherit;
+}
+html[data-desktop="true"] [data-slot="page-header"],
+html[data-desktop="true"] .desktop-app-header {
+  position: relative;
+  z-index: 30;
+  padding-right: calc(var(--desktop-caption-space) + 16px);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+html[data-desktop="true"] .desktop-sidebar-header {
+  position: relative;
+  z-index: 30;
+  -webkit-app-region: drag;
+  user-select: none;
+}
+html[data-desktop="true"]
+  :is([data-slot="page-header"], .desktop-app-header, .desktop-sidebar-header)
+  :is(button, a, input, select, textarea, [role="button"], [role="combobox"]) {
+  -webkit-app-region: no-drag;
+}
+html[data-desktop="true"] [data-slot="page-header"] {
+  background: var(--chrome);
+}
+html[data-desktop="true"] #app-content {
+  scrollbar-gutter: stable;
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-caption-button {
+    transition: none;
+  }
+}

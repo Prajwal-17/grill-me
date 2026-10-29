@@ -7,6 +7,7 @@ import "katex/dist/katex.min.css";
 import "./app/globals.css";
 
 export function mountApp(element: HTMLElement) {
+  if (window.desktopBridge) document.documentElement.dataset.desktop = "true";
   createRoot(element).render(
     <StrictMode>
       <AppProviders>

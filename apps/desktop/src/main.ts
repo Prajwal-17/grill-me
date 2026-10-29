@@ -183,6 +183,8 @@ async function start() {
     backgroundColor: "#0a0a0a",
     show: false,
     fullscreen: false,
+    frame: false,
+    autoHideMenuBar: true,
     webPreferences: {
       session: desktopSession,
       preload: join(import.meta.dirname, "../preload/index.cjs"),
@@ -218,6 +220,8 @@ async function start() {
   const state = (): DesktopState => ({
     ...preferences.get(),
     fullscreen: window?.isFullScreen() ?? false,
+    maximized: window?.isMaximized() ?? false,
+    focused: window?.isFocused() ?? false,
   });
   const publish = () =>
     window?.webContents.send("desktop:window-state", state());
@@ -244,7 +248,27 @@ async function start() {
       window?.setFullScreen(!window.isFullScreen());
       return;
     }
+    if (input.key === "F5") {
+      event.preventDefault();
+      window?.webContents.reload();
+      return;
+    }
     if (!(input.control || input.meta) || input.alt) return;
+    if (input.key.toLowerCase() === "r") {
+      event.preventDefault();
+      window?.webContents.reload();
+      return;
+    }
+    if (["q", "w"].includes(input.key.toLowerCase())) {
+      event.preventDefault();
+      window?.close();
+      return;
+    }
+    if (input.shift && input.key.toLowerCase() === "i") {
+      event.preventDefault();
+      window?.webContents.toggleDevTools();
+      return;
+    }
     if (["+", "=", "-", "0"].includes(input.key)) {
       event.preventDefault();
       zoom(input.key === "0" ? "reset" : input.key === "-" ? "out" : "in");
@@ -259,6 +283,10 @@ async function start() {
   // Chromium applies origin-specific zoom during navigation; restore afterwards.
   window.webContents.on("did-finish-load", restoreZoom);
   window.webContents.on("zoom-changed", (_event, direction) => zoom(direction));
+  window.on("maximize", publish);
+  window.on("unmaximize", publish);
+  window.on("focus", publish);
+  window.on("blur", publish);
   window.on("enter-full-screen", publish);
   window.on("leave-full-screen", publish);
   const trusted = (event: IpcMainInvokeEvent) => {
@@ -275,6 +303,21 @@ async function start() {
     )
       throw new Error("Untrusted desktop origin.");
   };
+  ipcMain.handle("desktop:minimize", (event) => {
+    trusted(event);
+    window?.minimize();
+  });
+  ipcMain.handle("desktop:maximize", (event) => {
+    trusted(event);
+    if (window?.isFullScreen()) window.setFullScreen(false);
+    if (window?.isMaximized()) window.unmaximize();
+    else window?.maximize();
+    return state();
+  });
+  ipcMain.handle("desktop:close", (event) => {
+    trusted(event);
+    window?.close();
+  });
   ipcMain.handle("desktop:connection", async (event) => {
     trusted(event);
     const response = await fetch(origin + "/_local/bootstrap", {
@@ -327,89 +370,7 @@ async function start() {
       app.quit();
     }
   });
-  Menu.setApplicationMenu(
-    Menu.buildFromTemplate([
-      {
-        label: "Application",
-        submenu: [
-          {
-            label: "Settings…",
-            accelerator: "Ctrl+,",
-            click: () => {
-              window?.webContents.send("desktop:open-settings");
-            },
-          },
-          {
-            label: "Open desktop data folder",
-            click: () => {
-              void shell.openPath(dataRoot);
-            },
-          },
-          {
-            label: "Restart",
-            click: () => {
-              app.relaunch();
-              app.quit();
-            },
-          },
-          { type: "separator" },
-          { role: "quit" },
-        ],
-      },
-      {
-        label: "Edit",
-        submenu: [
-          { role: "undo" },
-          { role: "redo" },
-          { type: "separator" },
-          { role: "cut" },
-          { role: "copy" },
-          { role: "paste" },
-          { role: "selectAll" },
-        ],
-      },
-      {
-        label: "View",
-        submenu: [
-          { role: "reload" },
-          { role: "toggleDevTools" },
-          {
-            label: "Actual size",
-            accelerator: "Ctrl+0",
-            click: () => zoom("reset"),
-          },
-          { label: "Zoom in", accelerator: "Ctrl+=", click: () => zoom("in") },
-          {
-            label: "Zoom in",
-            accelerator: "Ctrl+Plus",
-            visible: false,
-            click: () => zoom("in"),
-          },
-          {
-            label: "Zoom in",
-            accelerator: "Ctrl+numadd",
-            visible: false,
-            click: () => zoom("in"),
-          },
-          {
-            label: "Zoom out",
-            accelerator: "Ctrl+-",
-            click: () => zoom("out"),
-          },
-          {
-            label: "Zoom out",
-            accelerator: "Ctrl+numsub",
-            visible: false,
-            click: () => zoom("out"),
-          },
-          {
-            label: "Toggle fullscreen",
-            accelerator: "F11",
-            click: () => window?.setFullScreen(!window.isFullScreen()),
-          },
-        ],
-      },
-    ]),
-  );
+  Menu.setApplicationMenu(null);
+  window.setMenu(null);
   await window.loadURL(devUrl ?? "grill-me://app/");
 }

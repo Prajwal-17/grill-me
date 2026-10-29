@@ -95,7 +95,7 @@ export function Navigation({
   );
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <div className="flex h-[var(--workspace-header-height)] shrink-0 items-center border-b border-line/60 px-4">
+      <div className="desktop-sidebar-header flex h-[var(--workspace-header-height)] shrink-0 items-center border-b border-line/60 px-4">
         <Link
           to="/"
           onClick={close}

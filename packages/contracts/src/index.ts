@@ -68,9 +68,16 @@ export const windowSettingsSchema = z.object({
   zoom: z.number().min(0.5).max(2).default(1),
 });
 export type WindowSettings = z.infer<typeof windowSettingsSchema>;
-export type DesktopState = WindowSettings & { fullscreen: boolean };
+export type DesktopState = WindowSettings & {
+  fullscreen: boolean;
+  maximized: boolean;
+  focused: boolean;
+};
 export type ConnectionBootstrap = { wsUrl: string; ticket: string };
 export interface DesktopBridge {
+  minimizeWindow(): Promise<void>;
+  toggleMaximize(): Promise<DesktopState>;
+  closeWindow(): Promise<void>;
   onWindowState(listener: (state: DesktopState) => void): () => void;
   onOpenSettings(listener: () => void): () => void;
   getConnection(): Promise<ConnectionBootstrap>;

@@ -111,7 +111,7 @@ export function SettingsPage() {
     );
   return (
     <main className="min-h-dvh bg-canvas">
-      <header className="flex min-h-[52px] items-center gap-5 border-b border-line px-5">
+      <header className="desktop-app-header flex min-h-[52px] items-center gap-5 border-b border-line px-5">
         <Link to="/" aria-label="Back to profile">
           <ArrowLeft size={17} />
         </Link>

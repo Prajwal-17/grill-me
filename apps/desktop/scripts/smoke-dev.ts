@@ -115,6 +115,12 @@ try {
   await expect(
     page.getByRole("heading", { name: "Choose a profile" }),
   ).toBeVisible({ timeout: 30000 });
+  await expect(
+    page.getByRole("group", { name: "Window controls" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Close window", exact: true }),
+  ).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
   const styles = await page.evaluate(() => {
     const main = document.querySelector("main")!;
@@ -233,6 +239,62 @@ try {
   const session = await restarted.context().newCDPSession(restarted);
   const metrics = await session.send("Page.getLayoutMetrics");
   expect(metrics.cssVisualViewport.zoom).toBeCloseTo(1.1, 1);
+
+  // CDP pointer coordinates are unreliable at Electron page zoom after native resize.
+  // Zoom persistence is verified above; use 100% for native pointer hit testing.
+  await restarted.keyboard.press("Control+0");
+  await expect(restarted.locator("output")).toHaveText("100%");
+  const beforeMaximize = await restarted.evaluate(() =>
+    (
+      window as unknown as { desktopBridge: DesktopBridge }
+    ).desktopBridge.getWindowState(),
+  );
+  await restarted
+    .getByRole("button", { name: /^(Restore|Maximize) window$/ })
+    .click();
+  await expect
+    .poll(() =>
+      restarted.evaluate(() =>
+        (window as unknown as { desktopBridge: DesktopBridge }).desktopBridge
+          .getWindowState()
+          .then((state) => state.maximized),
+      ),
+    )
+    .toBe(!beforeMaximize.maximized);
+
+  await expect(
+    restarted.getByRole("button", { name: /^(Restore|Maximize) window$/ }),
+  ).toBeVisible();
+  const caption = await restarted
+    .getByRole("group", { name: "Window controls" })
+    .boundingBox();
+  const header = await restarted
+    .locator("[data-slot='page-header']")
+    .boundingBox();
+  expect(caption!.y + caption!.height).toBeLessThanOrEqual(
+    header!.y + header!.height,
+  );
+  await restarted.screenshot({ path: join(captures, "desktop-frameless.png") });
+  await restarted
+    .getByRole("button", { name: "Appearance", exact: true })
+    .last()
+    .click();
+  await restarted
+    .getByRole("menuitemradio", { name: "Light", exact: true })
+    .click();
+  await expect(restarted.getByRole("menu")).toHaveCount(0);
+  await expect(restarted.locator("html")).toHaveAttribute(
+    "data-theme",
+    "light",
+  );
+  await restarted.screenshot({
+    path: join(captures, "desktop-frameless-light.png"),
+  });
+  const closed = restarted.waitForEvent("close", { timeout: 5000 });
+  await restarted
+    .getByRole("button", { name: "Close window", exact: true })
+    .click();
+  await closed;
   expect(errors).toEqual([]);
   console.log(
     "Dev renderer smoke passed: styled UI, SQLite login, maximized startup, and zoom persistence across reload and full app restart.",
