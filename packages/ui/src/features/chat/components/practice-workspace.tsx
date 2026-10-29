@@ -357,67 +357,6 @@ export function PracticeWorkspace({
       title={`#${challenge.number} ${challenge.title}`}
       breadcrumbs={[backTo]}
       contentScrollable={false}
-      actions={
-        <>
-          {challenge.status === "completed" && (
-            <span className="text-metadata text-success">Completed</span>
-          )}
-          {archived && (
-            <span className="text-metadata text-muted">Archived</span>
-          )}
-          {!archived && (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy || lifecycle.isPending}
-              onClick={() => lifecycle.mutate("archived")}
-            >
-              <Archive size={14} /> Archive
-            </Button>
-          )}
-          {archived ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={busy || lifecycle.isPending}
-              onClick={() => lifecycle.mutate("restored")}
-            >
-              <ArchiveRestore size={14} /> Restore
-            </Button>
-          ) : active ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy || lifecycle.isPending}
-              onClick={() => lifecycle.mutate("paused")}
-            >
-              <Pause size={14} />
-              Pause
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={busy || lifecycle.isPending}
-              onClick={() => lifecycle.mutate("active")}
-            >
-              <Play size={14} />
-              Resume
-            </Button>
-          )}
-          {!archived && challenge.status !== "completed" && (
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={busy || lifecycle.isPending}
-              onClick={() => lifecycle.mutate("completed")}
-            >
-              <Check size={15} />
-              Mark completed
-            </Button>
-          )}
-        </>
-      }
     >
       <main className="relative flex h-full min-h-0 overflow-hidden">
         <div className="flex min-w-0 flex-1 flex-col">
@@ -465,7 +404,69 @@ export function PracticeWorkspace({
                   </TabsTrigger>
                 </TabsList>
               </div>
-              <div className="ml-auto flex items-center gap-1 py-1.5">
+              <div
+                role="group"
+                aria-label="Build actions"
+                className="ml-auto flex flex-wrap items-center gap-1 py-1.5"
+              >
+                {challenge.status === "completed" && (
+                  <span className="text-metadata text-success">Completed</span>
+                )}
+                {archived && (
+                  <span className="text-metadata text-muted">Archived</span>
+                )}
+                {!archived && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy || lifecycle.isPending}
+                    onClick={() => lifecycle.mutate("archived")}
+                  >
+                    <Archive size={14} /> Archive
+                  </Button>
+                )}
+                {archived ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy || lifecycle.isPending}
+                    onClick={() => lifecycle.mutate("restored")}
+                  >
+                    <ArchiveRestore size={14} /> Restore
+                  </Button>
+                ) : active ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy || lifecycle.isPending}
+                    onClick={() => lifecycle.mutate("paused")}
+                  >
+                    <Pause size={14} />
+                    Pause
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy || lifecycle.isPending}
+                    onClick={() => lifecycle.mutate("active")}
+                  >
+                    <Play size={14} />
+                    Resume
+                  </Button>
+                )}
+                {!archived && challenge.status !== "completed" && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={busy || lifecycle.isPending}
+                    onClick={() => lifecycle.mutate("completed")}
+                  >
+                    <Check size={15} />
+                    Mark completed
+                  </Button>
+                )}
+
                 {selectedAttempt && (
                   <Button
                     ref={filesToggle}

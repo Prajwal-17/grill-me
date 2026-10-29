@@ -1,4 +1,3 @@
-import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
 import { BuildSkeleton } from "@/shared/components/ui/loading-layouts";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
@@ -30,18 +29,6 @@ export function ChatPage({ challengeId }: { challengeId: string }) {
       title="Build"
       breadcrumbs={[{ label: "Challenges", href: "/challenges" }]}
       contentScrollable={false}
-      actions={
-        state.loading ? (
-          <LoadingRegion
-            label="Loading build actions…"
-            className="flex h-8 items-center gap-2"
-          >
-            <Skeleton className="h-8 w-20" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-8 w-32" />
-          </LoadingRegion>
-        ) : undefined
-      }
     >
       {state.loading ? (
         <BuildSkeleton />

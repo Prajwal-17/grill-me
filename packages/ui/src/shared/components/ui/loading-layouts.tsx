@@ -105,30 +105,21 @@ export function PreferencesSkeleton() {
     <LoadingRegion
       label="Loading preferences…"
       layout="preferences"
-      className="mx-auto w-full max-w-[1100px] p-4 md:p-6"
+      className="w-full"
     >
-      <div className="grid min-w-0 gap-6 md:grid-cols-[160px_minmax(0,1fr)] md:gap-8">
-        <div className="flex gap-1 border-b border-line pb-2 md:flex-col md:border-0">
-          {rows.map((i) => (
-            <Skeleton key={i} className="h-9 w-20 md:w-full" />
-          ))}
-        </div>
-        <div className="min-w-0 max-w-[760px]">
-          <div className="flex h-12 items-start justify-between border-b border-line">
-            <Skeleton className="h-7 w-40" />
-            <Skeleton className="h-8 w-28" />
-          </div>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <div
-              key={i}
-              className="grid gap-2 border-b border-line py-4 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-6"
-            >
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className={i === 4 ? "h-24" : "h-11 md:h-9"} />
-            </div>
-          ))}
-        </div>
+      <div className="flex min-h-12 items-start justify-between border-b border-line">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-8 w-28" />
       </div>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className="grid gap-2 border-b border-line py-4 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6"
+        >
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className={i === 4 ? "h-24" : "h-11 md:h-9"} />
+        </div>
+      ))}
     </LoadingRegion>
   );
 }

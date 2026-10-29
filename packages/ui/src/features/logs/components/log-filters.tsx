@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Button } from "@/shared/components/ui/button";
 import { SearchField } from "@/shared/components/ui/search-field";
 import { CollectionToolbar } from "@/shared/components/layout/collection-toolbar";
@@ -16,8 +17,10 @@ import type { LogFilters } from "@/features/logs/types";
 export function LogFilterBar({
   filters,
   onChange,
+  action,
 }: {
   filters: LogFilters;
+  action?: ReactNode;
   onChange: (filters: LogFilters) => void;
 }) {
   return (
@@ -99,6 +102,7 @@ export function LogFilterBar({
             ))}
           </SelectContent>
         </Select>
+        {action}
       </div>
     </CollectionToolbar>
   );

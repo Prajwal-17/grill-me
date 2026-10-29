@@ -45,29 +45,25 @@ export function LogsPage() {
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return null;
   return (
-    <AppShell
-      profile={profile}
-      title="Logs"
-      contentScrollable={false}
-      actions={
-        <Button
-          aria-label="Refresh logs"
-          title="Refresh logs"
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => void logs.refetch()}
-          disabled={logs.isFetching}
-        >
-          <RefreshCw
-            size={15}
-            className={logs.isFetching ? "animate-spin" : undefined}
-          />
-        </Button>
-      }
-    >
+    <AppShell profile={profile} title="Logs" contentScrollable={false}>
       <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col p-4 md:p-5">
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-line">
           <LogFilterBar
+            action={
+              <Button
+                aria-label="Refresh logs"
+                title="Refresh logs"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => void logs.refetch()}
+                disabled={logs.isFetching}
+              >
+                <RefreshCw
+                  size={15}
+                  className={logs.isFetching ? "animate-spin" : undefined}
+                />
+              </Button>
+            }
             filters={filters}
             onChange={(next) => navigate(logHref(next))}
           />

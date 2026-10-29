@@ -663,32 +663,15 @@ html[data-desktop="true"] #app-content {
     border-radius: 6px;
     font-size: 12px;
   }
-  .workspace-context-actions {
-    border-left: 1px solid var(--line);
-    padding-left: 6px;
-  }
-  .workspace-context-actions
-    :is(button, a)[class*="bg-primary"]:not(:disabled) {
-    background: var(--surface);
-    color: var(--foreground);
-    border-color: var(--control-border);
-  }
-  .workspace-context-actions
-    :is(button, a)[class*="bg-primary"]:not(:disabled):hover {
-    background: var(--elevated);
-    border-color: var(--control-border-hover);
-  }
 }
 @media (max-width: 767px) {
   :root {
     --workspace-header-height: 52px;
   }
   .workspace-toolbar {
-    flex-wrap: wrap;
     padding-block: 6px;
   }
   .workspace-toolbar > div:first-child {
-    flex-basis: 100%;
     min-height: 40px;
   }
   .sidebar-nav-item {

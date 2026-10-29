@@ -153,13 +153,6 @@ components:
     rounded: "{rounded.md}"
     padding: "0 12px"
     height: "30px"
-  button-header-primary:
-    backgroundColor: "{colors.light-surface}"
-    textColor: "{colors.light-foreground}"
-    typography: "{typography.toolbar-label}"
-    rounded: "{rounded.md}"
-    padding: "0 8px"
-    height: "28px"
   input:
     backgroundColor: "{colors.light-surface}"
     textColor: "{colors.light-foreground}"
@@ -259,9 +252,9 @@ The shell fills the dynamic viewport. The 232px desktop sidebar begins at
 768px; it collapses immediately, with Ctrl+B preserved and focus restored to the
 visible sidebar toggle when needed. A 280px shadcn Sheet provides mobile
 navigation. The content frame has a single left divider and a compact 42px
-desktop toolbar. On mobile, the header uses a 52px reference minimum and wraps
-into a title/navigation row followed by an actions row. Content regions own their
-scrolling.
+desktop toolbar. On mobile, the header uses a 52px reference minimum and keeps the title,
+navigation toggle, and notification bell in one row. Content regions own their
+scrolling. Page actions belong to their content, outside the draggable title bar.
 The sidebar holds 32px creation and labeled navigation rows for Home,
 Challenges, Quizzes, History, Settings, Logs, and Preferences. Practice lists and
 filters stay in the main content; do not add a recent-practice feed to the
@@ -278,9 +271,11 @@ Collections use 16px mobile and 20px desktop gutters, compact toolbars, one
 bordered result region, and a quiet result count. Challenges and quizzes use a
 centered content region capped at 1440px and group
 search with filters and a sort control; narrow screens stack these controls.
-The shared page header owns the page title and primary action. Collections start
-with their controls, without a second title-and-divider row. Keep counts in tabs
-or the result summary.
+The shared page header owns the page title and global notifications only.
+Collections keep creation actions beside their tabs or filters; logs keep refresh
+with their filters and detail links beside their metadata. Build lifecycle actions
+live beside the workspace tabs. Collections start with their controls, without a
+second title-and-divider row. Keep counts in tabs or the result summary.
 History uses a fixed-layout semantic table that gives the title the remaining
 width, while diagnostic tables scroll internally when their columns cannot fit.
 
@@ -290,19 +285,27 @@ areas are constrained to approximately 880px. The optional reference is 340px
 wide above the 1180px workspace breakpoint, and a drawer below it. File previews
 retain their existing wide-panel and full-screen controls.
 
-Preferences use a 160px section navigation column beside a form up to 760px
-wide, inside an 1100px page. On mobile, section navigation becomes a horizontal
-row and fields stack. Profile, Practice, Projects, and Code reviews remain
-mounted so switching sections preserves drafts. Saving reveals and focuses any
-invalid field, including one in a hidden section.
+Settings and Preferences share `SettingsLayout`: a 176px category rail from
+768px and a left-aligned scrolling content panel capped at 800px. Below that
+breakpoint, navigation becomes a horizontal scrolling row. Content uses 16px
+mobile and 24px desktop gutters. Switching categories resets the content scroll
+without remounting sections, preserving unsaved drafts.
 
-Application settings use a 176px category rail from 768px, with horizontally
-scrolling category navigation below that breakpoint. Appearance, AI providers,
-Local runtime, and Data & connection share a scrolling content panel capped at
-800px. Settings rows stack below 600px of available panel width; wider rows align
-labels and descriptions with controls. Category links update the `section` query
-parameter while preserving unrelated URL state. Sections remain mounted so
-switching categories preserves unsaved drafts.
+Preferences keep Profile, Practice, Projects, and Code reviews mounted. Labels
+and fields align in columns only above 600px of form/container width; narrower
+panels stack them. Save and discard actions live at the end of the form, beside
+unsaved/error/saved feedback. Saving reveals and focuses any invalid field,
+including one in a hidden section.
+
+Application settings contain Appearance, AI providers, and Local runtime.
+Appearance exposes theme and persistent zoom; startup/fullscreen controls and
+static database/connection/keyring diagnostics are omitted. Existing maximized
+startup and F11 remain available independently. Runtime retains the project-folder
+input and native picker, review timeout, save/discard actions, and a quiet app-data
+folder action. Credential availability and errors stay with provider settings,
+where they affect the user's choices. Settings rows stack below 600px of panel
+width; wider rows align labels and descriptions with controls. Category links
+update the `section` query parameter while preserving unrelated URL state.
 
 ## Elevation & Depth
 
@@ -353,10 +356,9 @@ rather than installing a second component vocabulary. Configuration reference:
   ghost for low-priority controls. Default height is 44px on mobile and 30px on
   desktop; inputs/selects are 44px / 32px. Explicit small button and icon-small
   variants remain 32px. Desktop toolbar actions use 28px height, 8px horizontal
-  padding, 12px labels, and 6px corners. Within that toolbar only, primary
-  context actions use the quiet surface, foreground, and control border; hover
-  moves to elevated with the control-hover border. Their primary semantics
-  remain intact. Commit actions elsewhere keep the inverted monochrome fill.
+  padding, 12px labels, and 6px corners. Within that toolbar only,
+  notification controls use the quiet surface and foreground. Page commit
+  actions keep the inverted monochrome fill and remain in their page content.
 - **Navigation:** main links use compact 13px desktop labels, neutral active
   fills, muted resting text, and elevated hover fills with foreground text.
   Mobile labels use 14px and the larger targets described in Layout. Settings,

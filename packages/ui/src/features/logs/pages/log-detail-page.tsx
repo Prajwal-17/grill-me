@@ -1,5 +1,4 @@
 import { localTransport } from "@/shared/lib/local-client";
-import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
 import { LogDetailSkeleton } from "@/shared/components/ui/loading-layouts";
 import { Link } from "react-router";
 import { useSearchParams } from "react-router";
@@ -49,30 +48,6 @@ export function LogDetailPage({ id }: { id: string }) {
       profile={profile}
       title={log ? OPERATION_LABELS[log.operation] : "Request details"}
       breadcrumbs={[{ label: "Logs", href: logHref(filters) }]}
-      actions={
-        log ? (
-          <>
-            <LogStatusBadge status={log.status} />
-            {log.challengeId && (
-              <Link
-                to={`/chat?id=${log.challengeId}`}
-                className="inline-flex items-center gap-1.5 rounded-sm text-ui text-muted hover:text-foreground"
-              >
-                Open build
-                <ArrowUpRight size={15} />
-              </Link>
-            )}
-          </>
-        ) : query.isLoading ? (
-          <LoadingRegion
-            label="Loading request actions…"
-            className="flex h-5.5 items-center gap-2"
-          >
-            <Skeleton className="h-5.5 w-16" />
-            <Skeleton className="h-4 w-24" />
-          </LoadingRegion>
-        ) : undefined
-      }
     >
       <main className="mx-auto w-full max-w-[1280px] p-4 md:p-5">
         {query.isLoading ? (
@@ -86,6 +61,17 @@ export function LogDetailPage({ id }: { id: string }) {
         ) : (
           log && (
             <>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <LogStatusBadge status={log.status} />
+                {log.challengeId && (
+                  <Link
+                    to={`/chat?id=${log.challengeId}`}
+                    className="inline-flex items-center gap-1.5 rounded-sm text-ui text-muted hover:text-foreground"
+                  >
+                    Open build <ArrowUpRight size={15} />
+                  </Link>
+                )}
+              </div>
               {log.preview && (
                 <p className="break-words text-ui leading-6 text-muted">
                   {log.preview}

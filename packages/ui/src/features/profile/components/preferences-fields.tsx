@@ -46,7 +46,7 @@ export function PreferenceRow({
   children: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-2 border-b border-line py-4 last:border-b-0 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-6">
+    <div className="grid min-w-0 gap-2 border-b border-line py-4 last:border-b-0 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6">
       {htmlFor ? (
         <label htmlFor={htmlFor} className="pt-1.5 text-ui font-medium">
           {label}
@@ -222,7 +222,7 @@ export function PreferencesFields({
             {values.topicFamiliarity.map((item, index) => (
               <div
                 key={index}
-                className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 [&>[role=combobox]]:col-start-1 sm:grid-cols-[minmax(0,1fr)_150px_auto] sm:[&>[role=combobox]]:col-start-auto"
+                className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 [&>[role=combobox]]:col-start-1 @min-[700px]:grid-cols-[minmax(0,1fr)_150px_auto] @min-[700px]:[&>[role=combobox]]:col-start-auto"
               >
                 <Input
                   aria-label={`Topic ${index + 1}`}

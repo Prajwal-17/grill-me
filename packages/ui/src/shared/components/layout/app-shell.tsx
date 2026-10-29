@@ -19,14 +19,12 @@ export function AppShell({
   profile,
   title,
   breadcrumbs = [],
-  actions,
   children,
   contentScrollable = true,
 }: {
   profile: Profile;
   title: string;
   breadcrumbs?: { label: string; href: string }[];
-  actions?: ReactNode;
   children: ReactNode;
   contentScrollable?: boolean;
 }) {
@@ -129,11 +127,6 @@ export function AppShell({
             className="workspace-toolbar-actions flex shrink-0 items-center gap-1.5"
           >
             <GenerationActivity />
-            {actions && (
-              <div className="workspace-context-actions flex items-center gap-1.5">
-                {actions}
-              </div>
-            )}
           </div>
         </header>
         <div

@@ -2,6 +2,7 @@ import { useId, type ReactNode } from "react";
 import { Check, CircleAlert } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
+import { cn } from "@/shared/lib/cn";
 
 export function SettingsHeading({
   title,
@@ -47,11 +48,13 @@ export function SettingsRow({
   label,
   description,
   htmlFor,
+  controlClassName,
   children,
 }: {
   label: string;
   description?: ReactNode;
   htmlFor?: string;
+  controlClassName?: string;
   children: ReactNode;
 }) {
   return (
@@ -68,7 +71,12 @@ export function SettingsRow({
           <p className="mt-0.5 text-supporting text-muted">{description}</p>
         )}
       </div>
-      <div className="w-full min-w-0 shrink-0 @min-[600px]:w-56">
+      <div
+        className={cn(
+          "w-full min-w-0 shrink-0 @min-[600px]:w-56",
+          controlClassName,
+        )}
+      >
         {children}
       </div>
     </div>

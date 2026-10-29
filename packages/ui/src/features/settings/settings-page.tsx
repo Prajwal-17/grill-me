@@ -1,8 +1,9 @@
 import { Link, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Bot, Database, Monitor, Terminal } from "lucide-react";
+import { ArrowLeft, Bot, Monitor, Terminal } from "lucide-react";
 import type { LocalSettings } from "@repo/contracts";
 import { AppShell } from "@/shared/components/layout/app-shell";
+import { SettingsLayout } from "@/shared/components/layout/settings-layout";
 import { BrandLockup } from "@/shared/components/brand";
 import { Button } from "@/shared/components/ui/button";
 import { useAppStore } from "@/shared/stores/app-store";
@@ -11,7 +12,7 @@ import { localTransport } from "@/shared/lib/local-client";
 import { cn } from "@/shared/lib/cn";
 import { AppearanceSettings } from "./appearance-settings";
 import { ProviderSettings } from "./provider-settings";
-import { DataSettings, RuntimeSettingsPanel } from "./runtime-settings";
+import { RuntimeSettingsPanel } from "./runtime-settings";
 import { SettingsFeedback, SettingsLoading } from "./settings-layout";
 import { settingsKey } from "./use-settings-mutation";
 
@@ -19,7 +20,6 @@ const sections = [
   { id: "appearance", label: "Appearance", icon: Monitor },
   { id: "providers", label: "AI providers", icon: Bot },
   { id: "runtime", label: "Local runtime", icon: Terminal },
-  { id: "data", label: "Data & connection", icon: Database },
 ] as const;
 export function SettingsPage() {
   const profile = useAppStore((s) => s.profile);
@@ -38,7 +38,7 @@ export function SettingsPage() {
       </AppShell>
     );
   return (
-    <main className="flex h-dvh flex-col bg-canvas">
+    <div className="flex h-dvh flex-col bg-canvas">
       <header className="desktop-app-header flex min-h-[var(--workspace-header-height)] shrink-0 items-center gap-4 border-b border-line px-5">
         <Button asChild variant="ghost" size="icon-sm">
           <Link to="/" aria-label="Back to profile">
@@ -52,7 +52,7 @@ export function SettingsPage() {
         <h1 className="text-ui font-medium">Settings</h1>
       </header>
       <div className="min-h-0 flex-1">{content}</div>
-    </main>
+    </div>
   );
 }
 function LocalSettingsPanel() {
@@ -66,12 +66,10 @@ function LocalSettingsPanel() {
     retry: false,
   });
   return (
-    <div className="flex h-full min-h-0 flex-col md:flex-row">
-      <nav
-        aria-label="Settings sections"
-        className="shrink-0 overflow-x-auto border-b border-line p-3 md:w-44 md:border-r md:border-b-0 md:p-3"
-      >
-        <div className="flex gap-1 md:flex-col">
+    <SettingsLayout
+      activeSection={active}
+      navigation={
+        <nav aria-label="Settings sections" className="flex gap-1 md:flex-col">
           {sections.map(({ id, label, icon: Icon }) => {
             const next = new URLSearchParams(params);
             next.set("section", id);
@@ -81,7 +79,7 @@ function LocalSettingsPanel() {
                 to={{ search: `?${next}` }}
                 aria-current={active === id ? "page" : undefined}
                 className={cn(
-                  "flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-2.5 text-ui outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  "flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-2.5 text-ui outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:min-h-9",
                   active === id
                     ? "bg-nav-active font-medium text-nav-active-foreground"
                     : "text-muted hover:bg-elevated hover:text-foreground",
@@ -92,38 +90,29 @@ function LocalSettingsPanel() {
               </Link>
             );
           })}
-        </div>
-      </nav>
-      <div
-        className="@container min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 lg:px-7"
-        data-slot="settings-content"
-      >
-        <div className="mx-auto w-full max-w-[800px]">
-          <div hidden={active !== "appearance"}>
-            <AppearanceSettings />
-          </div>
-          {active !== "appearance" && settings.isPending && <SettingsLoading />}
-          {active !== "appearance" && settings.isError && (
-            <SettingsFeedback
-              error={settings.error}
-              onRetry={() => void settings.refetch()}
-            />
-          )}
-          {settings.data && (
-            <>
-              <div hidden={active !== "providers"}>
-                <ProviderSettings data={settings.data} />
-              </div>
-              <div hidden={active !== "runtime"}>
-                <RuntimeSettingsPanel data={settings.data} />
-              </div>
-              <div hidden={active !== "data"}>
-                <DataSettings data={settings.data} />
-              </div>
-            </>
-          )}
-        </div>
+        </nav>
+      }
+    >
+      <div hidden={active !== "appearance"}>
+        <AppearanceSettings />
       </div>
-    </div>
+      {active !== "appearance" && settings.isPending && <SettingsLoading />}
+      {active !== "appearance" && settings.isError && (
+        <SettingsFeedback
+          error={settings.error}
+          onRetry={() => void settings.refetch()}
+        />
+      )}
+      {settings.data && (
+        <>
+          <div hidden={active !== "providers"}>
+            <ProviderSettings data={settings.data} />
+          </div>
+          <div hidden={active !== "runtime"}>
+            <RuntimeSettingsPanel data={settings.data} />
+          </div>
+        </>
+      )}
+    </SettingsLayout>
   );
 }

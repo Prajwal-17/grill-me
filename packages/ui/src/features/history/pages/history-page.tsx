@@ -42,14 +42,6 @@ export function HistoryPage() {
       title={selectedId ? "Build details" : "History"}
       breadcrumbs={selectedId ? [{ label: "History", href: "/history" }] : []}
       contentScrollable={false}
-      actions={
-        !selectedId && history.data ? (
-          <span className="text-metadata tabular-nums text-muted">
-            {history.data.filter((c) => c.status === "completed").length}{" "}
-            completed
-          </span>
-        ) : undefined
-      }
     >
       {history.isLoading ? (
         selectedId ? (

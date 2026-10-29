@@ -1,12 +1,9 @@
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Link } from "react-router";
-import { ArrowUpRight, FolderOpen, LoaderCircle } from "lucide-react";
+import { FolderOpen, LoaderCircle } from "lucide-react";
 import type { LocalSettings, RuntimeSettings } from "@repo/contracts";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import { localClient } from "@/shared/lib/local-client";
-import { useAppStore } from "@/shared/stores/app-store";
 import {
   SettingsFeedback,
   SettingsGroup,
@@ -34,6 +31,9 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
       if (path !== null) update({ projectsRoot: path });
     },
   });
+  const openDataFolder = useMutation({
+    mutationFn: () => window.desktopBridge!.openDataFolder(),
+  });
   return (
     <>
       <SettingsHeading
@@ -54,6 +54,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
             <SettingsRow
               label="Projects folder"
               htmlFor="projects-root"
+              controlClassName="@min-[600px]:w-96"
               description="Default location for local projects."
             >
               <div className="flex min-w-0 items-center gap-2">
@@ -112,7 +113,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           </SettingsGroup>
         </fieldset>
         <SettingsFeedback
-          error={save.error ?? chooseFolder.error}
+          error={save.error ?? chooseFolder.error ?? openDataFolder.error}
           message={
             save.isSuccess && !dirty ? "Runtime settings saved." : undefined
           }
@@ -147,84 +148,15 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           </Button>
         </div>
       </form>
-    </>
-  );
-}
-export function DataSettings({ data }: { data: LocalSettings }) {
-  const connection = localClient();
-  const connected = useSyncExternalStore(
-    (listener) => connection.onStatus(listener),
-    () => connection.isConnected,
-  );
-  const profile = useAppStore((s) => s.profile);
-  const bridge = window.desktopBridge;
-  const openFolder = useMutation({
-    mutationFn: () => bridge!.openDataFolder(),
-  });
-  return (
-    <>
-      <SettingsHeading
-        title="Data & connection"
-        description="Storage and connection status for this installation."
-      />
-      <SettingsGroup title="Local backend">
-        <SettingsRow
-          label="Connection"
-          description="The backend runs locally on your machine."
+      {window.desktopBridge && (
+        <Button
+          variant="ghost"
+          className="mt-5 -ml-3 text-muted"
+          disabled={openDataFolder.isPending}
+          onClick={() => openDataFolder.mutate()}
         >
-          <span
-            role="status"
-            className="inline-flex items-center gap-2 text-ui"
-          >
-            <span
-              aria-hidden="true"
-              className={`size-1.5 rounded-full ${connected ? "bg-success" : "bg-warning"}`}
-            />
-            {connected ? "Connected" : "Reconnecting…"}
-          </span>
-        </SettingsRow>
-        <SettingsRow
-          label="Database"
-          description="Practice data is stored on this device."
-        >
-          <span className="text-ui">SQLite</span>
-        </SettingsRow>
-        {bridge && (
-          <SettingsRow
-            label="Application data"
-            description="Local database, settings, and app files."
-          >
-            <Button
-              className="w-full"
-              disabled={openFolder.isPending}
-              onClick={() => openFolder.mutate()}
-            >
-              <FolderOpen size={15} />
-              Open data folder
-            </Button>
-          </SettingsRow>
-        )}
-      </SettingsGroup>
-      <SettingsFeedback error={openFolder.error} />
-      <SettingsGroup title="Credentials">
-        <SettingsRow label="Linux keyring" description={data.keyring.message}>
-          <span className="text-ui">
-            {data.keyring.available ? "Available" : "Unavailable"}
-          </span>
-        </SettingsRow>
-        <SettingsRow
-          label="Provider settings"
-          description="Shared by the profiles on this installation."
-        >
-          <span className="text-ui">This device</span>
-        </SettingsRow>
-      </SettingsGroup>
-      {profile && (
-        <Button asChild variant="ghost" className="-ml-3">
-          <Link to="/preferences">
-            Profile learning preferences
-            <ArrowUpRight size={15} />
-          </Link>
+          <FolderOpen size={15} />
+          Open app data folder
         </Button>
       )}
     </>

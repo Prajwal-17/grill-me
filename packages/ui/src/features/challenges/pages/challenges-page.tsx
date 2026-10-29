@@ -123,17 +123,7 @@ export function ChallengesPage() {
   const query = search.trim().toLowerCase();
   const hasFilters = Boolean(query || difficulty !== "all" || scope !== "all");
   return (
-    <AppShell
-      profile={profile}
-      title="Challenges"
-      contentScrollable={false}
-      actions={
-        <Link className={buttonStyles("primary")} to="/">
-          <Plus size={15} />
-          New build
-        </Link>
-      }
-    >
+    <AppShell profile={profile} title="Challenges" contentScrollable={false}>
       <main className="h-full min-h-0 overflow-y-auto overscroll-contain p-4 md:p-5">
         <Tabs
           value={status}
@@ -145,25 +135,31 @@ export function ChallengesPage() {
           }
           className="mx-auto w-full max-w-[1440px] gap-3"
         >
-          <div className="overflow-x-auto">
-            <TabsList
-              variant="line"
-              aria-label="Challenge status"
-              className="w-full justify-start gap-5 border-b border-line p-0 group-data-[orientation=horizontal]/tabs:h-auto"
-            >
-              {collections.map(({ value, label, data, loading }) => (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  className="h-9 flex-none rounded-none border-0 px-0 text-ui font-normal data-[state=active]:font-medium"
-                >
-                  {label}
-                  <span className="text-metadata font-normal text-muted tabular-nums">
-                    {loading ? "–" : data.length}
-                  </span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1 overflow-x-auto">
+              <TabsList
+                variant="line"
+                aria-label="Challenge status"
+                className="w-full justify-start gap-5 border-b border-line p-0 group-data-[orientation=horizontal]/tabs:h-auto"
+              >
+                {collections.map(({ value, label, data, loading }) => (
+                  <TabsTrigger
+                    key={value}
+                    value={value}
+                    className="h-9 flex-none rounded-none border-0 px-0 text-ui font-normal data-[state=active]:font-medium"
+                  >
+                    {label}
+                    <span className="text-metadata font-normal text-muted tabular-nums">
+                      {loading ? "–" : data.length}
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            <Link className={buttonStyles("primary")} to="/">
+              <Plus size={15} />
+              New build
+            </Link>
           </div>
           <div
             role="search"

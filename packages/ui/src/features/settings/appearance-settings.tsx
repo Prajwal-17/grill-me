@@ -4,7 +4,7 @@ import { Button } from "@/shared/components/ui/button";
 import { ChoiceSelect } from "@/shared/components/ui/choice-select";
 import { Kbd } from "@/shared/components/ui/kbd";
 import { useAppStore, type Theme } from "@/shared/stores/app-store";
-import type { DesktopState, WindowSettings } from "@repo/contracts";
+import type { DesktopState } from "@repo/contracts";
 import {
   SettingsFeedback,
   SettingsGroup,
@@ -110,51 +110,6 @@ export function AppearanceSettings() {
           </SettingsRow>
         )}
       </SettingsGroup>
-      {bridge && state.data && (
-        <SettingsGroup title="Window">
-          <SettingsRow
-            label="Startup window"
-            description="Window mode when you open the app."
-          >
-            <ChoiceSelect
-              label="Startup window mode"
-              value={state.data.startup}
-              disabled={native.isPending}
-              onChange={(startup) =>
-                native.mutate(() =>
-                  bridge.setWindowSettings({
-                    startup: startup as WindowSettings["startup"],
-                  }),
-                )
-              }
-              options={[
-                { id: "maximized", label: "Maximized" },
-                { id: "windowed", label: "Windowed" },
-              ]}
-            />
-          </SettingsRow>
-          <SettingsRow
-            label="Fullscreen"
-            description={
-              <>
-                <Kbd>F11</Kbd> to toggle at any time
-              </>
-            }
-          >
-            <Button
-              variant="secondary"
-              className="w-full"
-              disabled={native.isPending}
-              onClick={() => native.mutate(() => bridge.toggleFullscreen())}
-            >
-              {state.data.fullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-            </Button>
-          </SettingsRow>
-        </SettingsGroup>
-      )}
-      <p className="text-supporting text-muted">
-        Appearance changes save automatically on this device.
-      </p>
     </>
   );
 }
