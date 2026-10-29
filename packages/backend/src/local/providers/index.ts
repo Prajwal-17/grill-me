@@ -1,6 +1,7 @@
 import type { Provider, ProviderConnection } from "@repo/contracts";
 import { CodexConnection } from "./codex";
 import { OpenCodeConnection } from "./opencode";
+import { AppError } from "../../shared/errors/app-error";
 import {
   executable,
   providerEnvironment,
@@ -9,6 +10,7 @@ import {
 } from "./common";
 export { type TextTransport } from "./common";
 export function createCliProviders(root: string) {
+  const disconnected = new Set<string>();
   const entries = new Map<
     string,
     {
@@ -17,6 +19,12 @@ export function createCliProviders(root: string) {
     }
   >();
   async function connection(provider: Provider) {
+    if (disconnected.has(provider.id))
+      throw new AppError(
+        "PROVIDER_DISCONNECTED",
+        "Disconnected. Connect again when ready.",
+        503,
+      );
     const identity = JSON.stringify([provider.kind, provider.binaryPath]);
     let entry = entries.get(provider.id);
     if (entry?.identity !== identity) {
@@ -42,12 +50,21 @@ export function createCliProviders(root: string) {
     }
     return entry!.connection;
   }
+  function stop(id: string) {
+    const entry = entries.get(id);
+    entries.delete(id);
+    if (entry) void entry.connection.then((c) => c.close()).catch(() => {});
+  }
   return {
+    async connect(provider: Provider) {
+      disconnected.delete(provider.id);
+      return this.status(provider);
+    },
     async status(provider: Provider): Promise<ProviderConnection> {
       try {
         return await (await connection(provider)).status();
       } catch (error) {
-        this.disconnect(provider.id);
+        stop(provider.id);
         const failure = providerError(error, provider.kind);
         return {
           installed: failure.code !== "CLI_NOT_INSTALLED",
@@ -72,6 +89,7 @@ export function createCliProviders(root: string) {
       } = {},
     ) {
       try {
+        disconnected.delete(provider.id);
         const c = await connection(provider);
         if (c instanceof CodexConnection) return await c.signIn();
         return await c.signIn({
@@ -98,9 +116,8 @@ export function createCliProviders(root: string) {
       };
     },
     disconnect(id: string) {
-      const entry = entries.get(id);
-      entries.delete(id);
-      if (entry) void entry.connection.then((c) => c.close()).catch(() => {});
+      disconnected.add(id);
+      stop(id);
     },
     async close() {
       const all = [...entries.values()];

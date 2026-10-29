@@ -28,6 +28,7 @@ const documentSchema = z.object({
   version: z.literal(1),
   providers: z.array(recordSchema),
   activeProviderId: z.string().uuid().nullable(),
+  disconnectedProviders: z.array(z.string().uuid()).default([]),
   runtime: runtimeSettingsSchema,
   migrated: z.boolean().default(false),
 });
@@ -60,9 +61,11 @@ export function createSettingsService(
         version: 1,
         providers: [],
         activeProviderId: null,
+        disconnectedProviders: [],
         runtime: runtimeSettingsSchema.parse({}),
         migrated: false,
       };
+  for (const id of document.disconnectedProviders) options.cli?.disconnect(id);
   let sessionImported = false;
   let tail: Promise<unknown> = Promise.resolve();
   function exclusive<T>(work: () => Promise<T>) {
@@ -219,6 +222,9 @@ export function createSettingsService(
         persist({
           ...document,
           providers: document.providers.filter((p) => p.id !== id),
+          disconnectedProviders: document.disconnectedProviders.filter(
+            (p) => p !== id,
+          ),
           activeProviderId:
             document.activeProviderId === id ? null : document.activeProviderId,
         });
@@ -236,7 +242,16 @@ export function createSettingsService(
             "Choose an existing provider.",
             404,
           );
-        persist({ ...document, activeProviderId: id });
+        const selected = document.providers.find((p) => p.id === id);
+        if (selected && selected.kind !== "openai")
+          await options.cli?.connect(selected);
+        persist({
+          ...document,
+          activeProviderId: id,
+          disconnectedProviders: document.disconnectedProviders.filter(
+            (p) => p !== id,
+          ),
+        });
         return get();
       }),
     saveRuntime: (input) =>
@@ -369,6 +384,38 @@ export function createSettingsService(
       );
     return value;
   }
-  return { ...api, snapshot, provider, applyRuntime, close: () => db.close() };
+  return {
+    ...api,
+    snapshot,
+    provider,
+    applyRuntime,
+    connectProvider: (id: string) =>
+      exclusive(async () => {
+        const value = await provider(id);
+        const status = await options.cli!.connect(value);
+        persist({
+          ...document,
+          disconnectedProviders: document.disconnectedProviders.filter(
+            (p) => p !== id,
+          ),
+        });
+        return status;
+      }),
+    disconnectProvider: (id: string) =>
+      exclusive(async () => {
+        await provider(id);
+        persist({
+          ...document,
+          activeProviderId:
+            document.activeProviderId === id ? null : document.activeProviderId,
+          disconnectedProviders: [
+            ...new Set([...document.disconnectedProviders, id]),
+          ],
+        });
+        options.cli!.disconnect(id);
+        return get();
+      }),
+    close: () => db.close(),
+  };
 }
 export type SettingsService = ReturnType<typeof createSettingsService>;

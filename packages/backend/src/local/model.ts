@@ -40,10 +40,10 @@ export function configuredModel(
           const m = await get();
           yield* m[key](input);
         };
-      return async (input: never) => {
+      return async (...args: never[]) => {
         const m = await get();
-        return (m[key as keyof ModelGateway] as (input: never) => unknown)(
-          input,
+        return (m[key as keyof ModelGateway] as (...args: never[]) => unknown)(
+          ...args,
         );
       };
     },

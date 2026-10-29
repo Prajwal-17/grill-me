@@ -30,19 +30,19 @@ export function settingsRoutes(service: SettingsService, cli: CliProviders) {
       }),
       await readJson(c.req.raw),
     );
+    await service.connectProvider(provider.id);
     return c.json({ data: await cli.signIn(provider, input) });
   });
+  routes.post("/providers/:id/connect", async (c) =>
+    c.json({
+      data: await service.connectProvider(
+        parseInput(z.string().uuid(), c.req.param("id")),
+      ),
+    }),
+  );
   routes.post("/providers/:id/disconnect", async (c) => {
     const id = parseInput(z.string().uuid(), c.req.param("id"));
-    await service.provider(id);
-    cli.disconnect(id);
-    const settings = await service.get();
-    return c.json({
-      data:
-        settings.activeProviderId === id
-          ? await service.activateProvider(null)
-          : settings,
-    });
+    return c.json({ data: await service.disconnectProvider(id) });
   });
   routes.post("/providers", async (c) =>
     c.json({

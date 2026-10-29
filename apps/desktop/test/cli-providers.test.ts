@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { providerInputSchema, providerSchema } from "@repo/contracts";
 import { createCliProviders } from "../../../packages/backend/src/local/providers";
+import { createSettingsService } from "../../../packages/backend/src/local/settings";
+import { sessionSecretStore } from "../../../packages/backend/src/local/secrets";
 
 test("CLI providers reuse an executable with isolated authentication, ephemeral turns, cancellation and sanitized failures", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-cli-test-"));
@@ -32,6 +34,10 @@ test("CLI providers reuse an executable with isolated authentication, ephemeral 
     const status = await manager.status(p);
     expect(status.connected).toBe(true);
     expect(status.models[0]?.id).toBe("fixture-model");
+    manager.disconnect(p.id);
+    expect((await manager.status(p)).code).toBe("PROVIDER_DISCONNECTED");
+    expect((await manager.status(p)).connected).toBe(false);
+    expect((await manager.connect(p)).connected).toBe(true);
     let text = "";
     for await (const delta of manager
       .transport(p)
@@ -109,6 +115,89 @@ test("provider contracts migrate existing API entries and reject CLI secrets or 
       binaryPath: "relative-codex",
     }).success,
   ).toBe(false);
+});
+
+test("the configured local model forwards snapshot files and workspace arguments for API and CLI reviews", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-model-routing-"));
+  try {
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        "--no-env-file",
+        resolve(import.meta.dir, "fixtures/configured-model.ts"),
+      ],
+      {
+        env: {
+          ...process.env,
+          GRILL_ME_HOME: root,
+          GRILL_ME_SQLITE_PATH: join(root, "test.sqlite"),
+        },
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+    const [code, output, error] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+    ]);
+    expect({ code, error: code ? error : "" }).toEqual({ code: 0, error: "" });
+    expect(output).toContain("Snapshot routing passed");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("disconnect survives a backend restart until explicit Connect or Use provider", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-cli-disconnect-"));
+  let manager = createCliProviders(root);
+  let settings = createSettingsService(root, {
+    cli: manager,
+    keyring: sessionSecretStore(),
+  });
+  try {
+    const binary = join(root, "codex");
+    await writeFile(
+      binary,
+      `#!${process.execPath}\nimport ${JSON.stringify(resolve(import.meta.dir, "fixtures/cli-provider.ts"))};\n`,
+    );
+    await chmod(binary, 0o700);
+    const p = providerInputSchema.parse({
+      id: crypto.randomUUID(),
+      name: "Codex fixture",
+      kind: "codex",
+      binaryPath: binary,
+      model: "auto",
+    });
+    await settings.saveProvider(p);
+    await manager.status(providerSchema.parse(p));
+    await writeFile(
+      join(root, "providers", p.id, "config", "signed-in"),
+      "fixture-only",
+    );
+    expect((await manager.status(providerSchema.parse(p))).connected).toBe(
+      true,
+    );
+    await settings.disconnectProvider(p.id);
+    expect((await settings.get()).activeProviderId).toBeNull();
+    settings.close();
+    await manager.close();
+    manager = createCliProviders(root);
+    settings = createSettingsService(root, {
+      cli: manager,
+      keyring: sessionSecretStore(),
+    });
+    const saved = await settings.provider(p.id);
+    expect((await manager.status(saved)).code).toBe("PROVIDER_DISCONNECTED");
+    expect((await settings.connectProvider(p.id)).connected).toBe(true);
+    await settings.disconnectProvider(p.id);
+    await settings.activateProvider(p.id);
+    expect((await manager.status(saved)).connected).toBe(true);
+  } finally {
+    settings.close();
+    await manager.close();
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("OpenCode uses an authenticated isolated server, filters user events, enforces review permissions and removes temporary sessions", async () => {

@@ -38,6 +38,14 @@ export function CliProviderConnection({
   const authMethod =
     accountProvider?.methods.find((m) => m.index === Number(method)) ??
     accountProvider?.methods[0];
+  const connect = useMutation({
+    mutationFn: () =>
+      apiRequest<ProviderConnection>(
+        `/settings/providers/${provider.id}/connect`,
+        { method: "POST", body: "{}" },
+      ),
+    onSuccess: (value) => queries.setQueryData(key, value),
+  });
   const login = useMutation({
     mutationFn: (complete: boolean) =>
       apiRequest<ProviderConnection>(
@@ -76,12 +84,18 @@ export function CliProviderConnection({
         ...status,
         connected: false,
         authenticated: false,
+        code: "PROVIDER_DISCONNECTED",
+        login: undefined,
         models: [],
         message: "Disconnected. Connect again when ready.",
       });
     },
   });
-  const busy = connection.isFetching || login.isPending || disconnect.isPending;
+  const busy =
+    connection.isFetching ||
+    connect.isPending ||
+    login.isPending ||
+    disconnect.isPending;
   return (
     <div className="mt-4 border-t border-line pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -92,9 +106,11 @@ export function CliProviderConnection({
           size="sm"
           variant="ghost"
           disabled={busy}
-          onClick={() => void connection.refetch()}
+          onClick={() =>
+            status?.connected ? void connection.refetch() : connect.mutate()
+          }
         >
-          {connection.isFetching ? (
+          {connection.isFetching || connect.isPending ? (
             <LoaderCircle size={14} className="animate-spin" />
           ) : (
             <RefreshCw size={14} />
@@ -102,10 +118,18 @@ export function CliProviderConnection({
           {status?.connected ? "Refresh" : "Connect"}
         </Button>
       </div>
-      {(connection.error || login.error || disconnect.error) && (
+      {(connection.error ||
+        connect.error ||
+        login.error ||
+        disconnect.error) && (
         <div className="mt-3">
           <SettingsFeedback
-            error={connection.error ?? login.error ?? disconnect.error}
+            error={
+              connection.error ??
+              connect.error ??
+              login.error ??
+              disconnect.error
+            }
           />
         </div>
       )}
@@ -153,6 +177,7 @@ export function CliProviderConnection({
         </Button>
       )}
       {status?.installed &&
+        status.code !== "PROVIDER_DISCONNECTED" &&
         (!status.authenticated || accountOpen) &&
         !status.login && (
           <div className="mt-3 space-y-3">

@@ -356,6 +356,46 @@ try {
     page.getByLabel("Model for Connected Codex", { exact: true }),
   ).toContainText("Fixture model");
   await capture("settings-cli-connected.png");
+  const codexProvider = page.getByRole("listitem").filter({
+    has: page.getByRole("heading", { name: "Connected Codex", exact: true }),
+  });
+  await codexProvider
+    .getByRole("button", { name: "Disconnect", exact: true })
+    .click();
+  await expect(
+    codexProvider.getByText("Disconnected. Connect again when ready.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.clock.install();
+  await page.clock.fastForward(16000);
+  await page.evaluate(() =>
+    document.dispatchEvent(new Event("visibilitychange")),
+  );
+  await expect(
+    codexProvider.getByText("Disconnected. Connect again when ready.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await selectSection("Appearance");
+  await selectSection("AI providers");
+  await page.reload();
+  await expect(
+    codexProvider.getByText("Disconnected. Connect again when ready.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    codexProvider.getByRole("button", { name: "Disconnect", exact: true }),
+  ).toHaveCount(0);
+  await capture("settings-cli-disconnected.png");
+  await codexProvider
+    .getByRole("button", { name: "Connect", exact: true })
+    .click();
+  await expect(
+    codexProvider.getByText("Codex is connected.", { exact: true }),
+  ).toBeVisible();
+  await page.clock.resume();
   await page.getByRole("button", { name: "Add provider", exact: true }).click();
   await page.getByLabel("Connection type", { exact: true }).click();
   await page.getByRole("option", { name: "OpenCode CLI", exact: true }).click();
