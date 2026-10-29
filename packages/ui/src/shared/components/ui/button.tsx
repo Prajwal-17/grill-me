@@ -5,7 +5,7 @@ import { cn } from "@/shared/lib/cn";
 
 // Adapted from shadcn/ui. See LICENSE.md.
 export const buttonVariants = cva(
-  "pressable inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg text-ui font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "pressable inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-ui font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -26,10 +26,10 @@ export const buttonVariants = cva(
         link: "text-foreground underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-11 px-3 md:h-8",
+        default: "h-11 px-3 md:h-[30px]",
         sm: "h-8 gap-1.5 px-2.5 text-metadata",
         lg: "h-11 px-4",
-        icon: "size-10 md:size-9",
+        icon: "size-10 md:size-8",
         "icon-sm": "size-8",
       },
     },

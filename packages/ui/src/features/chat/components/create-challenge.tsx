@@ -101,7 +101,7 @@ export function GenerationHome({ profile }: { profile: Profile }) {
   }, [enhance.isSuccess, busy]);
 
   return (
-    <main className="h-full min-h-0 overflow-y-auto overscroll-contain px-5 py-8 sm:px-8 md:py-14">
+    <main className="h-full min-h-0 overflow-y-auto overscroll-contain px-5 py-8 sm:px-8 md:py-10">
       <div className="mx-auto w-full max-w-[760px]">
         <section aria-label="Create a build" className="flex shrink-0 flex-col">
           <div className="mb-5 flex items-center justify-between gap-4">

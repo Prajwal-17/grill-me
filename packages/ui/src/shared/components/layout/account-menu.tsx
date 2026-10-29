@@ -41,18 +41,18 @@ export function AccountMenu({
         <Button
           variant="ghost"
           className={cn(
-            "h-12 min-w-0 w-full justify-start px-2 text-foreground",
+            "h-9 min-w-0 w-full justify-start px-2 text-foreground",
             collapsed && "justify-center px-0",
           )}
           aria-label="Account"
         >
-          <span className="grid size-7 shrink-0 place-items-center rounded-full border border-line bg-surface text-metadata font-medium">
+          <span className="grid size-6 shrink-0 place-items-center rounded-md border border-line bg-surface text-metadata font-medium">
             {name.charAt(0).toUpperCase()}
           </span>
           {!collapsed && (
             <>
               <span
-                className="min-w-0 flex-1 truncate text-left text-metadata text-muted"
+                className="min-w-0 flex-1 truncate text-left text-metadata text-foreground"
                 title={name}
               >
                 {name}

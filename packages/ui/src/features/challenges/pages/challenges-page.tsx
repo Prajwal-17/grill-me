@@ -134,7 +134,7 @@ export function ChallengesPage() {
         </Link>
       }
     >
-      <main className="h-full min-h-0 overflow-y-auto overscroll-contain p-4 md:p-6">
+      <main className="h-full min-h-0 overflow-y-auto overscroll-contain p-4 md:p-5">
         <Tabs
           value={status}
           onValueChange={(value) =>
@@ -143,7 +143,7 @@ export function ChallengesPage() {
               return current;
             })
           }
-          className="mx-auto w-full max-w-[1200px] gap-4"
+          className="mx-auto w-full max-w-[1440px] gap-3"
         >
           <div className="overflow-x-auto">
             <TabsList
@@ -155,7 +155,7 @@ export function ChallengesPage() {
                 <TabsTrigger
                   key={value}
                   value={value}
-                  className="h-10 flex-none rounded-none border-0 px-0 text-ui font-normal data-[state=active]:font-medium"
+                  className="h-9 flex-none rounded-none border-0 px-0 text-ui font-normal data-[state=active]:font-medium"
                 >
                   {label}
                   <span className="text-metadata font-normal text-muted tabular-nums">

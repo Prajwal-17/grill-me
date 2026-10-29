@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { ChevronRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronRight, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Kbd, KbdGroup } from "@/shared/components/ui/kbd";
 import {
@@ -33,7 +33,7 @@ export function AppShell({
   const { collapsed, toggle, open, setOpen } = useAppNavigation();
   const sidebarLabel = collapsed ? "Open sidebar" : "Collapse sidebar";
   return (
-    <div className="flex h-dvh overflow-hidden bg-chrome">
+    <div className="workspace-frame flex h-dvh overflow-hidden bg-chrome">
       <a
         href="#app-content"
         className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-lg bg-foreground px-4 py-2 text-ui text-canvas focus:translate-y-0"
@@ -51,20 +51,20 @@ export function AppShell({
         inert={collapsed}
       >
         <div className="h-full w-[var(--workspace-sidebar-width)]">
-          <Navigation profile={profile} />
+          <Navigation profile={profile} onCollapse={toggle} />
         </div>
       </aside>
       <div
         className={cn(
-          "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-canvas md:border-l md:border-line",
+          "workspace-main flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-canvas md:border-l md:border-line/60",
         )}
       >
         <header
           data-slot="page-header"
-          className="z-30 flex min-h-[var(--workspace-header-height)] shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line bg-surface px-3 py-2 sm:px-5"
+          className="workspace-toolbar z-30 flex min-h-[var(--workspace-header-height)] shrink-0 items-center gap-3 px-3"
         >
-          <div className="flex min-w-0 flex-1 basis-48 items-center gap-3">
-            <div className="hidden shrink-0 md:block">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <div className={cn("hidden shrink-0", collapsed && "md:block")}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -76,11 +76,7 @@ export function AppShell({
                     aria-controls="desktop-sidebar"
                     aria-keyshortcuts="Control+b"
                   >
-                    {collapsed ? (
-                      <PanelLeftOpen size={17} />
-                    ) : (
-                      <PanelLeftClose size={17} />
-                    )}
+                    <PanelLeftOpen size={16} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent
@@ -98,12 +94,15 @@ export function AppShell({
             </div>
             <MobileNavigation profile={profile} open={open} setOpen={setOpen} />
             <nav aria-label="Breadcrumb" className="min-w-0 flex-1">
-              <ol className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-ui">
+              <ol className="flex min-w-0 items-center gap-2 text-ui">
                 {breadcrumbs.map(({ label, href }) => (
-                  <li key={href} className="flex shrink-0 items-center gap-2">
+                  <li
+                    key={href}
+                    className="flex min-w-0 shrink items-center gap-2"
+                  >
                     <Link
                       to={href}
-                      className="rounded-sm text-muted transition-colors duration-100 hover:text-foreground"
+                      className="truncate rounded-sm text-muted transition-colors duration-100 hover:text-foreground"
                     >
                       {label}
                     </Link>
@@ -114,7 +113,7 @@ export function AppShell({
                     />
                   </li>
                 ))}
-                <li className="min-w-0" aria-current="page">
+                <li className="min-w-0 flex-1" aria-current="page">
                   <h1
                     className="truncate font-medium tracking-[-0.01em]"
                     title={title}
@@ -124,18 +123,18 @@ export function AppShell({
                 </li>
               </ol>
             </nav>
-            <div data-slot="header-actions" className="shrink-0">
-              <GenerationActivity />
-            </div>
           </div>
-          {actions && (
-            <div
-              data-slot="header-actions"
-              className="flex max-w-full flex-wrap items-center gap-2"
-            >
-              {actions}
-            </div>
-          )}
+          <div
+            data-slot="header-actions"
+            className="workspace-toolbar-actions flex shrink-0 items-center gap-1.5"
+          >
+            <GenerationActivity />
+            {actions && (
+              <div className="workspace-context-actions flex items-center gap-1.5">
+                {actions}
+              </div>
+            )}
+          </div>
         </header>
         <div
           id="app-content"

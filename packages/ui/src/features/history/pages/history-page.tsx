@@ -72,7 +72,7 @@ export function HistoryPage() {
           onRetry={() => void history.refetch()}
         />
       ) : selectedId ? (
-        <main className="mx-auto w-full max-w-[1100px] px-5 pb-12 pt-7 md:px-10 md:pb-16 md:pt-11">
+        <main className="mx-auto w-full max-w-[1100px] px-4 pb-8 pt-5 md:px-5 md:pb-10 md:pt-6">
           <h2 className="text-section font-semibold">Build not found</h2>
           <p className="mt-3 text-ui text-muted">
             This build is not in your completed history.

@@ -145,7 +145,7 @@ export function PreferencesPage() {
           onRetry={() => preferences.refetch()}
         />
       ) : (
-        <main className="mx-auto w-full max-w-[1100px] p-4 md:p-6">
+        <main className="mx-auto w-full max-w-[1100px] p-4 md:p-5">
           <div className="grid min-w-0 gap-6 md:grid-cols-[160px_minmax(0,1fr)] md:gap-8">
             <nav
               aria-label="Preference sections"

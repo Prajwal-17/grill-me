@@ -74,7 +74,7 @@ export function LogDetailPage({ id }: { id: string }) {
         ) : undefined
       }
     >
-      <main className="mx-auto w-full max-w-[1280px] p-4 md:p-6">
+      <main className="mx-auto w-full max-w-[1280px] p-4 md:p-5">
         {query.isLoading ? (
           <LogDetailSkeleton />
         ) : query.error ? (

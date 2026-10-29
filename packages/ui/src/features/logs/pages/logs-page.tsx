@@ -65,7 +65,7 @@ export function LogsPage() {
         </Button>
       }
     >
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col p-4 md:p-6">
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col p-4 md:p-5">
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-line">
           <LogFilterBar
             filters={filters}

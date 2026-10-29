@@ -22,7 +22,7 @@ export function ProfileGatePage() {
   }
   return (
     <main className="flex min-h-dvh flex-col gap-12 bg-chrome px-5 pb-16">
-      <header className="desktop-app-header -mx-5 flex min-h-[52px] items-center justify-between gap-4 border-b border-line px-5 py-2">
+      <header className="desktop-app-header -mx-5 flex min-h-[var(--workspace-header-height)] items-center justify-between gap-4 border-b border-line px-5 py-2 md:py-0">
         <BrandLockup markClassName="size-7" wordmarkClassName="text-ui" />
         <div className="flex items-center gap-3">
           <Link

@@ -1,7 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSidebar } from "@/shared/stores/app-store";
 export function useAppNavigation() {
-  const { collapsed, toggle } = useSidebar();
+  const { collapsed, toggle: toggleStore } = useSidebar();
+  const toggle = useCallback(() => {
+    const restoreFocus =
+      collapsed || Boolean(document.activeElement?.closest("#desktop-sidebar"));
+    toggleStore();
+    if (restoreFocus)
+      requestAnimationFrame(() => {
+        document
+          .querySelector<HTMLButtonElement>(
+            collapsed
+              ? '[aria-label="Collapse sidebar"]'
+              : '[aria-label="Open sidebar"]',
+          )
+          ?.focus();
+      });
+  }, [collapsed, toggleStore]);
   const [open, setOpen] = useState(false);
   useEffect(() => {
     const media = matchMedia("(min-width: 768px)");
@@ -33,14 +48,6 @@ export function useAppNavigation() {
 
         event.preventDefault();
         if (matchMedia("(min-width: 768px)").matches) {
-          // Move focus out of the sidebar before the shortcut hides it.
-          if (document.activeElement?.closest("#desktop-sidebar")) {
-            document
-              .querySelector<HTMLButtonElement>(
-                '[aria-controls="desktop-sidebar"]',
-              )
-              ?.focus();
-          }
           toggle();
         } else setOpen((value) => !value);
       }

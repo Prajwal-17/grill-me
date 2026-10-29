@@ -39,7 +39,7 @@ export function SettingsPage() {
     );
   return (
     <main className="flex h-dvh flex-col bg-canvas">
-      <header className="desktop-app-header flex min-h-[52px] shrink-0 items-center gap-4 border-b border-line px-5">
+      <header className="desktop-app-header flex min-h-[var(--workspace-header-height)] shrink-0 items-center gap-4 border-b border-line px-5">
         <Button asChild variant="ghost" size="icon-sm">
           <Link to="/" aria-label="Back to profile">
             <ArrowLeft size={17} />
@@ -69,7 +69,7 @@ function LocalSettingsPanel() {
     <div className="flex h-full min-h-0 flex-col md:flex-row">
       <nav
         aria-label="Settings sections"
-        className="shrink-0 overflow-x-auto border-b border-line p-3 md:w-56 md:border-r md:border-b-0 md:p-4"
+        className="shrink-0 overflow-x-auto border-b border-line p-3 md:w-44 md:border-r md:border-b-0 md:p-3"
       >
         <div className="flex gap-1 md:flex-col">
           {sections.map(({ id, label, icon: Icon }) => {
@@ -81,7 +81,7 @@ function LocalSettingsPanel() {
                 to={{ search: `?${next}` }}
                 aria-current={active === id ? "page" : undefined}
                 className={cn(
-                  "flex min-h-9 shrink-0 items-center gap-2.5 whitespace-nowrap rounded-md px-3 text-ui outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  "flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-2.5 text-ui outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                   active === id
                     ? "bg-nav-active font-medium text-nav-active-foreground"
                     : "text-muted hover:bg-elevated hover:text-foreground",
@@ -95,7 +95,7 @@ function LocalSettingsPanel() {
         </div>
       </nav>
       <div
-        className="@container min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6 lg:px-8"
+        className="@container min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 lg:px-7"
         data-slot="settings-content"
       >
         <div className="mx-auto w-full max-w-[800px]">

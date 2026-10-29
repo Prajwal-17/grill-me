@@ -21,7 +21,7 @@ export function QuizzesPage() {
         <div ref={setHeaderActions} className="flex items-center gap-2" />
       }
     >
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1200px] flex-col p-4 md:p-6">
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col p-4 md:p-5">
         <QuizWorkspace
           key={profile.id}
           profileId={profile.id}
