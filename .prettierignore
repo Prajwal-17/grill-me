@@ -8,3 +8,7 @@ apps/backend/drizzle/meta/
 **/dist/
 **/playwright-report/
 **/test-results/
+
+apps/backend/drizzle-sqlite/meta/
+apps/desktop/release/
+apps/desktop/resources/backend/

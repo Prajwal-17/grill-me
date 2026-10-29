@@ -4,6 +4,26 @@ Grill-Me is a local-first practice companion for developers. Describe what you
 want to build, choose its scope and difficulty, work in your normal editor, ask
 for a hint, submit your implementation, and mark the challenge completed when you have finished learning.
 
+## Linux desktop development
+
+The desktop edition uses **Electron + electron-vite + SQLite** and builds Linux
+`.deb` packages. Docker and PostgreSQL are not required to develop or run it.
+Existing production databases and the web deployment are unchanged.
+
+```bash
+bun install
+bun dev                    # Open the desktop app with frontend hot reload
+bun run test:desktop       # Disposable SQLite; no Docker or paid AI calls
+bun run desktop:deb        # Build apps/desktop/release/*.deb
+```
+
+Install the generated package with `sudo apt install ./apps/desktop/release/grill-me-dev-0.1.1-amd64.deb`
+on x86-64 Linux. Open **Grill Me Dev**, then use **Application → Configure AI…**
+to enter your provider settings and restart the app. Desktop data starts fresh
+in `~/.config/grill-me-desktop-dev/`, isolated from PostgreSQL and web storage.
+The package includes its backend runtime. See [desktop setup and verification](apps/desktop/README.md)
+for configuration, storage, packaging, and the inspection-only review behavior.
+
 ## Practice flow
 
 1. Choose a local profile and optional stack, learning goal, topic familiarity, and known concepts.
@@ -84,6 +104,8 @@ Existing calls cannot be reconstructed; only new calls are logged.
 
 ## Stack
 
+- Electron + electron-vite for Linux desktop development and Debian packages
+- SQLite for desktop; PostgreSQL retained for the existing web deployment
 - Bun + Turborepo
 - Vite + React + TypeScript, React Router, Tailwind CSS, shadcn/ui (Radix)
 - TanStack Query for server state, Zustand for client state, Zod for configuration
@@ -94,7 +116,7 @@ Existing calls cannot be reconstructed; only new calls are logged.
 - Drizzle ORM + PostgreSQL 17
 - OpenAI SDK pointed at an OpenAI-compatible endpoint such as OmniRoute
 
-## Setup
+## Legacy web/PostgreSQL setup
 
 Install dependencies:
 
@@ -115,14 +137,14 @@ Start OmniRoute locally, add its API key to `apps/backend/.env`, set the model f
 each environment in `.env.development` / `.env.production`, then start the app:
 
 ```bash
-bun dev
+bun dev:web
 ```
 
 - Web: http://localhost:8028
 - API: http://localhost:8027
 - Health check: http://localhost:8027/health
 
-`bun dev` starts only the web and backend workspaces. Vite serves the frontend
+`bun dev:web` starts only the web and backend workspaces. Vite serves the frontend
 with React Fast Refresh. Routes load on demand without server rendering.
 Browser requests use `/api`; Vite proxies them to `127.0.0.1:8027`. This works
 with both `localhost` and `127.0.0.1` without cross-origin browser requests.
@@ -166,7 +188,7 @@ bun db:generate
 bun db:migrate
 ```
 
-The backend loads `.env.development` for `bun dev` and uses `grill-me-dev`.
+The backend loads `.env.development` for `bun dev:web` and uses `grill-me-dev`.
 `bun db:migrate` and `bun db:studio` are development aliases. Their explicit
 production counterparts are `bun db:migrate:prod` and `bun db:studio:prod`.
 Docker always sets `APP_ENV=production` and connects to `grill-me`; it never

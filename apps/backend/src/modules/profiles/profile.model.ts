@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { EMPTY_GUIDED } from "@repo/preferences";
-import { db, first } from "../../shared/database/db";
+import { db, first, lockRows } from "../../shared/database/db";
 import { profilePreferences, profiles } from "../../shared/database/schema";
 import {
   guidedPreferencesSchema,
@@ -56,11 +56,13 @@ export const profilePreferencesModel = {
         .values({ profileId, guidedPreferences: EMPTY_GUIDED })
         .onConflictDoNothing();
       const previous = (
-        await tx
-          .select()
-          .from(profilePreferences)
-          .where(eq(profilePreferences.profileId, profileId))
-          .for("update")
+        await lockRows(
+          tx
+            .select()
+            .from(profilePreferences)
+            .where(eq(profilePreferences.profileId, profileId)),
+          "update",
+        )
       )[0]!;
       const prior = guidedPreferencesSchema.parse(previous.guidedPreferences);
       const { aboutMe: suppliedBackground, ...incoming } = input;

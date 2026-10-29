@@ -1,3 +1,10 @@
+// Desktop tests use a disposable SQLite directory and never start Docker.
+if (process.argv.includes("--sqlite")) {
+  const { runSqliteTests } =
+    await import("../apps/desktop/scripts/test-sqlite");
+  process.exit(await runSqliteTests());
+}
+
 // Runs all ordinary tests against a disposable PostgreSQL instance.
 // No paid provider calls. Existing databases and containers are never changed.
 const name = "grill-me-test-" + crypto.randomUUID().slice(0, 8);

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
-import { db } from "../../shared/database/db";
+import { db, lockRows } from "../../shared/database/db";
 import { generationJobs } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
 import type { ChallengeService } from "../challenges/challenge.service";
@@ -78,13 +78,16 @@ export function createGenerationService(dependencies: {
   }
   async function claim() {
     return db.transaction(async (tx) => {
-      const [job] = await tx
-        .select()
-        .from(generationJobs)
-        .where(eq(generationJobs.status, "queued"))
-        .orderBy(asc(generationJobs.createdAt), asc(generationJobs.id))
-        .limit(1)
-        .for("update", { skipLocked: true });
+      const [job] = await lockRows(
+        tx
+          .select()
+          .from(generationJobs)
+          .where(eq(generationJobs.status, "queued"))
+          .orderBy(asc(generationJobs.createdAt), asc(generationJobs.id))
+          .limit(1),
+        "update",
+        true,
+      );
       if (!job) return null;
       const [claimed] = await tx
         .update(generationJobs)
@@ -437,11 +440,10 @@ export function createGenerationService(dependencies: {
     ) {
       await owned(id, profileId);
       const result = await db.transaction(async (tx) => {
-        const [job] = await tx
-          .select()
-          .from(generationJobs)
-          .where(eq(generationJobs.id, id))
-          .for("update");
+        const [job] = await lockRows(
+          tx.select().from(generationJobs).where(eq(generationJobs.id, id)),
+          "update",
+        );
         if (!job || job.request.kind !== "challenge")
           throw new AppError(
             "GENERATION_NOT_FOUND",

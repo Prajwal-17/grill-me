@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source("../");
 @import "tw-animate-css";
 @import "./styles/grill.css";
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

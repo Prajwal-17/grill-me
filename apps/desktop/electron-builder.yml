@@ -1,0 +1,29 @@
+appId: local.grill-me.desktop-dev
+productName: Grill Me Dev
+executableName: grill-me-dev
+directories:
+  output: release
+files:
+  - out/main/**
+  - package.json
+extraResources:
+  - from: out/renderer
+    to: renderer
+  - from: resources/backend
+    to: backend
+asar: true
+npmRebuild: false
+linux:
+  syncDesktopName: true
+  icon: resources/icon.png
+  desktop:
+    entry:
+      StartupWMClass: grill-me-dev
+  target:
+    - deb
+  category: Development
+  synopsis: Local developer practice companion
+  artifactName: grill-me-dev-${version}-${arch}.${ext}
+deb:
+  packageName: grill-me-dev
+  compression: gz

@@ -1,5 +1,5 @@
 import { and, eq, gt } from "drizzle-orm";
-import type { db } from "../../shared/database/db";
+import { type db, lockRows } from "../../shared/database/db";
 import { generationJobs } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
 import type { GenerationRun } from "./generation.schema";
@@ -10,18 +10,20 @@ type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 // A worker that lost its lease cannot save a late or duplicate generation.
 export async function lockGeneration(tx: Transaction, run?: GenerationRun) {
   if (!run) return;
-  const [job] = await tx
-    .select({ id: generationJobs.id })
-    .from(generationJobs)
-    .where(
-      and(
-        eq(generationJobs.id, run.id),
-        eq(generationJobs.runToken, run.token),
-        eq(generationJobs.status, "running"),
-        gt(generationJobs.leaseUntil, new Date()),
+  const [job] = await lockRows(
+    tx
+      .select({ id: generationJobs.id })
+      .from(generationJobs)
+      .where(
+        and(
+          eq(generationJobs.id, run.id),
+          eq(generationJobs.runToken, run.token),
+          eq(generationJobs.status, "running"),
+          gt(generationJobs.leaseUntil, new Date()),
+        ),
       ),
-    )
-    .for("update");
+    "update",
+  );
   if (!job)
     throw new AppError(
       "GENERATION_INTERRUPTED",

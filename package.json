@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
-    "test": "bun test",
-    "dev": "turbo run dev --filter=web --filter=backend",
+    "test": "bun run test:desktop",
+    "dev": "bun run desktop:dev",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint -- --fix",
     "format": "prettier --write .",
@@ -22,7 +22,12 @@
     "db:studio:dev": "bun run --cwd apps/backend db:studio:dev",
     "db:studio:prod": "bun run --cwd apps/backend db:studio:prod",
     "test:isolated": "bun run scripts/test-isolated.ts",
-    "prompt:eval": "bun run --cwd apps/backend scripts/prompt-eval.ts"
+    "prompt:eval": "bun run --cwd apps/backend scripts/prompt-eval.ts",
+    "desktop:dev": "bun run --cwd apps/desktop dev",
+    "desktop:build": "bun run --cwd apps/desktop build",
+    "desktop:deb": "bun run --cwd apps/desktop package:deb",
+    "test:desktop": "bun run test:isolated --sqlite",
+    "dev:web": "turbo run dev --filter=web --filter=backend"
   },
   "devDependencies": {
     "@babel/core": "8.0.1",
@@ -45,5 +50,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
+  ],
+  "trustedDependencies": [
+    "electron"
   ]
 }

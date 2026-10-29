@@ -1,5 +1,5 @@
-import { and, count, desc, eq, getTableColumns, ilike, or } from "drizzle-orm";
-import { db } from "../../shared/database/db";
+import { and, count, desc, eq, getTableColumns, or } from "drizzle-orm";
+import { db, caseInsensitiveLike } from "../../shared/database/db";
 import { aiLogs, aiLogEvents } from "../../shared/database/schema";
 import type { LogQuery } from "./log.schema";
 
@@ -58,7 +58,7 @@ export const logModel = {
               aiLogs.actualModel,
               aiLogs.preview,
               aiLogs.id,
-            ].map((column) => ilike(column, `%${search}%`)),
+            ].map((column) => caseInsensitiveLike(column, `%${search}%`)),
           )
         : undefined,
     );

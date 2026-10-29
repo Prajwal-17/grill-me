@@ -33,7 +33,11 @@ export function extractResumeDocument(
 ): Promise<{ text: string; warnings: string[] }> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(
-      options.workerUrl ?? new URL("./resume.worker.ts", import.meta.url),
+      options.workerUrl ??
+        (process.env.GRILL_ME_DESKTOP === "1" &&
+        process.env.DESKTOP_RESUME_WORKER
+          ? process.env.DESKTOP_RESUME_WORKER
+          : new URL("./resume.worker.ts", import.meta.url)),
       { type: "module" },
     );
     let settled = false;
@@ -87,8 +91,10 @@ export function extractResumeDocument(
         }
       }
     };
-    worker.onerror = () =>
+    worker.onerror = (event) => {
+      console.error("Resume document worker failed:", event.message);
       finish(new AppError("RESUME_MALFORMED", errors.RESUME_MALFORMED!, 400));
+    };
     signal?.addEventListener("abort", cancel, { once: true });
     if (signal?.aborted) cancel();
     else worker.postMessage({ format, bytes }, [bytes]);

@@ -4,7 +4,7 @@ import type { ProfileService } from "../profiles/profile.service";
 import { quizPrompt, QUIZ_PROMPT_VERSION } from "../ai/prompts/generate-quiz";
 import type { ChallengeService } from "../challenges/challenge.service";
 import { toChallenge } from "../challenges/challenge.utils";
-import { db } from "../../shared/database/db";
+import { db, lockRows, nextGenerationNumber } from "../../shared/database/db";
 import { profiles, quizAttempts, quizzes } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
 import type { GenerationRun } from "../generations/generation.schema";
@@ -291,13 +291,15 @@ export function createQuizService(
         return db.transaction(async (tx) => {
           await lockGeneration(tx, generation);
           // Serialize retry checks across processes. Number allocation itself
-          // belongs to the database trigger. NO KEY UPDATE permits FK checks
+          // belongs to the database adapter. NO KEY UPDATE permits FK checks
           // from concurrent challenge generation for the same profile.
-          await tx
-            .select({ id: profiles.id })
-            .from(profiles)
-            .where(eq(profiles.id, profileId))
-            .for("no key update");
+          await lockRows(
+            tx
+              .select({ id: profiles.id })
+              .from(profiles)
+              .where(eq(profiles.id, profileId)),
+            "no key update",
+          );
           const duplicate = (
             await tx
               .select()
@@ -318,6 +320,7 @@ export function createQuizService(
               .insert(quizzes)
               .values({
                 id: generation?.id ?? crypto.randomUUID(),
+                number: await nextGenerationNumber(tx, profileId, "quiz"),
                 challengeId,
                 profileId,
                 title: normalizeQuizTitle(
@@ -471,11 +474,15 @@ export function createQuizService(
       assertActiveQuiz(found);
       return db.transaction(async (tx) => {
         const quiz = (
-          await tx
-            .select()
-            .from(quizzes)
-            .where(and(eq(quizzes.id, quizId), scope(challengeId, profileId)))
-            .for("update")
+          await lockRows(
+            tx
+              .select()
+              .from(quizzes)
+              .where(
+                and(eq(quizzes.id, quizId), scope(challengeId, profileId)),
+              ),
+            "update",
+          )
         )[0];
         if (!quiz) throw new AppError("QUIZ_NOT_FOUND", "Quiz not found.", 404);
         assertActiveQuiz(quiz);
@@ -521,25 +528,31 @@ export function createQuizService(
       assertActiveQuiz(found);
       return db.transaction(async (tx) => {
         const quiz = (
-          await tx
-            .select()
-            .from(quizzes)
-            .where(and(eq(quizzes.id, quizId), scope(challengeId, profileId)))
-            .for("update")
+          await lockRows(
+            tx
+              .select()
+              .from(quizzes)
+              .where(
+                and(eq(quizzes.id, quizId), scope(challengeId, profileId)),
+              ),
+            "update",
+          )
         )[0];
         if (!quiz) throw new AppError("QUIZ_NOT_FOUND", "Quiz not found.", 404);
         assertActiveQuiz(quiz);
         const attempt = (
-          await tx
-            .select()
-            .from(quizAttempts)
-            .where(
-              and(
-                eq(quizAttempts.id, attemptId),
-                eq(quizAttempts.quizId, quizId),
+          await lockRows(
+            tx
+              .select()
+              .from(quizAttempts)
+              .where(
+                and(
+                  eq(quizAttempts.id, attemptId),
+                  eq(quizAttempts.quizId, quizId),
+                ),
               ),
-            )
-            .for("update")
+            "update",
+          )
         )[0];
         if (!attempt)
           throw new AppError(

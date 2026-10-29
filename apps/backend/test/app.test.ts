@@ -21,6 +21,7 @@ import type { LogRow } from "../src/modules/logs/log.model";
 import { generationPrompt } from "../src/modules/ai/prompts";
 import type { GeneratedQuiz } from "../src/modules/quizzes/quiz.schema";
 import type { QuizService } from "../src/modules/quizzes/quiz.service";
+import { fixtureSql } from "./fixture-sql";
 
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
@@ -36,9 +37,10 @@ afterAll(async () => {
 const { createApp } = await import("../src/app");
 const { db, migrateDatabase } = await import("../src/shared/database/db");
 await migrateDatabase();
-await db.$client.unsafe(
-  "TRUNCATE TABLE verification_runs, review_jobs, submissions, projects, ai_log_events, ai_logs, messages, challenges, profile_preferences, profiles RESTART IDENTITY CASCADE",
-);
+if (!process.env.GRILL_ME_SQLITE_PATH)
+  await fixtureSql(
+    "TRUNCATE TABLE verification_runs, review_jobs, submissions, projects, ai_log_events, ai_logs, messages, challenges, profile_preferences, profiles RESTART IDENTITY CASCADE",
+  );
 const { createOpenAIModel } = await import("../src/modules/ai/openai.model");
 const { logModel } = await import("../src/modules/logs/log.model");
 const { startAiLog } = await import("../src/modules/logs/ai-log-recorder");
@@ -664,7 +666,7 @@ describe("standalone quizzes", () => {
         questionCount: 5,
         difficulty: "hard",
       });
-      const stored = await db.$client.unsafe(
+      const stored = await fixtureSql(
         "SELECT context_snapshot FROM quizzes WHERE id = $1",
         [quiz.id],
       );
@@ -3088,7 +3090,7 @@ describe("developer profile and frozen context", () => {
       learningGoals: [],
       currentFocus: null,
     };
-    await db.$client.unsafe(
+    await fixtureSql(
       "UPDATE profile_preferences SET guided_preferences=$1::jsonb, developer_context_updated_at=NULL WHERE profile_id=$2",
       [old, owner.id],
     );
@@ -3102,7 +3104,7 @@ describe("developer profile and frozen context", () => {
       projects: [],
       developerContextUpdatedAt: null,
     });
-    const row = await db.$client.unsafe(
+    const row = await fixtureSql(
       "SELECT guided_preferences FROM profile_preferences WHERE profile_id=$1",
       [owner.id],
     );
@@ -3218,7 +3220,7 @@ describe("developer profile and frozen context", () => {
       technicalContext: { experienceLevel: "Junior" },
       selectedDifficulty: "medium",
     };
-    await db.$client.unsafe(
+    await fixtureSql(
       "UPDATE challenges SET estimated_difficulty_score=7, contract_version=1, constraints=$1::jsonb, implementation_milestones=$2::jsonb, context_snapshot=$3::jsonb, prompt_version='practice-v2.3', calibration_version='generator-estimate-v1' WHERE id=$4",
       [["Use no packages."], ["Legacy milestone"], snapshot, challenge.id],
     );
@@ -3303,7 +3305,7 @@ describe("band calibration and essential clarification", () => {
       ).data,
     ).toEqual([]);
     expect(
-      await db.$client.unsafe("SELECT id FROM challenges WHERE profile_id=$1", [
+      await fixtureSql("SELECT id FROM challenges WHERE profile_id=$1", [
         owner.id,
       ]),
     ).toHaveLength(0);
@@ -3866,9 +3868,7 @@ describe("background generations", () => {
     });
     expect(state.model.generationInputs).toHaveLength(1);
     expect(
-      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
-        job.id,
-      ]),
+      await fixtureSql("SELECT id FROM challenges WHERE id = $1", [job.id]),
     ).toHaveLength(1);
     const acknowledged = await request(
       state.app,
@@ -4089,9 +4089,7 @@ describe("background generations", () => {
     release();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(
-      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
-        job.id,
-      ]),
+      await fixtureSql("SELECT id FROM challenges WHERE id = $1", [job.id]),
     ).toHaveLength(0);
     expect((await state.detail(job.id)).status).toBe("cancelled");
   });
@@ -4115,7 +4113,7 @@ describe("background generations", () => {
     const job = await state.enqueue();
     const running = state.app.generations.processNext();
     await started;
-    await db.$client.unsafe(
+    await fixtureSql(
       "UPDATE generation_jobs SET lease_until = now() - interval '1 second' WHERE id = $1",
       [job.id],
     );
@@ -4127,9 +4125,7 @@ describe("background generations", () => {
       error: { code: "GENERATION_INTERRUPTED" },
     });
     expect(
-      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
-        job.id,
-      ]),
+      await fixtureSql("SELECT id FROM challenges WHERE id = $1", [job.id]),
     ).toHaveLength(0);
     const queued = await state.enqueue({
       ...state.input,
@@ -4179,7 +4175,7 @@ describe("background generations", () => {
     });
     const oldRun = state.app.generations.processNext();
     await started;
-    await db.$client.unsafe(
+    await fixtureSql(
       "UPDATE generation_jobs SET lease_until = now() - interval '1 second' WHERE id = $1",
       [job.id],
     );
@@ -4200,7 +4196,7 @@ describe("background generations", () => {
     expect((await state.detail(job.id)).status).toBe("completed");
     expect(calls).toBe(2);
     expect(
-      await db.$client.unsafe("SELECT id FROM quizzes WHERE id = $1", [job.id]),
+      await fixtureSql("SELECT id FROM quizzes WHERE id = $1", [job.id]),
     ).toHaveLength(1);
   });
 

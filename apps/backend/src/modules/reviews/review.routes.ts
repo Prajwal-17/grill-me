@@ -1,3 +1,4 @@
+import { verificationAvailable } from "../verification/runner";
 import { browseFolders } from "../projects/browse";
 import { beginUpload, appendUpload } from "../projects/uploads";
 import { Hono, type Context } from "hono";
@@ -75,7 +76,7 @@ export function createReviewRoutes(
     return c.json({
       data: {
         codex: await codexStatus(),
-        verificationAvailable: Boolean(Bun.which("docker")),
+        verificationAvailable: verificationAvailable(),
         omniroute,
         omnirouteConfigured: omniroute.configured,
       },

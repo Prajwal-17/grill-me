@@ -8,16 +8,22 @@ import {
   type VerificationEvidence,
 } from "../reviews/review.schema";
 
+export function verificationAvailable() {
+  return process.env.GRILL_ME_DESKTOP !== "1" && Boolean(Bun.which("docker"));
+}
+
 export async function verifySubmission(
   llm: Pick<ModelGateway, "planVerification">,
   input: JudgeInput,
   snapshot: string,
 ): Promise<VerificationEvidence> {
-  if (!Bun.which("docker"))
+  if (!verificationAvailable())
     return {
       status: "inspection_only",
       reason:
-        "Docker is unavailable. Source was not executed; install Docker to enable isolated checks.",
+        process.env.GRILL_ME_DESKTOP === "1"
+          ? "Desktop reviews inspect source without executing submitted programs."
+          : "Docker is unavailable. Source was not executed; install Docker to enable isolated checks.",
       checks: [],
     };
   if (!llm.planVerification || !input.attachments.length)

@@ -50,3 +50,7 @@ apps/backend/.data/
 # Browser test artifacts
 playwright-report/
 test-results/
+
+# Desktop package artifacts
+apps/desktop/release/
+apps/desktop/resources/backend/

@@ -14,7 +14,12 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { db, first } from "../../shared/database/db";
+import {
+  db,
+  first,
+  databaseNow,
+  nextGenerationNumber,
+} from "../../shared/database/db";
 import { challenges, messages } from "../../shared/database/schema";
 import type { ChallengeContent } from "./challenge.schema";
 import type { GenerationRun } from "../generations/generation.schema";
@@ -122,6 +127,7 @@ export const challengeModel = {
           .values({
             id,
             profileId,
+            number: await nextGenerationNumber(tx, profileId, "challenge"),
             title: content.title,
             scope: content.scope,
             difficulty: content.difficulty,
@@ -191,7 +197,9 @@ export const challengeModel = {
         .update(challenges)
         .set(
           archived
-            ? { archivedAt: sql`coalesce(${challenges.archivedAt}, now())` }
+            ? {
+                archivedAt: sql`coalesce(${challenges.archivedAt}, ${databaseNow()})`,
+              }
             : {
                 archivedAt: null,
                 // Older clients used saved as a lifecycle state. Restore those to active.

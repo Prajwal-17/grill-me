@@ -1,5 +1,8 @@
 import { DEFAULT_CODEX_MODEL } from "@repo/preferences";
-import { verifySubmission } from "../verification/runner";
+import {
+  verifySubmission,
+  verificationAvailable,
+} from "../verification/runner";
 import { verificationPlanSchema } from "../reviews/review.schema";
 import { z } from "zod";
 import { snapshotTools, callSnapshotTool } from "./file-tools";
@@ -305,7 +308,7 @@ export async function codexJudge(
     const params: ThreadStartParams = {
       dynamicTools: [
         ...snapshotTools,
-        ...(Bun.which("docker")
+        ...(verificationAvailable()
           ? [
               {
                 type: "function" as const,
