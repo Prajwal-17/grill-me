@@ -141,3 +141,21 @@ test("desktop configuration cannot inherit production database or storage paths"
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("window settings persist startup mode and zoom while rejecting invalid values", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-window-settings-"));
+  try {
+    const { windowSettingsStore } = await import("../src/window-settings");
+    const first = windowSettingsStore(root);
+    expect(first.get()).toEqual({ startup: "fullscreen", zoom: 1 });
+    first.set({ startup: "maximized", zoom: 1.2 });
+    expect(windowSettingsStore(root).get()).toEqual({
+      startup: "maximized",
+      zoom: 1.2,
+    });
+    expect(() => first.set({ zoom: 3 })).toThrow();
+    expect(first.get().zoom).toBe(1.2);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

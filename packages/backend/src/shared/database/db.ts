@@ -39,7 +39,11 @@ function current() {
 export const db = new Proxy({} as Postgres["db"], {
   get(_target, key) {
     const value = Reflect.get(current().db, key);
-    return typeof value === "function" ? value.bind(current().db) : value;
+    // Bun SQL clients are callable objects with methods such as unsafe/close.
+    // Bind ORM methods only; binding the client would discard those properties.
+    return key !== "$client" && typeof value === "function"
+      ? value.bind(current().db)
+      : value;
   },
 });
 export const first = async <T>(query: PromiseLike<T[]>) => (await query)[0];

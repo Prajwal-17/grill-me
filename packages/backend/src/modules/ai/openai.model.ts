@@ -158,7 +158,7 @@ export function createOpenAIModel(
       throw new AppError(
         "MODEL_NOT_CONFIGURED",
         process.env.GRILL_ME_DESKTOP === "1"
-          ? "Set LLM_API_KEY through Application → Configure AI, then restart the desktop app."
+          ? "Add and select an AI provider in Application → Settings."
           : "Add LLM_API_KEY to apps/backend/.env before generating a build.",
         503,
         false,

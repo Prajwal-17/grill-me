@@ -116,7 +116,7 @@ Tests must use temporary data roots and fake providers. Live production PostgreS
 - Plan committed before implementation; shared packages and the local runtime/settings were committed separately on the existing PR branch.
 - Shared backend import is tested without valid database configuration or listeners.
 - Source-mode desktop and standalone browser smoke tests cover the shared UI, provider settings and SQLite profiles. Browser application requests use WebSockets.
-- 119 isolated tests cover the existing domain behavior, transactions, provider persistence/failures, connection authentication/ticket reuse, cancellation and reconnect without mutation replay.
+- 120 isolated tests cover the existing domain behavior, transactions, provider persistence/failures, connection authentication/ticket reuse, cancellation and reconnect without mutation replay.
 - Native Secret Service storage passed a round-trip in a private D-Bus session with a disposable encrypted GNOME keyring; the normal user keyring was not accessed.
 - Electron builder inheritance and schema were validated without invoking a build. Workflow YAML was parsed locally.
 - Formatting, lint and TypeScript checks are required before final handoff. Linux Debian packaging and the packaged-app smoke are configured for manual CI and have deliberately not been run locally.

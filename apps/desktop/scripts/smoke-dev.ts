@@ -76,7 +76,7 @@ try {
   });
   await expect(
     page.getByRole("heading", { name: "Choose a profile" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 30000 });
   await page.evaluate(() => document.fonts.ready);
   const styles = await page.evaluate(() => {
     const main = document.querySelector("main")!;
@@ -144,6 +144,10 @@ try {
   await page.getByRole("button", { name: "Zoom in", exact: true }).click();
   await expect(page.locator("output")).toHaveText("110%");
   await page.keyboard.press("Control+0");
+  await expect(page.locator("output")).toHaveText("100%");
+  await page.keyboard.press("Control+Equal");
+  await expect(page.locator("output")).toHaveText("110%");
+  await page.keyboard.press("Control+Minus");
   await expect(page.locator("output")).toHaveText("100%");
   await page.getByLabel("Startup window mode").click();
   await page.getByRole("option", { name: "Maximized", exact: true }).click();

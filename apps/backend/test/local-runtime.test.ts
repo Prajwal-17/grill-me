@@ -329,3 +329,120 @@ test("malformed and duplicate frames cannot repeat a mutation", async () => {
     ws.close();
   }
 });
+
+test("configured provider endpoint, key and model drive local AI calls without leaking keys into logs", async () => {
+  const secret = "provider-integration-fixture-secret";
+  let authorization = "";
+  let requestedModel = "";
+  const provider = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    async fetch(request) {
+      authorization = request.headers.get("Authorization") ?? "";
+      const body = (await request.json()) as { model: string };
+      requestedModel = body.model;
+      return Response.json({
+        id: "fixture-response",
+        status: "completed",
+        model: "configured-fixture-model",
+        output: [
+          {
+            type: "message",
+            role: "assistant",
+            content: [
+              {
+                type: "output_text",
+                text: JSON.stringify({
+                  displayName: null,
+                  background: [],
+                  languages: [],
+                  technologies: [],
+                  projects: [],
+                }),
+                annotations: [],
+              },
+            ],
+          },
+        ],
+      });
+    },
+  });
+  const ws = await socket();
+  const call = async (
+    path: string,
+    method = "GET",
+    body?: unknown,
+    profileId?: string,
+  ) => {
+    const id = crypto.randomUUID();
+    const response = receive(ws, (f) => f.id === id);
+    ws.send(
+      JSON.stringify({
+        type: "request",
+        id,
+        version: 1,
+        call: { path, method, body, profileId },
+      }),
+    );
+    return response;
+  };
+  try {
+    const profile = await call("/profiles/start", "POST", {
+      email: "provider-integration@test.local",
+    });
+    expect(profile.type).toBe("result");
+    const saved = await call("/settings/providers", "POST", {
+      id: crypto.randomUUID(),
+      name: "Integration fixture",
+      endpoint: `http://127.0.0.1:${provider.port}/v1`,
+      model: "configured-fixture-model",
+      apiKey: secret,
+      storage: "session",
+    });
+    expect(saved.type).toBe("result");
+    expect(JSON.stringify(saved)).not.toContain(secret);
+    const preview = await call(
+      "/profiles/resume/preview",
+      "POST",
+      {
+        text: "Alex Rivera builds software in TypeScript and has experience with caching services.",
+      },
+      profile.data.id,
+    );
+    expect(preview.type).toBe("result");
+    expect(authorization).toBe(`Bearer ${secret}`);
+    expect(requestedModel).toBe("configured-fixture-model");
+    const logs = await call("/logs", "GET", undefined, profile.data.id);
+    expect(logs.type).toBe("result");
+    expect(logs.data.items.length).toBeGreaterThan(0);
+    expect(JSON.stringify(logs)).not.toContain(secret);
+  } finally {
+    ws.close();
+    await provider.stop(true);
+  }
+});
+
+test("the PostgreSQL adapter preserves its callable client methods without opening a connection", async () => {
+  const script = Bun.spawn(
+    [
+      process.execPath,
+      "--no-env-file",
+      "-e",
+      `
+ const {initializeDatabase,db,closeDatabase}=await import("@repo/backend/shared/database/db");
+ await initializeDatabase({dialect:"postgres",url:"postgresql://fixture:fixture@127.0.0.1:1/unused"});
+ if(typeof db.$client.unsafe!=="function"||typeof db.$client.close!=="function")throw new Error("Native SQL client methods were lost");
+ await closeDatabase();
+ `,
+    ],
+    {
+      cwd: new URL("..", import.meta.url).pathname,
+      env: { PATH: process.env.PATH, APP_ENV: "test" },
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+  const status = await script.exited;
+  if (status) console.error(await new Response(script.stderr).text());
+  expect(status).toBe(0);
+});
