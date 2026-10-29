@@ -32,12 +32,19 @@ jobs:
       - name: Install browser and desktop test libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 gnome-keyring dbus-x11
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 gnome-keyring dbus-x11 openbox
           bun run --cwd apps/desktop playwright:install
       - name: Test native secret storage in an isolated keyring
         run: bun run --cwd apps/desktop test:keyring
       - name: Check Electron source development mode
-        run: xvfb-run -a bun run --cwd apps/desktop test:dev
+        run: |
+          xvfb-run -a sh -c '
+            openbox > /tmp/grill-window-manager.log 2>&1 &
+            grill_window_manager_pid=$!
+            trap "kill $grill_window_manager_pid 2>/dev/null || true" EXIT
+            bun run --cwd apps/desktop test:dev
+          '
+
       - name: Check standalone source development mode
         run: bun run --cwd apps/desktop test:web
       - name: Upload UI diagnostics
