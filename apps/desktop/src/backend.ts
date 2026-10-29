@@ -1,12 +1,5 @@
 import { resolve, sep, extname } from "node:path";
-import { createApp } from "../../backend/src/app";
-import { createOpenAIModel } from "../../backend/src/modules/ai/openai.model";
-import { logModel } from "../../backend/src/modules/logs/log.model";
-import { createReviewService } from "../../backend/src/modules/reviews/review.service";
-import {
-  migrateDatabase,
-  sqlite,
-} from "../../backend/src/shared/database/db.sqlite";
+import { createBackend } from "@repo/backend";
 
 if (
   process.env.APP_ENV !== "development" ||
@@ -17,11 +10,11 @@ if (
     "The desktop backend must be started by the development desktop launcher.",
   );
 }
-await migrateDatabase();
-await logModel.markInterrupted();
-const llm = createOpenAIModel();
-await createReviewService(llm).recover();
-const app = createApp({ llm, webOrigin: process.env.DESKTOP_WEB_ORIGIN ?? "" });
+const runtime = await createBackend({
+  database: { dialect: "sqlite", path: process.env.GRILL_ME_SQLITE_PATH! },
+  webOrigin: process.env.DESKTOP_WEB_ORIGIN ?? "",
+});
+const app = runtime.app;
 const renderer = process.env.DESKTOP_RENDERER_ROOT
   ? resolve(process.env.DESKTOP_RENDERER_ROOT)
   : null;
@@ -87,7 +80,7 @@ function stop() {
   stopping = true;
   app.generations.stop();
   void server.stop(true).finally(() => {
-    sqlite.close();
+    void runtime.stop();
     process.exit(0);
   });
 }

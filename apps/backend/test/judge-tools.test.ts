@@ -2,7 +2,7 @@ import { test, expect } from "bun:test";
 import { mkdtemp, writeFile, rm, symlink, chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { callSnapshotTool } from "../src/modules/judges/file-tools";
+import { callSnapshotTool } from "../../../packages/backend/src/modules/judges/file-tools";
 
 test("snapshot tools read beyond the first page and reject paths outside the snapshot", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-file-tools-"));
@@ -42,7 +42,8 @@ test("Codex transport correlates fragmented responses, rejects errors, and recon
   process.env.DATABASE_URL =
     process.env.TEST_DATABASE_URL ??
     "postgresql://prajwal-17:prajwal2004@localhost:5432/grill-me-test";
-  const { CodexClient } = await import("../src/modules/judges/codex");
+  const { CodexClient } =
+    await import("../../../packages/backend/src/modules/judges/codex");
   const root = await mkdtemp(join(tmpdir(), "grill-protocol-"));
   const binary = join(root, "fixture");
   await writeFile(
@@ -91,7 +92,8 @@ createInterface({ input: process.stdin }).on("line", (line) => {
 });
 
 test("folder upload paths preserve nested source and reject traversal and credentials", async () => {
-  const { submissionPath } = await import("../src/modules/projects/paths");
+  const { submissionPath } =
+    await import("../../../packages/backend/src/modules/projects/paths");
   expect(submissionPath("project/src/main.py")).toBe("project/src/main.py");
   for (const path of [
     "../escape.py",

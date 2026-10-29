@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { SQL } from "bun";
-import { databaseUrl } from "../src/shared/storage/paths";
+import { databaseUrl } from "../../../packages/backend/src/shared/storage/paths";
 
 test("additive context migration leaves historical records and unknown timestamps unchanged", async () => {
   const client = new SQL(process.env.TEST_DATABASE_URL ?? databaseUrl());
@@ -17,7 +17,7 @@ test("additive context migration leaves historical records and unknown timestamp
         "0004_soft_delete_quizzes.sql",
       ]) {
         const migration = await Bun.file(
-          new URL(`../drizzle/${file}`, import.meta.url),
+          new URL(`../../../packages/backend/drizzle/${file}`, import.meta.url),
         ).text();
         for (const statement of migration.split("--> statement-breakpoint"))
           await tx.unsafe(statement.replaceAll('"public".', `"${schema}".`));
@@ -30,7 +30,10 @@ test("additive context migration leaves historical records and unknown timestamp
         "SELECT row_to_json(challenges) AS challenge FROM challenges",
       );
       const migration = await Bun.file(
-        new URL("../drizzle/0005_bored_zodiak.sql", import.meta.url),
+        new URL(
+          "../../../packages/backend/drizzle/0005_bored_zodiak.sql",
+          import.meta.url,
+        ),
       ).text();
       await tx.unsafe(migration);
       expect(

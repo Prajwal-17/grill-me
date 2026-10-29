@@ -1,9 +1,9 @@
 import { mkdir } from "node:fs/promises";
-import { CODEX_VERSION } from "../src/modules/judges/codex";
+import { CODEX_VERSION } from "../../../packages/backend/src/modules/judges/codex";
 import {
   codexInstallPath,
   migrateLegacyData,
-} from "../src/shared/storage/paths";
+} from "../../../packages/backend/src/shared/storage/paths";
 const existing = Bun.which(process.env.CODEX_BIN ?? "codex");
 if (existing) {
   const child = Bun.spawn([existing, "--version"], {

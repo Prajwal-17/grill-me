@@ -66,7 +66,13 @@ try {
   const context = browser.contexts()[0]!;
   const page = context.pages()[0] ?? (await context.waitForEvent("page"));
   const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => {
+    errors.push(error.message);
+    console.error("Renderer error:", error.message);
+  });
+  page.on("console", (message) => {
+    if (message.type() === "error") console.error("Renderer:", message.text());
+  });
   await expect(
     page.getByRole("heading", { name: "Choose a profile" }),
   ).toBeVisible();

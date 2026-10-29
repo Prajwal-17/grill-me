@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { migrateLegacyData } from "../src/shared/storage/paths";
+import { migrateLegacyData } from "../../../packages/backend/src/shared/storage/paths";
 
 test("legacy app data is copied once without overwriting new data", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-storage-"));

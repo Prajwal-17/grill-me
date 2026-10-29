@@ -2,8 +2,8 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { browseFolders } from "../src/modules/projects/browse";
-import { projectRoot } from "../src/modules/projects/snapshot";
+import { browseFolders } from "../../../packages/backend/src/modules/projects/browse";
+import { projectRoot } from "../../../packages/backend/src/modules/projects/snapshot";
 
 describe("configured projects root", () => {
   let root = "";

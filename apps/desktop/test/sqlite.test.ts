@@ -10,10 +10,11 @@ describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
   "desktop SQLite isolation",
   () => {
     test("an outside read waits for an async transaction and sees the rollback", async () => {
-      const { sqliteDb: db, migrateDatabase } =
-        await import("../../backend/src/shared/database/db.sqlite");
+      const { sqliteDatabase, migrateDatabase } =
+        await import("@repo/backend/shared/database/db");
+      const { db } = sqliteDatabase();
       const { profiles } =
-        await import("../../backend/src/shared/database/schema.sqlite");
+        await import("../../../packages/backend/src/shared/database/schema.sqlite");
       await migrateDatabase();
       const id = crypto.randomUUID();
       const email = `atomic-${id}@test.local`;
@@ -53,10 +54,11 @@ describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
     });
 
     test("number counters survive deletions and roll back with failed writes", async () => {
-      const { sqliteDb: db, nextGenerationNumber } =
-        await import("../../backend/src/shared/database/db.sqlite");
+      const { sqliteDatabase, nextGenerationNumber } =
+        await import("@repo/backend/shared/database/db");
+      const { db } = sqliteDatabase();
       const { profiles, generationCounters } =
-        await import("../../backend/src/shared/database/schema.sqlite");
+        await import("../../../packages/backend/src/shared/database/schema.sqlite");
       const id = crypto.randomUUID();
       await db.insert(profiles).values({ id, email: `${id}@test.local` });
       expect(
@@ -84,8 +86,9 @@ describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
     });
 
     test("migrations are repeatable and preserve the database", async () => {
-      const { sqlite, migrateDatabase } =
-        await import("../../backend/src/shared/database/db.sqlite");
+      const { sqliteDatabase, migrateDatabase } =
+        await import("@repo/backend/shared/database/db");
+      const { sqlite } = sqliteDatabase();
       const before = sqlite
         .query("SELECT count(*) as count FROM profiles")
         .get();

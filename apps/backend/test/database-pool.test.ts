@@ -1,9 +1,11 @@
 import { expect, test } from "bun:test";
-import { databaseUrl } from "../src/shared/storage/paths";
+import { databaseUrl } from "../../../packages/backend/src/shared/storage/paths";
 
 test("reloading database modules reuses a connection pool instead of exhausting PostgreSQL", async () => {
-  const moduleUrl = new URL("../src/shared/database/db.ts", import.meta.url)
-    .href;
+  const moduleUrl = new URL(
+    "../../../packages/backend/src/shared/database/db.ts",
+    import.meta.url,
+  ).href;
   const child = Bun.spawn(
     [
       "bun",

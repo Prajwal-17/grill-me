@@ -6,7 +6,7 @@
     "noEmit": true,
     "types": ["vite/client", "node"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["../../packages/ui/src/*"]
     },
     "allowImportingTsExtensions": true
   },

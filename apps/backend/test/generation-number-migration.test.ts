@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { SQL } from "bun";
-import { databaseUrl } from "../src/shared/storage/paths";
+import { databaseUrl } from "../../../packages/backend/src/shared/storage/paths";
 
 test("generation numbering migrates all quiz scopes without losing historical data", async () => {
   const client = new SQL(process.env.TEST_DATABASE_URL ?? databaseUrl());
@@ -11,7 +11,7 @@ test("generation numbering migrates all quiz scopes without losing historical da
       await tx.unsafe(`SET LOCAL search_path TO "${schema}"`);
       const apply = async (file: string) => {
         const migration = await Bun.file(
-          new URL(`../drizzle/${file}`, import.meta.url),
+          new URL(`../../../packages/backend/drizzle/${file}`, import.meta.url),
         ).text();
         for (const statement of migration.split("--> statement-breakpoint"))
           await tx.unsafe(statement.replaceAll('"public".', `"${schema}".`));

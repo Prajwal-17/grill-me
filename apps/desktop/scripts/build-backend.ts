@@ -1,6 +1,5 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { sqlitePlugin } from "./sqlite-plugin";
 
 const root = resolve(import.meta.dir, "..");
 await mkdir(resolve(root, "resources/backend"), { recursive: true });
@@ -8,7 +7,10 @@ await mkdir(resolve(root, "resources/backend"), { recursive: true });
 // import.meta URL cannot resolve a source-relative TypeScript worker at runtime.
 await Bun.build({
   entrypoints: [
-    resolve(root, "../backend/src/modules/profiles/resume.worker.ts"),
+    resolve(
+      root,
+      "../../packages/backend/src/modules/profiles/resume.worker.ts",
+    ),
   ],
   outdir: resolve(root, "resources/backend"),
   naming: "resume.worker.js",
@@ -17,7 +19,6 @@ await Bun.build({
 });
 const result = await Bun.build({
   entrypoints: [resolve(root, "src/backend.ts")],
-  plugins: [sqlitePlugin],
   target: "bun",
   minify: true,
   compile: {

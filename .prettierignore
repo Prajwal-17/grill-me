@@ -1,4 +1,4 @@
-apps/backend/drizzle/meta/
+packages/backend/drizzle/meta/
 
 .agents/
 
@@ -9,6 +9,6 @@ apps/backend/drizzle/meta/
 **/playwright-report/
 **/test-results/
 
-apps/backend/drizzle-sqlite/meta/
+packages/backend/drizzle-sqlite/meta/
 apps/desktop/release/
 apps/desktop/resources/backend/

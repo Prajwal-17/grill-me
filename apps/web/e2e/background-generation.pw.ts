@@ -10,7 +10,7 @@ import {
 import type {
   GenerationJob,
   GenerationRequest,
-} from "../src/features/generations/types";
+} from "../../../packages/ui/src/features/generations/types";
 
 const artifacts = "/tmp/grill-me-background-generation-qa";
 async function mockJobs(page: Page) {

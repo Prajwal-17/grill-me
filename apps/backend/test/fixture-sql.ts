@@ -2,10 +2,12 @@
 // raw SQL compatibility here, outside application/database code.
 export async function fixtureSql(query: string, params: unknown[] = []) {
   if (!process.env.GRILL_ME_SQLITE_PATH) {
-    const { db } = await import("../src/shared/database/db");
+    const { db } =
+      await import("../../../packages/backend/src/shared/database/db");
     return db.$client.unsafe(query, params as never[]);
   }
-  const { sqlite } = await import("../src/shared/database/db.sqlite");
+  const { sqliteDatabase } = await import("@repo/backend/shared/database/db");
+  const { sqlite } = sqliteDatabase();
   const values: import("bun:sqlite").SQLQueryBindings[] = [];
   query = query
     .replace(/::jsonb/g, "")

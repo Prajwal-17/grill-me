@@ -31,7 +31,9 @@ export default defineConfig({
         ],
       },
     ],
-    resolve: { alias: { "@": resolve(import.meta.dirname, "../web/src") } },
+    resolve: {
+      alias: { "@": resolve(import.meta.dirname, "../../packages/ui/src") },
+    },
     define: {
       "import.meta.env.VITE_API_URL": JSON.stringify("/api"),
       "import.meta.env.VITE_APP_ENV": JSON.stringify("development"),

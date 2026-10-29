@@ -11,6 +11,6 @@
     "scripts/**/*.ts",
     "test/**/*.ts",
     "*.ts",
-    "../backend/src/**/*.d.ts"
+    "../../packages/backend/src/**/*.d.ts"
   ]
 }

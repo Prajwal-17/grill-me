@@ -2,14 +2,14 @@ import { test as base, expect } from "@playwright/test";
 import type {
   GenerationJob,
   GenerationRequest,
-} from "../src/features/generations/types";
+} from "../../../packages/ui/src/features/generations/types";
 import { EMPTY_GUIDED } from "@repo/preferences";
 import type {
   Challenge,
   Profile,
   ProfilePreferences,
-} from "../src/shared/types/api";
-import type { AiLog } from "../src/features/logs/types";
+} from "../../../packages/ui/src/shared/types/api";
+import type { AiLog } from "../../../packages/ui/src/features/logs/types";
 
 export const profile: Profile = {
   id: "browser-test-profile",

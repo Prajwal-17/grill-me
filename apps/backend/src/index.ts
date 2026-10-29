@@ -1,8 +1,8 @@
-import { createApp } from "./app";
-import { createOpenAIModel } from "./modules/ai/openai.model";
-import { logModel } from "./modules/logs/log.model";
-import { createReviewService } from "./modules/reviews/review.service";
-import { migrateDatabase } from "./shared/database/db";
+import { createApp } from "@repo/backend/app";
+import { createOpenAIModel } from "@repo/backend/modules/ai/openai.model";
+import { logModel } from "@repo/backend/modules/logs/log.model";
+import { createReviewService } from "@repo/backend/modules/reviews/review.service";
+import { migrateDatabase } from "@repo/backend/shared/database/db";
 
 await migrateDatabase();
 await logModel.markInterrupted();

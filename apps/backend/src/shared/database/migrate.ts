@@ -1,6 +1,1 @@
-import { db, migrateDatabase } from "./db";
-
-await migrateDatabase();
-
-console.log("Database migrations applied.");
-await db.$client.close();
+import "@repo/backend/shared/database/migrate";

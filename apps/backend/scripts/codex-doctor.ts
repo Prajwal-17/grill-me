@@ -1,4 +1,7 @@
-import { codexStatus, CODEX_VERSION } from "../src/modules/judges/codex";
+import {
+  codexStatus,
+  CODEX_VERSION,
+} from "../../../packages/backend/src/modules/judges/codex";
 const status = await codexStatus();
 console.log(
   JSON.stringify(

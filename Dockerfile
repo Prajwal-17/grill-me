@@ -6,6 +6,7 @@ COPY apps/backend/package.json ./apps/backend/package.json
 COPY apps/web/package.json ./apps/web/package.json
 RUN bun install --frozen-lockfile
 COPY apps ./apps
+COPY packages ./packages
 
 FROM base AS backend
 RUN bun install --global @openai/codex@0.153.4

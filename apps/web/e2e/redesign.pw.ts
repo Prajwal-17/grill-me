@@ -9,8 +9,14 @@ import {
   profile,
   makeGenerationJob,
 } from "./fixtures";
-import type { Challenge, ProfilePreferences } from "../src/shared/types/api";
-import type { QuizSummary, QuizAttempt } from "../src/features/quizzes/types";
+import type {
+  Challenge,
+  ProfilePreferences,
+} from "../../../packages/ui/src/shared/types/api";
+import type {
+  QuizSummary,
+  QuizAttempt,
+} from "../../../packages/ui/src/features/quizzes/types";
 
 async function choose(page: Page, label: string, option: string) {
   await page.getByRole("combobox", { name: label, exact: true }).click();

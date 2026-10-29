@@ -20,7 +20,7 @@ test("standalone quiz migration preserves populated challenge quizzes and attemp
         "0002_dazzling_spot.sql",
       ]) {
         const migration = await Bun.file(
-          new URL(`../drizzle/${file}`, import.meta.url),
+          new URL(`../../../packages/backend/drizzle/${file}`, import.meta.url),
         ).text();
         for (const statement of migration.split("--> statement-breakpoint")) {
           await tx.unsafe(statement.replaceAll('"public".', `"${schema}".`));
