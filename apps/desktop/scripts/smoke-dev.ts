@@ -244,6 +244,29 @@ try {
   // Zoom persistence is verified above; use 100% for native pointer hit testing.
   await restarted.keyboard.press("Control+0");
   await expect(restarted.locator("output")).toHaveText("100%");
+  for (const zoom of [0.5, 1, 1.2, 2]) {
+    await restarted.evaluate(
+      (zoom) =>
+        (
+          window as unknown as { desktopBridge: DesktopBridge }
+        ).desktopBridge.setWindowSettings({ zoom }),
+      zoom,
+    );
+    await expect
+      .poll(async () => {
+        const rect = await restarted
+          .getByRole("button", { name: "Close window", exact: true })
+          .boundingBox();
+        return Math.round(rect!.width * zoom);
+      })
+      .toBe(24);
+    const captionSize = await restarted
+      .getByRole("button", { name: "Close window", exact: true })
+      .boundingBox();
+    expect(Math.round(captionSize!.height * zoom)).toBe(24);
+  }
+  await restarted.keyboard.press("Control+0");
+  await expect(restarted.locator("output")).toHaveText("100%");
   const beforeMaximize = await restarted.evaluate(() =>
     (
       window as unknown as { desktopBridge: DesktopBridge }
@@ -269,7 +292,7 @@ try {
     .getByRole("group", { name: "Window controls" })
     .boundingBox();
   const header = await restarted
-    .locator("[data-slot='page-header']")
+    .locator("[data-slot='page-header'], .desktop-app-header")
     .boundingBox();
   expect(caption!.y + caption!.height).toBeLessThanOrEqual(
     header!.y + header!.height,

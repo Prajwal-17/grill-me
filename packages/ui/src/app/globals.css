@@ -536,7 +536,7 @@
 
 /* Linux desktop caption lives in the existing app header, not an extra row. */
 html[data-desktop="true"] {
-  --desktop-caption-space: 120px;
+  --desktop-caption-space: calc(104px / var(--desktop-page-zoom, 1));
 }
 .desktop-window-drag-region {
   position: fixed;
@@ -547,20 +547,23 @@ html[data-desktop="true"] {
 }
 .desktop-window-controls {
   position: fixed;
-  top: 11px;
-  right: 12px;
+  /* Counter-zoom keeps native controls 24px at every app zoom. */
+  top: calc(
+    var(--workspace-header-height) * var(--desktop-page-zoom, 1) / 2 - 12px
+  );
+  right: 10px;
   z-index: 80;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   -webkit-app-region: no-drag;
   pointer-events: auto;
 }
 .desktop-caption-button {
   -webkit-app-region: no-drag;
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   border-radius: 50%;
   background: var(--elevated);

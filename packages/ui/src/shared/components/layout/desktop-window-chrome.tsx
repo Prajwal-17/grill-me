@@ -22,6 +22,17 @@ export function DesktopWindowChrome() {
       ),
     [bridge, queries],
   );
+  const zoom = state.data?.zoom ?? 1;
+  useEffect(() => {
+    if (!bridge) return;
+    document.documentElement.style.setProperty(
+      "--desktop-page-zoom",
+      String(zoom),
+    );
+    return () => {
+      document.documentElement.style.removeProperty("--desktop-page-zoom");
+    };
+  }, [bridge, zoom]);
   if (!bridge) return null;
   const perform = (action: Promise<unknown>) => {
     void action.catch(() =>
@@ -42,6 +53,7 @@ export function DesktopWindowChrome() {
       />
       <div
         className="desktop-window-controls"
+        style={{ zoom: 1 / zoom }}
         role="group"
         aria-live="off"
         aria-label="Window controls"
@@ -54,7 +66,7 @@ export function DesktopWindowChrome() {
           title="Minimize"
           onClick={() => perform(bridge.minimizeWindow())}
         >
-          <Minus size={13} strokeWidth={1.6} />
+          <Minus size={11} strokeWidth={1.6} />
         </button>
         <button
           type="button"
@@ -63,7 +75,7 @@ export function DesktopWindowChrome() {
           title={maximized ? "Restore" : "Maximize"}
           onClick={() => perform(bridge.toggleMaximize())}
         >
-          <MaximizeIcon size={maximized ? 12 : 11} strokeWidth={1.6} />
+          <MaximizeIcon size={maximized ? 11 : 10} strokeWidth={1.6} />
         </button>
         <button
           type="button"
@@ -72,7 +84,7 @@ export function DesktopWindowChrome() {
           title="Close"
           onClick={() => perform(bridge.closeWindow())}
         >
-          <X size={13} strokeWidth={1.6} />
+          <X size={11} strokeWidth={1.6} />
         </button>
       </div>
     </>,
