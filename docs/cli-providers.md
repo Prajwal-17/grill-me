@@ -2,7 +2,7 @@
 
 Grill Me uses the Codex or OpenCode executable already installed on your Linux
 machine. It does not download, bundle, update, or install either CLI. Docker is
-not required for the desktop application or standalone local development.
+not required for the desktop application.
 
 Open Settings → AI providers → Add provider. Choose Codex CLI or OpenCode CLI,
 enter a name, and save. Leave the executable field empty to detect the CLI in
@@ -69,8 +69,7 @@ startup failures, provider exits, timeouts, and cancellation are reported in the
 connection panel or saved response. Raw stderr and authentication protocol traffic
 are not included in user-facing errors. Reconnection does not replay requests.
 
-Run `bun run test:desktop` for isolated SQLite and fake CLI protocol tests,
-`bun run --cwd apps/desktop test:web` for the standalone source flow, and
-`xvfb-run -a bun run --cwd apps/desktop test:dev` for the Electron source smoke.
+Run `bun run test:desktop` for isolated SQLite and fake CLI protocol tests.
 These use temporary data folders and fake providers; they do not invoke paid
-models, access production databases, or build a desktop package.
+models, access production databases, or build a desktop package. Browser/Electron
+E2E suites have been removed. Run the full app with `bun dev` for manual checks.

@@ -1,3 +1,9 @@
+> Superseded launch/build policy: Electron is now the only host; standalone and
+> Docker launch paths and browser/Electron E2E suites have been removed. Both dev
+> and production desktop editions use isolated SQLite data. See
+> [current release instructions](desktop-release.md). The checklist below records
+> the original implementation and is retained as history.
+
 # Desktop application implementation plan
 
 ## Scope and fixed decisions
