@@ -1,7 +1,15 @@
 import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, Folder, Home, Search } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  ChevronRight,
+  Folder,
+  FolderOpen,
+  Home,
+  LoaderCircle,
+  Search,
+} from "lucide-react";
 import { browseFolders } from "../api/review-api";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -101,6 +109,20 @@ export function ProjectPicker({
     setFolderSearch("");
   }
 
+  const bridge = window.desktopBridge;
+  const nativePicker = useMutation({
+    mutationFn: () =>
+      bridge!.selectProjectsFolder(
+        normalizeLocalPath(typedPath) || selectedPath,
+      ),
+    onSuccess: (selected) => {
+      if (selected !== null) {
+        navigate(selected);
+        setTypedPath(selected);
+      }
+    },
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden p-0 sm:max-w-lg">
@@ -113,7 +135,7 @@ export function ProjectPicker({
 
         <div className="space-y-3 px-5 py-4">
           <form
-            className="flex gap-2"
+            className="flex flex-wrap gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               const next = normalizeLocalPath(typedPath);
@@ -123,16 +145,44 @@ export function ProjectPicker({
             <Input
               aria-label="Folder path or file URL"
               value={typedPath}
-              onChange={(event) => setTypedPath(event.target.value)}
+              maxLength={4096}
+              onChange={(event) => {
+                nativePicker.reset();
+                setTypedPath(event.target.value);
+              }}
               placeholder="Path or file:// URL"
               autoComplete="off"
               spellCheck={false}
-              className="h-9 font-mono text-metadata"
+              className="h-9 min-w-0 flex-[1_1_14rem] font-mono text-metadata"
             />
-            <Button type="submit" disabled={!typedPath.trim()}>
-              Open
-            </Button>
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {bridge && (
+                <Button
+                  type="button"
+                  disabled={nativePicker.isPending}
+                  onClick={() => nativePicker.mutate()}
+                >
+                  {nativePicker.isPending ? (
+                    <LoaderCircle size={15} className="animate-spin" />
+                  ) : (
+                    <FolderOpen size={15} />
+                  )}
+                  {nativePicker.isPending ? "Opening…" : "Browse…"}
+                </Button>
+              )}
+              <Button
+                type="submit"
+                disabled={!typedPath.trim() || nativePicker.isPending}
+              >
+                Open
+              </Button>
+            </div>
           </form>
+          {nativePicker.error && (
+            <p role="alert" className="text-supporting text-destructive">
+              {nativePicker.error.message}
+            </p>
+          )}
 
           <div className="flex min-w-0 items-center gap-1 rounded-md border border-line px-1.5 py-1">
             <Button
@@ -229,7 +279,11 @@ export function ProjectPicker({
           <Button
             variant="primary"
             disabled={
-              !listing.data || listing.isFetching || listing.data.path === "/"
+              !listing.data ||
+              listing.isFetching ||
+              listing.isError ||
+              nativePicker.isPending ||
+              listing.data.path === "/"
             }
             onClick={() => {
               onSelect(listing.data!.path);

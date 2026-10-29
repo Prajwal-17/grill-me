@@ -369,6 +369,11 @@ rather than installing a second component vocabulary. Configuration reference:
   styles, and retained limits. `SearchField` composes the input with search and
   clear affordances. `PreferenceRow` aligns labels and controls without arbitrary
   left margins. Custom multi-select and model choices retain their existing behavior.
+- **Project folders:** the Connect folder dialog supports manual paths and file
+  URLs, in-app navigation, and a labelled Browse action for the native desktop
+  folder chooser. Native selection fills the path and loads its folder listing
+  before connection. Cancelling preserves the current selection; picker failures
+  appear inline and manual entry remains available.
 - **Application settings:** `SettingsGroup` uses a bordered surface with quiet row
   dividers. Appearance changes save automatically on this device; runtime changes
   show an unsaved state with explicit save and discard actions. Providers show

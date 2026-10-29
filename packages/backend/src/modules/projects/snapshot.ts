@@ -68,7 +68,7 @@ export async function projectRoot(path: string) {
   const root = await realpath(path).catch(() => {
     throw new AppError(
       "PROJECT_NOT_FOUND",
-      "The backend cannot access that project folder. Check the path or Docker mount.",
+      "That project folder is unavailable. Choose an existing folder and check its permissions.",
       400,
     );
   });
@@ -79,7 +79,7 @@ export async function projectRoot(path: string) {
     const projectsRoot = await realpath(configuredRoot).catch(() => {
       throw new AppError(
         "PROJECTS_ROOT_UNAVAILABLE",
-        "The configured projects folder is unavailable. Check the Docker mount.",
+        "The projects folder is unavailable. Choose an existing folder in Settings → Local runtime.",
         500,
       );
     });
