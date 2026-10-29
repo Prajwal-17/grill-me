@@ -13,6 +13,8 @@ export function ChoiceSelect({
   disabled,
   placeholder = "Not set",
   className,
+  id,
+  "aria-describedby": describedBy,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -21,6 +23,8 @@ export function ChoiceSelect({
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  id?: string;
+  "aria-describedby"?: string;
 }) {
   return (
     <Select
@@ -29,6 +33,8 @@ export function ChoiceSelect({
       disabled={disabled}
     >
       <SelectTrigger
+        id={id}
+        aria-describedby={describedBy}
         aria-label={label}
         className={className ?? "w-full bg-surface shadow-none"}
       >

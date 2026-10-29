@@ -166,8 +166,9 @@ try {
 
   await page.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "Application settings" }),
+    page.getByRole("heading", { name: "Appearance", exact: true }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "AI providers", exact: true }).click();
   await page.getByRole("button", { name: "Add provider", exact: true }).click();
   await page
     .getByLabel("Provider name", { exact: true })
@@ -185,6 +186,10 @@ try {
   await expect(
     page.getByText("Key available for this session", { exact: true }),
   ).toBeVisible();
+  await page.screenshot({
+    path: join(captures, "desktop-settings-providers.png"),
+  });
+  await page.getByRole("link", { name: "Appearance", exact: true }).click();
   await page.getByRole("button", { name: "Zoom in", exact: true }).click();
   await expect(page.locator("output")).toHaveText("110%");
   await page.keyboard.press("Control+0");
@@ -207,9 +212,11 @@ try {
     )
     .toBe("maximized");
   await page.reload();
+  await page.getByRole("link", { name: "AI providers", exact: true }).click();
   await expect(
     page.getByText("Smoke local provider", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("link", { name: "Appearance", exact: true }).click();
   const persisted = await page.evaluate(() => JSON.stringify(localStorage));
   expect(persisted).not.toContain("source-smoke-secret");
   const metadata = await readFile(
@@ -226,7 +233,7 @@ try {
   const restarted = await launch();
   await restarted.getByRole("link", { name: "Settings", exact: true }).click();
   await expect(
-    restarted.getByRole("heading", { name: "Application settings" }),
+    restarted.getByRole("heading", { name: "Appearance", exact: true }),
   ).toBeVisible({ timeout: 30000 });
   await expect(restarted.locator("output")).toHaveText("110%");
   expect(
