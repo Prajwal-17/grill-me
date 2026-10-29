@@ -26,7 +26,9 @@ export function linuxSecretStore(
   modulePath?: string,
 ): SecretStore {
   const service =
-    "grill-me-dev." +
+    (process.env.GRILL_DESKTOP_CHANNEL === "production"
+      ? "grill-me."
+      : "grill-me-dev.") +
     createHash("sha256").update(dataRoot).digest("hex").slice(0, 24);
   const entry = async (id: string) => {
     const { AsyncEntry } = (await import(

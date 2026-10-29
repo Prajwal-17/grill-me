@@ -7,6 +7,7 @@ export const settingKeys = [
   "JUDGE_TIMEOUT_MS",
 ] as const;
 export function backendEnvironment(input: {
+  channel?: "development" | "production";
   dataRoot: string;
   token: string;
   port: number;
@@ -53,8 +54,9 @@ export function backendEnvironment(input: {
         .filter((key) => input.settings[key] !== undefined)
         .map((key) => [key, input.settings[key]!]),
     ),
-    APP_ENV: "development",
-    NODE_ENV: "development",
+    APP_ENV: input.channel ?? "development",
+    NODE_ENV: input.channel ?? "development",
+    GRILL_DESKTOP_CHANNEL: input.channel ?? "development",
     GRILL_ME_DESKTOP: "1",
     GRILL_ME_HOME: input.dataRoot,
     GRILL_ME_SQLITE_PATH: join(input.dataRoot, "grill-me.sqlite"),

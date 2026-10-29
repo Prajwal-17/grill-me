@@ -7,7 +7,14 @@ const root = resolve(import.meta.dir, "..");
 const inherited = { ...process.env };
 // Terminals hosted by Electron may inherit this from their parent application.
 delete inherited.ELECTRON_RUN_AS_NODE;
-const args = ["bunx", "--no-install", "electron-vite", "dev"];
+const args = [
+  "bunx",
+  "--no-install",
+  "electron-vite",
+  "dev",
+  "--mode",
+  "development",
+];
 if (process.platform === "linux") {
   const restricted = (path: string, value: string) => {
     try {

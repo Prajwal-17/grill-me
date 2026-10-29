@@ -9,6 +9,5 @@
   environment inputs with Zod and never expose backend secrets through `VITE_*`.
 - Preserve existing URLs, per-environment storage keys, and profile scoping.
 - Use `bun run check-types` and `bun run lint` in this package. The hosts own builds.
-  The web host's `bun run test:e2e` uses mocked APIs and an isolated browser profile; it must not
-  connect to production services. Run database tests only via the root
-  `bun run test:isolated` command.
+  Run database tests only via the root
+  `bun run test:isolated` command. Browser E2E suites are intentionally absent.

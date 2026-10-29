@@ -19,7 +19,12 @@ export async function initializeDatabase(options: DatabaseOptions) {
   }
   if (options.dialect === "postgres" && process.env.GRILL_ME_DESKTOP === "1")
     throw new Error("PostgreSQL is disabled in local desktop mode.");
-  if (options.dialect === "sqlite" && process.env.APP_ENV === "production")
+  if (
+    options.dialect === "sqlite" &&
+    process.env.APP_ENV === "production" &&
+    (process.env.GRILL_ME_DESKTOP !== "1" ||
+      process.env.GRILL_DESKTOP_CHANNEL !== "production")
+  )
     throw new Error("Local SQLite cannot run in production mode.");
   adapter =
     options.dialect === "sqlite"

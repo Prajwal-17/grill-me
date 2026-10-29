@@ -20,7 +20,9 @@ export async function runSqliteTests() {
         "./packages/client/src/index.test.ts",
         "./apps/backend/test/resume.test.ts",
         "./apps/backend/test/judge-tools.test.ts",
+        "./apps/backend/test/projects-root.test.ts",
         "./apps/desktop/test/sqlite.test.ts",
+        "./apps/desktop/test/identity.test.ts",
         "./apps/desktop/test/cli-providers.test.ts",
       ],
       {
@@ -30,6 +32,7 @@ export async function runSqliteTests() {
           APP_ENV: "test",
           NODE_ENV: "test",
           GRILL_ME_DESKTOP: "1",
+          GRILL_DESKTOP_CHANNEL: "development",
           GRILL_ME_HOME: temp,
           GRILL_ME_SQLITE_PATH: join(temp, "test.sqlite"),
         },

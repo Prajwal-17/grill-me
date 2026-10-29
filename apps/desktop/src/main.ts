@@ -13,12 +13,25 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
 import { dirname, join, resolve } from "node:path";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { backendEnvironment } from "./config";
 import { windowSettingsStore } from "./window-settings";
 import { windowSettingsSchema, type DesktopState } from "@repo/contracts";
+import { desktopIdentity, type DesktopChannel } from "./identity";
 
-app.setName("Grill Me Dev");
+declare const __DESKTOP_CHANNEL__: DesktopChannel;
+const identity = desktopIdentity(__DESKTOP_CHANNEL__);
+if (app.isPackaged) {
+  const metadata = JSON.parse(
+    readFileSync(join(app.getAppPath(), "package.json"), "utf8"),
+  );
+  if (metadata.desktopChannel !== identity.channel)
+    throw new Error(
+      "Desktop bundle and package channels differ. Rebuild with the matching package command.",
+    );
+}
+app.setName(identity.productName);
+app.setAppUserModelId(identity.appId);
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "grill-me",
@@ -31,8 +44,7 @@ protocol.registerSchemesAsPrivileged([
     },
   },
 ]);
-// Even packaged builds are explicitly the development edition.
-app.setPath("userData", join(app.getPath("appData"), "grill-me-desktop-dev"));
+app.setPath("userData", join(app.getPath("appData"), identity.dataDirectory));
 let backend: ChildProcess | undefined;
 let quitting = false;
 let window: BrowserWindow | undefined;
@@ -106,6 +118,7 @@ async function start() {
     cwd: dataRoot,
     detached: true,
     env: backendEnvironment({
+      channel: identity.channel,
       dataRoot,
       token,
       settings: {},
@@ -152,7 +165,7 @@ async function start() {
     });
   });
   const origin = `http://127.0.0.1:${port}`;
-  const desktopSession = session.fromPartition("persist:grill-me-desktop-dev");
+  const desktopSession = session.fromPartition(identity.partition);
   // A stable origin keeps profiles, theme, and recovery storage across restarts,
   // even though each backend gets a different private loopback port.
   await desktopSession.protocol.handle("grill-me", (request) => {
@@ -175,7 +188,7 @@ async function start() {
     );
   });
   window = new BrowserWindow({
-    title: "Grill Me Dev",
+    title: identity.productName,
     width: 1360,
     height: 900,
     minWidth: 900,

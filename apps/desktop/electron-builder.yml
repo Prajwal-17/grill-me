@@ -1,5 +1,12 @@
+appId: local.grill-me.desktop
+productName: Grill Me
+executableName: grill-me
+extraMetadata:
+  name: grill-me
+  desktopName: grill-me.desktop
+  desktopChannel: production
 directories:
-  output: release
+  output: release/prod
 files:
   - out/main/**
   - out/preload/**
@@ -13,6 +20,10 @@ extraResources:
 asar: true
 npmRebuild: false
 linux:
+  artifactName: grill-me-${version}-${arch}.${ext}
+  desktop:
+    entry:
+      StartupWMClass: grill-me
   syncDesktopName: true
   icon: resources/icon.png
   target:
@@ -20,4 +31,5 @@ linux:
   category: Development
   synopsis: Local developer practice companion
 deb:
+  packageName: grill-me
   compression: gz

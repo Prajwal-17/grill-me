@@ -85,9 +85,14 @@ function ownDirectory(root: string) {
   throw new Error("Cannot acquire the local backend lock.");
 }
 export async function startLocalServer(options: LocalServerOptions) {
-  if (process.env.APP_ENV === "production" || options.token.length < 32)
+  if (
+    (process.env.APP_ENV === "production" &&
+      (process.env.GRILL_ME_DESKTOP !== "1" ||
+        process.env.GRILL_DESKTOP_CHANNEL !== "production")) ||
+    options.token.length < 32
+  )
     throw new Error(
-      "Local servers require development mode and a strong launcher token.",
+      "Local servers require an Electron runtime and a strong launcher token.",
     );
   const root = resolve(options.dataRoot);
   process.umask(0o077);

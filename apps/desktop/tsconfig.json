@@ -4,13 +4,19 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "noEmit": true,
-    "types": ["node", "bun"]
+    "types": ["node", "bun", "vite/client"],
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["../../packages/ui/src/*"]
+    }
   },
   "include": [
     "src/**/*.ts",
     "scripts/**/*.ts",
     "test/**/*.ts",
     "*.ts",
-    "../../packages/backend/src/**/*.d.ts"
+    "../../packages/backend/src/**/*.d.ts",
+    "renderer/**/*.tsx",
+    "../../packages/ui/src/vite-env.d.ts"
   ]
 }

@@ -1,10 +1,13 @@
 import { startLocalServer } from "@repo/backend/local/server";
 if (
-  process.env.APP_ENV !== "development" ||
+  !["development", "production"].includes(
+    process.env.GRILL_DESKTOP_CHANNEL ?? "",
+  ) ||
+  process.env.APP_ENV !== process.env.GRILL_DESKTOP_CHANNEL ||
   !process.env.DESKTOP_API_TOKEN ||
   !process.env.GRILL_ME_SQLITE_PATH
 )
-  throw new Error("Use the local development launcher.");
+  throw new Error("Start Grill Me through the Electron application.");
 const server = await startLocalServer({
   dataRoot: process.env.GRILL_ME_HOME!,
   token: process.env.DESKTOP_API_TOKEN,
