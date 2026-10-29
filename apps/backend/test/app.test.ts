@@ -4,23 +4,24 @@ import type {
   LearnerContext,
   ModelGateway,
   QuizModelInput,
-} from "../src/modules/ai/model-gateway";
+} from "../../../packages/backend/src/modules/ai/model-gateway";
 import type {
   Challenge,
   GeneratedBuildContent,
   ChallengePreparation,
   BuildGenerationResult,
-} from "../src/modules/challenges/challenge.schema";
+} from "../../../packages/backend/src/modules/challenges/challenge.schema";
 import type {
   ChatMessage,
   MessageAttachment,
-} from "../src/modules/messages/message.schema";
-import { AppError } from "../src/shared/errors/app-error";
+} from "../../../packages/backend/src/modules/messages/message.schema";
+import { AppError } from "../../../packages/backend/src/shared/errors/app-error";
 import OpenAI from "openai";
-import type { LogRow } from "../src/modules/logs/log.model";
-import { generationPrompt } from "../src/modules/ai/prompts";
-import type { GeneratedQuiz } from "../src/modules/quizzes/quiz.schema";
-import type { QuizService } from "../src/modules/quizzes/quiz.service";
+import type { LogRow } from "../../../packages/backend/src/modules/logs/log.model";
+import { generationPrompt } from "../../../packages/backend/src/modules/ai/prompts";
+import type { GeneratedQuiz } from "../../../packages/backend/src/modules/quizzes/quiz.schema";
+import type { QuizService } from "../../../packages/backend/src/modules/quizzes/quiz.service";
+import { fixtureSql } from "./fixture-sql";
 
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
@@ -33,15 +34,20 @@ afterAll(async () => {
   await rm(testRoot, { recursive: true, force: true });
 });
 
-const { createApp } = await import("../src/app");
-const { db, migrateDatabase } = await import("../src/shared/database/db");
+const { createApp } = await import("../../../packages/backend/src/app");
+const { db, migrateDatabase } =
+  await import("../../../packages/backend/src/shared/database/db");
 await migrateDatabase();
-await db.$client.unsafe(
-  "TRUNCATE TABLE verification_runs, review_jobs, submissions, projects, ai_log_events, ai_logs, messages, challenges, profile_preferences, profiles RESTART IDENTITY CASCADE",
-);
-const { createOpenAIModel } = await import("../src/modules/ai/openai.model");
-const { logModel } = await import("../src/modules/logs/log.model");
-const { startAiLog } = await import("../src/modules/logs/ai-log-recorder");
+if (!process.env.GRILL_ME_SQLITE_PATH)
+  await fixtureSql(
+    "TRUNCATE TABLE verification_runs, review_jobs, submissions, projects, ai_log_events, ai_logs, messages, challenges, profile_preferences, profiles RESTART IDENTITY CASCADE",
+  );
+const { createOpenAIModel } =
+  await import("../../../packages/backend/src/modules/ai/openai.model");
+const { logModel } =
+  await import("../../../packages/backend/src/modules/logs/log.model");
+const { startAiLog } =
+  await import("../../../packages/backend/src/modules/logs/ai-log-recorder");
 
 const generated: GeneratedBuildContent = {
   title: "Group words by first letter",
@@ -664,7 +670,7 @@ describe("standalone quizzes", () => {
         questionCount: 5,
         difficulty: "hard",
       });
-      const stored = await db.$client.unsafe(
+      const stored = await fixtureSql(
         "SELECT context_snapshot FROM quizzes WHERE id = $1",
         [quiz.id],
       );
@@ -1414,7 +1420,7 @@ describe("solution attachments", () => {
       mode: "review",
       content: "Review this",
     });
-    expect(notOwned.status).toBe(200);
+    expect(notOwned.status).toBe(404);
     expect(await notOwned.text()).toContain("CHALLENGE_NOT_FOUND");
   });
 });
@@ -2361,7 +2367,7 @@ describe("structured practice reviews", () => {
   });
   async function finished(
     service: ReturnType<
-      typeof import("../src/modules/reviews/review.service").createReviewService
+      typeof import("../../../packages/backend/src/modules/reviews/review.service").createReviewService
     >,
     id: string,
     owner: string,
@@ -2492,7 +2498,7 @@ describe("structured practice reviews", () => {
   test("requires exactly the original criteria, keeps missing scores null, and rejects false acceptance", async () => {
     const { challenge } = await fixture();
     const { validateReview } =
-      await import("../src/modules/reviews/review.schema");
+      await import("../../../packages/backend/src/modules/reviews/review.schema");
     const base = result(challenge);
     expect(validateReview(base, challenge, await inspection()).score).toBe(9);
     expect(
@@ -2560,7 +2566,7 @@ describe("structured practice reviews", () => {
       (await json<{ data: { codexModel: string } }>(reloaded)).data.codexModel,
     ).toBe("gpt-5.6-terra");
     const { createReviewService } =
-      await import("../src/modules/reviews/review.service");
+      await import("../../../packages/backend/src/modules/reviews/review.service");
     let selected: string | undefined;
     const service = createReviewService(
       model,
@@ -2626,7 +2632,8 @@ createInterface({input: process.stdin}).on("line", line => {
     const previous = process.env.CODEX_BIN;
     process.env.CODEX_BIN = binary;
     try {
-      const { codexJudge } = await import("../src/modules/judges/codex");
+      const { codexJudge } =
+        await import("../../../packages/backend/src/modules/judges/codex");
       let logId = "";
       await codexJudge(
         {
@@ -2697,7 +2704,7 @@ createInterface({input: process.stdin}).on("line", line => {
   test("persists accepted reviews without marking the challenge complete", async () => {
     const { model, app, owner, challenge } = await fixture();
     const { createReviewService } =
-      await import("../src/modules/reviews/review.service");
+      await import("../../../packages/backend/src/modules/reviews/review.service");
     const service = createReviewService(
       {
         ...model,
@@ -2754,7 +2761,7 @@ createInterface({input: process.stdin}).on("line", line => {
     test(`${route} reviews correct missing findings within the original job`, async () => {
       const { model, owner, challenge } = await fixture();
       const { createReviewService } =
-        await import("../src/modules/reviews/review.service");
+        await import("../../../packages/backend/src/modules/reviews/review.service");
       let calls = 0;
       const invalid = {
         ...result(challenge),
@@ -2767,7 +2774,7 @@ createInterface({input: process.stdin}).on("line", line => {
         nextStep: "Address the required cases.",
       };
       const judge = async (
-        input: import("../src/modules/ai/model-gateway").JudgeInput,
+        input: import("../../../packages/backend/src/modules/ai/model-gateway").JudgeInput,
       ) => {
         calls++;
         if (calls === 1) return invalid;
@@ -2817,7 +2824,7 @@ createInterface({input: process.stdin}).on("line", line => {
   test("failed reviews retain the submission and can retry without duplicating attempts", async () => {
     const { model, owner, challenge } = await fixture();
     const { createReviewService } =
-      await import("../src/modules/reviews/review.service");
+      await import("../../../packages/backend/src/modules/reviews/review.service");
     const gateway = Object.assign(model, {
       judge: async () => {
         throw new Error("Provider unavailable");
@@ -2843,7 +2850,7 @@ createInterface({input: process.stdin}).on("line", line => {
   test("stale acceptance cannot finish a newer submission", async () => {
     const { model, app, owner, challenge } = await fixture();
     const { createReviewService } =
-      await import("../src/modules/reviews/review.service");
+      await import("../../../packages/backend/src/modules/reviews/review.service");
     let release!: () => void;
     const waiting = new Promise<void>((resolve) => {
       release = resolve;
@@ -2886,7 +2893,7 @@ createInterface({input: process.stdin}).on("line", line => {
     const { tmpdir } = await import("node:os");
     const { join } = await import("node:path");
     const { captureSubmission } =
-      await import("../src/modules/projects/snapshot");
+      await import("../../../packages/backend/src/modules/projects/snapshot");
     const source = await mkdtemp(join(tmpdir(), "grill-snapshot-test-"));
     let snapshot = "";
     try {
@@ -2923,7 +2930,7 @@ createInterface({input: process.stdin}).on("line", line => {
   });
   test("chunk uploads have no file-size or count cap and are isolated by profile", async () => {
     const { beginUpload, appendUpload, uploadInfo } =
-      await import("../src/modules/projects/uploads");
+      await import("../../../packages/backend/src/modules/projects/uploads");
     const owner = crypto.randomUUID();
     const other = crypto.randomUUID();
     const upload = await beginUpload(owner, "large.py");
@@ -2947,7 +2954,7 @@ createInterface({input: process.stdin}).on("line", line => {
   });
   test("routing uses context capacity without rejecting large projects", async () => {
     const { routeJudge } =
-      await import("../src/modules/reviews/review.service");
+      await import("../../../packages/backend/src/modules/reviews/review.service");
     expect(
       routeJudge({
         scope: "focused",
@@ -3088,7 +3095,7 @@ describe("developer profile and frozen context", () => {
       learningGoals: [],
       currentFocus: null,
     };
-    await db.$client.unsafe(
+    await fixtureSql(
       "UPDATE profile_preferences SET guided_preferences=$1::jsonb, developer_context_updated_at=NULL WHERE profile_id=$2",
       [old, owner.id],
     );
@@ -3102,7 +3109,7 @@ describe("developer profile and frozen context", () => {
       projects: [],
       developerContextUpdatedAt: null,
     });
-    const row = await db.$client.unsafe(
+    const row = await fixtureSql(
       "SELECT guided_preferences FROM profile_preferences WHERE profile_id=$1",
       [owner.id],
     );
@@ -3156,7 +3163,7 @@ describe("developer profile and frozen context", () => {
     await request(app, "/challenges/prepare", owner.id, input);
     const challenge = await createChallenge(app, owner.id, input);
     const { requestPromptContext } =
-      await import("../src/modules/ai/prompts/core");
+      await import("../../../packages/backend/src/modules/ai/prompts/core");
     const preparation = JSON.parse(
       requestPromptContext(model.prepareInputs[0]!),
     );
@@ -3218,7 +3225,7 @@ describe("developer profile and frozen context", () => {
       technicalContext: { experienceLevel: "Junior" },
       selectedDifficulty: "medium",
     };
-    await db.$client.unsafe(
+    await fixtureSql(
       "UPDATE challenges SET estimated_difficulty_score=7, contract_version=1, constraints=$1::jsonb, implementation_milestones=$2::jsonb, context_snapshot=$3::jsonb, prompt_version='practice-v2.3', calibration_version='generator-estimate-v1' WHERE id=$4",
       [["Use no packages."], ["Legacy milestone"], snapshot, challenge.id],
     );
@@ -3268,7 +3275,7 @@ describe("band calibration and essential clarification", () => {
     expect(challenge.contractVersion).toBe(2);
     expect(challenge.calibrationVersion).toBe("difficulty-bands-v1");
     const { buildJsonSchema } =
-      await import("../src/modules/ai/prompts/output-contract");
+      await import("../../../packages/backend/src/modules/ai/prompts/output-contract");
     expect(JSON.stringify(buildJsonSchema("system"))).not.toContain(
       "estimatedDifficultyScore",
     );
@@ -3303,7 +3310,7 @@ describe("band calibration and essential clarification", () => {
       ).data,
     ).toEqual([]);
     expect(
-      await db.$client.unsafe("SELECT id FROM challenges WHERE profile_id=$1", [
+      await fixtureSql("SELECT id FROM challenges WHERE profile_id=$1", [
         owner.id,
       ]),
     ).toHaveLength(0);
@@ -3795,7 +3802,7 @@ describe("browser CORS configuration", () => {
 
 describe("background generations", () => {
   type Job =
-    import("../src/modules/generations/generation.service").PublicGenerationJob;
+    import("../../../packages/backend/src/modules/generations/generation.service").PublicGenerationJob;
   async function setup() {
     const model = new FakeModel();
     const app = createApp({ llm: model });
@@ -3866,9 +3873,7 @@ describe("background generations", () => {
     });
     expect(state.model.generationInputs).toHaveLength(1);
     expect(
-      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
-        job.id,
-      ]),
+      await fixtureSql("SELECT id FROM challenges WHERE id = $1", [job.id]),
     ).toHaveLength(1);
     const acknowledged = await request(
       state.app,
@@ -4089,9 +4094,7 @@ describe("background generations", () => {
     release();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(
-      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
-        job.id,
-      ]),
+      await fixtureSql("SELECT id FROM challenges WHERE id = $1", [job.id]),
     ).toHaveLength(0);
     expect((await state.detail(job.id)).status).toBe("cancelled");
   });
@@ -4115,7 +4118,7 @@ describe("background generations", () => {
     const job = await state.enqueue();
     const running = state.app.generations.processNext();
     await started;
-    await db.$client.unsafe(
+    await fixtureSql(
       "UPDATE generation_jobs SET lease_until = now() - interval '1 second' WHERE id = $1",
       [job.id],
     );
@@ -4127,9 +4130,7 @@ describe("background generations", () => {
       error: { code: "GENERATION_INTERRUPTED" },
     });
     expect(
-      await db.$client.unsafe("SELECT id FROM challenges WHERE id = $1", [
-        job.id,
-      ]),
+      await fixtureSql("SELECT id FROM challenges WHERE id = $1", [job.id]),
     ).toHaveLength(0);
     const queued = await state.enqueue({
       ...state.input,
@@ -4179,7 +4180,7 @@ describe("background generations", () => {
     });
     const oldRun = state.app.generations.processNext();
     await started;
-    await db.$client.unsafe(
+    await fixtureSql(
       "UPDATE generation_jobs SET lease_until = now() - interval '1 second' WHERE id = $1",
       [job.id],
     );
@@ -4200,7 +4201,7 @@ describe("background generations", () => {
     expect((await state.detail(job.id)).status).toBe("completed");
     expect(calls).toBe(2);
     expect(
-      await db.$client.unsafe("SELECT id FROM quizzes WHERE id = $1", [job.id]),
+      await fixtureSql("SELECT id FROM quizzes WHERE id = $1", [job.id]),
     ).toHaveLength(1);
   });
 
@@ -4266,3 +4267,107 @@ describe("background generations", () => {
     );
   });
 });
+
+describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
+  "local durable discussions",
+  () => {
+    test("failed partial responses survive reload and retry without duplicating the user's request", async () => {
+      class InterruptedModel extends FakeModel {
+        fail = true;
+        async *respond(input: (typeof this.responseInputs)[number]) {
+          this.responseInputs.push(input);
+          yield "Partial review";
+          if (this.fail)
+            throw new AppError(
+              "PROVIDER_EXITED",
+              "The provider exited. Reconnect and retry.",
+              503,
+              true,
+            );
+          yield " completed";
+        }
+      }
+      const model = new InterruptedModel();
+      const app = createApp({ llm: model });
+      const owner = await startProfile(
+        app,
+        `durable-${crypto.randomUUID()}@test.dev`,
+      );
+      const challenge = await createChallenge(app, owner.id);
+      const path = `/challenges/${challenge.id}/messages`;
+      const first = await request(app, path, owner.id, {
+        content: "Explain this requirement",
+        mode: "clarify",
+      });
+      expect(await first.text()).toContain("PROVIDER_EXITED");
+      const saved = (
+        await json<{ data: ChatMessage[] }>(await request(app, path, owner.id))
+      ).data.filter((m) => m.mode === "clarify");
+      expect(saved).toHaveLength(2);
+      expect(saved[0]!.content).toBe("Explain this requirement");
+      expect(saved[1]).toMatchObject({
+        content: "Partial review",
+        status: "failed",
+        replyTo: saved[0]!.id,
+      });
+      const other = await startProfile(
+        app,
+        `outsider-${crypto.randomUUID()}@test.dev`,
+      );
+      expect(
+        (await request(app, `${path}/${saved[1]!.id}/retry`, other.id, {}))
+          .status,
+      ).toBe(404);
+      model.fail = false;
+      expect(
+        await (
+          await request(app, `${path}/${saved[1]!.id}/retry`, owner.id, {})
+        ).text(),
+      ).toContain('"type":"done"');
+      const retried = (
+        await json<{ data: ChatMessage[] }>(await request(app, path, owner.id))
+      ).data.filter((m) => m.mode === "clarify");
+      expect(retried.filter((m) => m.role === "user")).toHaveLength(1);
+      expect(retried.at(-1)).toMatchObject({
+        status: "completed",
+        content: "Partial review completed",
+      });
+      expect(
+        model.responseInputs
+          .at(-1)
+          ?.messages.some((m) => m.status === "failed"),
+      ).toBe(false);
+    });
+    test("in-flight discussions reject concurrent sends and restart recovery preserves partial text", async () => {
+      const { messageModel } =
+        await import("../../../packages/backend/src/modules/messages/message.model");
+      const app = createApp({ llm: new FakeModel() });
+      const owner = await startProfile(
+        app,
+        `recover-${crypto.randomUUID()}@test.dev`,
+      );
+      const challenge = await createChallenge(app, owner.id);
+      const input = {
+        challengeId: challenge.id,
+        content: "Persist before generation",
+        mode: "clarify" as const,
+        attachments: [],
+      };
+      const turn = await messageModel.beginExchange(input);
+      await messageModel.checkpoint(turn.assistantId, "Partial before restart");
+      await expect(messageModel.beginExchange(input)).rejects.toMatchObject({
+        code: "CONVERSATION_BUSY",
+      });
+      await messageModel.recover();
+      const rows = (
+        await json<{ data: ChatMessage[] }>(
+          await request(app, `/challenges/${challenge.id}/messages`, owner.id),
+        )
+      ).data;
+      expect(rows.find((m) => m.id === turn.assistantId)).toMatchObject({
+        status: "interrupted",
+        content: "Partial before restart",
+      });
+    });
+  },
+);

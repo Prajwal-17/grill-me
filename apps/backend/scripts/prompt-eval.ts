@@ -1,27 +1,30 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { EMPTY_GUIDED } from "@repo/preferences";
-import { createOpenAIModel } from "../src/modules/ai/openai.model";
-import { db, migrateDatabase } from "../src/shared/database/db";
-import { createProfileService } from "../src/modules/profiles/profile.service";
+import { createOpenAIModel } from "../../../packages/backend/src/modules/ai/openai.model";
+import {
+  db,
+  migrateDatabase,
+} from "../../../packages/backend/src/shared/database/db";
+import { createProfileService } from "../../../packages/backend/src/modules/profiles/profile.service";
 import {
   profileModel,
   profilePreferencesModel,
-} from "../src/modules/profiles/profile.model";
-import { challengeModel } from "../src/modules/challenges/challenge.model";
-import { messageModel } from "../src/modules/messages/message.model";
-import { createChallengeService } from "../src/modules/challenges/challenge.service";
+} from "../../../packages/backend/src/modules/profiles/profile.model";
+import { challengeModel } from "../../../packages/backend/src/modules/challenges/challenge.model";
+import { messageModel } from "../../../packages/backend/src/modules/messages/message.model";
+import { createChallengeService } from "../../../packages/backend/src/modules/challenges/challenge.service";
 import {
   challengeContentSchema,
   type BuildDifficulty,
   type BuildScope,
-} from "../src/modules/challenges/challenge.schema";
-import { validateReview } from "../src/modules/reviews/review.schema";
-import { evaluationsPath } from "../src/shared/storage/paths";
+} from "../../../packages/backend/src/modules/challenges/challenge.schema";
+import { validateReview } from "../../../packages/backend/src/modules/reviews/review.schema";
+import { evaluationsPath } from "../../../packages/backend/src/shared/storage/paths";
 import {
   PROMPT_VERSION,
   CALIBRATION_VERSION,
-} from "../src/modules/ai/prompts/core";
+} from "../../../packages/backend/src/modules/ai/prompts/core";
 
 const scopes: BuildScope[] = ["focused", "feature", "system"];
 const difficulties: BuildDifficulty[] = ["easy", "medium", "hard", "grill"];
@@ -145,7 +148,7 @@ if (!process.argv.includes("--run")) {
       implementationMilestones: [],
     });
     const { toChallenge } =
-      await import("../src/modules/challenges/challenge.utils");
+      await import("../../../packages/backend/src/modules/challenges/challenge.utils");
     const fixture = toChallenge(
       await challengeModel.create(
         profile.id,

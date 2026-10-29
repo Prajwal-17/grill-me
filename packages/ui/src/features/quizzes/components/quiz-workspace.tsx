@@ -1,0 +1,1051 @@
+import { QuizDetailSkeleton } from "@/shared/components/ui/loading-layouts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
+import { enqueueGeneration } from "@/features/generations/api/generation-api";
+import { useSaveGenerationJob } from "@/features/generations/hooks/use-generation-jobs";
+import { GenerationProgress } from "@/features/generations/components/generation-activity";
+import { useToast } from "@/shared/components/ui/toast";
+import { useAppStore } from "@/shared/stores/app-store";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  ArrowRight,
+  LoaderCircle,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
+import { Button } from "@/shared/components/ui/button";
+import { Textarea } from "@/shared/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+import {
+  enhanceQuizPrompt,
+  deleteQuiz,
+  getQuiz,
+  getQuizzes,
+  quizKeys,
+  regenerateQuizTitle,
+  restoreQuiz,
+  startQuizAttempt,
+} from "../api/quiz-api";
+import {
+  COVERAGE_LABELS,
+  type GenerateQuizRequest,
+  type GenerateStandaloneQuizRequest,
+  type QuestionCount,
+  type QuizAttempt as Attempt,
+  type QuizCoverage,
+  type QuizDifficulty,
+  type QuizDetail,
+  type QuizSummary,
+} from "../types";
+import { QuizAttempt } from "./quiz-attempt";
+import { QuizTable } from "./quiz-table";
+
+function QuizSelect({
+  label,
+  value,
+  onChange,
+  options,
+  disabled,
+  displayValue,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+  displayValue?: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger
+        aria-label={label}
+        size="sm"
+        className="h-8 w-[150px] max-w-[42vw] border-line bg-surface shadow-none"
+      >
+        <SelectValue>{displayValue}</SelectValue>
+      </SelectTrigger>
+      <SelectContent position="popper" align="start">
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function quizLabel(quiz: QuizSummary) {
+  const attempt = quiz.latestAttempt;
+  const progress = attempt
+    ? attempt.status === "submitted"
+      ? ` · ${attempt.score}/${quiz.questionCount}`
+      : ` · ${attempt.answered}/${quiz.questionCount} answered`
+    : " · Not started";
+  return `${quiz.deletedAt ? "Deleted · " : ""}${quiz.title} · #${quiz.number} · ${quiz.questionCount} questions${progress}`;
+}
+
+export function QuizWorkspace({
+  profileId,
+  challengeId = null,
+}: {
+  profileId: string;
+  challengeId?: string | null;
+}) {
+  const queries = useQueryClient();
+  const [params] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const quizId = params.get("quiz") ?? "";
+  const setQuizId = useCallback(
+    (id: string) => {
+      const next = new URLSearchParams(params);
+      if (id) next.set("quiz", id);
+      else next.delete("quiz");
+      void navigate(
+        { search: next.toString(), hash: location.hash },
+        { replace: true },
+      );
+    },
+    [params, navigate, location.hash],
+  );
+  const saveJob = useSaveGenerationJob();
+  const { show: showToast } = useToast();
+  const [attemptId, setAttemptId] = useState("");
+  const [allQuizzesOpen, setAllQuizzesOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const createRef = useRef<HTMLElement>(null);
+  const generateRef = useRef<HTMLButtonElement>(null);
+  const startButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (dialogOpen)
+      createRef.current
+        ?.querySelector<HTMLElement>("textarea, [role=combobox]")
+        ?.focus();
+  }, [dialogOpen]);
+  const [deleteTarget, setDeleteTarget] = useState<QuizSummary | null>(null);
+  const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
+  const [coverage, setCoverage] = useState<QuizCoverage>("mixed");
+  const [prompt, setPrompt] = useState("");
+  const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
+  const [changing, setChanging] = useState(false);
+  const saveRef = useRef<(() => Promise<void>) | null>(null);
+  const requestRef = useRef<{
+    settings: string;
+    request: GenerateQuizRequest | GenerateStandaloneQuizRequest;
+  } | null>(null);
+  const registerSave = useCallback((save: (() => Promise<void>) | null) => {
+    saveRef.current = save;
+  }, []);
+  const listKey = quizKeys.list(profileId, challengeId);
+  const list = useQuery({
+    queryKey: listKey,
+    queryFn: () => getQuizzes(profileId, challengeId, true),
+  });
+  const selectedQuizId =
+    allQuizzesOpen && !quizId
+      ? ""
+      : quizId ||
+        (challengeId === null
+          ? ""
+          : list.data?.find((quiz) => !quiz.deletedAt)?.id) ||
+        "";
+  useEffect(() => {
+    if (challengeId !== null && !quizId && !allQuizzesOpen && selectedQuizId)
+      setQuizId(selectedQuizId);
+  }, [challengeId, quizId, allQuizzesOpen, selectedQuizId, setQuizId]);
+  const detailKey = quizKeys.detail(profileId, challengeId, selectedQuizId);
+  const detail = useQuery({
+    queryKey: detailKey,
+    queryFn: () => getQuiz(profileId, challengeId, selectedQuizId),
+    enabled: Boolean(selectedQuizId),
+    refetchOnWindowFocus: false,
+  });
+  const selectedAttempt =
+    detail.data?.attempts.find((attempt) => attempt.id === attemptId) ??
+    detail.data?.attempts[0];
+  const focusedQuiz = useRef("");
+  useEffect(() => {
+    if (
+      quizId &&
+      detail.data &&
+      !selectedAttempt &&
+      startButtonRef.current &&
+      focusedQuiz.current !== quizId
+    ) {
+      focusedQuiz.current = quizId;
+      startButtonRef.current.focus();
+    }
+  }, [quizId, detail.data, selectedAttempt]);
+  const selectedSummary = list.data?.find((quiz) => quiz.id === selectedQuizId);
+
+  function updateAttempt(attempt: Attempt) {
+    queries.setQueryData<QuizDetail>(
+      quizKeys.detail(profileId, challengeId, attempt.quizId),
+      (current) => {
+        if (!current) return current;
+        const previous = current.attempts.find(
+          (item) => item.id === attempt.id,
+        );
+        if (previous && previous.revision > attempt.revision) return current;
+        return {
+          ...current,
+          attempts: [
+            attempt,
+            ...current.attempts.filter((item) => item.id !== attempt.id),
+          ].sort((a, b) => b.number - a.number),
+        };
+      },
+    );
+    queries.setQueryData<QuizSummary[]>(listKey, (current) =>
+      current?.map((quiz) =>
+        quiz.id === attempt.quizId &&
+        (!quiz.latestAttempt || quiz.latestAttempt.number <= attempt.number)
+          ? {
+              ...quiz,
+              latestAttempt: {
+                number: attempt.number,
+                status: attempt.status,
+                answered: Object.keys(attempt.answers).length,
+                score: attempt.score,
+              },
+            }
+          : quiz,
+      ),
+    );
+  }
+
+  const generation = useMutation({
+    mutationFn: async () => {
+      await saveRef.current?.();
+      const previous = requestRef.current;
+      const settings =
+        challengeId === null
+          ? { questionCount, prompt: prompt.trim(), difficulty }
+          : { questionCount, coverage };
+      const signature = JSON.stringify(settings);
+      const request =
+        previous?.settings === signature
+          ? previous.request
+          : { requestId: crypto.randomUUID(), ...settings };
+      requestRef.current = { settings: signature, request };
+      return enqueueGeneration(
+        profileId,
+        challengeId === null
+          ? { kind: "quiz", input: request as GenerateStandaloneQuizRequest }
+          : {
+              kind: "challenge_quiz",
+              challengeId,
+              input: request as GenerateQuizRequest,
+            },
+      );
+    },
+    onSuccess: (job) => {
+      saveJob(job);
+      requestRef.current = null;
+      if (useAppStore.getState().profile?.id !== profileId) return;
+      showToast({
+        message: "Quiz queued",
+        description: "You can keep working while it generates.",
+        scope: `generation:${profileId}`,
+      });
+      setDialogOpen(false);
+      requestAnimationFrame(() => generateRef.current?.focus());
+    },
+  });
+  const titleGeneration = useMutation({
+    mutationFn: (targetQuizId: string) =>
+      regenerateQuizTitle(profileId, challengeId, targetQuizId),
+    onSuccess: ({ title }, targetQuizId) => {
+      queries.setQueryData<QuizDetail>(
+        quizKeys.detail(profileId, challengeId, targetQuizId),
+        (current) =>
+          current ? { ...current, quiz: { ...current.quiz, title } } : current,
+      );
+      queries.setQueryData<QuizSummary[]>(listKey, (current) =>
+        current?.map((quiz) =>
+          quiz.id === targetQuizId ? { ...quiz, title } : quiz,
+        ),
+      );
+    },
+  });
+  const promptEnhancement = useMutation({
+    mutationFn: () => enhanceQuizPrompt(profileId, prompt.trim()),
+    onSuccess: (result) => {
+      setPrompt(result.prompt);
+    },
+  });
+  const start = useMutation({
+    mutationFn: () => startQuizAttempt(profileId, challengeId, selectedQuizId),
+    onSuccess: (attempt) => {
+      updateAttempt(attempt);
+      setAttemptId(attempt.id);
+    },
+  });
+  const deletion = useMutation({
+    mutationFn: async (targetQuizId: string) => {
+      if (targetQuizId === selectedQuizId) await saveRef.current?.();
+      return deleteQuiz(profileId, challengeId, targetQuizId);
+    },
+    onSuccess: async ({ deletedAt }, targetQuizId) => {
+      queries.setQueryData<QuizSummary[]>(listKey, (current) =>
+        current?.map((quiz) =>
+          quiz.id === targetQuizId ? { ...quiz, deletedAt } : quiz,
+        ),
+      );
+      queries.setQueryData<QuizDetail>(
+        quizKeys.detail(profileId, challengeId, targetQuizId),
+        (current) =>
+          current
+            ? { ...current, quiz: { ...current.quiz, deletedAt } }
+            : current,
+      );
+      if (quizId === targetQuizId) {
+        setQuizId("");
+        setAttemptId("");
+        setAllQuizzesOpen(true);
+      }
+      setDeleteTarget(null);
+      await queries.invalidateQueries({ queryKey: listKey });
+    },
+  });
+  const restoration = useMutation({
+    mutationFn: (targetQuizId: string) =>
+      restoreQuiz(profileId, challengeId, targetQuizId),
+    onSuccess: async ({ deletedAt }, targetQuizId) => {
+      queries.setQueryData<QuizSummary[]>(listKey, (current) =>
+        current?.map((quiz) =>
+          quiz.id === targetQuizId ? { ...quiz, deletedAt } : quiz,
+        ),
+      );
+      queries.setQueryData<QuizDetail>(
+        quizKeys.detail(profileId, challengeId, targetQuizId),
+        (current) =>
+          current
+            ? { ...current, quiz: { ...current.quiz, deletedAt } }
+            : current,
+      );
+      await queries.invalidateQueries({ queryKey: listKey });
+    },
+  });
+  async function select(value: string, kind: "quiz" | "attempt") {
+    setChanging(true);
+    try {
+      await saveRef.current?.();
+      if (kind === "quiz") {
+        setQuizId(value);
+        setAllQuizzesOpen(value === "");
+        setAttemptId("");
+        start.reset();
+        titleGeneration.reset();
+        promptEnhancement.reset();
+      } else setAttemptId(value);
+    } catch {
+      /* The toast reports the save error; keep the current attempt visible. */
+    } finally {
+      setChanging(false);
+    }
+  }
+  const busy =
+    changing ||
+    generation.isPending ||
+    titleGeneration.isPending ||
+    promptEnhancement.isPending ||
+    start.isPending ||
+    deletion.isPending ||
+    restoration.isPending;
+  const showLibrary =
+    !selectedQuizId &&
+    !(list.isLoading && challengeId !== null && !allQuizzesOpen);
+  const showGenerateLabel = showLibrary;
+  const generateButton = (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          ref={generateRef}
+          size={showGenerateLabel ? "default" : "icon-sm"}
+          className={showGenerateLabel ? undefined : "ml-auto shrink-0"}
+          variant={selectedQuizId ? "secondary" : "primary"}
+          disabled={busy || list.isLoading}
+          aria-label="Generate quiz"
+          onClick={() => {
+            generation.reset();
+            setDialogOpen(true);
+          }}
+        >
+          <Plus size={14} />
+          {showGenerateLabel ? (
+            "Generate quiz"
+          ) : (
+            <span className="sr-only">Generate quiz</span>
+          )}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={6}>
+        Generate quiz
+      </TooltipContent>
+    </Tooltip>
+  );
+
+  const workspace = (
+    <section
+      aria-label={
+        challengeId === null ? "Standalone quizzes" : "Challenge quizzes"
+      }
+      className={`mx-auto w-full @container/quiz ${
+        showLibrary
+          ? "flex h-full min-h-0 flex-col gap-5 overflow-y-auto overscroll-contain"
+          : "flex h-full min-h-0 flex-col gap-5 overflow-hidden"
+      }`}
+    >
+      {!dialogOpen && (
+        <GenerationProgress
+          profileId={profileId}
+          kind="quiz"
+          challengeId={challengeId}
+        />
+      )}
+      <div
+        className="flex min-h-0 flex-1 flex-col gap-4"
+        style={dialogOpen ? { display: "none" } : undefined}
+      >
+        {!showLibrary && !detail.data && (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {selectedQuizId && (
+              <div className="flex items-center gap-1.5">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon-sm"
+                      disabled={busy}
+                      aria-label="All quizzes"
+                      onClick={() => {
+                        void select("", "quiz");
+                      }}
+                    >
+                      <ArrowLeft size={14} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" sideOffset={6}>
+                    All quizzes
+                  </TooltipContent>
+                </Tooltip>
+                {challengeId !== null && (
+                  <QuizSelect
+                    label="Select quiz"
+                    value={selectedQuizId}
+                    disabled={busy}
+                    onChange={(value) => {
+                      void select(value, "quiz");
+                    }}
+                    options={(list.data ?? [])
+                      .filter(
+                        (quiz) => !quiz.deletedAt || quiz.id === selectedQuizId,
+                      )
+                      .map((quiz) => ({
+                        value: quiz.id,
+                        label: quizLabel(quiz),
+                      }))}
+                  />
+                )}
+              </div>
+            )}
+            {generateButton}
+          </div>
+        )}
+        {list.error && !list.data ? (
+          <div role="alert" className="text-ui text-muted">
+            <p>{list.error.message}</p>
+            <Button
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                void list.refetch();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : showLibrary ? (
+          <>
+            <QuizTable
+              profileId={profileId}
+              quizzes={list.data ?? []}
+              loading={list.isLoading}
+              actions={generateButton}
+              disabled={busy}
+              onDelete={(quiz) => {
+                deletion.reset();
+                setDeleteTarget(quiz);
+              }}
+              onRestore={(quiz) => {
+                restoration.reset();
+                restoration.mutate(quiz.id);
+              }}
+              onOpen={(id) => {
+                void select(id, "quiz");
+              }}
+            />
+            {restoration.error && (
+              <p role="alert" className="text-metadata text-destructive">
+                {restoration.error.message}
+              </p>
+            )}
+          </>
+        ) : !selectedQuizId ? (
+          list.isLoading ? (
+            <QuizDetailSkeleton />
+          ) : (
+            <p className="text-ui text-muted">No quizzes yet.</p>
+          )
+        ) : detail.isLoading ? (
+          <QuizDetailSkeleton />
+        ) : detail.error ? (
+          <div role="alert" className="text-ui text-muted">
+            <p>{detail.error.message}</p>
+            <Button
+              size="sm"
+              className="mt-2"
+              onClick={() => {
+                void detail.refetch();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : (
+          detail.data && (
+            <>
+              {selectedAttempt && (
+                <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2
+                    className="min-w-0 break-words text-section font-semibold tracking-[-0.02em] [overflow-wrap:anywhere]"
+                    title={detail.data.quiz.title}
+                  >
+                    {detail.data.quiz.title}
+                  </h2>
+                  {detail.data.quiz.deletedAt && (
+                    <span className="shrink-0 rounded border border-line px-1.5 py-0.5 text-metadata text-muted">
+                      Deleted
+                    </span>
+                  )}
+                  <span className="text-metadata text-muted">
+                    #{detail.data.quiz.number} ·{" "}
+                    {detail.data.quiz.coverage === "topic"
+                      ? detail.data.quiz.difficulty
+                      : COVERAGE_LABELS[detail.data.quiz.coverage]}{" "}
+                    · {detail.data.quiz.questionCount} questions
+                  </span>
+                </div>
+              )}
+              <div className="relative flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-line pb-3">
+                <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="-ml-2 shrink-0 px-2 text-muted hover:text-foreground"
+                        disabled={busy}
+                        aria-label="All quizzes"
+                        onClick={() => {
+                          void select("", "quiz");
+                        }}
+                      >
+                        <ArrowLeft size={14} />
+                        <span>All quizzes</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" sideOffset={6}>
+                      All quizzes
+                    </TooltipContent>
+                  </Tooltip>
+                  {challengeId !== null && (
+                    <QuizSelect
+                      label="Select quiz"
+                      value={selectedQuizId}
+                      disabled={busy}
+                      onChange={(value) => {
+                        void select(value, "quiz");
+                      }}
+                      options={(list.data ?? [])
+                        .filter(
+                          (quiz) =>
+                            !quiz.deletedAt || quiz.id === selectedQuizId,
+                        )
+                        .map((quiz) => ({
+                          value: quiz.id,
+                          label: quizLabel(quiz),
+                        }))}
+                    />
+                  )}
+                  {!detail.data.quiz.deletedAt && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          className="shrink-0 text-muted"
+                          disabled={busy}
+                          aria-label={
+                            titleGeneration.isPending
+                              ? "Regenerating quiz title"
+                              : "Regenerate quiz title"
+                          }
+                          onClick={() => {
+                            titleGeneration.reset();
+                            titleGeneration.mutate(selectedQuizId);
+                          }}
+                        >
+                          <Sparkles size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" sideOffset={6}>
+                        {titleGeneration.isPending
+                          ? "Regenerating title…"
+                          : "Regenerate quiz title"}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                </div>
+                <div className="ml-auto flex w-auto max-w-full flex-wrap items-center justify-end gap-1">
+                  {selectedAttempt && (
+                    <QuizSelect
+                      label="Select quiz attempt"
+                      value={selectedAttempt.id}
+                      displayValue={`Attempt ${selectedAttempt.number}`}
+                      disabled={busy}
+                      onChange={(value) => {
+                        void select(value, "attempt");
+                      }}
+                      options={detail.data.attempts.map((attempt) => ({
+                        value: attempt.id,
+                        label: `Attempt ${attempt.number} · ${attempt.status === "submitted" ? `${attempt.score}/${detail.data.quiz.questionCount}` : "In progress"}`,
+                      }))}
+                    />
+                  )}
+                  {detail.data.quiz.deletedAt ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={busy}
+                      aria-label={`Restore quiz #${detail.data.quiz.number}`}
+                      onClick={() => {
+                        restoration.reset();
+                        restoration.mutate(selectedQuizId);
+                      }}
+                    >
+                      <RotateCcw size={14} />
+                      Restore
+                    </Button>
+                  ) : (
+                    <>
+                      {selectedAttempt?.status === "submitted" && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy}
+                              aria-label={
+                                start.isPending
+                                  ? "Starting quiz"
+                                  : "Retake quiz"
+                              }
+                              onClick={() => start.mutate()}
+                            >
+                              <RotateCcw size={14} />
+                              {start.isPending ? "Starting…" : "Retake"}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={6}>
+                            {start.isPending
+                              ? "Starting a new attempt…"
+                              : "Start a new attempt"}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {selectedSummary && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              disabled={busy}
+                              aria-label={`Delete quiz #${detail.data.quiz.number}`}
+                              onClick={() => {
+                                deletion.reset();
+                                setDeleteTarget(selectedSummary);
+                              }}
+                            >
+                              <Trash2 size={14} />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" sideOffset={6}>
+                            Move to Deleted
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {generateButton}
+                    </>
+                  )}
+                </div>
+              </div>
+              {titleGeneration.error && (
+                <p role="alert" className="text-metadata text-destructive">
+                  {titleGeneration.error.message}
+                </p>
+              )}
+              {start.error && (
+                <p role="alert" className="text-metadata text-destructive">
+                  {start.error.message}
+                </p>
+              )}
+              {restoration.error && (
+                <p role="alert" className="text-metadata text-destructive">
+                  {restoration.error.message}
+                </p>
+              )}
+              {selectedAttempt ? (
+                <QuizAttempt
+                  key={selectedAttempt.id}
+                  profileId={profileId}
+                  quiz={detail.data.quiz}
+                  attempt={selectedAttempt}
+                  onSaved={updateAttempt}
+                  registerSave={registerSave}
+                  readOnly={
+                    Boolean(detail.data.quiz.deletedAt) || deletion.isPending
+                  }
+                />
+              ) : detail.data.quiz.deletedAt ? (
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto overscroll-contain px-4 py-5">
+                  <section className="w-full max-w-3xl py-5">
+                    <h2 className="text-section font-medium tracking-tight sm:text-title">
+                      {detail.data.quiz.title}
+                    </h2>
+                    <p className="mt-3 text-ui text-muted">
+                      This quiz is deleted. Restore it to start an attempt.
+                    </p>
+                  </section>
+                </div>
+              ) : (
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto overscroll-contain px-4 py-5">
+                  <section className="w-full max-w-3xl py-5">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+                      <div className="min-w-0">
+                        <h2 className="text-section font-medium tracking-tight sm:text-title">
+                          {detail.data.quiz.title}
+                        </h2>
+                        <div className="mt-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-ui text-muted">
+                          <span>#{detail.data.quiz.number}</span>
+                          <span aria-hidden="true" className="text-line-strong">
+                            ·
+                          </span>
+                          <span>
+                            {detail.data.quiz.questionCount} questions
+                          </span>
+                          <span aria-hidden="true" className="text-line-strong">
+                            ·
+                          </span>
+                          <span>
+                            {detail.data.quiz.coverage === "topic"
+                              ? detail.data.quiz.difficulty
+                              : COVERAGE_LABELS[detail.data.quiz.coverage]}
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        ref={startButtonRef}
+                        size="default"
+                        variant="primary"
+                        className="w-full sm:w-auto"
+                        disabled={busy}
+                        onClick={() => start.mutate()}
+                      >
+                        {start.isPending ? (
+                          <LoaderCircle
+                            size={14}
+                            aria-hidden="true"
+                            className="animate-spin motion-reduce:animate-none"
+                          />
+                        ) : (
+                          <ArrowRight size={14} aria-hidden="true" />
+                        )}
+                        {start.isPending ? "Starting…" : "Start quiz"}
+                      </Button>
+                    </div>
+                  </section>
+                </div>
+              )}
+            </>
+          )
+        )}
+      </div>
+      {dialogOpen && (
+        <section
+          ref={createRef}
+          aria-labelledby="quiz-create-title"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
+          <div className="mx-auto w-full max-w-[720px]">
+            <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
+              <h2
+                id="quiz-create-title"
+                className="text-section font-semibold tracking-[-0.02em]"
+              >
+                Generate quiz
+              </h2>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={generation.isPending || promptEnhancement.isPending}
+                onClick={() => {
+                  setDialogOpen(false);
+                  requestAnimationFrame(() => generateRef.current?.focus());
+                }}
+              >
+                <X size={14} />
+                Cancel
+              </Button>
+            </div>
+            <form
+              className="space-y-3"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!generation.isPending && !promptEnhancement.isPending)
+                  generation.mutate();
+              }}
+            >
+              {challengeId === null && (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="quiz-prompt"
+                    className="block text-ui font-medium"
+                  >
+                    Quiz prompt
+                  </label>
+                  <div className="relative">
+                    <Textarea
+                      id="quiz-prompt"
+                      value={prompt}
+                      onChange={(event) => {
+                        setPrompt(event.target.value);
+                        promptEnhancement.reset();
+                      }}
+                      className="min-h-24 max-h-44 overflow-y-auto pr-12 pb-10 leading-6"
+                      placeholder="A topic or skill you want to practice…"
+                      required
+                      minLength={1}
+                      maxLength={4000}
+                      disabled={
+                        generation.isPending || promptEnhancement.isPending
+                      }
+                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span
+                          className="absolute right-2 bottom-2 inline-flex"
+                          tabIndex={
+                            generation.isPending ||
+                            promptEnhancement.isPending ||
+                            prompt.trim().length === 0
+                              ? 0
+                              : undefined
+                          }
+                        >
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            className="rounded-md bg-surface text-muted hover:bg-elevated hover:text-foreground"
+                            disabled={
+                              generation.isPending ||
+                              promptEnhancement.isPending ||
+                              prompt.trim().length === 0
+                            }
+                            aria-label={
+                              promptEnhancement.isPending
+                                ? "Enhancing prompt with AI"
+                                : "Enhance prompt with AI"
+                            }
+                            onClick={() => promptEnhancement.mutate()}
+                          >
+                            {promptEnhancement.isPending ? (
+                              <LoaderCircle
+                                size={14}
+                                aria-hidden="true"
+                                className="animate-spin motion-reduce:animate-none"
+                              />
+                            ) : (
+                              <Sparkles size={14} aria-hidden="true" />
+                            )}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" sideOffset={6}>
+                        {promptEnhancement.isPending
+                          ? "Enhancing prompt…"
+                          : prompt.trim().length === 0
+                            ? "Enter a prompt to enable AI enhancement"
+                            : generation.isPending
+                              ? "Wait for the request to be saved"
+                              : "Enhance prompt with AI"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {promptEnhancement.isError && (
+                    <p role="alert" className="text-metadata text-destructive">
+                      {promptEnhancement.error.message} Try again or edit the
+                      prompt yourself.
+                    </p>
+                  )}
+                </div>
+              )}
+              {generation.error && (
+                <p role="alert" className="text-metadata text-destructive">
+                  {generation.error.message}
+                </p>
+              )}
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="flex flex-wrap gap-3">
+                  <div className="space-y-1.5">
+                    <p className="text-ui font-medium">Questions</p>
+                    <QuizSelect
+                      label="Question count"
+                      value={String(questionCount)}
+                      disabled={
+                        generation.isPending || promptEnhancement.isPending
+                      }
+                      onChange={(value) =>
+                        setQuestionCount(Number(value) as QuestionCount)
+                      }
+                      options={[5, 10, 15].map((count) => ({
+                        value: String(count),
+                        label: String(count),
+                      }))}
+                    />
+                  </div>
+                  {challengeId === null ? (
+                    <div className="space-y-1.5">
+                      <p className="text-ui font-medium">Difficulty</p>
+                      <QuizSelect
+                        label="Quiz difficulty"
+                        value={difficulty}
+                        disabled={
+                          generation.isPending || promptEnhancement.isPending
+                        }
+                        onChange={(value) =>
+                          setDifficulty(value as QuizDifficulty)
+                        }
+                        options={[
+                          { value: "easy", label: "Easy" },
+                          { value: "medium", label: "Medium" },
+                          { value: "hard", label: "Hard" },
+                          { value: "grill", label: "Grill" },
+                        ]}
+                      />
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <p className="text-ui font-medium">Coverage</p>
+                      <QuizSelect
+                        label="Quiz coverage"
+                        value={coverage}
+                        disabled={
+                          generation.isPending || promptEnhancement.isPending
+                        }
+                        onChange={(value) => setCoverage(value as QuizCoverage)}
+                        options={Object.entries(COVERAGE_LABELS).map(
+                          ([value, label]) => ({ value, label }),
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  className="ml-auto w-full sm:w-auto"
+                  disabled={
+                    generation.isPending ||
+                    promptEnhancement.isPending ||
+                    (challengeId === null && prompt.trim().length === 0)
+                  }
+                >
+                  {generation.isPending ? "Queueing…" : "Generate quiz"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </section>
+      )}
+      <AlertDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !deletion.isPending) {
+            setDeleteTarget(null);
+            deletion.reset();
+          }
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move quiz to Deleted?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget &&
+                `Quiz #${deleteTarget.number} will be hidden from the active list. You can find it under Deleted and restore it later. Its number will stay the same.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {deletion.error && (
+            <p role="alert" className="text-metadata text-destructive">
+              {deletion.error.message}
+            </p>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm" disabled={deletion.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={!deleteTarget || deletion.isPending}
+              onClick={() => {
+                if (deleteTarget) deletion.mutate(deleteTarget.id);
+              }}
+            >
+              {deletion.isPending ? "Moving…" : "Move to Deleted"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </section>
+  );
+
+  return workspace;
+}

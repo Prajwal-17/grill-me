@@ -46,7 +46,12 @@ apps/backend/.data/
 # Local design verification captures
 /artifacts/
 **/.impeccable/review/
+**/.impeccable/hook.cache.json
 
 # Browser test artifacts
 playwright-report/
 test-results/
+
+# Desktop package artifacts
+apps/desktop/release/
+apps/desktop/resources/backend/

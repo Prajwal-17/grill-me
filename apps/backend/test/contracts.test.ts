@@ -4,22 +4,22 @@ import {
   challengePreparationSchema,
   challengeSchema,
   generatedBuildSchemaForScope,
-} from "../src/modules/challenges/challenge.schema";
+} from "../../../packages/backend/src/modules/challenges/challenge.schema";
 import {
   validateReview,
   type ReviewResult,
-} from "../src/modules/reviews/review.schema";
+} from "../../../packages/backend/src/modules/reviews/review.schema";
 import {
   verificationPrompt,
   judgePrompt,
-} from "../src/modules/ai/prompts/judge";
+} from "../../../packages/backend/src/modules/ai/prompts/judge";
 import {
   quizPrompt,
   QUIZ_PROMPT_VERSION,
-} from "../src/modules/ai/prompts/generate-quiz";
-import { profilePreferencesSchema } from "../src/modules/profiles/profile.schema";
-import type { JudgeInput } from "../src/modules/ai/model-gateway";
-import { validatedReview } from "../src/modules/reviews/validated-review";
+} from "../../../packages/backend/src/modules/ai/prompts/generate-quiz";
+import { profilePreferencesSchema } from "../../../packages/backend/src/modules/profiles/profile.schema";
+import type { JudgeInput } from "../../../packages/backend/src/modules/ai/model-gateway";
+import { validatedReview } from "../../../packages/backend/src/modules/reviews/validated-review";
 
 const build = {
   title: "Group words",
@@ -478,7 +478,7 @@ test("valid reviews finish without a correction request", async () => {
 test("project matching respects short custom technologies and distinguishes C from C#", async () => {
   const { EMPTY_GUIDED } = await import("@repo/preferences");
   const { projectDeveloperContext } =
-    await import("../src/modules/profiles/developer-context");
+    await import("../../../packages/backend/src/modules/profiles/developer-context");
   const preferences = {
     ...EMPTY_GUIDED,
     profileId: crypto.randomUUID(),
@@ -552,9 +552,9 @@ test("coding assignments cannot be presented as essential clarification", () => 
 
 test("preparation checks missing requirements without inheriting assignment-writing instructions", async () => {
   const { preparationPrompt } =
-    await import("../src/modules/ai/prompts/prepare-build");
+    await import("../../../packages/backend/src/modules/ai/prompts/prepare-build");
   const { profilePreferencesSchema } =
-    await import("../src/modules/profiles/profile.schema");
+    await import("../../../packages/backend/src/modules/profiles/profile.schema");
   const profileId = crypto.randomUUID();
   const prompt = preparationPrompt({
     prompt:

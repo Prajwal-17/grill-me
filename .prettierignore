@@ -1,10 +1,15 @@
-apps/backend/drizzle/meta/
+packages/backend/drizzle/meta/
 
 .agents/
 
 # Local runtime and review artifacts
 .data/
+**/.impeccable/hook.cache.json
 
 **/dist/
 **/playwright-report/
 **/test-results/
+
+packages/backend/drizzle-sqlite/meta/
+apps/desktop/release/
+apps/desktop/resources/backend/
