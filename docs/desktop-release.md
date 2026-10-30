@@ -62,8 +62,13 @@ owner-only, not fully encrypted databases.
 
 Run **Desktop Development Build** manually in GitHub Actions and supply a branch,
 tag, or commit. It installs frozen dependencies, runs source checks and focused
-SQLite/provider tests, builds a dev `.deb`, and uploads the package, SHA256SUMS,
-and SOURCE_COMMIT. It does not publish a release. Artifacts expire after 14 days.
+SQLite/provider tests, builds a dev `.deb`, and uploads that single file without
+a ZIP wrapper. Download the `.deb` directly from the run's **Artifacts** section
+or the download link in its summary. GitHub sign-in is required. The artifact's
+SHA-256 digest and source commit are available on the workflow run.
+
+Development builds stay in workflow artifacts and never appear in GitHub
+Releases. Artifacts expire after 14 days.
 
 ## Production builds and releases
 
@@ -75,15 +80,25 @@ For a production artifact without publishing, manually dispatch **Desktop
 Production Build and Release** with the desired ref. For a published release:
 
 1. Update the version in `apps/desktop/package.json` and the root `package.json`.
-2. Run `bun install --lockfile-only`, source checks, and focused tests; commit the
-   version and lockfile on the release branch.
-3. Tag that commit `desktop-v<version>` (for example `desktop-v0.1.2`) and push the
-   tag: `git push origin desktop-v0.1.2`.
-4. CI verifies that the tag matches the desktop package version, checks/tests the
-   source, builds the production `.deb`, and records checksums and source SHA.
-5. A separate release job downloads the artifact and publishes a GitHub Release
-   with generated notes. Only that job has `contents: write`; no production
-   database credentials are used. Installers are also retained as CI artifacts.
+2. Add a dated `## desktop-v<version> - DD Mon YYYY` entry to `CHANGELOG.md`,
+   following the existing Features, Refactored, and Fixed sections. Keep it brief
+   and describe changes without author names, contributor lists, or PR dumps.
+3. Run `bun install --lockfile-only`, source checks, and focused tests; commit the
+   changelog, version, and lockfile on the release branch.
+4. Tag that commit `desktop-v<version>` (the first desktop release is
+   `desktop-v0.1.0`) and push the tag: `git push origin desktop-v0.1.0`.
+5. CI verifies that the tag matches the desktop package version and has a
+   changelog entry, checks/tests the source, and builds the production `.deb`.
+   It records one `SHA256SUMS` file to verify the download's integrity.
+6. A separate release job publishes only the production `.deb` and `SHA256SUMS`.
+   GitHub supplies the source ZIP and tar archives automatically. The release
+   description uses the matching changelog entry verbatim, without generated
+   contributor notes or extra metadata files. Only that job has `contents: write`;
+   no production database credentials are used. Production installers are also
+   retained as CI artifacts.
+
+To verify an installer, download it and `SHA256SUMS` into the same folder and run
+`sha256sum --check SHA256SUMS`.
 
 Release tags must be unique. Correct a failed release with a new version/tag,
 not by replacing an already distributed package. Automatic in-app updates and

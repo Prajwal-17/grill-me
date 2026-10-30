@@ -39,18 +39,15 @@ jobs:
           bun run test:desktop
       - name: Build development Debian package
         run: bun run desktop:deb:dev
-      - name: Write artifact checksums and source identity
-        working-directory: apps/desktop/release/dev
-        run: |
-          sha256sum ./*.deb > SHA256SUMS
-          git rev-parse HEAD > SOURCE_COMMIT
       - name: Upload development build
+        id: package
         uses: actions/upload-artifact@v7
         with:
-          name: grill-me-dev-linux-${{ github.run_id }}
           if-no-files-found: error
           retention-days: 14
-          path: |
-            apps/desktop/release/dev/*.deb
-            apps/desktop/release/dev/SHA256SUMS
-            apps/desktop/release/dev/SOURCE_COMMIT
+          archive: false
+          path: apps/desktop/release/dev/*.deb
+      - name: Link development download
+        env:
+          ARTIFACT_URL: ${{ steps.package.outputs.artifact-url }}
+        run: printf '[Download development .deb](%s)\n' "$ARTIFACT_URL" >> "$GITHUB_STEP_SUMMARY"
