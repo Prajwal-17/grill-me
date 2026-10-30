@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## desktop-v0.1.5 - 31 Oct 2026
+
+- Create challenges and quizzes directly from a focused Home composer, with separate drafts, prompt enhancement, and generation options.
+- Add borderless category navigation for Settings and Preferences, enlarge sidebar controls, and move History, Settings, and Logs to the bottom.
+- Simplify implementation submission with visible folder, file, and code sources and a combined source summary.
+- Remove redundant quiz-list actions and desktop preference controls; keep appearance and provider configuration in Settings.
+- Fix native keyring loading in the compiled desktop backend so saved provider credentials remain available.
+
 ## desktop-v0.1.4 - 30 Oct 2026
 
 - Include the native credential-storage library in desktop installers so saved API keys can use the Linux keyring and macOS Keychain.
