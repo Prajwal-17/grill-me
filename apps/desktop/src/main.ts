@@ -216,7 +216,7 @@ async function start() {
     title: identity.productName,
     icon: app.isPackaged
       ? join(process.resourcesPath, "icon.png")
-      : join(desktopRoot, "resources/icon.png"),
+      : join(desktopRoot, "resources/icons/512x512.png"),
     width: 1360,
     height: 900,
     minWidth: 900,

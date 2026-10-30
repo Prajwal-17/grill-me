@@ -53,6 +53,7 @@ jobs:
         run: |
           version=$(node -p 'require("./apps/desktop/package.json").version')
           test "$GITHUB_REF_NAME" = "desktop-v$version"
+          python3 scripts/release-notes.py "$version" > /dev/null
       - name: Install dependencies
         run: bun install --frozen-lockfile
       - name: Check source and focused tests
@@ -89,6 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.ref }}
           persist-credentials: false
       - uses: actions/download-artifact@v7
         with:

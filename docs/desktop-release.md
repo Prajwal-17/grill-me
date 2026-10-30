@@ -108,7 +108,7 @@ automatic source archives. No development installers, updater feeds, blockmaps,
 updater ZIPs, or SOURCE_COMMIT files are published.
 
 Before a future release, update root/desktop versions, lockfile, and a matching
-`## <version>` entry in root CHANGELOG.md. Release notes contain only that entry;
+`## desktop-v<version>` entry in root CHANGELOG.md. Release notes contain only that entry;
 missing entries fail publishing. Tags must be unique. This implementation does
 not change the current version, push tags, trigger CI, or publish a release.
 

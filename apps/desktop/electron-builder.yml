@@ -13,7 +13,7 @@ files:
   - package.json
   - "!**/.env*"
 extraResources:
-  - from: resources/icon.png
+  - from: resources/icons/512x512.png
     to: icon.png
   - from: out/renderer
     to: renderer
@@ -28,7 +28,7 @@ linux:
     entry:
       StartupWMClass: grill-me
   syncDesktopName: true
-  icon: resources/icon.png
+  icon: resources/icons
   target:
     - deb
   category: Development

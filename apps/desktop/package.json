@@ -7,19 +7,20 @@
   "author": "Grill Me contributors <desktop@grill-me.local>",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "bun run scripts/dev.ts",
+    "dev": "bun run icons && bun run scripts/dev.ts",
     "package:deb": "bun run scripts/package.ts linux x64 production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src scripts test *.ts --max-warnings 0",
     "test:keyring": "dbus-run-session -- bun run scripts/keyring-roundtrip.ts",
-    "build:dev": "bun run scripts/build-backend.ts && electron-vite build --mode development",
-    "build:prod": "bun run scripts/build-backend.ts && electron-vite build --mode production",
+    "build:dev": "bun run icons && bun run scripts/build-backend.ts && electron-vite build --mode development",
+    "build:prod": "bun run icons && bun run scripts/build-backend.ts && electron-vite build --mode production",
     "package:deb:dev": "bun run scripts/package.ts linux x64 development",
     "package:dmg:arm64": "bun run scripts/package.ts darwin arm64 production",
     "package:dmg:arm64:dev": "bun run scripts/package.ts darwin arm64 development",
     "package:dmg:x64": "bun run scripts/package.ts darwin x64 production",
     "package:dmg:x64:dev": "bun run scripts/package.ts darwin x64 development",
-    "icons:mac": "bun run scripts/generate-icons.ts"
+    "icons:mac": "bun run scripts/generate-icons.ts",
+    "icons": "bun run scripts/build-icons.ts"
   },
   "devDependencies": {
     "@repo/backend": "workspace:*",
