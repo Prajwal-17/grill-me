@@ -33,5 +33,10 @@ See [builds and releases](../../docs/desktop-release.md) for exact package comma
 CI workflows, versioning, installation, and storage. See
 [CLI providers](../../docs/cli-providers.md) for authentication and history.
 
+Linux launcher and window icons are generated from `renderer/public/icon.svg`.
+`bun run --cwd apps/desktop icons` exports static PNGs at native icon sizes to
+`resources/icons`. Development and package builds regenerate these assets;
+both editions use the same complete logo.
+
 Only focused runtime tests remain. `bun run test:desktop` uses temporary data and
 fake providers; no E2E runners or browser download is required.

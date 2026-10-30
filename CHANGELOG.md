@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Complete Linux launcher and window icons, including the steak and smoke
+
 ## desktop-v0.1.0 - 30 Oct 2026
 
 First Linux desktop release.
