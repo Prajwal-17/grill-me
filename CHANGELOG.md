@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## desktop-v0.1.3 - 30 Oct 2026
+
+- Fix macOS project-folder permission errors and canonical temporary-path tests.
+- Preserve Finder executable discovery in desktop isolation checks.
+
 ## desktop-v0.1.2 - 30 Oct 2026
 
 - Add isolated macOS Intel and Apple Silicon editions with Keychain storage,
