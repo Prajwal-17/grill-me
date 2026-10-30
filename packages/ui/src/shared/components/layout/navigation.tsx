@@ -16,7 +16,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
-import { ThemeSelect } from "@/shared/components/theme-provider";
 import { BrandLockup } from "@/shared/components/brand";
 import { cn } from "@/shared/lib/cn";
 import type { Profile } from "@/shared/types/api";
@@ -47,12 +46,6 @@ export function Navigation({
       active: pathname === "/quizzes",
     },
     {
-      href: "/history",
-      label: "History",
-      icon: History,
-      active: pathname === "/history",
-    },
-    {
       href: "/preferences",
       label: "Preferences",
       icon: SlidersHorizontal,
@@ -60,6 +53,12 @@ export function Navigation({
     },
   ];
   const utilityLinks = [
+    {
+      href: "/history",
+      label: "History",
+      icon: History,
+      active: pathname === "/history",
+    },
     {
       href: "/settings",
       label: "Settings",
@@ -142,7 +141,7 @@ export function Navigation({
         >
           <Link to="/" onClick={close}>
             <Plus size={16} />
-            New build
+            New challenge
           </Link>
         </Button>
         <nav
@@ -156,9 +155,6 @@ export function Navigation({
         </nav>
       </div>
       <div className="shrink-0 border-t border-line/60 px-2 pb-2 pt-1.5">
-        <div className="mb-1">
-          <ThemeSelect />
-        </div>
         <AccountMenu profile={profile} close={close} />
       </div>
     </div>

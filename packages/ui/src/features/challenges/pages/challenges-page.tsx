@@ -158,7 +158,7 @@ export function ChallengesPage() {
             </div>
             <Link className={buttonStyles("primary")} to="/">
               <Plus size={15} />
-              New build
+              New challenge
             </Link>
           </div>
           <div

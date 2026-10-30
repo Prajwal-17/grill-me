@@ -256,13 +256,13 @@ desktop toolbar. On mobile, the header uses a 52px reference minimum and keeps t
 navigation toggle, and notification bell in one row. Content regions own their
 scrolling. Page actions belong to their content, outside the draggable title bar.
 The sidebar holds 40px creation and labeled navigation rows for Home,
-Challenges, Quizzes, History, and Preferences. Settings and Logs are anchored
-at the bottom of the navigation, above Appearance and the account controls.
+Challenges, Quizzes, and Preferences. History, Settings, and Logs are anchored
+at the bottom of the navigation, above the account controls.
 Settings and Preferences place their categories in a second, open column
 beside the main sidebar, with the content canvas showing through and no divider. Practice lists and
 filters stay in the main content; do not add a recent-practice feed to the
-sidebar. Appearance and account controls remain anchored in the footer. Mobile
-navigation, creation, appearance, and account controls use targets at least 44px
+sidebar. Account controls remain anchored in the footer. Appearance is managed in Settings. Mobile
+navigation, creation, and account controls use targets at least 44px
 high.
 
 Electron uses a frameless window: caption controls occupy the existing header,
@@ -282,7 +282,11 @@ second title-and-divider row. Keep counts in tabs or the result summary.
 History uses a fixed-layout semantic table that gives the title the remaining
 width, while diagnostic tables scroll internally when their columns cannot fit.
 
-Home uses a 760px composer column with recent active builds beneath it. Task
+Home contains only a centered 760px creation composer with Challenge and Quiz
+modes. Each mode retains its draft while switching. Challenge exposes scope and
+difficulty; Quiz exposes question count and difficulty. Both retain prompt
+enhancement and background generation. Recent builds and job lists do not appear
+below the Home composer; shared notifications track background work. Task
 workspaces retain Overview, Submit, Reviews, and Quizzes. Reading/submission
 areas are constrained to approximately 880px. The optional reference is 340px
 wide above the 1180px workspace breakpoint, and a drawer below it. File previews
@@ -297,7 +301,9 @@ and 24px desktop gutters. Switching categories resets content scroll without
 remounting sections, preserving unsaved drafts. Before selecting a profile,
 Settings uses the same category column without the global navigation.
 
-Preferences keep Profile, Practice, Projects, and Code reviews mounted. Labels
+Preferences keep Profile, Practice, and Projects mounted. The desktop app
+configures code reviews exclusively in Settings → AI providers; the web host
+retains its Codex model preference. Labels
 and fields align in columns only above 600px of form/container width; narrower
 panels stack them. Save and discard actions live at the end of the form, beside
 unsaved/error/saved feedback. Saving reveals and focuses any invalid field,
@@ -368,10 +374,9 @@ rather than installing a second component vocabulary. Configuration reference:
   actions keep the inverted monochrome fill and remain in their page content.
 - **Navigation:** main links use 14px desktop labels, neutral active
   fills, muted resting text, and elevated hover fills with foreground text.
-  Mobile labels use 14px and the larger targets described in Layout. Settings
+  Mobile labels use 14px and the larger targets described in Layout. History, Settings,
   and Logs are footer navigation links; Preferences stays with the main workflows.
-  Settings and Preferences use a separate, borderless category column. Appearance
-  and account remain anchored below the scrolling navigation. Current routes
+  Settings and Preferences use a separate, borderless category column. Account controls remain anchored below the scrolling navigation; Appearance stays in Settings. Current routes
   retain `aria-current`, including Challenges while viewing a build.
 - **Fields:** visible labels, surface backgrounds, shared hover/focus/invalid
   styles, and retained limits. `SearchField` composes the input with search and

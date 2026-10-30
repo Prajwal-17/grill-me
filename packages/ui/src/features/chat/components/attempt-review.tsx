@@ -82,7 +82,7 @@ export function AttemptReview({
 
   return (
     <article className="mx-auto w-full max-w-[70ch]">
-      <header className="flex flex-col gap-3 border-b border-line pb-4 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-3 pb-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h3 className="text-ui font-semibold">
             Submission {attempt.sequence}
@@ -136,7 +136,7 @@ export function AttemptReview({
       )}
 
       {review?.error && (
-        <div className="border-b border-line py-6">
+        <div className="py-6">
           <div className="flex items-start gap-3">
             <XCircle size={17} className="mt-0.5 text-destructive" />
             <div>
@@ -159,7 +159,7 @@ export function AttemptReview({
       )}
 
       {review?.status === "cancelled" && !review.error && (
-        <div className="flex items-center justify-between gap-3 border-b border-line py-5">
+        <div className="flex items-center justify-between gap-3 py-5">
           <p className="text-ui text-muted">Review cancelled</p>
           <Button
             size="sm"
@@ -174,7 +174,7 @@ export function AttemptReview({
 
       {result && verdict && VerdictIcon && review && (
         <>
-          <section className="border-b border-line py-6">
+          <section className="py-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-2">
                 <VerdictIcon
@@ -210,7 +210,7 @@ export function AttemptReview({
           )}
 
           {!!result.findings.length && (
-            <section className="border-b border-line py-6">
+            <section className="py-6">
               <h4 className="text-ui font-semibold">Findings</h4>
               <div className="mt-4 divide-y divide-line">
                 {result.findings.map((finding, index) => (
@@ -231,7 +231,7 @@ export function AttemptReview({
           )}
 
           {!!result.optionalImprovements.length && (
-            <section className="border-b border-line py-5">
+            <section className="py-5">
               <h4 className="text-ui font-semibold">Suggestions</h4>
               <ul className="mt-3 list-disc space-y-2 pl-5 text-reading text-muted">
                 {result.optionalImprovements.map((item, index) => (
@@ -242,7 +242,7 @@ export function AttemptReview({
           )}
 
           {result.question && (
-            <section className="border-b border-line py-5">
+            <section className="py-5">
               <div className="flex items-start gap-2">
                 <MessageSquare size={15} className="mt-1 shrink-0" />
                 <div>
@@ -253,7 +253,7 @@ export function AttemptReview({
             </section>
           )}
 
-          <div className="border-b border-line py-5">
+          <div className="py-5">
             <Button
               size="sm"
               variant="ghost"

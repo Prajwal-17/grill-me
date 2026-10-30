@@ -1,3 +1,4 @@
+import { localTransport } from "@/shared/lib/local-client";
 import {
   Monitor,
   Bot,
@@ -16,12 +17,14 @@ export const settingsSections = [
   { id: "runtime", icon: Terminal, label: "Local runtime" },
 ] as const;
 
-export const preferenceSections = [
-  { id: "profile", icon: UserRound, label: "Profile" },
-  { id: "practice", icon: Target, label: "Practice" },
-  { id: "projects", icon: Folder, label: "Projects" },
-  { id: "reviews", icon: ScanLine, label: "Code reviews" },
-] as const;
+export const preferenceSections = (
+  [
+    { id: "profile", icon: UserRound, label: "Profile" },
+    { id: "practice", icon: Target, label: "Practice" },
+    { id: "projects", icon: Folder, label: "Projects" },
+    { id: "reviews", icon: ScanLine, label: "Code reviews" },
+  ] as const
+).filter(({ id }) => !localTransport || id !== "reviews");
 
 export function SettingsSectionNavigation({
   kind,

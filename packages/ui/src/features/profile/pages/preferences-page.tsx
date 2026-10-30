@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import { localTransport } from "@/shared/lib/local-client";
 import { PreferencesSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -143,29 +143,18 @@ export function PreferencesPage() {
             onSubmit={submit}
           >
             <fieldset disabled={save.isPending}>
-              <section
-                data-preference-section="reviews"
-                hidden={section !== "reviews"}
-                aria-labelledby="reviews-section-title"
-              >
-                <h2
-                  id="reviews-section-title"
-                  className="border-b border-line pb-4 text-section font-semibold tracking-[-0.02em]"
+              {!localTransport && (
+                <section
+                  data-preference-section="reviews"
+                  hidden={section !== "reviews"}
+                  aria-labelledby="reviews-section-title"
                 >
-                  Code reviews
-                </h2>
-                {localTransport ? (
-                  <p className="py-4 text-ui text-muted">
-                    Review providers and models are managed in{" "}
-                    <Link
-                      to="/settings?section=providers"
-                      className="text-foreground underline underline-offset-4"
-                    >
-                      AI provider settings
-                    </Link>
-                    .
-                  </p>
-                ) : (
+                  <h2
+                    id="reviews-section-title"
+                    className="border-b border-line pb-4 text-section font-semibold tracking-[-0.02em]"
+                  >
+                    Code reviews
+                  </h2>
                   <PreferenceRow label="Codex model" htmlFor="codex-model">
                     <div className="space-y-2">
                       <Input
@@ -207,8 +196,8 @@ export function PreferencesPage() {
                       )}
                     </div>
                   </PreferenceRow>
-                )}
-              </section>
+                </section>
+              )}
               <PreferencesFields
                 section={section}
                 values={form}

@@ -372,7 +372,7 @@ export function PracticeWorkspace({
             onValueChange={setTab}
             className="min-h-0 flex-1 gap-0 overflow-hidden"
           >
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b border-line bg-panel/60 px-2 md:px-5">
+            <div className="practice-workspace-navigation flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b border-line bg-panel/60 px-2 md:px-5">
               <div className="min-w-0 overflow-x-auto">
                 <TabsList
                   variant="line"

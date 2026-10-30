@@ -27,7 +27,7 @@ export function ChallengeCard({
         : Target;
   return (
     <article className={cn("mx-auto w-full min-w-0 max-w-[70ch]", className)}>
-      <header className="mb-6 border-b border-line pb-5">
+      <header className="mb-8">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <Icon size={14} className="shrink-0 text-muted" />

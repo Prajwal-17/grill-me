@@ -668,6 +668,27 @@ html[data-desktop="true"] #app-content {
     font-size: 12px;
   }
 }
+
+/* Desktop page identity and workspace controls sit in the canvas itself. */
+@media (min-width: 768px) {
+  html[data-desktop="true"] [data-slot="page-header"] {
+    padding-left: 24px;
+    border-bottom: 0;
+  }
+  html[data-desktop="true"] [data-slot="page-header"] h1 {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  html[data-desktop="true"] .practice-workspace-navigation {
+    padding-inline: 24px;
+    padding-bottom: 8px;
+    border: 0;
+    background: transparent;
+  }
+  html[data-desktop="true"] .desktop-app-header {
+    border-bottom: 0;
+  }
+}
 @media (max-width: 767px) {
   :root {
     --workspace-header-height: 52px;

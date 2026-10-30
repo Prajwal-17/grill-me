@@ -426,7 +426,7 @@ export function SubmissionComposer({
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
           {reviewIssue && (
             <AlertTriangle size={14} className="shrink-0 text-warning" />
@@ -456,7 +456,7 @@ export function SubmissionComposer({
                       ]
                         .filter(Boolean)
                         .join(" · ")
-                    : "No sources added")}
+                    : null)}
           </p>
           {(reviewIssue || reviewStatusError) && (
             <button
