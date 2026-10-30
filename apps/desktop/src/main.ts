@@ -126,6 +126,7 @@ async function start() {
       ? join(process.resourcesPath, "backend/grill-me-backend")
       : join(desktopRoot, "resources/backend/grill-me-backend");
   if (!executable) throw new Error("Use bun dev to start the source backend.");
+  let keyringModule: string | undefined;
   if (!devUrl) {
     const target = JSON.parse(
       readFileSync(join(dirname(executable), "target.json"), "utf8"),
@@ -134,6 +135,15 @@ async function start() {
       throw new Error(
         `Backend target ${target.platform}/${target.arch} does not match Electron ${process.platform}/${process.arch}. Rebuild on a matching native host.`,
       );
+    const nativeRoot = join(
+      dirname(executable),
+      "node_modules",
+      target.nativeName,
+    );
+    const native = JSON.parse(
+      readFileSync(join(nativeRoot, "package.json"), "utf8"),
+    );
+    keyringModule = join(nativeRoot, native.main);
   }
   const args = devUrl
     ? ["--no-env-file", join(desktopRoot, "src/backend.ts")]
@@ -152,9 +162,7 @@ async function start() {
         ? join(process.resourcesPath, "renderer")
         : resolve(import.meta.dirname, "../renderer"),
       webOrigin: devUrl ? new URL(devUrl).origin : "grill-me://app",
-      keyringModule: devUrl
-        ? undefined
-        : join(dirname(executable), "node_modules/@napi-rs/keyring/index.js"),
+      keyringModule,
       workerPath: devUrl
         ? undefined
         : join(dirname(executable), "resume.worker.js"),

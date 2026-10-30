@@ -30,10 +30,25 @@ export function nativeSecretStore(
       ? "grill-me."
       : "grill-me-dev.") +
     createHash("sha256").update(dataRoot).digest("hex").slice(0, 24);
+  let nativeBinding: typeof import("@napi-rs/keyring") | undefined;
   const entry = async (id: string) => {
-    const { AsyncEntry } = (await import(
-      modulePath ?? "@napi-rs/keyring"
-    )) as typeof import("@napi-rs/keyring");
+    if (!nativeBinding) {
+      if (modulePath?.endsWith(".node")) {
+        // Compiled Bun executables cannot resolve external .node files through
+        // the package's JS loader. Load the packaged absolute binding directly.
+        const binding = { exports: {} };
+        process.dlopen(
+          binding as Parameters<typeof process.dlopen>[0],
+          modulePath,
+        );
+        nativeBinding = binding.exports as typeof import("@napi-rs/keyring");
+      } else {
+        nativeBinding = (await import(
+          modulePath ?? "@napi-rs/keyring"
+        )) as typeof import("@napi-rs/keyring");
+      }
+    }
+    const { AsyncEntry } = nativeBinding;
     // A kernel keyring fallback is not persistent across reboot. Require Secret Service.
     if (!["linux", "darwin"].includes(process.platform))
       throw new Error("Native credential storage is unsupported on this OS.");

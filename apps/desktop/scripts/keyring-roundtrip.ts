@@ -3,6 +3,8 @@ import { mkdtemp, mkdir, rm, readdir, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { linuxSecretStore } from "@repo/backend/local/secrets";
+// An absolute .node argument exercises the packaged binding in a compiled build.
+const bindingPath = process.argv[2];
 const root = await mkdtemp(join(tmpdir(), "grill-keyring-test-"));
 const control = join(root, "control");
 await mkdir(control, { mode: 0o700 });
@@ -40,13 +42,13 @@ try {
   );
   if ((await ready.exited) !== 0)
     throw new Error("Private Secret Service did not start.");
-  const store = linuxSecretStore(root);
+  const store = linuxSecretStore(root, bindingPath);
   const id = crypto.randomUUID();
   const secret = "native-keyring-fixture-" + crypto.randomUUID();
   if (!(await store.status()).available)
     throw new Error("Private keyring is not available.");
   await store.set(id, secret);
-  if ((await linuxSecretStore(root).get(id)) !== secret)
+  if ((await linuxSecretStore(root, bindingPath).get(id)) !== secret)
     throw new Error("Keyring readback failed.");
   const files = await readdir(join(root, "data/keyrings"), { recursive: true });
   for (const name of files) {
