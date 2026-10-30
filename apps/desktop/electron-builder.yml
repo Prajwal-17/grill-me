@@ -19,6 +19,10 @@ extraResources:
     to: renderer
   - from: resources/backend
     to: backend
+  # electron-builder excludes a root node_modules directory during resource
+  # copying. Copy its contents explicitly so the native keyring ships too.
+  - from: resources/backend/node_modules
+    to: backend/node_modules
 publish: null
 asar: true
 npmRebuild: false
@@ -38,6 +42,7 @@ deb:
   compression: gz
 
 beforePack: ./scripts/validate-package.cjs
+afterPack: ./scripts/validate-resources.cjs
 mac:
   artifactName: grill-me-${version}-mac-${arch}.${ext}
   icon: resources/icon.icns

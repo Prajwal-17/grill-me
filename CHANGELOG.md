@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## desktop-v0.1.4 - 30 Oct 2026
+
+- Include the native credential-storage library in desktop installers so saved API keys can use the Linux keyring and macOS Keychain.
+- Fail packaging when the credential loader or native binding is missing.
+
 ## desktop-v0.1.3 - 30 Oct 2026
 
 - Fix macOS project-folder permission errors and canonical temporary-path tests.
