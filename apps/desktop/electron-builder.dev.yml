@@ -15,3 +15,5 @@ linux:
       StartupWMClass: grill-me-dev
 deb:
   packageName: grill-me-dev
+mac:
+  artifactName: grill-me-dev-${version}-mac-${arch}.${ext}

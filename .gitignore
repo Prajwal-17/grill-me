@@ -55,3 +55,4 @@ test-results/
 # Desktop package artifacts
 apps/desktop/release/
 apps/desktop/resources/backend/
+apps/desktop/resources/icon.icns

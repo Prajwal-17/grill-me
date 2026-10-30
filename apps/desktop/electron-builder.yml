@@ -19,6 +19,7 @@ extraResources:
     to: renderer
   - from: resources/backend
     to: backend
+publish: null
 asar: true
 npmRebuild: false
 linux:
@@ -35,3 +36,19 @@ linux:
 deb:
   packageName: grill-me
   compression: gz
+
+beforePack: ./scripts/validate-package.cjs
+mac:
+  artifactName: grill-me-${version}-mac-${arch}.${ext}
+  icon: resources/icon.icns
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+  identity: "-"
+  hardenedRuntime: false
+  notarize: false
+  binaries:
+    - Contents/Resources/backend/grill-me-backend
+dmg:
+  icon: resources/icon.icns
+  sign: false
