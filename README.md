@@ -1,6 +1,6 @@
 # Grill Me
 
-Grill Me is a Linux desktop practice companion. Describe a topic, generate a
+Grill Me is a Linux and macOS desktop practice companion. Describe a topic, generate a
 challenge or quiz, work in your editor, and submit code for a review. Questions,
 reviews, quizzes, and partial AI replies are saved locally.
 
@@ -30,7 +30,8 @@ Connect an installed Codex/OpenCode CLI or an OpenAI-compatible endpoint in
 | Data directory              | `~/.config/grill-me-desktop-dev/` | `~/.config/grill-me-desktop/` |
 | Build output                | `apps/desktop/release/dev/`       | `apps/desktop/release/prod/`  |
 
-The config root follows Linux `XDG_CONFIG_HOME`. Both editions can be installed
+The table shows Linux paths; the config root follows `XDG_CONFIG_HOME`. macOS
+uses `~/Library/Application Support/` with the same edition directory names. Both editions can be installed
 and running simultaneously. SQLite, settings, window preferences, zoom, Electron
 sessions, browser storage, keyring entries, CLI authentication, uploads, snapshots,
 and logs are separate. Production desktop uses its own local SQLite database;
@@ -42,6 +43,10 @@ stays in the same folder. Data is never copied between editions automatically.
 ```sh
 bun run desktop:deb:dev  # development Debian package
 bun run desktop:deb      # production Debian package
+bun run desktop:dmg:arm64:dev  # Apple Silicon development DMG
+bun run desktop:dmg:arm64      # Apple Silicon production DMG
+bun run desktop:dmg:x64:dev    # Intel development DMG
+bun run desktop:dmg:x64        # Intel production DMG
 ```
 
 These commands build packages; normal development needs only `bun dev`.

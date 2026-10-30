@@ -18,7 +18,26 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux
+            arch: x64
+            command: deb
+            extension: deb
+          - runner: macos-15
+            platform: darwin
+            arch: arm64
+            command: dmg:arm64
+            extension: dmg
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+            command: dmg:x64
+            extension: dmg
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -37,20 +56,23 @@ jobs:
         run: |
           bun run check
           bun run test:desktop
-      - name: Build development Debian package
-        run: bun run desktop:deb:dev
-      - name: Write artifact checksums and source identity
-        working-directory: apps/desktop/release/dev
-        run: |
-          sha256sum ./*.deb > SHA256SUMS
-          git rev-parse HEAD > SOURCE_COMMIT
-      - name: Upload development build
+      - name: Verify native target
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: bun -e 'if (process.platform !== process.env.TARGET_PLATFORM || process.arch !== process.env.TARGET_ARCH) throw new Error("Runner architecture mismatch")'
+      - name: Build dev installer
+        run: bun run desktop:${{ matrix.command }}:dev
+      - name: Upload installer directly
+        id: installer
         uses: actions/upload-artifact@v7
         with:
-          name: grill-me-dev-linux-${{ github.run_id }}
+          name: grill-me-dev-${{ matrix.platform }}-${{ matrix.arch }}
+          archive: false
           if-no-files-found: error
           retention-days: 14
-          path: |
-            apps/desktop/release/dev/*.deb
-            apps/desktop/release/dev/SHA256SUMS
-            apps/desktop/release/dev/SOURCE_COMMIT
+          path: apps/desktop/release/dev/*.${{ matrix.extension }}
+      - name: Installer download
+        env:
+          ARTIFACT_URL: ${{ steps.installer.outputs.artifact-url }}
+        run: echo "[Download dev ${{ matrix.platform }}/${{ matrix.arch }} installer]($ARTIFACT_URL)" >> "$GITHUB_STEP_SUMMARY"

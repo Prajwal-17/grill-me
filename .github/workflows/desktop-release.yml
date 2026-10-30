@@ -16,7 +16,26 @@ concurrency:
   cancel-in-progress: false
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux
+            arch: x64
+            command: deb
+            extension: deb
+          - runner: macos-15
+            platform: darwin
+            arch: arm64
+            command: dmg:arm64
+            extension: dmg
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+            command: dmg:x64
+            extension: dmg
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -40,21 +59,27 @@ jobs:
         run: |
           bun run check
           bun run test:desktop
-      - name: Build production Debian package
-        run: bun run desktop:deb
-      - name: Record checksums and source identity
-        working-directory: apps/desktop/release/prod
-        run: |
-          sha256sum ./*.deb > SHA256SUMS
-          git rev-parse HEAD > SOURCE_COMMIT
-      - uses: actions/upload-artifact@v7
+      - name: Verify native target
+        env:
+          TARGET_PLATFORM: ${{ matrix.platform }}
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: bun -e 'if (process.platform !== process.env.TARGET_PLATFORM || process.arch !== process.env.TARGET_ARCH) throw new Error("Runner architecture mismatch")'
+      - name: Build prod installer
+        run: bun run desktop:${{ matrix.command }}
+      - name: Upload production installer
+        id: installer
+        uses: actions/upload-artifact@v7
         with:
-          name: grill-me-prod-linux
+          name: grill-me-prod-${{ matrix.platform }}-${{ matrix.arch }}
+          archive: true
           if-no-files-found: error
-          path: |
-            apps/desktop/release/prod/*.deb
-            apps/desktop/release/prod/SHA256SUMS
-            apps/desktop/release/prod/SOURCE_COMMIT
+          retention-days: 14
+          path: apps/desktop/release/prod/*.${{ matrix.extension }}
+      - name: Installer download
+        env:
+          ARTIFACT_URL: ${{ steps.installer.outputs.artifact-url }}
+        run: echo "[Download prod ${{ matrix.platform }}/${{ matrix.arch }} installer]($ARTIFACT_URL)" >> "$GITHUB_STEP_SUMMARY"
+
   release:
     if: startsWith(github.ref, 'refs/tags/') && github.event_name == 'push'
     needs: build
@@ -62,14 +87,22 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v7
         with:
-          name: grill-me-prod-linux
+          pattern: grill-me-prod-*
           path: artifacts
+          merge-multiple: true
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release create "$GITHUB_REF_NAME" artifacts/*.deb artifacts/SHA256SUMS artifacts/SOURCE_COMMIT \
-            --verify-tag --latest --title "Grill Me ${GITHUB_REF_NAME#desktop-v}" --generate-notes
+          cd artifacts
+          sha256sum -- *.deb *.dmg > SHA256SUMS
+          cd ..
+          python3 scripts/release-notes.py "${GITHUB_REF_NAME#desktop-v}" > release-notes.txt
+          gh release create "$GITHUB_REF_NAME" artifacts/*.deb artifacts/*.dmg artifacts/SHA256SUMS \
+            --verify-tag --latest --title "Grill Me ${GITHUB_REF_NAME#desktop-v}" --notes-file release-notes.txt

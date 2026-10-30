@@ -6,12 +6,13 @@ logic remain shared workspace packages, with no separate launch commands.
 
 Use Settings for installed Codex/OpenCode connections, model selection,
 OpenAI-compatible endpoints, credentials, project folders, and review timeouts.
-CLI authentication is scoped to each edition. API keys use Linux Secret Service
+CLI authentication is scoped to each edition. API keys use macOS Keychain or Linux Secret Service
 or an explicit in-memory session. No backend environment files are inherited.
 In Local runtime, enter the projects folder path directly or use the folder
 button to choose a directory. Save runtime settings applies either choice;
 canceling the picker leaves the current path unchanged.
 
+On macOS use Command in place of Ctrl; native menus and window controls are available.
 The app opens maximized; `Ctrl++`, `Ctrl+-`, and `Ctrl+0` adjust persistent zoom.
 `F11` toggles fullscreen, `Ctrl+,` opens Settings, and the header supplies compact
 window controls. Source mode may use the existing development-only Chromium
@@ -19,7 +20,7 @@ sandbox fallback on restricted Linux hosts. Packaged applications do not enable
 that fallback.
 
 Development uses `grill-me-desktop-dev`, production `grill-me-desktop`, under the
-Linux config directory. Each owns its SQLite database, private provider state,
+Linux config directory, or `~/Library/Application Support/` on macOS. Each owns its SQLite database, private provider state,
 Electron session, settings, uploads, snapshots, logs, and keyring namespace. Local
 reviews inspect submitted snapshots without executing code. Conversation retries
 are explicit; app startup marks partial unfinished responses interrupted.
