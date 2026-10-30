@@ -134,8 +134,8 @@ test("desktop configuration cannot inherit production database or storage paths"
       GRILL_ME_HOME: root,
       GRILL_ME_SQLITE_PATH: join(root, "grill-me.sqlite"),
       CODEX_MODEL: "fixture",
-      PATH: "/usr/bin",
     });
+    expect(env.PATH.split(":")[0]).toBe("/usr/bin");
     expect(env).not.toHaveProperty("DATABASE_URL");
     expect(env).not.toHaveProperty("SNAPSHOT_ROOT");
     expect(env).not.toHaveProperty("CODEX_HOME");

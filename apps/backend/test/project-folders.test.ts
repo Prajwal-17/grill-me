@@ -20,7 +20,9 @@ describe("local project folders", () => {
   const previousRoot = process.env.PROJECTS_ROOT;
 
   beforeAll(async () => {
-    root = await mkdtemp(join(tmpdir(), "grill-project-folders-"));
+    root = await realpath(
+      await mkdtemp(join(tmpdir(), "grill-project-folders-")),
+    );
     project = join(root, "project with spaces");
     await mkdir(project);
     // Retired settings must never restrict the folder chosen for a submission.

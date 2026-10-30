@@ -62,7 +62,13 @@ export async function projectRoot(path: string) {
       "Enter an absolute local project path.",
       400,
     );
-  const root = await realpath(path).catch(() => {
+  const root = await realpath(path).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "EACCES" || error.code === "EPERM")
+      throw new AppError(
+        "PROJECT_UNREADABLE",
+        "This project folder cannot be read. Check its permissions or choose another folder.",
+        400,
+      );
     throw new AppError(
       "PROJECT_NOT_FOUND",
       "That project folder is unavailable. Choose an existing folder and check its permissions.",
