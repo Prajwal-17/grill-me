@@ -1,7 +1,6 @@
 import { CollectionSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useEffect, useRef, type ReactNode } from "react";
 import {
-  ArrowRight,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -59,14 +58,6 @@ function title(quiz: QuizSummary) {
 
 function status(quiz: QuizSummary) {
   return quiz.latestAttempt?.status ?? "new";
-}
-
-function action(quiz: QuizSummary) {
-  return status(quiz) === "draft"
-    ? "Resume"
-    : status(quiz) === "submitted"
-      ? "Results"
-      : "Start";
 }
 
 function score(quiz: QuizSummary) {
@@ -260,39 +251,26 @@ export function QuizTable({
     update({ search: "", status: "all", difficulty: "all", page: 1 });
   }
 
-  function openButton(quiz: QuizSummary, isAction = false) {
+  function openButton(quiz: QuizSummary) {
     return (
       <Button
         type="button"
-        variant={isAction ? "ghost" : "link"}
+        variant="link"
         size="sm"
-        data-quiz-open={isAction ? undefined : quiz.id}
-        aria-label={`${isAction ? action(quiz) : "Open"} quiz #${quiz.number}`}
-        aria-keyshortcuts={isAction ? undefined : "ArrowUp ArrowDown"}
+        data-quiz-open={quiz.id}
+        aria-label={`Open quiz #${quiz.number}`}
+        aria-keyshortcuts="ArrowUp ArrowDown"
         disabled={disabled}
         onClick={() => onOpen(quiz.id)}
-        title={isAction ? undefined : title(quiz)}
+        title={title(quiz)}
         className={cn(
-          "rounded-sm",
-          isAction
-            ? "h-11 shrink-0 justify-start px-1.5 text-metadata text-muted hover:text-foreground md:h-8"
-            : cn(
-                "h-auto w-full justify-start px-0 py-0 text-left text-ui font-medium whitespace-normal",
-                quiz.deletedAt && "text-muted",
-              ),
-          isAction && status(quiz) === "draft" && "text-foreground",
+          "h-auto w-full justify-start rounded-sm px-0 py-0 text-left text-ui font-medium whitespace-normal",
+          quiz.deletedAt && "text-muted",
         )}
       >
-        {isAction ? (
-          <>
-            {action(quiz)}
-            <ArrowRight size={13} aria-hidden="true" />
-          </>
-        ) : (
-          <span className="line-clamp-2 [overflow-wrap:anywhere]">
-            {title(quiz)}
-          </span>
-        )}
+        <span className="line-clamp-2 [overflow-wrap:anywhere]">
+          {title(quiz)}
+        </span>
       </Button>
     );
   }
@@ -486,7 +464,9 @@ export function QuizTable({
                 <col className="w-32" />
                 <col className="w-16" />
                 <col className="hidden w-20 @[850px]/quiz-list:table-column" />
-                <col className="w-28" />
+                <col
+                  className={settings.status === "deleted" ? "w-28" : "w-14"}
+                />
               </colgroup>
               <TableHeader className="border-b border-line bg-panel text-muted">
                 <TableRow>
@@ -509,7 +489,7 @@ export function QuizTable({
                     Created
                   </TableHead>
                   <TableHead scope="col" className="h-8">
-                    <span className="sr-only">Open quiz</span>
+                    <span className="sr-only">Actions</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -559,14 +539,9 @@ export function QuizTable({
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        {quiz.deletedAt ? (
-                          restoreButton(quiz)
-                        ) : (
-                          <>
-                            {openButton(quiz, true)}
-                            {deleteButton(quiz)}
-                          </>
-                        )}
+                        {quiz.deletedAt
+                          ? restoreButton(quiz)
+                          : deleteButton(quiz)}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -596,14 +571,9 @@ export function QuizTable({
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
-                      {quiz.deletedAt ? (
-                        restoreButton(quiz)
-                      ) : (
-                        <>
-                          {openButton(quiz, true)}
-                          {deleteButton(quiz)}
-                        </>
-                      )}
+                      {quiz.deletedAt
+                        ? restoreButton(quiz)
+                        : deleteButton(quiz)}
                     </div>
                   </div>
                   <div className="mt-2 flex items-center justify-between gap-3">

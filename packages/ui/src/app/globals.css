@@ -111,7 +111,7 @@
   --action-ink: #f7f7f7;
   --ember: #a63a19;
   --ember-surface: #fdf4f1;
-  --workspace-sidebar-width: 232px;
+  --workspace-sidebar-width: 248px;
   --workspace-header-height: 42px;
   --workspace-gutter: 20px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -639,12 +639,16 @@ html[data-desktop="true"] #app-content {
 
 /* One desktop frame: quiet chrome, compact controls, and a clear working canvas. */
 .sidebar-nav-item {
-  min-height: 32px;
-  font-size: 13px;
+  min-height: 40px;
+  font-size: 14px;
 }
 .workspace-navigation .sidebar-create {
-  height: 32px;
-  font-size: 13px;
+  height: 40px;
+  font-size: 14px;
+}
+.workspace-navigation button[aria-label="Account"],
+.workspace-navigation button[aria-label="Appearance"] {
+  min-height: 40px;
 }
 .workspace-toolbar {
   border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);

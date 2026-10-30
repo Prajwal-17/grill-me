@@ -53,6 +53,14 @@ export function Navigation({
       active: pathname === "/history",
     },
     {
+      href: "/preferences",
+      label: "Preferences",
+      icon: SlidersHorizontal,
+      active: pathname === "/preferences",
+    },
+  ];
+  const utilityLinks = [
+    {
       href: "/settings",
       label: "Settings",
       icon: Settings2,
@@ -64,13 +72,32 @@ export function Navigation({
       icon: ScrollText,
       active: pathname === "/logs" || pathname.startsWith("/logs/"),
     },
-    {
-      href: "/preferences",
-      label: "Preferences",
-      icon: SlidersHorizontal,
-      active: pathname === "/preferences",
-    },
   ];
+  const renderLink = ({
+    href,
+    label,
+    icon: Icon,
+    active,
+  }: (typeof mainLinks)[number]) => {
+    return (
+      <li key={href}>
+        <Link
+          to={href}
+          onClick={close}
+          aria-current={active ? "page" : undefined}
+          className={cn(
+            "sidebar-nav-item flex items-center gap-2.5 rounded-md px-2.5 transition-colors duration-100",
+            active
+              ? "bg-nav-active font-medium text-nav-active-foreground"
+              : "text-muted hover:bg-elevated hover:text-foreground",
+          )}
+        >
+          <Icon size={16} strokeWidth={1.7} aria-hidden="true" />
+          {label}
+        </Link>
+      </li>
+    );
+  };
   return (
     <div className="workspace-navigation flex h-full min-w-0 flex-col">
       <div className="desktop-sidebar-header flex h-[var(--workspace-header-height)] shrink-0 items-center gap-2 px-3">
@@ -114,28 +141,18 @@ export function Navigation({
           className="sidebar-create mb-3 w-full justify-start gap-2"
         >
           <Link to="/" onClick={close}>
-            <Plus size={15} />
+            <Plus size={16} />
             New build
           </Link>
         </Button>
-        <nav aria-label="Main navigation" className="grid gap-0.5">
-          {mainLinks.map(({ href, label, icon: Icon, active }) => (
-            <Link
-              key={href}
-              to={href}
-              onClick={close}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "sidebar-nav-item flex items-center gap-2.5 rounded-md px-2.5 transition-colors duration-100",
-                active
-                  ? "bg-nav-active font-medium text-nav-active-foreground"
-                  : "text-muted hover:bg-elevated hover:text-foreground",
-              )}
-            >
-              <Icon size={15} strokeWidth={1.7} aria-hidden="true" />
-              {label}
-            </Link>
-          ))}
+        <nav
+          aria-label="Main navigation"
+          className="flex flex-1 flex-col gap-6"
+        >
+          <ul className="grid gap-0.5">{mainLinks.map(renderLink)}</ul>
+          <ul className="mt-auto grid gap-0.5">
+            {utilityLinks.map(renderLink)}
+          </ul>
         </nav>
       </div>
       <div className="shrink-0 border-t border-line/60 px-2 pb-2 pt-1.5">

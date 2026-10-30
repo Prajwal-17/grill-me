@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { localTransport } from "@/shared/lib/local-client";
 import { PreferencesSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { useState, type FormEvent } from "react";
 import { Input } from "@/shared/components/ui/input";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { SettingsLayout } from "@/shared/components/layout/settings-layout";
+import { preferenceSections } from "@/shared/components/layout/settings-navigation";
 import { Button } from "@/shared/components/ui/button";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
 import {
@@ -31,7 +32,17 @@ export function PreferencesPage() {
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<PreferenceValues | null>(null);
   const [saved, setSaved] = useState(false);
-  const [section, setSection] = useState<PreferenceSection>("profile");
+  const [params, setParams] = useSearchParams();
+  const section =
+    preferenceSections.find(({ id }) => id === params.get("section"))?.id ??
+    "profile";
+  function setSection(value: PreferenceSection) {
+    setParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("section", value);
+      return next;
+    });
+  }
   const preferences = useQuery({
     queryKey: preferencesKey(profile?.id),
     queryFn: () => getPreferences(profile!.id),
@@ -115,35 +126,7 @@ export function PreferencesPage() {
   }
   return (
     <AppShell profile={profile} title="Preferences" contentScrollable={false}>
-      <SettingsLayout
-        activeSection={section}
-        navigation={
-          <nav
-            aria-label="Preference sections"
-            className="flex gap-1 md:flex-col"
-          >
-            {(
-              [
-                ["profile", "Profile"],
-                ["practice", "Practice"],
-                ["projects", "Projects"],
-                ["reviews", "Code reviews"],
-              ] as const
-            ).map(([value, label]) => (
-              <Button
-                key={value}
-                type="button"
-                variant="ghost"
-                aria-current={section === value ? "page" : undefined}
-                onClick={() => setSection(value)}
-                className={`min-h-9 shrink-0 justify-start px-2.5 text-ui ${section === value ? "bg-nav-active font-medium text-nav-active-foreground hover:bg-nav-active hover:text-nav-active-foreground" : "text-muted"}`}
-              >
-                {label}
-              </Button>
-            ))}
-          </nav>
-        }
-      >
+      <SettingsLayout activeSection={section} kind="preferences">
         {preferences.isLoading ? (
           <PreferencesSkeleton />
         ) : preferences.error && !preferences.data ? (

@@ -1,7 +1,5 @@
 import {
-  ArrowRight,
   AlertTriangle,
-  Braces,
   Check,
   ChevronsUpDown,
   Database,
@@ -173,6 +171,7 @@ export function SubmissionComposer({
   onRetryReviewStatus: () => void;
 }) {
   const instantMotion = useInstantMotion();
+  const [dragging, setDragging] = useState(false);
   const [projectMenuOpen, setProjectMenuOpen] = useState(false);
   const selectedProject = projects.find((project) => project.id === projectId);
   const hasSource = Boolean(projectId || uploads.length || content.trim());
@@ -181,13 +180,16 @@ export function SubmissionComposer({
   return (
     <fieldset
       disabled={!active || busy}
-      className="overflow-hidden rounded-lg border border-line bg-surface disabled:opacity-60"
+      className="min-w-0 space-y-6 disabled:opacity-60"
     >
-      <div className="flex flex-col gap-3 border-b border-line bg-panel/60 px-4 py-4 sm:flex-row sm:items-end">
+      <div>
+        <h2 className="text-section font-semibold tracking-[-0.02em]">
+          Submit implementation
+        </h2>
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
-          <label className="mb-2 block text-metadata font-medium">
-            Project
-          </label>
+          <p className="mb-2 text-ui font-medium">Project folder</p>
           <Popover open={projectMenuOpen} onOpenChange={setProjectMenuOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -208,7 +210,7 @@ export function SubmissionComposer({
                   <span className="truncate">
                     {projectsLoading
                       ? "Loading projects…"
-                      : selectedProject?.name || "Attached files only"}
+                      : selectedProject?.name || "No folder selected"}
                   </span>
                 </span>
                 <ChevronsUpDown size={14} className="shrink-0 text-muted" />
@@ -224,14 +226,14 @@ export function SubmissionComposer({
                   <CommandEmpty>No connected folders found.</CommandEmpty>
                   <CommandGroup>
                     <CommandItem
-                      value="attached files only"
+                      value="no folder selected"
                       onSelect={() => {
                         onProjectChange("");
                         setProjectMenuOpen(false);
                       }}
                     >
                       <Files />
-                      <span>Attached files only</span>
+                      <span>No folder selected</span>
                       <Check
                         className={cn(
                           "ml-auto",
@@ -278,137 +280,153 @@ export function SubmissionComposer({
       </div>
 
       {selectedProject && (
-        <p className="truncate border-b border-line px-4 py-2 font-mono text-metadata text-muted">
+        <p className="-mt-4 break-all font-mono text-metadata text-muted">
           {selectedProject.root}
         </p>
       )}
       {projectsError && (
-        <p className="border-b border-line px-4 py-2 text-metadata text-destructive">
+        <p className="text-supporting text-destructive">
           Could not load connected projects.
         </p>
       )}
 
-      <div className="border-b border-line">
-        <div className="flex items-center justify-between px-4 py-3">
-          <h3 className="text-metadata font-medium">Files</h3>
-          {!!uploads.length && (
-            <div className="flex items-center gap-2">
-              <span className="text-metadata tabular-nums text-muted">
-                {uploads.length}
-              </span>
-              <Button size="sm" variant="ghost" onClick={onClearUploads}>
-                Clear
-              </Button>
-            </div>
-          )}
-        </div>
-
-        <div
-          className="mx-4 mb-4 flex flex-col items-center gap-3 rounded-lg border border-dashed border-line-strong px-4 py-4 sm:flex-row sm:text-left"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={(event) => {
-            event.preventDefault();
-            const files = Array.from(event.dataTransfer.files);
-            if (files.length) onUpload(files);
-          }}
-        >
-          <UploadCloud size={18} className="shrink-0 text-muted" />
-          <p className="flex-1 text-ui">Drop files here</p>
-          <label className="relative inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-2.5 text-metadata font-medium hover:bg-elevated focus-within:ring-2">
-            <Paperclip size={14} />
-            Choose files
-            <input
-              aria-label="Attach source files"
-              type="file"
-              multiple
-              disabled={!active || busy}
-              className="absolute inset-0 cursor-pointer opacity-0"
-              onChange={(event) => {
-                const files = Array.from(event.target.files ?? []);
-                if (files.length) onUpload(files);
-                event.target.value = "";
-              }}
-            />
-          </label>
-        </div>
-
-        <ul className="max-h-60 divide-y divide-line overflow-y-auto border-t border-line empty:hidden">
-          <AnimatePresence initial={false} custom={instantMotion}>
-            {uploads.map((file) => {
-              const parts = file.filename.split("/");
-              const name = parts.pop() ?? file.filename;
-              const directory = parts.join("/");
-              return (
-                <motion.li
-                  initial={instantMotion ? false : { opacity: 0, x: -4 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit="exit"
-                  variants={{
-                    exit: (immediate: boolean) => ({
-                      opacity: 0,
-                      x: immediate ? 0 : 4,
-                      transition: { duration: immediate ? 0 : 0.1 },
-                    }),
-                  }}
-                  key={file.id}
-                  className="group flex items-center gap-3 px-4 py-2.5"
-                >
-                  <FileTypeIcon filename={file.filename} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-mono text-metadata">
-                      {name}
-                    </span>
-                    {directory && (
-                      <span className="mt-0.5 block truncate font-mono text-metadata text-muted">
-                        {directory}
-                      </span>
-                    )}
+      <div className="@container/submission">
+        <div className="grid min-w-0 gap-6 @min-[720px]/submission:grid-cols-2">
+          <section className="min-w-0" aria-labelledby="submission-files-title">
+            <div className="mb-3 flex min-h-8 items-center justify-between gap-2">
+              <h3 id="submission-files-title" className="text-ui font-medium">
+                Source files
+              </h3>
+              {!!uploads.length && (
+                <div className="flex items-center gap-2">
+                  <span className="text-metadata tabular-nums text-muted">
+                    {uploads.length}
                   </span>
-                  <button
-                    type="button"
-                    aria-label={"Remove " + file.filename}
-                    onClick={() => onRemoveUpload(file.id)}
-                    className="pressable shrink-0 rounded p-1.5 text-muted hover:bg-elevated hover:text-foreground"
-                  >
-                    <X size={14} />
-                  </button>
-                </motion.li>
-              );
-            })}
-          </AnimatePresence>
-        </ul>
+                  <Button size="sm" variant="ghost" onClick={onClearUploads}>
+                    Clear
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div
+              className={cn(
+                "flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg border border-dashed px-4 py-6 text-center transition-colors",
+                dragging
+                  ? "border-foreground bg-elevated"
+                  : "border-control-border bg-surface",
+              )}
+              onDragOver={(event) => {
+                event.preventDefault();
+                if (active && !busy) setDragging(true);
+              }}
+              onDragLeave={(event) => {
+                if (
+                  !event.currentTarget.contains(
+                    event.relatedTarget as Node | null,
+                  )
+                )
+                  setDragging(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setDragging(false);
+                if (!active || busy) return;
+                const files = Array.from(event.dataTransfer.files);
+                if (files.length) onUpload(files);
+              }}
+            >
+              <UploadCloud size={24} className="shrink-0 text-muted" />
+              <p className="text-ui">Drop source files here</p>
+              <label className="relative inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-control-border bg-surface px-3 text-supporting font-medium hover:bg-elevated focus-within:ring-2">
+                <Paperclip size={14} />
+                Choose files
+                <input
+                  aria-label="Attach source files"
+                  type="file"
+                  multiple
+                  disabled={!active || busy}
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    if (files.length) onUpload(files);
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+
+            <ul className="mt-3 max-h-60 divide-y divide-line overflow-y-auto empty:hidden">
+              <AnimatePresence initial={false} custom={instantMotion}>
+                {uploads.map((file) => {
+                  const parts = file.filename.split("/");
+                  const name = parts.pop() ?? file.filename;
+                  const directory = parts.join("/");
+                  return (
+                    <motion.li
+                      initial={instantMotion ? false : { opacity: 0, x: -4 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit="exit"
+                      variants={{
+                        exit: (immediate: boolean) => ({
+                          opacity: 0,
+                          x: immediate ? 0 : 4,
+                          transition: { duration: immediate ? 0 : 0.1 },
+                        }),
+                      }}
+                      key={file.id}
+                      className="group flex items-center gap-3 py-2.5"
+                    >
+                      <FileTypeIcon filename={file.filename} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-mono text-metadata">
+                          {name}
+                        </span>
+                        {directory && (
+                          <span className="mt-0.5 block truncate font-mono text-metadata text-muted">
+                            {directory}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={"Remove " + file.filename}
+                        onClick={() => onRemoveUpload(file.id)}
+                        className="pressable shrink-0 rounded p-1.5 text-muted hover:bg-elevated hover:text-foreground"
+                      >
+                        <X size={14} />
+                      </button>
+                    </motion.li>
+                  );
+                })}
+              </AnimatePresence>
+            </ul>
+          </section>
+
+          <section className="min-w-0" aria-labelledby="submission-code-title">
+            <div className="mb-3 flex min-h-8 items-center justify-between gap-2">
+              <h3 id="submission-code-title" className="text-ui font-medium">
+                Code snippet
+              </h3>
+              {snippetLines > 0 && (
+                <span className="text-metadata tabular-nums text-muted">
+                  {snippetLines} {snippetLines === 1 ? "line" : "lines"}
+                </span>
+              )}
+            </div>
+            <Textarea
+              aria-label="Implementation code"
+              value={content}
+              onChange={(event) => onContentChange(event.target.value)}
+              placeholder="Paste your implementation here…"
+              rows={12}
+              className="min-h-72 resize-y bg-surface font-mono text-code"
+            />
+          </section>
+        </div>
       </div>
 
-      <details className="group border-b border-line">
-        <summary className="flex list-none items-center gap-2.5 px-4 py-3 text-ui hover:bg-elevated/30">
-          <Braces size={15} className="text-muted" />
-          <span>Paste code</span>
-          {snippetLines > 0 && (
-            <span className="ml-auto text-metadata tabular-nums text-muted">
-              {snippetLines} lines
-            </span>
-          )}
-          <ArrowRight
-            size={13}
-            className={
-              "text-muted motion-chevron group-open:rotate-90 " +
-              (snippetLines ? "" : "ml-auto")
-            }
-          />
-        </summary>
-        <div className="border-t border-line p-4">
-          <Textarea
-            aria-label="Implementation code"
-            value={content}
-            onChange={(event) => onContentChange(event.target.value)}
-            placeholder="Paste code…"
-            rows={9}
-            className="min-h-48 resize-y font-mono text-metadata leading-5"
-          />
-        </div>
-      </details>
-
-      <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-2">
           {reviewIssue && (
             <AlertTriangle size={14} className="shrink-0 text-warning" />
@@ -417,7 +435,7 @@ export function SubmissionComposer({
             role="status"
             className={cn(
               "min-w-0 text-metadata",
-              reviewIssue ? "text-warning" : "truncate text-muted",
+              reviewIssue ? "text-warning" : "text-muted",
             )}
           >
             {uploadProgress ||
@@ -428,8 +446,17 @@ export function SubmissionComposer({
                 : reviewStatusError
                   ? "Could not check review service."
                   : hasSource
-                    ? "Ready for review"
-                    : "Add a project, file, or code")}
+                    ? [
+                        projectId &&
+                          (selectedProject?.name || "Project folder"),
+                        uploads.length > 0 &&
+                          `${uploads.length} ${uploads.length === 1 ? "file" : "files"}`,
+                        snippetLines > 0 &&
+                          `${snippetLines} ${snippetLines === 1 ? "line" : "lines"} of code`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : "No sources added")}
           </p>
           {(reviewIssue || reviewStatusError) && (
             <button

@@ -94,7 +94,7 @@ typography:
     lineHeight: 1.5
   navigation-label:
     fontFamily: "Inter Variable, system-ui, sans-serif"
-    fontSize: "13px"
+    fontSize: "14px"
     fontWeight: 500
     lineHeight: 1.5
   toolbar-label:
@@ -165,7 +165,7 @@ components:
     typography: "{typography.navigation-label}"
     rounded: "{rounded.md}"
     padding: "0 10px"
-    height: "32px"
+    height: "40px"
   metadata-badge:
     backgroundColor: "{colors.light-selection-surface}"
     textColor: "{colors.light-selection-ink}"
@@ -233,7 +233,7 @@ Tailwind Merge so size overrides never swallow text-color classes. At the defaul
 16px root: `text-ui` is 14/21, `text-supporting` 13/20, `text-metadata` 12/18,
 `text-reading` 16/28, `text-question` 18/28, `text-section` 20/28, `text-title`
 24/32, and `text-code` 13/22. These role sizes are rem-based and respect browser text scaling.
-The compact shell uses 13px desktop main-navigation labels and 12px toolbar
+The compact shell uses 14px desktop main-navigation labels and 12px toolbar
 action labels; mobile main-navigation labels increase to 14px.
 Use 400 for reading, 500 for controls and row titles, and 600 for headings. Do not
 reintroduce 10–11px labels or arbitrary font-size literals.
@@ -248,15 +248,18 @@ figures. Font sizes, weight, and spacing carry hierarchy without recoloring text
 
 ## Layout
 
-The shell fills the dynamic viewport. The 232px desktop sidebar begins at
+The shell fills the dynamic viewport. The 248px desktop sidebar begins at
 768px; it collapses immediately, with Ctrl+B preserved and focus restored to the
 visible sidebar toggle when needed. A 280px shadcn Sheet provides mobile
 navigation. The content frame has a single left divider and a compact 42px
 desktop toolbar. On mobile, the header uses a 52px reference minimum and keeps the title,
 navigation toggle, and notification bell in one row. Content regions own their
 scrolling. Page actions belong to their content, outside the draggable title bar.
-The sidebar holds 32px creation and labeled navigation rows for Home,
-Challenges, Quizzes, History, Settings, Logs, and Preferences. Practice lists and
+The sidebar holds 40px creation and labeled navigation rows for Home,
+Challenges, Quizzes, History, and Preferences. Settings and Logs are anchored
+at the bottom of the navigation, above Appearance and the account controls.
+Settings and Preferences place their categories in a second, open column
+beside the main sidebar, with the content canvas showing through and no divider. Practice lists and
 filters stay in the main content; do not add a recent-practice feed to the
 sidebar. Appearance and account controls remain anchored in the footer. Mobile
 navigation, creation, appearance, and account controls use targets at least 44px
@@ -285,11 +288,14 @@ areas are constrained to approximately 880px. The optional reference is 340px
 wide above the 1180px workspace breakpoint, and a drawer below it. File previews
 retain their existing wide-panel and full-screen controls.
 
-Settings and Preferences share `SettingsLayout`: a 176px category rail from
-768px and a left-aligned scrolling content panel capped at 800px. Below that
-breakpoint, navigation becomes a horizontal scrolling row. Content uses 16px
-mobile and 24px desktop gutters. Switching categories resets the content scroll
-without remounting sections, preserving unsaved drafts.
+Settings and Preferences share `SettingsLayout`: a 208px category column beside
+an independently scrolling content panel capped at 800px. The category column
+is unboxed: transparent background, no separator, no border, no full-height
+panel treatment. Category buttons use icons and 40px rows. Below 768px, a
+Sections button opens the category list in a Sheet. Content uses 16px mobile
+and 24px desktop gutters. Switching categories resets content scroll without
+remounting sections, preserving unsaved drafts. Before selecting a profile,
+Settings uses the same category column without the global navigation.
 
 Preferences keep Profile, Practice, Projects, and Code reviews mounted. Labels
 and fields align in columns only above 600px of form/container width; narrower
@@ -360,10 +366,11 @@ rather than installing a second component vocabulary. Configuration reference:
   padding, 12px labels, and 6px corners. Within that toolbar only,
   notification controls use the quiet surface and foreground. Page commit
   actions keep the inverted monochrome fill and remain in their page content.
-- **Navigation:** main links use compact 13px desktop labels, neutral active
+- **Navigation:** main links use 14px desktop labels, neutral active
   fills, muted resting text, and elevated hover fills with foreground text.
-  Mobile labels use 14px and the larger targets described in Layout. Settings,
-  Logs, and Preferences are labeled links alongside the main workflows. Appearance
+  Mobile labels use 14px and the larger targets described in Layout. Settings
+  and Logs are footer navigation links; Preferences stays with the main workflows.
+  Settings and Preferences use a separate, borderless category column. Appearance
   and account remain anchored below the scrolling navigation. Current routes
   retain `aria-current`, including Challenges while viewing a build.
 - **Fields:** visible labels, surface backgrounds, shared hover/focus/invalid
