@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## desktop-v0.1.1 - 30 Oct 2026
 
 ### Fixed
 
