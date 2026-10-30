@@ -25,6 +25,7 @@ export function DesktopWindowChrome() {
   const zoom = state.data?.zoom ?? 1;
   useEffect(() => {
     if (!bridge) return;
+    document.documentElement.dataset.desktopPlatform = bridge.platform;
     document.documentElement.style.setProperty(
       "--desktop-page-zoom",
       String(zoom),
@@ -33,7 +34,7 @@ export function DesktopWindowChrome() {
       document.documentElement.style.removeProperty("--desktop-page-zoom");
     };
   }, [bridge, zoom]);
-  if (!bridge) return null;
+  if (!bridge || bridge.platform === "darwin") return null;
   const perform = (action: Promise<unknown>) => {
     void action.catch(() =>
       show({

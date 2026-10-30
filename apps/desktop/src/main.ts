@@ -47,36 +47,52 @@ protocol.registerSchemesAsPrivileged([
 app.setPath("userData", join(app.getPath("appData"), identity.dataDirectory));
 let backend: ChildProcess | undefined;
 let quitting = false;
+let shutdownComplete = false;
 let window: BrowserWindow | undefined;
-function stopBackend() {
-  if (!backend?.pid) return;
+function stopBackend(): Promise<void> {
   const child = backend;
   backend = undefined;
-  child.stdin?.end();
-  try {
-    process.kill(-child.pid!, "SIGTERM");
-  } catch {
-    /* already exited */
-  }
-  const timer = setTimeout(() => {
+  if (!child?.pid) return Promise.resolve();
+  const pid = child.pid;
+  const signal = (value: NodeJS.Signals) => {
     try {
-      process.kill(-child.pid!, "SIGKILL");
+      process.kill(-pid, value);
     } catch {
       /* already exited */
     }
-  }, 3000);
-  timer.unref();
-  child.once("exit", () => clearTimeout(timer));
+  };
+  child.stdin?.end();
+  signal("SIGTERM");
+  return new Promise((done) => {
+    setTimeout(() => {
+      signal("SIGKILL");
+      done();
+    }, 3000);
+  });
 }
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if (shutdownComplete) return;
+  event.preventDefault();
+  if (quitting) return;
   quitting = true;
-  stopBackend();
+  void stopBackend().finally(() => {
+    shutdownComplete = true;
+    app.quit();
+  });
 });
-app.on("window-all-closed", () => app.quit());
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});
+app.on("activate", () => {
+  if (window?.isMinimized()) window.restore();
+  window?.show();
+  window?.focus();
+});
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on("second-instance", () => {
     if (window?.isMinimized()) window.restore();
+    window?.show();
     window?.focus();
   });
   void app
@@ -110,6 +126,15 @@ async function start() {
       ? join(process.resourcesPath, "backend/grill-me-backend")
       : join(desktopRoot, "resources/backend/grill-me-backend");
   if (!executable) throw new Error("Use bun dev to start the source backend.");
+  if (!devUrl) {
+    const target = JSON.parse(
+      readFileSync(join(dirname(executable), "target.json"), "utf8"),
+    );
+    if (target.platform !== process.platform || target.arch !== process.arch)
+      throw new Error(
+        `Backend target ${target.platform}/${target.arch} does not match Electron ${process.platform}/${process.arch}. Rebuild on a matching native host.`,
+      );
+  }
   const args = devUrl
     ? ["--no-env-file", join(desktopRoot, "src/backend.ts")]
     : [];
@@ -199,7 +224,7 @@ async function start() {
     backgroundColor: "#0a0a0a",
     show: false,
     fullscreen: false,
-    frame: false,
+    frame: process.platform === "darwin",
     autoHideMenuBar: true,
     webPreferences: {
       session: desktopSession,
@@ -277,7 +302,8 @@ async function start() {
     }
     if (["q", "w"].includes(input.key.toLowerCase())) {
       event.preventDefault();
-      window?.close();
+      if (input.key.toLowerCase() === "q") app.quit();
+      else window?.close();
       return;
     }
     if (input.shift && input.key.toLowerCase() === "i") {
@@ -416,7 +442,64 @@ async function start() {
       app.quit();
     }
   });
-  Menu.setApplicationMenu(null);
+  window.on("close", (event) => {
+    if (process.platform === "darwin" && !quitting) {
+      event.preventDefault();
+      window?.hide();
+    }
+  });
+  Menu.setApplicationMenu(
+    process.platform === "darwin"
+      ? Menu.buildFromTemplate([
+          {
+            label: identity.productName,
+            submenu: [
+              { role: "about" },
+              { type: "separator" },
+              {
+                label: "Settings…",
+                accelerator: "CommandOrControl+,",
+                click: () => {
+                  window?.show();
+                  window?.webContents.send("desktop:open-settings");
+                },
+              },
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+          { role: "editMenu" },
+          {
+            label: "View",
+            submenu: [
+              {
+                label: "Zoom In",
+                accelerator: "CommandOrControl+=",
+                click: () => zoom("in"),
+              },
+              {
+                label: "Zoom Out",
+                accelerator: "CommandOrControl+-",
+                click: () => zoom("out"),
+              },
+              {
+                label: "Actual Size",
+                accelerator: "CommandOrControl+0",
+                click: () => zoom("reset"),
+              },
+              { role: "togglefullscreen" },
+            ],
+          },
+          { role: "windowMenu" },
+        ])
+      : null,
+  );
   window.setMenu(null);
   await window.loadURL(devUrl ?? "grill-me://app/");
 }

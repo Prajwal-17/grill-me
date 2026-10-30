@@ -693,3 +693,7 @@ html[data-desktop="true"] #app-content {
     min-height: 44px;
   }
 }
+
+html[data-desktop-platform="darwin"] {
+  --desktop-caption-space: 0px;
+}

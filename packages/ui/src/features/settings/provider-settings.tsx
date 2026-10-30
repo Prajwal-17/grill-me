@@ -313,7 +313,7 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
                       })
                     }
                     options={[
-                      { id: "keyring", label: "Linux keyring" },
+                      { id: "keyring", label: "System credential store" },
                       { id: "session", label: "Session only" },
                     ]}
                   />

@@ -113,6 +113,7 @@ export type DesktopState = WindowSettings & {
 };
 export type ConnectionBootstrap = { wsUrl: string; ticket: string };
 export interface DesktopBridge {
+  platform: "linux" | "darwin";
   minimizeWindow(): Promise<void>;
   toggleMaximize(): Promise<DesktopState>;
   closeWindow(): Promise<void>;

@@ -31,9 +31,8 @@ export function useAppNavigation() {
       if (event.defaultPrevented || event.repeat || event.isComposing) return;
 
       if (
-        event.ctrlKey &&
+        (event.ctrlKey || event.metaKey) &&
         !event.altKey &&
-        !event.metaKey &&
         !event.shiftKey &&
         event.key.toLowerCase() === "b"
       ) {

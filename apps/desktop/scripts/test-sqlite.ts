@@ -23,6 +23,7 @@ export async function runSqliteTests() {
         "./apps/backend/test/project-folders.test.ts",
         "./apps/desktop/test/sqlite.test.ts",
         "./apps/desktop/test/identity.test.ts",
+        "./apps/desktop/test/platform.test.ts",
         "./apps/desktop/test/cli-providers.test.ts",
       ],
       {

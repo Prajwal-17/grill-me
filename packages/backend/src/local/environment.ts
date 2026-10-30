@@ -1,3 +1,4 @@
+import { executablePath } from "./executable-path";
 import { join } from "node:path";
 export const settingKeys = [
   "CODEX_BIN",
@@ -53,6 +54,7 @@ export function backendEnvironment(input: {
         .filter((key) => input.settings[key] !== undefined)
         .map((key) => [key, input.settings[key]!]),
     ),
+    PATH: executablePath(source),
     APP_ENV: input.channel ?? "development",
     NODE_ENV: input.channel ?? "development",
     GRILL_DESKTOP_CHANNEL: input.channel ?? "development",

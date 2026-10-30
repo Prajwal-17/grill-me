@@ -21,7 +21,7 @@ export function sessionSecretStore(): SecretStore {
     }),
   };
 }
-export function linuxSecretStore(
+export function nativeSecretStore(
   dataRoot: string,
   modulePath?: string,
 ): SecretStore {
@@ -35,7 +35,15 @@ export function linuxSecretStore(
       modulePath ?? "@napi-rs/keyring"
     )) as typeof import("@napi-rs/keyring");
     // A kernel keyring fallback is not persistent across reboot. Require Secret Service.
-    return new AsyncEntry(service, id, { linux: { store: "secret-service" } });
+    if (!["linux", "darwin"].includes(process.platform))
+      throw new Error("Native credential storage is unsupported on this OS.");
+    return new AsyncEntry(
+      service,
+      id,
+      process.platform === "linux"
+        ? { linux: { store: "secret-service" } }
+        : undefined,
+    );
   };
   return {
     get: async (id) => (await (await entry(id)).getPassword()) ?? undefined,
@@ -51,15 +59,17 @@ export function linuxSecretStore(
         await (await entry("availability-probe")).getPassword();
         return {
           available: true,
-          message: "Saved keys are protected by your Linux keyring.",
+          message: `Saved keys are protected by your ${process.platform === "darwin" ? "macOS Keychain" : "Linux keyring"}.`,
         };
       } catch {
         return {
           available: false,
-          message:
-            "The Linux keyring is locked or unavailable. Unlock it to save keys, or choose session only.",
+          message: `The ${process.platform === "darwin" ? "macOS Keychain" : "Linux keyring"} is locked or unavailable. Unlock it to save keys, or choose session only.`,
         };
       }
     },
   };
 }
+
+// Preserve the existing Linux API and credential namespace.
+export const linuxSecretStore = nativeSecretStore;

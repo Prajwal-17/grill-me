@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { DesktopBridge } from "@repo/contracts";
 const bridge: DesktopBridge = {
+  platform: process.platform === "darwin" ? "darwin" : "linux",
   minimizeWindow: () => ipcRenderer.invoke("desktop:minimize"),
   toggleMaximize: () => ipcRenderer.invoke("desktop:maximize"),
   closeWindow: () => ipcRenderer.invoke("desktop:close"),

@@ -1,14 +1,17 @@
+import { spawn } from "node:child_process";
+import { buildTarget } from "../src/build-target";
 import { randomBytes } from "node:crypto";
 import { dirname, resolve } from "node:path";
 import { readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 
+buildTarget(process.platform, process.arch);
 const root = resolve(import.meta.dir, "..");
 const inherited = { ...process.env };
 // Terminals hosted by Electron may inherit this from their parent application.
 delete inherited.ELECTRON_RUN_AS_NODE;
 const args = [
-  "bunx",
+  "x",
   "--no-install",
   "electron-vite",
   "dev",
@@ -35,7 +38,8 @@ if (process.platform === "linux") {
     args.push("--noSandbox");
   }
 }
-const dev = Bun.spawn(args, {
+const dev = spawn(process.execPath, args, {
+  detached: true,
   cwd: root,
   env: {
     ...inherited,
@@ -43,10 +47,29 @@ const dev = Bun.spawn(args, {
     DESKTOP_DEV_API_TOKEN: randomBytes(32).toString("hex"),
     DESKTOP_DEV_API_PORT: inherited.DESKTOP_DEV_API_PORT ?? "18027",
   },
-  stdout: "inherit",
-  stderr: "inherit",
+  stdio: "inherit",
 });
-const stop = () => dev.kill("SIGTERM");
+let stopping = false;
+const signal = (value: NodeJS.Signals) => {
+  if (!dev.pid) return;
+  try {
+    process.kill(-dev.pid, value);
+  } catch {
+    /* already exited */
+  }
+};
+const stop = () => {
+  if (stopping) return;
+  stopping = true;
+  signal("SIGTERM");
+  setTimeout(() => signal("SIGKILL"), 3000);
+};
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
-process.exitCode = await dev.exited;
+dev.once("error", (error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+dev.once("exit", (code) => {
+  process.exitCode = code ?? (stopping ? 0 : 1);
+});

@@ -16,7 +16,7 @@ import { AppError } from "../shared/errors/app-error";
 import { changed } from "./changes";
 import type { CliProviders } from "./providers";
 import {
-  linuxSecretStore,
+  nativeSecretStore,
   sessionSecretStore,
   type SecretStore,
 } from "./secrets";
@@ -50,7 +50,8 @@ export function createSettingsService(
     "PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), document TEXT NOT NULL)",
   );
   void chmod(join(root, "settings.sqlite"), 0o600);
-  const keyring = options.keyring ?? linuxSecretStore(root, options.modulePath);
+  const keyring =
+    options.keyring ?? nativeSecretStore(root, options.modulePath);
   const session = options.session ?? sessionSecretStore();
   const saved = db.query("SELECT document FROM settings WHERE id=1").get() as {
     document: string;
@@ -104,7 +105,7 @@ export function createSettingsService(
         .catch(() => {});
       throw new AppError(
         "KEYRING_UNAVAILABLE",
-        "The key could not be saved. Unlock your Linux keyring or choose session only.",
+        "The key could not be saved. Unlock your system credential store or choose session only.",
         503,
         true,
       );
@@ -318,7 +319,7 @@ export function createSettingsService(
           legacyPath,
           text.replace(
             /^\s*(?:export\s+)?LLM_API_KEY\s*=.*$/gm,
-            "# LLM_API_KEY migrated to the Linux keyring",
+            "# LLM_API_KEY migrated to the system credential store",
           ),
           { mode: 0o600 },
         );
@@ -355,7 +356,7 @@ export function createSettingsService(
       } catch {
         throw new AppError(
           "KEYRING_UNAVAILABLE",
-          "Unlock your Linux keyring to use this provider.",
+          "Unlock your system credential store to use this provider.",
           503,
           true,
         );

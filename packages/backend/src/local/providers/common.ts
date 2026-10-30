@@ -114,6 +114,7 @@ export async function providerEnvironment(
     await chmod(dir, 0o700);
   }
   Object.assign(env, {
+    HOME: home,
     TMPDIR: join(home, "tmp"),
     CODEX_HOME: join(home, "config"),
     XDG_CONFIG_HOME: join(home, "config"),
@@ -130,7 +131,9 @@ export async function executable(
   provider: Provider,
   env: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: process.env.HOME },
 ) {
-  const path = Bun.which(provider.binaryPath || provider.kind);
+  const path = Bun.which(provider.binaryPath || provider.kind, {
+    PATH: env.PATH,
+  });
   if (!path)
     throw new AppError(
       "CLI_NOT_INSTALLED",
