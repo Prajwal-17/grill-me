@@ -1,6 +1,6 @@
 {
   "name": "grill-me",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "scripts": {
     "build": "bun run desktop:build",
@@ -13,7 +13,6 @@
     "check-types": "turbo run check-types",
     "check": "bun run format:check && bun run lint && bun run check-types",
     "test:isolated": "bun run scripts/test-isolated.ts",
-    "prompt:eval": "bun run --cwd apps/backend scripts/prompt-eval.ts",
     "desktop:dev": "bun run --cwd apps/desktop dev",
     "desktop:build": "bun run --cwd apps/desktop build:prod",
     "desktop:deb": "bun run --cwd apps/desktop package:deb",

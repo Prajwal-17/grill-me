@@ -15,6 +15,8 @@ import { ProviderSettings } from "./provider-settings";
 import { RuntimeSettingsPanel } from "./runtime-settings";
 import { SettingsFeedback, SettingsLoading } from "./settings-layout";
 import { settingsKey } from "./use-settings-mutation";
+import { AboutSettings } from "./about-settings";
+import { DesktopVersionLink } from "@/shared/components/layout/desktop-version";
 
 export function SettingsPage() {
   const profile = useAppStore((s) => s.profile);
@@ -49,6 +51,9 @@ export function SettingsPage() {
           /
         </span>
         <h1 className="min-w-0 truncate text-ui font-medium">Settings</h1>
+        <div className="ml-auto shrink-0">
+          <DesktopVersionLink />
+        </div>
       </header>
       <div className="min-h-0 flex-1">{content}</div>
     </div>
@@ -70,8 +75,13 @@ function LocalSettingsPanel() {
       <div hidden={active !== "appearance"}>
         <AppearanceSettings />
       </div>
-      {active !== "appearance" && settings.isPending && <SettingsLoading />}
-      {active !== "appearance" && settings.isError && (
+      <div hidden={active !== "about"}>
+        {window.desktopBridge && <AboutSettings />}
+      </div>
+      {active !== "appearance" && active !== "about" && settings.isPending && (
+        <SettingsLoading />
+      )}
+      {active !== "appearance" && active !== "about" && settings.isError && (
         <SettingsFeedback
           error={settings.error}
           onRetry={() => void settings.refetch()}

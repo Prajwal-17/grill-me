@@ -1,6 +1,29 @@
 import { z } from "zod";
 
 export const PROTOCOL_VERSION = 1;
+export const reasoningEffortSchema = z.enum([
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+]);
+export type ReasoningEffort = z.infer<typeof reasoningEffortSchema>;
+export function defaultProviderSettings(channel: string) {
+  return channel === "production"
+    ? { model: "gpt-6.1-sol", reasoningEffort: "high" as const }
+    : { model: "gpt-6-luna", reasoningEffort: "medium" as const };
+}
+export type ProviderModel = {
+  id: string;
+  name: string;
+  reasoningEfforts?: ReasoningEffort[];
+  defaultReasoningEffort?: ReasoningEffort;
+};
+export type ProviderHealth = { ok: boolean; message: string; code?: string };
 export const endpointSchema = z
   .url({ protocol: /^https?$/ })
   .max(2048)
@@ -21,6 +44,7 @@ export const providerSchema = z.object({
     .refine((v) => !v || v.startsWith("/"), "Use an absolute executable path.")
     .default(""),
   model: z.string().trim().min(1).max(160),
+  reasoningEffort: reasoningEffortSchema.optional(),
 });
 export type Provider = z.infer<typeof providerSchema>;
 export const providerInputSchema = providerSchema
@@ -69,7 +93,7 @@ export type ProviderConnection = {
   binaryPath: string | null;
   message: string;
   code?: string;
-  models: { id: string; name: string }[];
+  models: ProviderModel[];
   login?: {
     url?: string;
     instructions?: string;
@@ -95,6 +119,7 @@ export const runtimeSettingsSchema = z.object({
 });
 export type RuntimeSettings = z.infer<typeof runtimeSettingsSchema>;
 export type LocalSettings = {
+  providerDefaults: ReturnType<typeof defaultProviderSettings>;
   providers: SavedProvider[];
   activeProviderId: string | null;
   runtime: RuntimeSettings;
@@ -114,6 +139,7 @@ export type DesktopState = WindowSettings & {
 export type ConnectionBootstrap = { wsUrl: string; ticket: string };
 export interface DesktopBridge {
   platform: "linux" | "darwin";
+  getAppVersion(): Promise<string>;
   minimizeWindow(): Promise<void>;
   toggleMaximize(): Promise<DesktopState>;
   closeWindow(): Promise<void>;
@@ -195,6 +221,6 @@ export interface SettingsApi {
   removeProvider(id: string): Promise<LocalSettings>;
   activateProvider(id: string | null): Promise<LocalSettings>;
   saveRuntime(input: RuntimeSettings): Promise<LocalSettings>;
-  testProvider(id: string): Promise<{ ok: boolean; message: string }>;
+  testProvider(id: string): Promise<ProviderHealth>;
   migrateLegacy(storage: "keyring" | "session"): Promise<LocalSettings>;
 }

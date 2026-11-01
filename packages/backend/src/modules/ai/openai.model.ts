@@ -6,6 +6,7 @@ import {
 import { judgePrompt, verificationPrompt } from "./prompts/judge";
 import { z as zod } from "zod";
 import OpenAI from "openai";
+import type { Reasoning } from "openai/resources/shared";
 import type { z } from "zod";
 import { AppError } from "../../shared/errors/app-error";
 import {
@@ -44,6 +45,8 @@ import {
 } from "./prompts";
 
 import type { TextTransport } from "../../local/providers/common";
+import { providerError } from "../../local/providers/common";
+import type { ReasoningEffort } from "@repo/contracts";
 
 type StructuredPrompt = {
   instructions: string;
@@ -147,6 +150,9 @@ export function createOpenAIModel(
     baseURL?: string;
     model?: string;
     transport?: TextTransport;
+    reasoningEffort?: ReasoningEffort;
+    providerName?: string;
+    timeoutMs?: number;
   } = {},
 ): ModelGateway {
   const apiKey =
@@ -154,6 +160,11 @@ export function createOpenAIModel(
   const baseURL =
     options.baseURL ?? process.env.LLM_BASE_URL ?? "http://localhost:20128/v1";
   const model = options.model ?? process.env.LLM_MODEL ?? "auto";
+  // The installed SDK's type union predates current catalog effort values.
+  // Preserve the user's selection unchanged on the wire.
+  const reasoning = options.reasoningEffort
+    ? ({ effort: options.reasoningEffort } as Reasoning)
+    : undefined;
 
   function client() {
     if (options.client) return options.client;
@@ -168,7 +179,13 @@ export function createOpenAIModel(
       );
     }
 
-    return new OpenAI({ apiKey, baseURL });
+    return new OpenAI({
+      apiKey,
+      baseURL,
+      ...(options.timeoutMs
+        ? { timeout: options.timeoutMs, maxRetries: 0 }
+        : {}),
+    });
   }
 
   async function requestStructured<T>(input: {
@@ -193,6 +210,7 @@ export function createOpenAIModel(
   }): Promise<T> {
     const request = {
       model,
+      ...(reasoning ? { reasoning } : {}),
       store: false,
       instructions:
         input.prompt.instructions +
@@ -249,11 +267,9 @@ export function createOpenAIModel(
         );
       }
       if (response.status === "failed") {
-        throw new AppError(
-          "MODEL_UNAVAILABLE",
-          "The model provider failed to complete the request. Try again.",
-          502,
-          true,
+        throw providerError(
+          response.error,
+          options.providerName ?? "AI provider",
         );
       }
       if (
@@ -321,7 +337,7 @@ export function createOpenAIModel(
         throw cancelled;
       }
       await log.finish("error", error);
-      return modelUnavailable(error);
+      return modelUnavailable(error, options.providerName);
     }
   }
 
@@ -332,6 +348,7 @@ export function createOpenAIModel(
   ): AsyncGenerator<string> {
     const request = {
       model,
+      ...(reasoning ? { reasoning } : {}),
       store: false,
       stream: true as const,
       instructions: input.instructions,
@@ -393,12 +410,20 @@ export function createOpenAIModel(
           eventType === "response.failed" ||
           eventType === "response.incomplete"
         ) {
-          throw new AppError(
-            "MODEL_STREAM_FAILED",
-            "The model stream failed before completion. Try again.",
-            502,
-            true,
+          const response = eventRecord.response as
+            { error?: unknown } | undefined;
+          const failure = providerError(
+            response?.error ?? eventRecord,
+            options.providerName ?? "AI provider",
           );
+          throw failure.code === "PROVIDER_CONNECTION_FAILED"
+            ? new AppError(
+                "MODEL_STREAM_FAILED",
+                "The model stream failed before completion. Check the provider connection in Settings and retry the saved response.",
+                502,
+                true,
+              )
+            : failure;
         }
       }
       if (!receivedText) {
@@ -426,7 +451,7 @@ export function createOpenAIModel(
           )
         : error;
       await log.finish(signal?.aborted ? "cancelled" : "error", failure);
-      return modelUnavailable(failure);
+      return modelUnavailable(failure, options.providerName);
     } finally {
       await log.finish(
         "cancelled",

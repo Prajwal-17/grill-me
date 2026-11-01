@@ -7,6 +7,7 @@ import {
   Target,
   Folder,
   ScanLine,
+  Info,
 } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { cn } from "@/shared/lib/cn";
@@ -15,6 +16,9 @@ export const settingsSections = [
   { id: "appearance", icon: Monitor, label: "Appearance" },
   { id: "providers", icon: Bot, label: "AI providers" },
   { id: "runtime", icon: Terminal, label: "Local runtime" },
+  ...(window.desktopBridge
+    ? [{ id: "about", icon: Info, label: "About" } as const]
+    : []),
 ] as const;
 
 export const preferenceSections = (

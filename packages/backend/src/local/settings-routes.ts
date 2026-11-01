@@ -7,6 +7,16 @@ import type { CliProviders } from "./providers";
 export function settingsRoutes(service: SettingsService, cli: CliProviders) {
   const routes = new Hono();
   routes.get("/", async (c) => c.json({ data: await service.get() }));
+  routes.get("/provider-status", async (c) =>
+    c.json({ data: await service.health() }),
+  );
+  routes.get("/providers/:id/models", async (c) =>
+    c.json({
+      data: await service.models(
+        parseInput(z.string().uuid(), c.req.param("id")),
+      ),
+    }),
+  );
   routes.get("/providers/:id/connection", async (c) =>
     c.json({
       data: await cli.status(

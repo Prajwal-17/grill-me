@@ -1,6 +1,6 @@
 {
   "name": "@grill-me/desktop",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "description": "Grill Me desktop application",
@@ -11,7 +11,6 @@
     "package:deb": "bun run scripts/package.ts linux x64 production",
     "check-types": "tsc --noEmit",
     "lint": "eslint src scripts test *.ts --max-warnings 0",
-    "test:keyring": "dbus-run-session -- bun run scripts/keyring-roundtrip.ts",
     "build:dev": "bun run icons && bun run scripts/build-backend.ts && electron-vite build --mode development",
     "build:prod": "bun run icons && bun run scripts/build-backend.ts && electron-vite build --mode production",
     "package:deb:dev": "bun run scripts/package.ts linux x64 development",

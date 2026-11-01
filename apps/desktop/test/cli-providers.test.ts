@@ -23,6 +23,7 @@ test("CLI providers reuse an executable with isolated authentication, ephemeral 
       kind: "codex",
       binaryPath: binary,
       model: "auto",
+      reasoningEffort: "xhigh",
     });
     const signedOut = await manager.status(p);
     expect(signedOut.installed).toBe(true);
@@ -34,6 +35,12 @@ test("CLI providers reuse an executable with isolated authentication, ephemeral 
     const status = await manager.status(p);
     expect(status.connected).toBe(true);
     expect(status.models[0]?.id).toBe("fixture-model");
+    expect(status.models[1]?.id).toBe("second-model");
+    expect(status.models[0]?.reasoningEfforts).toEqual([
+      "medium",
+      "high",
+      "xhigh",
+    ]);
     manager.disconnect(p.id);
     expect((await manager.status(p)).code).toBe("PROVIDER_DISCONNECTED");
     expect((await manager.status(p)).connected).toBe(false);
@@ -50,6 +57,30 @@ test("CLI providers reuse an executable with isolated authentication, ephemeral 
     expect(params.ephemeral).toBe(true);
     expect(params.sandbox).toBe("read-only");
     expect(params.cwd.startsWith(root)).toBe(true);
+    expect(
+      JSON.parse(await readFile(join(home, "turn.json"), "utf8")).effort,
+    ).toBe("xhigh");
+    let changed = "";
+    for await (const delta of manager
+      .transport({ ...p, model: "second-model", reasoningEffort: "medium" })
+      .run({ instructions: "", input: "Changed settings" }))
+      changed += delta;
+    expect(changed).toBe("Saved response");
+    expect(
+      JSON.parse(await readFile(join(home, "turn.json"), "utf8")).effort,
+    ).toBe("medium");
+    expect(
+      JSON.parse(await readFile(join(home, "thread.json"), "utf8")).model,
+    ).toBe("second-model");
+    await expect(
+      (async () => {
+        for await (const _ of manager
+          .transport({ ...p, model: "second-model", reasoningEffort: "xhigh" })
+          .run({ instructions: "", input: "" })) {
+          /* rejected before inference */
+        }
+      })(),
+    ).rejects.toMatchObject({ code: "PROVIDER_REASONING_UNSUPPORTED" });
     const abort = new AbortController();
     const pending = (async () => {
       for await (const _delta of manager
@@ -264,6 +295,10 @@ test("provider errors distinguish limits, authentication, unsupported protocols,
     providerError({ data: { codexErrorInfo: "usageLimitExceeded" } }, "Codex")
       .code,
   ).toBe("PROVIDER_RATE_LIMIT");
+  expect(
+    providerError({ status: 400, code: "context_length_exceeded" }, "API").code,
+  ).toBe("PROVIDER_CONTEXT_LIMIT");
+  expect(providerError({ status: 504 }, "API").code).toBe("PROVIDER_TIMEOUT");
   expect(providerError({ data: { statusCode: 401 } }, "OpenCode").code).toBe(
     "PROVIDER_AUTH_REQUIRED",
   );

@@ -1,4 +1,9 @@
-import type { Provider, ProviderConnection } from "@repo/contracts";
+import {
+  reasoningEffortSchema,
+  type Provider,
+  type ProviderConnection,
+  type ProviderModel,
+} from "@repo/contracts";
 import { CodexClient } from "../../modules/judges/codex-client";
 import {
   snapshotTools,
@@ -16,6 +21,7 @@ export class CodexConnection {
   private closed = false;
   private loginId: string | undefined;
   private loginExpires = 0;
+  private loginFailure: AppError | undefined;
   private runs = new Set<AbortController>();
   constructor(
     private provider: Provider,
@@ -24,7 +30,20 @@ export class CodexConnection {
     private env: NodeJS.ProcessEnv,
     private workspace: string,
     private client: CodexClient,
-  ) {}
+  ) {
+    client.onEvent = (event) => {
+      if (event.method !== "account/login/completed") return;
+      this.login = undefined;
+      this.loginId = undefined;
+      if (event.params?.success === false)
+        this.loginFailure = new AppError(
+          "PROVIDER_LOGIN_FAILED",
+          "Codex sign-in failed. Start sign-in again in Settings.",
+          503,
+          true,
+        );
+    };
+  }
   static async start(
     root: string,
     provider: Provider,
@@ -59,6 +78,12 @@ export class CodexConnection {
         .catch(() => {});
       this.login = undefined;
       this.loginId = undefined;
+      this.loginFailure = new AppError(
+        "PROVIDER_LOGIN_EXPIRED",
+        "Codex sign-in expired. Start sign-in again in Settings.",
+        503,
+        true,
+      );
     }
     const account = await this.client.request<{
       account: unknown;
@@ -66,25 +91,64 @@ export class CodexConnection {
     }>("account/read", { refreshToken: false });
     const authenticated =
       Boolean(account.account) || account.requiresOpenaiAuth === false;
-    const catalog = authenticated
-      ? await this.client.request<{
+    const models: ProviderModel[] = [];
+    let defaultModel: string | undefined;
+    let cursor: string | undefined;
+    const seen = new Set<string>();
+    if (authenticated)
+      do {
+        const catalog = await this.client.request<{
           data: {
             id: string;
             model: string;
             displayName?: string;
             isDefault?: boolean;
+            supportedReasoningEfforts?: { reasoningEffort: string }[];
+            defaultReasoningEffort?: string;
           }[];
-        }>("model/list", {})
-      : { data: [] };
-    const models = [...catalog.data]
-      .sort(
-        (a, b) => Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)),
-      )
-      .map((m) => ({
-        id: m.model || m.id,
-        name: m.displayName || m.model || m.id,
-      }));
-    if (authenticated) this.login = undefined;
+          nextCursor?: string | null;
+        }>("model/list", {
+          limit: 100,
+          includeHidden: true,
+          ...(cursor ? { cursor } : {}),
+        });
+        const preferred = catalog.data.find((model) => model.isDefault);
+        if (preferred) defaultModel = preferred.model || preferred.id;
+        models.push(
+          ...[...catalog.data]
+            .sort(
+              (a, b) =>
+                Number(Boolean(b.isDefault)) - Number(Boolean(a.isDefault)),
+            )
+            .map((m) => ({
+              id: m.model || m.id,
+              name: m.displayName || m.model || m.id,
+              reasoningEfforts: m.supportedReasoningEfforts?.flatMap(
+                (effort) => {
+                  const parsed = reasoningEffortSchema.safeParse(
+                    effort.reasoningEffort,
+                  );
+                  return parsed.success ? [parsed.data] : [];
+                },
+              ),
+              defaultReasoningEffort: reasoningEffortSchema.safeParse(
+                m.defaultReasoningEffort,
+              ).data,
+            })),
+        );
+        cursor = catalog.nextCursor ?? undefined;
+        if (cursor && seen.has(cursor))
+          throw new SyntaxError("Repeated model cursor");
+        if (cursor) seen.add(cursor);
+      } while (cursor);
+    const preferredIndex = models.findIndex(
+      (model) => model.id === defaultModel,
+    );
+    if (preferredIndex > 0) models.unshift(...models.splice(preferredIndex, 1));
+    if (authenticated) {
+      this.login = undefined;
+      this.loginFailure = undefined;
+    }
     return {
       installed: true,
       connected: authenticated,
@@ -93,13 +157,17 @@ export class CodexConnection {
       binaryPath: this.path,
       message: authenticated
         ? "Codex is connected."
-        : "Sign in to Codex to connect this installation.",
-      code: authenticated ? undefined : "PROVIDER_AUTH_REQUIRED",
+        : (this.loginFailure?.message ??
+          "Sign in to Codex to connect this installation."),
+      code: authenticated
+        ? undefined
+        : (this.loginFailure?.code ?? "PROVIDER_AUTH_REQUIRED"),
       models,
       login: this.login,
     };
   }
   async signIn() {
+    this.loginFailure = undefined;
     if (this.login)
       await this.client
         .request("account/login/cancel", { loginId: this.loginId })
@@ -144,6 +212,17 @@ export class CodexConnection {
         "PROVIDER_MODEL_UNAVAILABLE",
         "Choose an available Codex model in Settings.",
         503,
+      );
+    const efforts = status.models.find((m) => m.id === model)?.reasoningEfforts;
+    if (
+      input.reasoningEffort &&
+      efforts &&
+      !efforts.includes(input.reasoningEffort)
+    )
+      throw new AppError(
+        "PROVIDER_REASONING_UNSUPPORTED",
+        "The selected Codex model does not support this reasoning effort. Choose a supported effort in Settings.",
+        400,
       );
     const controller = new AbortController();
     this.runs.add(controller);
@@ -250,6 +329,7 @@ export class CodexConnection {
       threadId = started.thread.id;
       await client.request("turn/start", {
         threadId,
+        ...(input.reasoningEffort ? { effort: input.reasoningEffort } : {}),
         input: [{ type: "text", text: input.input, text_elements: [] }],
         ...(input.schema ? { outputSchema: input.schema } : {}),
       });

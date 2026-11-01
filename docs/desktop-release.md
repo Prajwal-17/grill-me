@@ -109,8 +109,16 @@ updater ZIPs, or SOURCE_COMMIT files are published.
 
 Before a future release, update root/desktop versions, lockfile, and a matching
 `## desktop-v<version>` entry in root CHANGELOG.md. Release notes contain only that entry;
-missing entries fail publishing. Tags must be unique. This implementation does
-not change the current version, push tags, trigger CI, or publish a release.
+missing entries fail publishing. The desktop app bundles the versioned entries
+from the same file for Settings → About. Keep the entries in newest-first order
+and leave `Unreleased` for changes that have not shipped. Tags must be unique.
+
+To backfill notes on existing GitHub releases, first run
+`python3 scripts/release-notes.py --backfill`. It prints the exact changelog notes
+for each published desktop tag without changing GitHub. After verification,
+`python3 scripts/release-notes.py --backfill --apply` replaces only those existing
+release bodies; it does not create releases, publish installers, or push commits.
+The failed 0.1.2 tag remains documented in the changelog without creating a release.
 
 The workflow follows Relay's separate dev configuration and tag-release style.
 Architecture labels follow [GitHub's runner reference](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).

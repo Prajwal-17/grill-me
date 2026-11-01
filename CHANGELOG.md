@@ -1,6 +1,13 @@
 # Changelog
 
-## Unreleased
+## desktop-v0.1.6 - 1 Nov 2026
+
+- Show the installed desktop version in the top bar, with a link to the release history in Settings.
+- Bundle the full desktop release history from 0.1.0 onward in Settings → About, and preview historical GitHub release-note backfills through the release script.
+- Add per-provider reasoning settings and account model discovery. New production providers default to GPT-6.1 Sol with high reasoning; new development providers default to GPT-6 Luna with medium reasoning. Preserve saved model choices.
+- Send the selected reasoning effort to Codex CLI turns and OpenAI-compatible Responses requests, including OmniRoute. Validate Codex model capabilities before starting a turn.
+- Show provider connection problems before AI work, with retry and Settings actions. Report missing CLIs, sign-in failures/expiry, unavailable models, unsupported settings, authentication/access failures, rate limits, timeouts, malformed responses, and offline providers with recovery guidance.
+- Remove standalone prompt-evaluation and keyring diagnostics, and consolidate test and release-note scripts.
 
 ## desktop-v0.1.5 - 31 Oct 2026
 
@@ -17,11 +24,14 @@
 
 ## desktop-v0.1.3 - 30 Oct 2026
 
+- Introduce macOS desktop builds for Apple Silicon and Intel, including native menus, Keychain support, and separate development and production editions. The native credential library was added to installers in 0.1.4.
+- The preceding 0.1.2 tag did not publish installers; its macOS changes first shipped in this release.
 - Fix macOS project-folder permission errors and canonical temporary-path tests.
 - Preserve Finder executable discovery in desktop isolation checks.
 
 ## desktop-v0.1.2 - 30 Oct 2026
 
+- This tag's production build failed, so no installers or GitHub release were published. Its macOS support shipped in 0.1.3.
 - Add isolated macOS Intel and Apple Silicon editions with Keychain storage,
   native application behavior, and ad-hoc DMG builds in CI.
 

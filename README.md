@@ -52,6 +52,9 @@ bun run desktop:dmg:x64        # Intel production DMG
 These commands build packages; normal development needs only `bun dev`.
 [Desktop build and release instructions](docs/desktop-release.md) describe manual
 CI builds, versioning, tag-triggered GitHub releases, installation, and isolation.
+The desktop version in the top bar opens Settings → About, where the complete
+release history is available. The same history is maintained in
+[CHANGELOG.md](CHANGELOG.md) and used for GitHub release notes.
 
 ## Checks
 

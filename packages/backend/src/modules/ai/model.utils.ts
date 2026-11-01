@@ -1,4 +1,6 @@
 import { AppError } from "../../shared/errors/app-error";
+import { providerError } from "../../local/providers/common";
+import OpenAI from "openai";
 
 export function parseJson(text: string) {
   const clean = text
@@ -42,8 +44,18 @@ export function parseJson(text: string) {
   return candidates[0];
 }
 
-export function modelUnavailable(error: unknown): never {
+export function modelUnavailable(error: unknown, providerName?: string): never {
   if (error instanceof AppError) throw error;
+  if (error instanceof OpenAI.APIConnectionTimeoutError)
+    throw providerError({ status: 408 }, providerName ?? "AI provider");
+  if (error instanceof OpenAI.APIConnectionError)
+    throw new AppError(
+      "PROVIDER_UNREACHABLE",
+      `Cannot reach ${providerName ?? "the AI provider"}. Check the endpoint, network, and whether the provider is running, then retry.`,
+      503,
+      true,
+    );
+  if (providerName) throw providerError(error, providerName);
   throw new AppError(
     "MODEL_UNAVAILABLE",
     "The model service is unavailable. Try again.",

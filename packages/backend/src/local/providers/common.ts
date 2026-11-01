@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdir, chmod } from "node:fs/promises";
 import { join } from "node:path";
-import type { Provider } from "@repo/contracts";
+import type { Provider, ReasoningEffort } from "@repo/contracts";
 import { AppError } from "../../shared/errors/app-error";
 export type GenerationInput = {
   instructions: string;
@@ -10,6 +10,7 @@ export type GenerationInput = {
   signal?: AbortSignal;
   workspace?: string;
   model?: string;
+  reasoningEffort?: ReasoningEffort;
 };
 export type TextTransport = {
   run(input: GenerationInput): AsyncIterable<string>;
@@ -22,16 +23,21 @@ export function providerError(error: unknown, kind: string): AppError {
           code?: unknown;
           data?: { statusCode?: number; codexErrorInfo?: unknown };
           statusCode?: number;
+          status?: number;
           codexErrorInfo?: unknown;
         })
       : {};
-  const status = details.statusCode ?? details.data?.statusCode;
+  const status =
+    details.status ?? details.statusCode ?? details.data?.statusCode;
   const info = details.codexErrorInfo ?? details.data?.codexErrorInfo;
+  const infoType =
+    info && typeof info === "object" ? Object.keys(info)[0] : info;
   if (
     status === 429 ||
     ["usageLimitExceeded", "rateLimitExceeded", "rateLimitReached"].includes(
-      String(info),
-    )
+      String(infoType),
+    ) ||
+    ["insufficient_quota", "rate_limit_exceeded"].includes(String(details.code))
   )
     return new AppError(
       "PROVIDER_RATE_LIMIT",
@@ -39,11 +45,57 @@ export function providerError(error: unknown, kind: string): AppError {
       429,
       true,
     );
-  if (status === 401 || status === 403)
+  if (status === 401 || infoType === "unauthorized")
     return new AppError(
       "PROVIDER_AUTH_REQUIRED",
-      `Sign in to ${kind} again in Settings.`,
+      `${kind} rejected authentication. Sign in again or check its API key in Settings.`,
       503,
+    );
+  if (status === 403)
+    return new AppError(
+      "PROVIDER_ACCESS_DENIED",
+      `${kind} denied access. Check your account permissions and model access in Settings.`,
+      403,
+    );
+  if (
+    status === 404 ||
+    details.code === "model_not_found" ||
+    infoType === "modelNotFound"
+  )
+    return new AppError(
+      "PROVIDER_MODEL_UNAVAILABLE",
+      `${kind} could not find the model or API route. Check the endpoint and choose an available model in Settings.`,
+      503,
+    );
+  if (
+    ["contextWindowExceeded", "context_length_exceeded"].includes(
+      String(infoType ?? details.code),
+    )
+  )
+    return new AppError(
+      "PROVIDER_CONTEXT_LIMIT",
+      `${kind} cannot fit this request in its context window. Reduce the attached code or choose a model with a larger context window.`,
+      400,
+    );
+  if (status === 408 || status === 504)
+    return new AppError(
+      "PROVIDER_TIMEOUT",
+      `${kind} timed out. Check the provider connection and retry the saved request.`,
+      503,
+      true,
+    );
+  if (status === 400 || status === 422 || details.code === -32602)
+    return new AppError(
+      "PROVIDER_CONFIGURATION_INVALID",
+      `${kind} rejected the request settings. Check the model, reasoning effort, and Responses API support in Settings.`,
+      400,
+    );
+  if (status && status >= 500)
+    return new AppError(
+      "PROVIDER_UNAVAILABLE",
+      `${kind} is temporarily unavailable. Check that it is running, then retry.`,
+      503,
+      true,
     );
   if (details.code === -32601 || error instanceof SyntaxError)
     return new AppError(
@@ -53,13 +105,32 @@ export function providerError(error: unknown, kind: string): AppError {
     );
   if (
     error instanceof Error &&
-    (error.name === "AbortError" || error.name === "TimeoutError")
+    (error.name === "AbortError" ||
+      error.name === "TimeoutError" ||
+      error.name === "APIConnectionTimeoutError")
   )
     return new AppError(
       error.name === "AbortError" ? "REQUEST_CANCELLED" : "PROVIDER_TIMEOUT",
       error.name === "AbortError"
         ? "The request was stopped. Your saved conversation is available."
         : `${kind} did not respond in time. Reconnect or retry the saved request.`,
+      503,
+      true,
+    );
+  if (
+    error instanceof Error &&
+    (error.name === "APIConnectionError" ||
+      [
+        "ECONNREFUSED",
+        "ECONNRESET",
+        "ENOTFOUND",
+        "EHOSTUNREACH",
+        "ETIMEDOUT",
+      ].includes(String(details.code)))
+  )
+    return new AppError(
+      "PROVIDER_UNREACHABLE",
+      `Cannot reach ${kind}. Check your network, endpoint, and whether the provider is running, then retry.`,
       503,
       true,
     );

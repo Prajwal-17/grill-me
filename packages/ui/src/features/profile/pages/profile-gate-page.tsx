@@ -8,6 +8,8 @@ import { Button } from "@/shared/components/ui/button";
 import { ThemeSelect } from "@/shared/components/theme-provider";
 import { useAppStore } from "@/shared/stores/app-store";
 import { startProfile } from "@/features/profile/api/profile-api";
+import { DesktopVersionLink } from "@/shared/components/layout/desktop-version";
+import { ProviderHealthNotice } from "@/features/settings/provider-health";
 
 export function ProfileGatePage() {
   const [email, setEmail] = useState("");
@@ -22,20 +24,24 @@ export function ProfileGatePage() {
   }
   return (
     <main className="flex min-h-dvh flex-col gap-12 bg-chrome px-5 pb-16">
-      <header className="desktop-app-header -mx-5 flex min-h-[var(--workspace-header-height)] items-center justify-between gap-4 border-b border-line px-5 py-2 md:py-0">
-        <BrandLockup markClassName="size-7" wordmarkClassName="text-ui" />
-        <div className="flex items-center gap-3">
-          <Link
-            to="/settings"
-            className="text-ui text-muted hover:text-foreground"
-          >
-            Settings
-          </Link>
-          <div className="w-40">
-            <ThemeSelect />
+      <div className="-mx-5">
+        <header className="desktop-app-header flex min-h-[var(--workspace-header-height)] items-center justify-between gap-4 border-b border-line px-5 py-2 md:py-0">
+          <BrandLockup markClassName="size-7" wordmarkClassName="text-ui" />
+          <div className="flex items-center gap-3">
+            <DesktopVersionLink />
+            <Link
+              to="/settings"
+              className="text-ui text-muted hover:text-foreground"
+            >
+              Settings
+            </Link>
+            <div className="w-40">
+              <ThemeSelect />
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+        <ProviderHealthNotice />
+      </div>
       <section className="mx-auto my-auto w-full max-w-[420px] rounded-xl border border-line bg-surface p-6 sm:p-8">
         <h1 className="text-section font-semibold tracking-[-0.02em]">
           Choose a profile

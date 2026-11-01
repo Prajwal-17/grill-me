@@ -30,20 +30,36 @@ for await (const line of createInterface({ input: process.stdin })) {
   }
   if (event.method === "model/list")
     respond(event.id, {
-      data: [
-        {
-          id: "fixture",
-          model: "fixture-model",
-          displayName: "Fixture model",
-          isDefault: true,
-        },
-      ],
+      data: event.params.cursor
+        ? [
+            {
+              id: "second",
+              model: "second-model",
+              displayName: "Second model",
+              supportedReasoningEfforts: [{ reasoningEffort: "medium" }],
+              defaultReasoningEffort: "medium",
+            },
+          ]
+        : [
+            {
+              id: "fixture",
+              model: "fixture-model",
+              displayName: "Fixture model",
+              isDefault: true,
+              supportedReasoningEfforts: ["medium", "high", "xhigh"].map(
+                (reasoningEffort) => ({ reasoningEffort }),
+              ),
+              defaultReasoningEffort: "high",
+            },
+          ],
+      nextCursor: event.params.cursor ? null : "page-two",
     });
   if (event.method === "thread/start") {
     writeFileSync(join(home, "thread.json"), JSON.stringify(event.params));
     respond(event.id, { thread: { id: "fixture-thread" } });
   }
   if (event.method === "turn/start") {
+    writeFileSync(join(home, "turn.json"), JSON.stringify(event.params));
     respond(event.id, { turn: { id: "fixture-turn" } });
     const text = event.params.input[0].text;
     if (text.includes("CRASH")) {

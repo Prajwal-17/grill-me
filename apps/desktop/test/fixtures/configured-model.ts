@@ -13,11 +13,27 @@ const root = process.env.GRILL_ME_HOME!;
 const settings = createSettingsService(root, { keyring: sessionSecretStore() });
 const cli = createCliProviders(root);
 let apiInput = "";
+let apiStatus = 200;
+let apiCalls = 0;
+let apiStall = false;
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
   async fetch(request) {
+    apiCalls++;
     apiInput = JSON.stringify(await request.json());
+    if (apiStall) await new Promise((resolve) => setTimeout(resolve, 2000));
+    if (apiStatus !== 200)
+      return Response.json(
+        {
+          error: {
+            message: "private-upstream-secret",
+            type: "fixture",
+            code: apiStatus === 404 ? "model_not_found" : null,
+          },
+        },
+        { status: apiStatus },
+      );
     return Response.json({
       status: "completed",
       output_text: "{}",
@@ -63,6 +79,7 @@ try {
     kind: "openai",
     endpoint: `http://127.0.0.1:${server.port}/v1`,
     model: "fixture",
+    reasoningEffort: "xhigh",
     storage: "session",
     binaryPath: "",
   });
@@ -75,6 +92,47 @@ try {
     apiInput.includes("answer.ts") &&
       apiInput.includes("export const answer = 42;"),
   );
+  assert.deepEqual(JSON.parse(apiInput).reasoning, { effort: "xhigh" });
+  for (const [status, code] of [
+    [401, "PROVIDER_AUTH_REQUIRED"],
+    [403, "PROVIDER_ACCESS_DENIED"],
+    [429, "PROVIDER_RATE_LIMIT"],
+    [400, "PROVIDER_CONFIGURATION_INVALID"],
+    [404, "PROVIDER_MODEL_UNAVAILABLE"],
+    [503, "PROVIDER_UNAVAILABLE"],
+  ] as const) {
+    apiStatus = status;
+    const before = apiCalls;
+    await assert.rejects(
+      model.reviewWorkspace!(input, workspace, manifest),
+      (error: unknown) => {
+        const failure = error as { code: string; message: string };
+        return (
+          failure.code === code &&
+          !failure.message.includes("private-upstream-secret")
+        );
+      },
+    );
+    assert.equal(
+      apiCalls,
+      before + 1,
+      "Failures must not trigger hidden automatic retries",
+    );
+  }
+  apiStatus = 200;
+  apiStall = true;
+  await settings.saveRuntime({
+    ...(await settings.get()).runtime,
+    judgeTimeoutMs: 1000,
+  });
+  await assert.rejects(model.reviewWorkspace!(input, workspace, manifest), {
+    code: "PROVIDER_TIMEOUT",
+  });
+  apiStall = false;
+  server.stop(true);
+  await assert.rejects(model.reviewWorkspace!(input, workspace, manifest), {
+    code: "PROVIDER_UNREACHABLE",
+  });
   const cliId = crypto.randomUUID();
   await settings.saveProvider({
     id: cliId,

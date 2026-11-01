@@ -108,6 +108,7 @@ export function createCliProviders(root: string) {
             yield* (await connection(provider)).run({
               ...input,
               model: provider.model,
+              reasoningEffort: provider.reasoningEffort,
             });
           } catch (error) {
             throw providerError(error, provider.kind);

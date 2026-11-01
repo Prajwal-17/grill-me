@@ -21,6 +21,9 @@ export function configuredModel(
       apiKey: p.apiKey ?? "local-provider",
       baseURL: p.kind === "openai" ? p.endpoint : `${p.kind}://local/${p.id}`,
       model: p.model,
+      reasoningEffort: p.reasoningEffort,
+      providerName: p.name,
+      timeoutMs: settings.runtime().judgeTimeoutMs,
       ...(p.kind === "openai" ? {} : { transport: cli.transport(p) }),
     });
     model.reviewWorkspace = async (input, workspace, manifest) =>

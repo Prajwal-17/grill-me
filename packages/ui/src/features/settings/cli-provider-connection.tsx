@@ -8,12 +8,19 @@ import { ChoiceSelect } from "@/shared/components/ui/choice-select";
 import { Input } from "@/shared/components/ui/input";
 import { SettingsFeedback } from "./settings-layout";
 import { settingsKey } from "./use-settings-mutation";
+import {
+  ProviderModelControls,
+  type ModelChange,
+} from "./provider-model-controls";
+import { providerHealthKey } from "./provider-health";
 export function CliProviderConnection({
   provider,
   onModelChange,
+  disabled,
 }: {
   provider: SavedProvider;
-  onModelChange: (model: string) => void;
+  onModelChange: ModelChange;
+  disabled: boolean;
 }) {
   const queries = useQueryClient();
   const key = ["provider-connection", provider.id, provider.binaryPath];
@@ -44,7 +51,10 @@ export function CliProviderConnection({
         `/settings/providers/${provider.id}/connect`,
         { method: "POST", body: "{}" },
       ),
-    onSuccess: (value) => queries.setQueryData(key, value),
+    onSuccess: (value) => {
+      queries.setQueryData(key, value);
+      void queries.invalidateQueries({ queryKey: providerHealthKey });
+    },
   });
   const login = useMutation({
     mutationFn: (complete: boolean) =>
@@ -70,6 +80,7 @@ export function CliProviderConnection({
       setSecret("");
       if (value.connected) setAccountOpen(false);
       queries.setQueryData(key, value);
+      void queries.invalidateQueries({ queryKey: providerHealthKey });
     },
   });
   const disconnect = useMutation({
@@ -80,6 +91,7 @@ export function CliProviderConnection({
       }),
     onSuccess: (value) => {
       queries.setQueryData(settingsKey, value);
+      void queries.invalidateQueries({ queryKey: providerHealthKey });
       queries.setQueryData(key, {
         ...status,
         connected: false,
@@ -92,6 +104,7 @@ export function CliProviderConnection({
     },
   });
   const busy =
+    disabled ||
     connection.isFetching ||
     connect.isPending ||
     login.isPending ||
@@ -99,7 +112,10 @@ export function CliProviderConnection({
   return (
     <div className="mt-4 border-t border-line pt-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p role="status" className="min-w-0 text-supporting text-muted">
+        <p
+          role={status?.code ? "alert" : "status"}
+          className={`min-w-0 text-supporting ${status?.code ? "text-destructive" : "text-muted"}`}
+        >
           {connection.isPending ? "Checking CLI connection…" : status?.message}
         </p>
         <Button
@@ -147,17 +163,6 @@ export function CliProviderConnection({
         )}
       {status?.connected && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="w-full min-w-0 sm:max-w-sm">
-            <ChoiceSelect
-              label={`Model for ${provider.name}`}
-              value={provider.model}
-              onChange={onModelChange}
-              options={[
-                { id: "auto", label: "Provider default" },
-                ...status.models.map((m) => ({ id: m.id, label: m.name })),
-              ]}
-            />
-          </div>
           <Button
             variant="ghost"
             disabled={busy}
@@ -166,6 +171,14 @@ export function CliProviderConnection({
             Disconnect
           </Button>
         </div>
+      )}
+      {status?.connected && (
+        <ProviderModelControls
+          provider={provider}
+          models={status.models}
+          disabled={busy}
+          onChange={onModelChange}
+        />
       )}
       {provider.kind === "opencode" && status?.connected && !accountOpen && (
         <Button
@@ -178,6 +191,12 @@ export function CliProviderConnection({
       )}
       {status?.installed &&
         status.code !== "PROVIDER_DISCONNECTED" &&
+        (!status.code ||
+          [
+            "PROVIDER_AUTH_REQUIRED",
+            "PROVIDER_LOGIN_FAILED",
+            "PROVIDER_LOGIN_EXPIRED",
+          ].includes(status.code)) &&
         (!status.authenticated || accountOpen) &&
         !status.login && (
           <div className="mt-3 space-y-3">

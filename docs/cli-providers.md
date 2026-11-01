@@ -1,7 +1,7 @@
 # Local CLI providers
 
 Grill Me uses the Codex or OpenCode executable already installed on your Linux
-machine. It does not download, bundle, update, or install either CLI. Docker is
+or macOS machine. It does not download, bundle, update, or install either CLI. Docker is
 not required for the desktop application.
 
 Open Settings → AI providers → Add provider. Choose Codex CLI or OpenCode CLI,
@@ -9,9 +9,26 @@ enter a name, and save. Leave the executable field empty to detect the CLI in
 PATH, or select an absolute executable path. Sign in from the saved provider's
 connection panel, choose an available model, and select Use provider. The same
 provider handles generation, hints, quizzes, discussions, and submission reviews.
-A model change applies to subsequent requests. Existing OpenAI-compatible API
+A model or reasoning change applies to subsequent requests. Existing OpenAI-compatible API
 connections remain supported; their saved keys stay in the Linux keyring or
 session storage selected for that connection.
+
+New Codex and API connections default to `gpt-6.1-sol` with high reasoning in
+production and `gpt-6-luna` with medium reasoning in development. Existing saved
+choices are preserved. Settings lists the models reported by Codex or the API's
+`/models` endpoint; Edit also accepts an explicit model ID for gateway aliases.
+Codex lists each model's supported reasoning efforts and validates the selection
+before inference. API reasoning is sent as `reasoning.effort` in Responses
+requests; gateways must support the chosen model and effort. Provider default
+omits an explicit effort. OpenCode retains its own model defaults.
+
+The app checks the active provider on opening, on settings changes, and every
+30 seconds while visible. Connection problems show a notice with Retry connection
+and AI settings actions. A successful API connection check confirms the catalog
+endpoint; model access and reasoning support are checked on the actual request.
+Failed requests stay saved and require explicit retry; providers are never
+silently switched. CLI status checks inspect local sign-in and model availability;
+network or quota problems can still appear when a turn starts.
 
 ## Sign-in and runtime ownership
 

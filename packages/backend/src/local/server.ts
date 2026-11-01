@@ -119,11 +119,15 @@ export async function startLocalServer(options: LocalServerOptions) {
             online: status.ok,
             message: status.message,
           };
-        } catch {
+        } catch (error) {
           return {
             configured: false,
             online: false,
-            message: "Configure an AI provider in Settings.",
+            message:
+              error instanceof
+              (await import("../shared/errors/app-error")).AppError
+                ? error.message
+                : "Configure an AI provider in Settings.",
           };
         }
       },

@@ -14,6 +14,8 @@ import { Navigation } from "@/shared/components/layout/navigation";
 import { MobileNavigation } from "@/shared/components/layout/mobile-navigation";
 import { useAppNavigation } from "@/shared/components/layout/use-app-navigation";
 import { GenerationActivity } from "@/features/generations/components/generation-activity";
+import { DesktopVersionLink } from "@/shared/components/layout/desktop-version";
+import { ProviderHealthNotice } from "@/features/settings/provider-health";
 
 export function AppShell({
   profile,
@@ -126,9 +128,11 @@ export function AppShell({
             data-slot="header-actions"
             className="workspace-toolbar-actions flex shrink-0 items-center gap-1.5"
           >
+            <DesktopVersionLink />
             <GenerationActivity />
           </div>
         </header>
+        <ProviderHealthNotice />
         <div
           id="app-content"
           tabIndex={-1}

@@ -309,7 +309,11 @@ panels stack them. Save and discard actions live at the end of the form, beside
 unsaved/error/saved feedback. Saving reveals and focuses any invalid field,
 including one in a hidden section.
 
-Application settings contain Appearance, AI providers, and Local runtime.
+Application settings contain Appearance, AI providers, Local runtime, and About.
+The desktop toolbar includes a quiet version link that opens About, which bundles
+the full release history from the repository changelog. The installed release is
+marked in that history. Provider connection warnings sit below the toolbar with
+AI settings and Retry connection actions; they do not cover the current task.
 Appearance exposes theme and persistent zoom; startup/fullscreen controls and
 static database/connection/keyring diagnostics are omitted. Existing maximized
 startup and F11 remain available independently. Runtime retains review timeout,
@@ -401,7 +405,11 @@ rather than installing a second component vocabulary. Configuration reference:
   Codex CLI, OpenCode CLI, or an OpenAI-compatible API. CLI connections use an
   installed executable, detected automatically or specified by absolute path.
   Their saved row contains connection status, executable/version, sign-in,
-  available model selection, and Connect/Refresh/Disconnect actions. OpenCode
+  available model selection, reasoning effort for Codex/API connections, and
+  Connect/Refresh/Disconnect actions. Codex effort choices follow the selected
+  model's capabilities. API connections discover models and expose connection
+  errors in their row; Edit accepts explicit gateway model IDs. New Codex/API
+  providers use the edition's model/effort defaults without replacing saved choices. OpenCode
   account and sign-in-method choices stay within that row; authentication fields
   appear only when required. Disconnect stays explicit and persists until Connect
   or Use provider is selected. API connections retain endpoint, key-storage

@@ -368,6 +368,10 @@ async function start() {
     trusted(event);
     window?.close();
   });
+  ipcMain.handle("desktop:app-version", (event) => {
+    trusted(event);
+    return app.getVersion();
+  });
   ipcMain.handle("desktop:connection", async (event) => {
     trusted(event);
     const response = await fetch(origin + "/_local/bootstrap", {

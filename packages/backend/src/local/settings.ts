@@ -7,6 +7,7 @@ import {
   providerSchema,
   providerInputSchema,
   runtimeSettingsSchema,
+  defaultProviderSettings,
   type ProviderInput,
   type LocalSettings,
   type RuntimeSettings,
@@ -15,6 +16,8 @@ import {
 import { AppError } from "../shared/errors/app-error";
 import { changed } from "./changes";
 import type { CliProviders } from "./providers";
+import { apiModels } from "./providers/api";
+import { providerError } from "./providers/common";
 import {
   nativeSecretStore,
   sessionSecretStore,
@@ -40,6 +43,7 @@ export function createSettingsService(
     session?: SecretStore;
     modulePath?: string;
     cli?: CliProviders;
+    channel?: "development" | "production";
   } = {},
 ) {
   const db = new Database(join(root, "settings.sqlite"), {
@@ -53,6 +57,9 @@ export function createSettingsService(
   const keyring =
     options.keyring ?? nativeSecretStore(root, options.modulePath);
   const session = options.session ?? sessionSecretStore();
+  const providerDefaults = defaultProviderSettings(
+    options.channel ?? process.env.GRILL_DESKTOP_CHANNEL ?? "development",
+  );
   const saved = db.query("SELECT document FROM settings WHERE id=1").get() as {
     document: string;
   } | null;
@@ -126,6 +133,7 @@ export function createSettingsService(
     );
     const old = !document.migrated ? await legacy() : null;
     return {
+      providerDefaults,
       providers,
       activeProviderId: document.activeProviderId,
       runtime: document.runtime,
@@ -266,33 +274,46 @@ export function createSettingsService(
         return get();
       }),
     testProvider: async (id) => {
-      const value = await snapshot(id);
-      if (value.kind !== "openai") {
-        const status = await options.cli!.status(value);
-        return { ok: status.connected, message: status.message };
-      }
-      const url = new URL(value.endpoint! + "/models");
       try {
-        const response = await fetch(url, {
-          headers: value.apiKey
-            ? { Authorization: `Bearer ${value.apiKey}` }
-            : {},
-          signal: AbortSignal.timeout(10000),
-          redirect: "error",
-        });
-        await response.body?.cancel();
+        const value = await snapshot(id);
+        if (value.kind !== "openai") {
+          const status = await options.cli!.status(value);
+          if (!status.connected)
+            return { ok: false, message: status.message, code: status.code };
+          const model =
+            value.model === "auto"
+              ? status.models[0]
+              : status.models.find((m) => m.id === value.model);
+          if (!model)
+            return {
+              ok: false,
+              code: "PROVIDER_MODEL_UNAVAILABLE",
+              message:
+                "The saved model is unavailable. Choose an available model in Settings.",
+            };
+          if (
+            value.kind === "codex" &&
+            value.reasoningEffort &&
+            model.reasoningEfforts &&
+            !model.reasoningEfforts.includes(value.reasoningEffort)
+          )
+            return {
+              ok: false,
+              code: "PROVIDER_REASONING_UNSUPPORTED",
+              message:
+                "The saved reasoning effort is unavailable for this model. Choose a supported effort in Settings.",
+            };
+          return { ok: true, message: status.message };
+        }
+        await apiModels(value);
         return {
-          ok: response.ok,
-          message: response.ok
-            ? "Connection successful."
-            : `Provider returned HTTP ${response.status}. Check its endpoint and API key.`,
-        };
-      } catch {
-        return {
-          ok: false,
+          ok: true,
           message:
-            "Cannot reach the provider. Check the endpoint and whether the provider is running.",
+            "Connection successful. Model access is checked when making a request.",
         };
+      } catch (error) {
+        const failure = providerError(error, "API provider");
+        return { ok: false, message: failure.message, code: failure.code };
       }
     },
     migrateLegacy: async (mode) => {
@@ -390,7 +411,22 @@ export function createSettingsService(
   return {
     ...api,
     snapshot,
+    runtime: () => ({ ...document.runtime }),
     provider,
+    models: async (id: string) => {
+      const value = await snapshot(id);
+      if (value.kind === "openai") return apiModels(value);
+      const status = await options.cli!.status(value);
+      if (!status.connected)
+        throw new AppError(
+          status.code ?? "PROVIDER_DISCONNECTED",
+          status.message,
+          503,
+          true,
+        );
+      return status.models;
+    },
+    health: async () => api.testProvider(document.activeProviderId ?? ""),
     applyRuntime,
     connectProvider: (id: string) =>
       exclusive(async () => {

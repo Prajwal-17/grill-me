@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { defaultProviderSettings } from "../../../packages/contracts/src";
 import { createSettingsService } from "@repo/backend/local/settings";
 import {
   sessionSecretStore,
@@ -26,6 +27,99 @@ const provider = (extra: object = {}) => ({
   apiKey: "fixture-secret-never-persist",
   storage: "keyring" as const,
   ...extra,
+});
+test("new-provider defaults follow the edition and saved model/reasoning choices survive restarts", async () => {
+  expect(defaultProviderSettings("production")).toEqual({
+    model: "gpt-6.1-sol",
+    reasoningEffort: "high",
+  });
+  expect(defaultProviderSettings("development")).toEqual({
+    model: "gpt-6-luna",
+    reasoningEffort: "medium",
+  });
+  const root = await temp();
+  const vault = sessionSecretStore();
+  let settings = createSettingsService(root, {
+    keyring: vault,
+    channel: "production",
+  });
+  try {
+    expect((await settings.health()).code).toBe("MODEL_NOT_CONFIGURED");
+    expect((await settings.get()).providerDefaults.model).toBe("gpt-6.1-sol");
+    const chosen = provider({
+      model: "custom-model",
+      reasoningEffort: "xhigh",
+    });
+    await settings.saveProvider(chosen);
+    settings.close();
+    settings = createSettingsService(root, {
+      keyring: vault,
+      channel: "production",
+    });
+    expect(await settings.snapshot()).toMatchObject({
+      model: "custom-model",
+      reasoningEffort: "xhigh",
+    });
+    const legacy = provider();
+    await settings.saveProvider(legacy);
+    expect(await settings.snapshot(legacy.id)).not.toHaveProperty(
+      "reasoningEffort",
+    );
+  } finally {
+    settings.close();
+  }
+});
+
+test("API connection checks discover models and report auth, limits, configuration, malformed catalogs, and offline failures without exposing upstream errors", async () => {
+  const root = await temp();
+  const settings = createSettingsService(root, {
+    keyring: sessionSecretStore(),
+  });
+  let status = 200;
+  let malformed = false;
+  const server = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: () =>
+      malformed
+        ? new Response("<html>not an API</html>")
+        : Response.json(
+            status === 200
+              ? { data: [{ id: "gpt-6.1-sol" }, { id: "gpt-6-luna" }] }
+              : { error: "secret-upstream-detail" },
+            { status },
+          ),
+  });
+  const saved = provider({ endpoint: `http://127.0.0.1:${server.port}/v1` });
+  try {
+    await settings.saveProvider(saved);
+    expect((await settings.models(saved.id)).map((model) => model.id)).toEqual([
+      "gpt-6.1-sol",
+      "gpt-6-luna",
+    ]);
+    expect((await settings.health()).ok).toBe(true);
+    for (const [httpStatus, code] of [
+      [401, "PROVIDER_AUTH_REQUIRED"],
+      [403, "PROVIDER_ACCESS_DENIED"],
+      [429, "PROVIDER_RATE_LIMIT"],
+      [404, "PROVIDER_MODEL_UNAVAILABLE"],
+      [400, "PROVIDER_CONFIGURATION_INVALID"],
+      [503, "PROVIDER_UNAVAILABLE"],
+    ] as const) {
+      status = httpStatus;
+      const health = await settings.health();
+      expect(health).toMatchObject({ ok: false, code });
+      expect(JSON.stringify(health)).not.toContain("secret-upstream-detail");
+    }
+    status = 200;
+    malformed = true;
+    expect((await settings.health()).code).toBe("PROVIDER_RESPONSE_INVALID");
+    server.stop(true);
+    expect((await settings.health()).code).toBe("PROVIDER_UNREACHABLE");
+  } finally {
+    server.stop(true);
+    settings.close();
+  }
 });
 test("backend package imports without opening a database or listeners", async () => {
   const script = Bun.spawn(

@@ -1,5 +1,4 @@
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useMutation } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Check,
@@ -18,6 +17,8 @@ import {
   type LocalSettings,
   type ProviderInput,
   type SavedProvider,
+  defaultProviderSettings,
+  type ReasoningEffort,
 } from "@repo/contracts";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -38,10 +39,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
-import { apiRequest } from "@/shared/lib/api-client";
 import { SettingsFeedback, SettingsHeading } from "./settings-layout";
 import { useSettingsMutation } from "./use-settings-mutation";
 import { CliProviderConnection } from "./cli-provider-connection";
+import { ApiProviderModels, reasoningOptions } from "./provider-model-controls";
+import { env } from "@/shared/config/env";
 
 export function ProviderSettings({ data }: { data: LocalSettings }) {
   const [editor, setEditor] = useState<ProviderInput | null>(null);
@@ -51,30 +53,21 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
   const [visibleKey, setVisibleKey] = useState(false);
   const addButton = useRef<HTMLButtonElement>(null);
   const save = useSettingsMutation(() => {
+    const restoreFocus = Boolean(editor || deleting);
     setEditor(null);
     setDeleting(null);
     setValidation(null);
     setVisibleKey(false);
     setNotice("Provider settings saved.");
-    requestAnimationFrame(() => addButton.current?.focus());
+    if (restoreFocus) requestAnimationFrame(() => addButton.current?.focus());
   });
   const migration = useSettingsMutation(() =>
     setNotice("Existing provider settings imported."),
   );
-  const test = useMutation({
-    mutationFn: async (id: string) => ({
-      id,
-      ...(await apiRequest<{ ok: boolean; message: string }>(
-        `/settings/providers/${id}/test`,
-        { method: "POST" },
-      )),
-    }),
-  });
-  const busy = save.isPending || test.isPending || migration.isPending;
+  const busy = save.isPending || migration.isPending;
   const existing = data.providers.find((p) => p.id === editor?.id);
   function edit(provider?: SavedProvider) {
     save.reset();
-    test.reset();
     setNotice("");
     setValidation(null);
     setVisibleKey(false);
@@ -87,7 +80,7 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
             kind: "codex",
             binaryPath: "",
             endpoint: "http://127.0.0.1:20128/v1",
-            model: "auto",
+            ...(data.providerDefaults ?? defaultProviderSettings(env.appEnv)),
             storage: data.keyring.available ? "keyring" : "session",
           },
     );
@@ -112,7 +105,6 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
     }
     setNotice("");
     setValidation(null);
-    test.reset();
     save.mutate({ path: "/settings/providers", body: result.data });
   }
   return (
@@ -152,7 +144,7 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
         </>
       )}
       <SettingsFeedback
-        error={validation ?? save.error ?? migration.error ?? test.error}
+        error={validation ?? save.error ?? migration.error}
         message={notice}
       />
       {editor ? (
@@ -170,7 +162,10 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
                     kind: kind as "codex" | "opencode" | "openai",
                     apiKey: undefined,
                     removeKey: false,
-                    model: "auto",
+                    ...(kind === "opencode"
+                      ? { model: "auto", reasoningEffort: undefined }
+                      : (data.providerDefaults ??
+                        defaultProviderSettings(env.appEnv))),
                   })
                 }
                 options={[
@@ -245,6 +240,32 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
                 spellCheck={false}
               />
             </ProviderField>
+            {editor.kind !== "opencode" && (
+              <ProviderField
+                label="Reasoning effort"
+                htmlFor="provider-reasoning"
+                hint="The provider must support the selected model and reasoning effort."
+              >
+                <ChoiceSelect
+                  id="provider-reasoning"
+                  label="Reasoning effort"
+                  value={editor.reasoningEffort ?? "default"}
+                  onChange={(value) =>
+                    setEditor({
+                      ...editor,
+                      reasoningEffort:
+                        value === "default"
+                          ? undefined
+                          : (value as ReasoningEffort),
+                    })
+                  }
+                  options={[
+                    { id: "default", label: "Provider default" },
+                    ...reasoningOptions,
+                  ]}
+                />
+              </ProviderField>
+            )}
             {(editor.kind === "openai" || editor.kind === undefined) && (
               <>
                 <ProviderField
@@ -429,6 +450,14 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
                       Model:{" "}
                       <span className="text-foreground">{provider.model}</span>
                     </span>
+                    {provider.reasoningEffort && (
+                      <span>
+                        Reasoning:{" "}
+                        <span className="text-foreground">
+                          {provider.reasoningEffort}
+                        </span>
+                      </span>
+                    )}
                     {provider.kind === "openai" && (
                       <span className="inline-flex items-center gap-1.5">
                         <KeyRound size={13} />
@@ -441,18 +470,6 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
                     )}
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
-                    {provider.kind === "openai" && (
-                      <Button
-                        variant="secondary"
-                        disabled={busy}
-                        onClick={() => test.mutate(provider.id)}
-                      >
-                        {test.isPending && test.variables === provider.id && (
-                          <LoaderCircle size={14} className="animate-spin" />
-                        )}
-                        Test connection
-                      </Button>
-                    )}
                     <Button
                       variant="ghost"
                       disabled={busy}
@@ -479,22 +496,28 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
                   {provider.kind !== "openai" && (
                     <CliProviderConnection
                       provider={provider}
-                      onModelChange={(model) => {
+                      disabled={busy}
+                      onModelChange={(change) => {
                         setNotice("");
                         save.mutate({
                           path: "/settings/providers",
-                          body: { ...provider, model },
+                          body: { ...provider, ...change },
                         });
                       }}
                     />
                   )}
-                  {test.data?.id === provider.id && (
-                    <p
-                      role={test.data.ok ? "status" : "alert"}
-                      className={`mt-3 text-supporting ${test.data.ok ? "text-success" : "text-destructive"}`}
-                    >
-                      {test.data.message}
-                    </p>
+                  {provider.kind === "openai" && (
+                    <ApiProviderModels
+                      provider={provider}
+                      disabled={busy}
+                      onChange={(change) => {
+                        setNotice("");
+                        save.mutate({
+                          path: "/settings/providers",
+                          body: { ...provider, ...change },
+                        });
+                      }}
+                    />
                   )}
                 </li>
               ))}

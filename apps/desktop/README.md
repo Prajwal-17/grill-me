@@ -4,13 +4,12 @@ Run the complete app from the repository root with `bun dev`. Electron owns its
 Bun/SQLite backend process and the React renderer in `renderer/`. Backend and UI
 logic remain shared workspace packages, with no separate launch commands.
 
-Use Settings for installed Codex/OpenCode connections, model selection,
+Use Settings for installed Codex/OpenCode connections, model and reasoning selection,
 OpenAI-compatible endpoints, credentials, project folders, and review timeouts.
 CLI authentication is scoped to each edition. API keys use macOS Keychain or Linux Secret Service
 or an explicit in-memory session. No backend environment files are inherited.
-In Local runtime, enter the projects folder path directly or use the folder
-button to choose a directory. Save runtime settings applies either choice;
-canceling the picker leaves the current path unchanged.
+Connect project folders when submitting an implementation. Local runtime controls
+review timeouts. The top-bar version opens Settings → About and the full changelog.
 
 On macOS use Command in place of Ctrl; native menus and window controls are available.
 The app opens maximized; `Ctrl++`, `Ctrl+-`, and `Ctrl+0` adjust persistent zoom.

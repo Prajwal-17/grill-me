@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { LocalSettings } from "@repo/contracts";
 import { apiRequest } from "@/shared/lib/api-client";
+import { providerHealthKey } from "./provider-health";
 export const settingsKey = ["local-settings"];
 export function useSettingsMutation(onSuccess?: () => void) {
   const queries = useQueryClient();
@@ -14,6 +15,8 @@ export function useSettingsMutation(onSuccess?: () => void) {
       }),
     onSuccess: (data) => {
       queries.setQueryData(settingsKey, data);
+      void queries.invalidateQueries({ queryKey: providerHealthKey });
+      void queries.invalidateQueries({ queryKey: ["provider-models"] });
       onSuccess?.();
     },
   });
