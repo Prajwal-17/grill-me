@@ -23,6 +23,7 @@ export function backendEnvironment(input: {
   const osKeys = [
     "PATH",
     "HOME",
+    "CODEX_HOME",
     "USER",
     "LOGNAME",
     "SHELL",

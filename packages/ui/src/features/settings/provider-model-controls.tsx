@@ -1,14 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
 import {
   reasoningEffortSchema,
   type ProviderModel,
   type SavedProvider,
   type ReasoningEffort,
 } from "@repo/contracts";
-import { apiRequest } from "@/shared/lib/api-client";
 import { ChoiceSelect } from "@/shared/components/ui/choice-select";
-import { Button } from "@/shared/components/ui/button";
-import { SettingsFeedback } from "./settings-layout";
 
 export const reasoningOptions = reasoningEffortSchema.options.map((id) => ({
   id,
@@ -121,56 +117,6 @@ export function ProviderModelControls({
           Choose a reasoning effort supported by this model.
         </p>
       )}
-    </div>
-  );
-}
-
-export function ApiProviderModels({
-  provider,
-  disabled,
-  onChange,
-}: {
-  provider: SavedProvider;
-  disabled: boolean;
-  onChange: ModelChange;
-}) {
-  const catalog = useQuery({
-    queryKey: [
-      "provider-models",
-      provider.id,
-      provider.endpoint,
-      provider.hasKey,
-    ],
-    queryFn: () =>
-      apiRequest<ProviderModel[]>(`/settings/providers/${provider.id}/models`),
-    staleTime: 15000,
-    retry: false,
-  });
-  return (
-    <div className="mt-4 border-t border-line pt-4">
-      <SettingsFeedback error={catalog.error} />
-      {catalog.data && !catalog.isError && (
-        <p role="status" className="mb-2 text-supporting text-muted">
-          {catalog.data.length
-            ? `Connected · ${catalog.data.length} models available`
-            : "Connected. No models listed; enter a model ID in Edit."}
-        </p>
-      )}
-      <Button
-        variant="ghost"
-        disabled={catalog.isFetching || disabled}
-        onClick={() => void catalog.refetch()}
-      >
-        {catalog.isFetching
-          ? "Checking connection…"
-          : "Refresh models and connection"}
-      </Button>
-      <ProviderModelControls
-        provider={provider}
-        models={catalog.data ?? []}
-        disabled={disabled}
-        onChange={onChange}
-      />
     </div>
   );
 }

@@ -36,6 +36,16 @@ export const providerSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(80),
   kind: z.enum(["openai", "codex", "opencode"]).default("openai"),
+  enabled: z.boolean().default(true),
+  codexHome: z
+    .string()
+    .trim()
+    .max(4096)
+    .refine(
+      (v) => !v || v.startsWith("/") || v.startsWith("~/"),
+      "Use an absolute path or ~/path.",
+    )
+    .default(""),
   endpoint: endpointSchema.optional(),
   binaryPath: z
     .string()
@@ -86,6 +96,8 @@ export type SavedProvider = Provider & {
   storage: "keyring" | "session";
 };
 export type ProviderConnection = {
+  account?: { type: string; email?: string; plan?: string };
+  homePath?: string;
   installed: boolean;
   connected: boolean;
   authenticated: boolean;

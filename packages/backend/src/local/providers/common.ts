@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { mkdir, chmod } from "node:fs/promises";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import type { Provider, ReasoningEffort } from "@repo/contracts";
 import { AppError } from "../../shared/errors/app-error";
 export type GenerationInput = {
@@ -144,7 +145,7 @@ export function providerError(error: unknown, kind: string): AppError {
 }
 export async function providerEnvironment(
   root: string,
-  provider: Pick<Provider, "id" | "kind">,
+  provider: Pick<Provider, "id" | "kind"> & { codexHome?: string },
 ) {
   const home = join(root, "providers", provider.id);
   const env: NodeJS.ProcessEnv = {};
@@ -183,6 +184,19 @@ export async function providerEnvironment(
   ]) {
     await mkdir(dir, { recursive: true, mode: 0o700 });
     await chmod(dir, 0o700);
+  }
+  if (provider.kind === "codex") {
+    const hostHome = process.env.HOME || homedir();
+    const configured =
+      provider.codexHome || process.env.CODEX_HOME || join(hostHome, ".codex");
+    env.CODEX_HOME = configured.startsWith("~/")
+      ? join(hostHome, configured.slice(2))
+      : configured;
+    // Like T3's direct-home mode, reuse the CLI's account and OS credential store.
+    // Only the review workspace and temporary files belong to this installation.
+    env.HOME = hostHome;
+    env.TMPDIR = join(home, "tmp");
+    return { env, workspace: join(home, "workspace") };
   }
   Object.assign(env, {
     HOME: home,

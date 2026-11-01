@@ -18,7 +18,9 @@ for await (const line of createInterface({ input: process.stdin })) {
     respond(event.id, { config: { mcp_servers: {}, plugins: {} } });
   if (event.method === "account/read")
     respond(event.id, {
-      account: existsSync(join(home, "signed-in")) ? { type: "chatgpt" } : null,
+      account: existsSync(join(home, "signed-in"))
+        ? { type: "chatgpt", email: "fixture@example.test", planType: "pro" }
+        : null,
       requiresOpenaiAuth: true,
     });
   if (event.method === "account/login/start") {

@@ -10,6 +10,18 @@ export function settingsRoutes(service: SettingsService, cli: CliProviders) {
   routes.get("/provider-status", async (c) =>
     c.json({ data: await service.health() }),
   );
+  routes.post("/providers/:id/enabled", async (c) => {
+    const { enabled } = parseInput(
+      z.object({ enabled: z.boolean() }),
+      await readJson(c.req.raw),
+    );
+    return c.json({
+      data: await service.setProviderEnabled(
+        parseInput(z.string().uuid(), c.req.param("id")),
+        enabled,
+      ),
+    });
+  });
   routes.get("/providers/:id/models", async (c) =>
     c.json({
       data: await service.models(

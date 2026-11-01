@@ -17,6 +17,7 @@ export function useSettingsMutation(onSuccess?: () => void) {
       queries.setQueryData(settingsKey, data);
       void queries.invalidateQueries({ queryKey: providerHealthKey });
       void queries.invalidateQueries({ queryKey: ["provider-models"] });
+      void queries.invalidateQueries({ queryKey: ["provider-status"] });
       onSuccess?.();
     },
   });

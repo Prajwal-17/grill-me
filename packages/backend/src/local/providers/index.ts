@@ -19,13 +19,17 @@ export function createCliProviders(root: string) {
     }
   >();
   async function connection(provider: Provider) {
-    if (disconnected.has(provider.id))
+    if (provider.enabled === false || disconnected.has(provider.id))
       throw new AppError(
         "PROVIDER_DISCONNECTED",
         "Disconnected. Connect again when ready.",
         503,
       );
-    const identity = JSON.stringify([provider.kind, provider.binaryPath]);
+    const identity = JSON.stringify([
+      provider.kind,
+      provider.binaryPath,
+      provider.codexHome,
+    ]);
     let entry = entries.get(provider.id);
     if (entry?.identity !== identity) {
       if (entry) void entry.connection.then((c) => c.close()).catch(() => {});
@@ -118,6 +122,12 @@ export function createCliProviders(root: string) {
     },
     disconnect(id: string) {
       disconnected.add(id);
+      stop(id);
+    },
+    enable(id: string) {
+      disconnected.delete(id);
+    },
+    reset(id: string) {
       stop(id);
     },
     async close() {

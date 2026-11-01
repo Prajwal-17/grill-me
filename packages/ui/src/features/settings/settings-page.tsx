@@ -63,7 +63,7 @@ function LocalSettingsPanel() {
   const [params] = useSearchParams();
   const active =
     settingsSections.find((s) => s.id === params.get("section"))?.id ??
-    "appearance";
+    "providers";
   const settings = useQuery({
     queryKey: settingsKey,
     queryFn: () => apiRequest<LocalSettings>("/settings"),

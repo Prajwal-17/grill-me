@@ -258,8 +258,8 @@ scrolling. Page actions belong to their content, outside the draggable title bar
 The sidebar holds 40px creation and labeled navigation rows for Home,
 Challenges, Quizzes, and Preferences. History, Settings, and Logs are anchored
 at the bottom of the navigation, above the account controls.
-Settings and Preferences place their categories in a second, open column
-beside the main sidebar, with the content canvas showing through and no divider. Practice lists and
+Settings uses a horizontal tab row for Providers, Appearance, Advanced, and About.
+Preferences retains its open category column beside the main sidebar. Practice lists and
 filters stay in the main content; do not add a recent-practice feed to the
 sidebar. Account controls remain anchored in the footer. Appearance is managed in Settings. Mobile
 navigation, creation, and account controls use targets at least 44px
@@ -292,8 +292,10 @@ areas are constrained to approximately 880px. The optional reference is 340px
 wide above the 1180px workspace breakpoint, and a drawer below it. File previews
 retain their existing wide-panel and full-screen controls.
 
-Settings and Preferences share `SettingsLayout`: a 208px category column beside
-an independently scrolling content panel capped at 800px. The category column
+Settings uses a centered 1120px content panel beneath horizontal tabs. Providers
+opens by default and uses a two-entry list beside a single details panel. Below
+740px of panel width, the list stacks above the details. Preferences uses
+`SettingsLayout` with a 208px category column and an 800px content panel. The category column
 is unboxed: transparent background, no separator, no border, no full-height
 panel treatment. Category buttons use icons and 40px rows. Below 768px, a
 Sections button opens the category list in a Sheet. Content uses 16px mobile
@@ -309,11 +311,12 @@ panels stack them. Save and discard actions live at the end of the form, beside
 unsaved/error/saved feedback. Saving reveals and focuses any invalid field,
 including one in a hidden section.
 
-Application settings contain Appearance, AI providers, Local runtime, and About.
+Application settings contain Providers, Appearance, Advanced, and About.
 The desktop toolbar includes a quiet version link that opens About, which bundles
 the full release history from the repository changelog. The installed release is
-marked in that history. Provider connection warnings sit below the toolbar with
-AI settings and Retry connection actions; they do not cover the current task.
+marked in that history. Outside Settings, provider connection warnings sit below
+the toolbar with AI settings and Retry connection actions. Inside Settings, errors
+stay with the relevant provider, avoiding duplicate banners.
 Appearance exposes theme and persistent zoom; startup/fullscreen controls and
 static database/connection/keyring diagnostics are omitted. Existing maximized
 startup and F11 remain available independently. Runtime retains review timeout,
@@ -397,26 +400,17 @@ rather than installing a second component vocabulary. Configuration reference:
   Connecting records the original folder path without importing its contents.
   Starting a review saves a filtered snapshot in the current app edition's data
   folder; later source edits do not change that saved review.
-- **Application settings:** `SettingsGroup` uses a bordered surface with quiet row
-  dividers. Appearance changes save automatically on this device; runtime changes
-  show an unsaved state with explicit save and discard actions. Providers show
-  their active state, connection type, model, and connection results beside the
-  relevant provider. Add and edit retain the inline form. Connection type selects
-  Codex CLI, OpenCode CLI, or an OpenAI-compatible API. CLI connections use an
-  installed executable, detected automatically or specified by absolute path.
-  Their saved row contains connection status, executable/version, sign-in,
-  available model selection, reasoning effort for Codex/API connections, and
-  Connect/Refresh/Disconnect actions. Codex effort choices follow the selected
-  model's capabilities. API connections discover models and expose connection
-  errors in their row; Edit accepts explicit gateway model IDs. New Codex/API
-  providers use the edition's model/effort defaults without replacing saved choices. OpenCode
-  account and sign-in-method choices stay within that row; authentication fields
-  appear only when required. Disconnect stays explicit and persists until Connect
-  or Use provider is selected. API connections retain endpoint, key-storage
-  status, and a masked key with reveal control, preserving Linux keyring and
-  session-only choices.
-  Pending legacy import stays in a disclosure. Provider deletion uses the shared
-  Radix alert dialog and names the saved-key removal before confirmation.
+- **Application settings:** Providers has exactly two entries: Codex and OmniRoute.
+  Each has an independently labelled on/off switch; selecting a row opens its
+  details without changing the active provider. A separate Use for AI requests
+  selector lists enabled providers. Turning off the selected provider clears the
+  selection. No silent fallback. Status, account/plan, version, refresh, model, and
+  reasoning controls live in the detail panel. Codex uses the installed CLI's
+  existing login by default. Executable/home paths and custom model IDs live in an
+  Advanced disclosure. OmniRoute shows endpoint and a masked optional API key; key
+  storage and removal stay in Advanced. Drafts survive switching providers and
+  tabs. Save and Discard appear only for unsaved edits. Connection errors stay
+  inline. Required provider names and an Add provider flow are absent.
 - **Collections:** `Table` supplies the semantic table primitives;
   `CollectionToolbar` and `CollectionSummary` supply recurring framing. Domain
   collections retain suitable responsive layouts. Search/filter empty states

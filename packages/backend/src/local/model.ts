@@ -23,6 +23,7 @@ export function configuredModel(
       model: p.model,
       reasoningEffort: p.reasoningEffort,
       providerName: p.name,
+      anonymous: p.kind === "openai" && !p.apiKey,
       timeoutMs: settings.runtime().judgeTimeoutMs,
       ...(p.kind === "openai" ? {} : { transport: cli.transport(p) }),
     });

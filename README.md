@@ -17,8 +17,9 @@ This opens the complete Electron application, including its private local backen
 and React UI. There are no separate web/backend launch modes and no Docker setup.
 React changes hot reload; restart after backend changes.
 
-Connect an installed Codex/OpenCode CLI or an OpenAI-compatible endpoint in
-**Settings → AI providers**. Grill Me does not install either CLI. See
+Use your installed Codex CLI account or an OmniRoute endpoint in
+**Settings → Providers**. Turn either provider on, then choose which handles AI
+requests. Grill Me does not install Codex. See
 [CLI connections and conversation recovery](docs/cli-providers.md).
 
 ## Development and production
@@ -33,10 +34,12 @@ Connect an installed Codex/OpenCode CLI or an OpenAI-compatible endpoint in
 The table shows Linux paths; the config root follows `XDG_CONFIG_HOME`. macOS
 uses `~/Library/Application Support/` with the same edition directory names. Both editions can be installed
 and running simultaneously. SQLite, settings, window preferences, zoom, Electron
-sessions, browser storage, keyring entries, CLI authentication, uploads, snapshots,
+sessions, browser storage, keyring entries, uploads, snapshots,
 and logs are separate. Production desktop uses its own local SQLite database;
 it does not connect to the old production PostgreSQL database. Existing dev data
 stays in the same folder. Data is never copied between editions automatically.
+Codex reuses the host CLI account by default; choose a custom CODEX_HOME in
+Advanced provider settings when you need a separate account.
 
 ## Build and release
 

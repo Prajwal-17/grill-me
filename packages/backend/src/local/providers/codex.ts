@@ -86,7 +86,11 @@ export class CodexConnection {
       );
     }
     const account = await this.client.request<{
-      account: unknown;
+      account: {
+        type: string;
+        email?: string | null;
+        planType?: string | null;
+      } | null;
       requiresOpenaiAuth: boolean;
     }>("account/read", { refreshToken: false });
     const authenticated =
@@ -150,6 +154,16 @@ export class CodexConnection {
       this.loginFailure = undefined;
     }
     return {
+      homePath: this.env.CODEX_HOME,
+      ...(account.account
+        ? {
+            account: {
+              type: account.account.type,
+              email: account.account.email ?? undefined,
+              plan: account.account.planType ?? undefined,
+            },
+          }
+        : {}),
       installed: true,
       connected: authenticated,
       authenticated,
@@ -158,7 +172,7 @@ export class CodexConnection {
       message: authenticated
         ? "Codex is connected."
         : (this.loginFailure?.message ??
-          "Sign in to Codex to connect this installation."),
+          "Codex is signed out. Run codex login or sign in below."),
       code: authenticated
         ? undefined
         : (this.loginFailure?.code ?? "PROVIDER_AUTH_REQUIRED"),

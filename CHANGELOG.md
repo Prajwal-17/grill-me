@@ -2,6 +2,9 @@
 
 ## desktop-v0.1.6 - 1 Nov 2026
 
+- Reuse the installed Codex CLI account and configurable CODEX_HOME, with account and plan status.
+- Simplify Settings to two providers, Codex and OmniRoute, with independent on/off switches and an explicit provider selector.
+- Replace the extra Settings sidebar with tabs and a provider list/detail panel; keep errors inline and advanced paths out of the main setup flow.
 - Show the installed desktop version in the top bar, with a link to the release history in Settings.
 - Bundle the full desktop release history from 0.1.0 onward in Settings → About, and preview historical GitHub release-note backfills through the release script.
 - Add per-provider reasoning settings and account model discovery. New production providers default to GPT-6.1 Sol with high reasoning; new development providers default to GPT-6 Luna with medium reasoning. Preserve saved model choices.

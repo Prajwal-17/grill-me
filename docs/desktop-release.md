@@ -4,8 +4,8 @@
 renderer on Linux or macOS. Install Node (see `.node-version`) and Bun 1.4.1, then
 run `bun install --frozen-lockfile`. There are no separate backend/web commands.
 Installed packages include Bun, SQLite, the renderer, resume parser worker, and
-the matching native credential binding. Codex/OpenCode remain optional installed
-executables.
+the matching native credential binding. Codex remains an optional installed
+executable.
 
 ## Editions and data
 
@@ -23,9 +23,10 @@ executables.
 On macOS, data is under `~/Library/Application Support/<data directory name>/`.
 On Linux it is under `$XDG_CONFIG_HOME/<data directory name>/`, defaulting to
 `~/.config/`. Each directory owns its SQLite database, settings, uploads, review
-snapshots, logs, provider authentication, and Electron session data. Both editions
+snapshots, logs, API credentials, and Electron session data. Both editions
 can be installed and run side by side. Neither reads or migrates production
-PostgreSQL or the other edition's data. Choose providers and sign in separately.
+PostgreSQL or the other edition's data. Provider selection is edition-specific;
+Codex deliberately reuses the host CLI login unless a custom home is configured.
 Back up data with the edition closed. Uninstalling retains data.
 
 API keys use macOS Keychain or Linux Secret Service through `@napi-rs/keyring`.
@@ -38,7 +39,8 @@ Finder does not load shell startup files. Executable discovery preserves inherit
 PATH priority and adds both Homebrew prefixes, `~/.local/bin`, `~/.bun/bin`,
 `~/.opencode/bin`, npm-global, Volta, pnpm, Cargo, and installed nvm/fnm versions.
 Explicit executable paths in Settings take precedence. Custom installations can
-be selected there. Provider config and authentication remain edition-scoped.
+be selected there. Provider settings and API credentials remain edition-scoped;
+Codex account ownership follows the selected CODEX_HOME.
 
 macOS uses the native title bar, traffic lights, application/Edit/Window menus,
 and Command shortcuts (copy/paste/undo/select all, zoom, reload, settings, sidebar).

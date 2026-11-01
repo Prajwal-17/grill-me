@@ -1,628 +1,656 @@
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   Check,
   ChevronDown,
-  Eye,
-  EyeOff,
-  KeyRound,
+  ExternalLink,
   LoaderCircle,
-  MoreHorizontal,
-  Plus,
-  ShieldCheck,
-  Trash2,
+  RefreshCw,
+  Terminal,
+  Waypoints,
 } from "lucide-react";
-import {
-  providerInputSchema,
-  type LocalSettings,
-  type ProviderInput,
-  type SavedProvider,
-  defaultProviderSettings,
-  type ReasoningEffort,
+import type {
+  LocalSettings,
+  ProviderConnection,
+  ProviderInput,
+  ProviderModel,
+  SavedProvider,
 } from "@repo/contracts";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { ChoiceSelect } from "@/shared/components/ui/choice-select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
+import { Input } from "@/shared/components/ui/input";
+import { Switch } from "@/shared/components/ui/switch";
+import { apiRequest } from "@/shared/lib/api-client";
+import { cn } from "@/shared/lib/cn";
 import { SettingsFeedback, SettingsHeading } from "./settings-layout";
 import { useSettingsMutation } from "./use-settings-mutation";
-import { CliProviderConnection } from "./cli-provider-connection";
-import { ApiProviderModels, reasoningOptions } from "./provider-model-controls";
-import { env } from "@/shared/config/env";
+import { ProviderModelControls } from "./provider-model-controls";
+import { providerHealthKey } from "./provider-health";
+
+type ProviderKind = "codex" | "openai";
+const providerNames = { codex: "Codex", openai: "OmniRoute" };
+const signInCodes = [
+  "PROVIDER_AUTH_REQUIRED",
+  "PROVIDER_LOGIN_FAILED",
+  "PROVIDER_LOGIN_EXPIRED",
+];
+function planLabel(plan: string) {
+  return (
+    (
+      {
+        pro: "Pro",
+        prolite: "Pro Lite",
+        plus: "Plus",
+        team: "Team",
+        business: "Business",
+        enterprise: "Enterprise",
+        free: "Free",
+      } as Record<string, string>
+    )[plan] ?? plan
+  );
+}
+function primaryProvider(
+  data: LocalSettings,
+  kind: ProviderKind,
+): SavedProvider {
+  return (
+    data.providers.find(
+      (p) => p.kind === kind && p.id === data.activeProviderId,
+    ) ??
+    data.providers.find((p) => p.kind === kind) ?? {
+      id:
+        kind === "codex"
+          ? "00000000-0000-4000-8000-000000000001"
+          : "00000000-0000-4000-8000-000000000002",
+      name: providerNames[kind],
+      kind,
+      enabled: false,
+      codexHome: "",
+      binaryPath: "",
+      endpoint: kind === "openai" ? "http://127.0.0.1:20128/v1" : undefined,
+      ...data.providerDefaults,
+      storage: data.keyring.available ? "keyring" : "session",
+      hasKey: false,
+    }
+  );
+}
+function useProviderStatus(provider: SavedProvider) {
+  return useQuery({
+    queryKey: [
+      "provider-status",
+      provider.id,
+      provider.binaryPath,
+      provider.codexHome,
+      provider.endpoint,
+      provider.enabled,
+    ],
+    queryFn: async (): Promise<ProviderConnection> => {
+      if (provider.kind === "codex")
+        return apiRequest(`/settings/providers/${provider.id}/connection`);
+      const models = await apiRequest<ProviderModel[]>(
+        `/settings/providers/${provider.id}/models`,
+      );
+      return {
+        installed: true,
+        connected: true,
+        authenticated: true,
+        version: null,
+        binaryPath: null,
+        message: "Connected to OmniRoute",
+        models,
+      };
+    },
+    enabled: provider.enabled,
+    staleTime: 15000,
+    retry: false,
+    refetchInterval: (query) =>
+      provider.enabled ? (query.state.data?.login ? 2000 : 30000) : false,
+  });
+}
 
 export function ProviderSettings({ data }: { data: LocalSettings }) {
-  const [editor, setEditor] = useState<ProviderInput | null>(null);
-  const [deleting, setDeleting] = useState<SavedProvider | null>(null);
-  const [notice, setNotice] = useState("");
-  const [validation, setValidation] = useState<Error | null>(null);
-  const [visibleKey, setVisibleKey] = useState(false);
-  const addButton = useRef<HTMLButtonElement>(null);
-  const save = useSettingsMutation(() => {
-    const restoreFocus = Boolean(editor || deleting);
-    setEditor(null);
-    setDeleting(null);
-    setValidation(null);
-    setVisibleKey(false);
-    setNotice("Provider settings saved.");
-    if (restoreFocus) requestAnimationFrame(() => addButton.current?.focus());
-  });
-  const migration = useSettingsMutation(() =>
-    setNotice("Existing provider settings imported."),
+  const providers = [
+    primaryProvider(data, "codex"),
+    primaryProvider(data, "openai"),
+  ];
+  const [selected, setSelected] = useState<ProviderKind>(() =>
+    data.providers.find((p) => p.id === data.activeProviderId)?.kind ===
+    "openai"
+      ? "openai"
+      : "codex",
   );
-  const busy = save.isPending || migration.isPending;
-  const existing = data.providers.find((p) => p.id === editor?.id);
-  function edit(provider?: SavedProvider) {
-    save.reset();
-    setNotice("");
-    setValidation(null);
-    setVisibleKey(false);
-    setEditor(
-      provider
-        ? { ...provider }
-        : {
-            id: crypto.randomUUID(),
-            name: "",
-            kind: "codex",
-            binaryPath: "",
-            endpoint: "http://127.0.0.1:20128/v1",
-            ...(data.providerDefaults ?? defaultProviderSettings(env.appEnv)),
-            storage: data.keyring.available ? "keyring" : "session",
-          },
-    );
-  }
-  function cancel() {
-    setEditor(null);
-    setVisibleKey(false);
-    setValidation(null);
-    save.reset();
-    requestAnimationFrame(() => addButton.current?.focus());
-  }
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    const result = providerInputSchema.safeParse(editor);
-    if (!result.success) {
-      setValidation(
-        new Error(
-          result.error.issues[0]?.message ?? "Check the provider settings.",
-        ),
-      );
-      return;
-    }
-    setNotice("");
-    setValidation(null);
-    save.mutate({ path: "/settings/providers", body: result.data });
-  }
+  const change = useSettingsMutation();
+  const enabled = providers.filter((p) => p.enabled);
   return (
     <>
-      <div hidden={Boolean(editor)}>
-        <SettingsHeading
-          title="AI providers"
-          description="Connect your installed Codex or OpenCode CLI, or use an API provider."
-          action={
-            <Button
-              ref={addButton}
-              variant="primary"
-              disabled={busy}
-              onClick={() => edit()}
-            >
-              <Plus size={15} />
-              Add provider
-            </Button>
-          }
-        />
-      </div>
-      {editor && (
-        <>
-          <Button
-            variant="ghost"
-            className="mb-4 -ml-2"
-            disabled={busy}
-            onClick={cancel}
-          >
-            <ArrowLeft size={15} />
-            Back to providers
-          </Button>
-          <SettingsHeading
-            title={existing ? "Edit provider" : "Add provider"}
-            description="Choose a connection and configure its model. CLI sign-in is available after saving."
-          />
-        </>
-      )}
-      <SettingsFeedback
-        error={validation ?? save.error ?? migration.error}
-        message={notice}
+      <SettingsHeading
+        title="Providers"
+        description="Use your Codex account or connect through OmniRoute."
       />
-      {editor ? (
-        <form onSubmit={submit}>
-          <fieldset disabled={busy} className="min-w-0 space-y-5">
-            <ProviderField label="Connection type" htmlFor="provider-kind">
-              <ChoiceSelect
-                id="provider-kind"
-                label="Connection type"
-                value={editor.kind ?? "openai"}
-                disabled={Boolean(existing)}
-                onChange={(kind) =>
-                  setEditor({
-                    ...editor,
-                    kind: kind as "codex" | "opencode" | "openai",
-                    apiKey: undefined,
-                    removeKey: false,
-                    ...(kind === "opencode"
-                      ? { model: "auto", reasoningEffort: undefined }
-                      : (data.providerDefaults ??
-                        defaultProviderSettings(env.appEnv))),
-                  })
-                }
-                options={[
-                  { id: "codex", label: "Codex CLI" },
-                  { id: "opencode", label: "OpenCode CLI" },
-                  { id: "openai", label: "OpenAI-compatible API" },
-                ]}
-              />
-            </ProviderField>
-            <ProviderField label="Provider name" htmlFor="provider-name">
-              <Input
-                id="provider-name"
-                autoFocus
-                required
-                maxLength={80}
-                value={editor.name}
-                onChange={(e) => setEditor({ ...editor, name: e.target.value })}
-                placeholder="e.g. Local model server"
-              />
-            </ProviderField>
-            {editor.kind !== "openai" && editor.kind !== undefined && (
-              <ProviderField
-                label="CLI executable"
-                htmlFor="provider-binary"
-                hint="Leave empty to detect the CLI installed on your machine."
-              >
-                <Input
-                  id="provider-binary"
-                  aria-describedby="provider-binary-hint"
-                  value={editor.binaryPath ?? ""}
-                  onChange={(e) =>
-                    setEditor({ ...editor, binaryPath: e.target.value })
-                  }
-                  placeholder={`/absolute/path/to/${editor.kind}`}
-                  pattern="(/.*)?"
-                  title="Use an absolute executable path."
-                  spellCheck={false}
-                />
-              </ProviderField>
+      <div className="mb-7 flex flex-col gap-3 border-y border-line py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-ui font-medium">Use for AI requests</h3>
+          <p className="mt-1 text-supporting text-muted">
+            Both providers can be on. Choose which one handles new requests.
+          </p>
+        </div>
+        <div className="w-full shrink-0 sm:w-56">
+          <ChoiceSelect
+            label="Provider used for AI requests"
+            value={
+              enabled.some((p) => p.id === data.activeProviderId)
+                ? data.activeProviderId!
+                : "none"
+            }
+            disabled={change.isPending}
+            onChange={(id) =>
+              change.mutate({
+                path: "/settings/active-provider",
+                body: { id: id === "none" ? null : id },
+              })
+            }
+            options={[
+              { id: "none", label: "No provider selected" },
+              ...enabled.map((p) => ({
+                id: p.id,
+                label: providerNames[p.kind as ProviderKind],
+              })),
+            ]}
+          />
+        </div>
+      </div>
+      <SettingsFeedback error={change.error} />
+      <div className="provider-workbench grid min-w-0 overflow-hidden rounded-xl border border-line bg-surface @min-[740px]:grid-cols-[230px_minmax(0,1fr)]">
+        <div
+          className="divide-y divide-line border-b border-line @min-[740px]:border-b-0 @min-[740px]:border-r"
+          role="group"
+          aria-label="AI providers"
+        >
+          {providers.map((provider) => (
+            <ProviderListItem
+              key={provider.id}
+              provider={provider}
+              selected={selected === provider.kind}
+              active={data.activeProviderId === provider.id}
+              busy={change.isPending}
+              onSelect={() => setSelected(provider.kind as ProviderKind)}
+              onToggle={(value) => {
+                change.reset();
+                change.mutate(
+                  data.providers.some((p) => p.id === provider.id)
+                    ? {
+                        path: `/settings/providers/${provider.id}/enabled`,
+                        body: { enabled: value },
+                      }
+                    : {
+                        path: "/settings/providers",
+                        body: { ...provider, enabled: value },
+                      },
+                );
+              }}
+            />
+          ))}
+        </div>
+        <div className="min-w-0">
+          {providers.map((provider) => (
+            <div key={provider.id} hidden={selected !== provider.kind}>
+              <ProviderDetails provider={provider} data={data} />
+            </div>
+          ))}
+        </div>
+      </div>
+      {data.migration.pending && (
+        <div className="mt-6 border-t border-line pt-4">
+          <p className="mb-3 text-supporting text-muted">
+            Existing OmniRoute settings are available to import.
+          </p>
+          <Button
+            disabled={change.isPending}
+            onClick={() =>
+              change.mutate({
+                path: "/settings/import",
+                body: {
+                  storage: data.keyring.available ? "keyring" : "session",
+                },
+              })
+            }
+          >
+            Import existing settings
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ProviderListItem({
+  provider,
+  selected,
+  active,
+  busy,
+  onSelect,
+  onToggle,
+}: {
+  provider: SavedProvider;
+  selected: boolean;
+  active: boolean;
+  busy: boolean;
+  onSelect: () => void;
+  onToggle: (value: boolean) => void;
+}) {
+  const status = useProviderStatus(provider);
+  const Icon = provider.kind === "codex" ? Terminal : Waypoints;
+  const summary = !provider.enabled
+    ? "Off"
+    : status.isFetching && !status.data
+      ? "Checking connection…"
+      : status.error
+        ? "Connection unavailable"
+        : (status.data?.account?.email ??
+          (status.data?.connected ? "Connected" : "Sign-in needed"));
+  return (
+    <div
+      className={cn(
+        "flex items-start gap-2 px-4 py-5",
+        selected ? "bg-elevated" : "bg-canvas/40",
+      )}
+    >
+      <button
+        type="button"
+        aria-pressed={selected}
+        aria-controls={`provider-detail-${provider.id}`}
+        className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left outline-offset-4"
+        onClick={onSelect}
+      >
+        <Icon size={18} className="mt-0.5 shrink-0 text-muted" />
+        <span className="min-w-0">
+          <span className="flex flex-wrap items-center gap-2 text-ui font-medium">
+            {providerNames[provider.kind as ProviderKind]}
+            {active && <Check size={13} aria-label="In use" />}
+          </span>
+          <span
+            className="mt-1 block truncate text-supporting text-muted"
+            title={summary}
+          >
+            {summary}
+          </span>
+          {status.data?.account?.plan && provider.enabled && (
+            <span className="mt-1 block text-metadata text-muted">
+              ChatGPT {planLabel(status.data.account.plan)}
+            </span>
+          )}
+        </span>
+      </button>
+      <Switch
+        aria-label={`Enable ${providerNames[provider.kind as ProviderKind]}`}
+        checked={provider.enabled}
+        disabled={busy}
+        onCheckedChange={onToggle}
+      />
+    </div>
+  );
+}
+
+function ProviderDetails({
+  provider,
+  data,
+}: {
+  provider: SavedProvider;
+  data: LocalSettings;
+}) {
+  const queries = useQueryClient();
+  const status = useProviderStatus(provider);
+  const [draft, setDraft] = useState<ProviderInput | null>(null);
+  const save = useSettingsMutation(() => setDraft(null));
+  const values: ProviderInput = draft ?? provider;
+  const update = (patch: Partial<ProviderInput>) => {
+    save.reset();
+    setDraft({ ...values, ...patch });
+  };
+  const dirty = draft !== null;
+  const login = useMutation({
+    mutationFn: () =>
+      apiRequest<ProviderConnection>(
+        `/settings/providers/${provider.id}/login`,
+        { method: "POST", body: "{}" },
+      ),
+    onSuccess: (value) => {
+      queries.setQueriesData(
+        { queryKey: ["provider-status", provider.id] },
+        value,
+      );
+      void queries.invalidateQueries({
+        queryKey: ["provider-status", provider.id],
+      });
+      void queries.invalidateQueries({ queryKey: providerHealthKey });
+    },
+  });
+  const busy = save.isPending || login.isPending;
+  const state = status.data;
+  const name = providerNames[provider.kind as ProviderKind];
+  return (
+    <section
+      id={`provider-detail-${provider.id}`}
+      aria-label={`${name} settings`}
+      className="min-w-0 p-5 sm:p-6"
+    >
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-section font-semibold">{name}</h3>
+          <p className="mt-1 text-supporting text-muted">
+            {provider.kind === "codex"
+              ? "Your installed CLI and ChatGPT account"
+              : "Your OpenAI-compatible model gateway"}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!provider.enabled || status.isFetching || busy}
+          onClick={() => void status.refetch()}
+        >
+          <RefreshCw
+            size={14}
+            className={status.isFetching ? "animate-spin" : ""}
+          />
+          Refresh
+        </Button>
+      </div>
+      <div className="mb-6 border-b border-line pb-5">
+        <div className="flex items-center gap-2 text-ui">
+          <span
+            className={cn(
+              "size-2 rounded-full",
+              !provider.enabled
+                ? "bg-muted"
+                : state?.connected && !status.error
+                  ? "bg-success"
+                  : "bg-warning",
             )}
-            {(editor.kind === "openai" || editor.kind === undefined) && (
-              <ProviderField
-                label="API endpoint"
-                htmlFor="provider-endpoint"
-                hint="Base URL, including /v1 when required by your provider."
+          />
+          <span className="font-medium">
+            {!provider.enabled
+              ? "Turned off"
+              : status.isFetching && !state
+                ? "Checking connection…"
+                : state?.connected && !status.error
+                  ? "Connected"
+                  : "Needs attention"}
+          </span>
+        </div>
+        {!provider.enabled ? (
+          <p className="mt-2 text-supporting text-muted">
+            Turn on {name} to check its connection and use its models.
+          </p>
+        ) : (
+          <>
+            {state?.account && (
+              <p className="mt-2 break-words text-ui">
+                {state.account.email ??
+                  (state.account.type === "apiKey"
+                    ? "API key account"
+                    : "Codex account")}
+                {state.account.plan && (
+                  <span className="ml-2 text-supporting text-muted">
+                    ChatGPT {planLabel(state.account.plan)}
+                  </span>
+                )}
+              </p>
+            )}
+            {state?.version && (
+              <p className="mt-1 text-metadata text-muted">{state.version}</p>
+            )}
+            {(status.error || (state?.code && !state.login)) && (
+              <div className="mt-3">
+                <SettingsFeedback
+                  error={status.error ?? new Error(state?.message)}
+                />
+              </div>
+            )}
+            {provider.kind === "codex" &&
+              state?.installed &&
+              (!state.code || signInCodes.includes(state.code)) &&
+              !state.authenticated &&
+              !state.login && (
+                <div className="mt-3">
+                  <Button disabled={busy} onClick={() => login.mutate()}>
+                    {login.isPending && (
+                      <LoaderCircle size={14} className="animate-spin" />
+                    )}
+                    Sign in to Codex
+                  </Button>
+                  <p className="mt-2 text-supporting text-muted">
+                    You can also run <code>codex login</code> in your terminal,
+                    then refresh.
+                  </p>
+                </div>
+              )}
+            {state?.login && (
+              <div className="mt-3 space-y-3">
+                <p className="text-supporting text-muted">
+                  Complete Codex sign-in in your browser, then return here.
+                </p>
+                {state.login.url && (
+                  <Button asChild>
+                    <a href={state.login.url} target="_blank" rel="noreferrer">
+                      Open sign-in page
+                      <ExternalLink size={14} />
+                    </a>
+                  </Button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <SettingsFeedback error={save.error ?? login.error} />
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          save.mutate({
+            path: "/settings/providers",
+            body: { ...values, enabled: provider.enabled },
+          });
+        }}
+      >
+        <fieldset disabled={busy} className="min-w-0 space-y-6">
+          {provider.kind === "openai" && (
+            <div className="space-y-4">
+              <DetailField
+                label="Endpoint"
+                htmlFor={`endpoint-${provider.id}`}
+                hint="OmniRoute base URL, including /v1."
               >
                 <Input
-                  id="provider-endpoint"
-                  aria-describedby="provider-endpoint-hint"
+                  id={`endpoint-${provider.id}`}
                   required
                   type="url"
-                  maxLength={2048}
-                  value={editor.endpoint}
-                  onChange={(e) =>
-                    setEditor({ ...editor, endpoint: e.target.value })
-                  }
-                  placeholder="https://api.example.com/v1"
-                  spellCheck={false}
+                  value={values.endpoint ?? ""}
+                  onChange={(e) => update({ endpoint: e.target.value })}
+                  placeholder="http://127.0.0.1:20128/v1"
                 />
-              </ProviderField>
-            )}
-            <ProviderField label="Model" htmlFor="provider-model">
-              <Input
-                id="provider-model"
-                required
-                maxLength={160}
-                value={editor.model}
-                onChange={(e) =>
-                  setEditor({ ...editor, model: e.target.value })
+              </DetailField>
+              <DetailField
+                label="API key"
+                htmlFor={`key-${provider.id}`}
+                hint={
+                  provider.hasKey
+                    ? "A key is saved. Leave empty to keep it."
+                    : "Optional if your gateway does not require a key."
                 }
-                placeholder="Model ID"
-                spellCheck={false}
-              />
-            </ProviderField>
-            {editor.kind !== "opencode" && (
-              <ProviderField
-                label="Reasoning effort"
-                htmlFor="provider-reasoning"
-                hint="The provider must support the selected model and reasoning effort."
               >
-                <ChoiceSelect
-                  id="provider-reasoning"
-                  label="Reasoning effort"
-                  value={editor.reasoningEffort ?? "default"}
-                  onChange={(value) =>
-                    setEditor({
-                      ...editor,
-                      reasoningEffort:
-                        value === "default"
-                          ? undefined
-                          : (value as ReasoningEffort),
+                <Input
+                  id={`key-${provider.id}`}
+                  type="password"
+                  autoComplete="new-password"
+                  value={values.apiKey ?? ""}
+                  onChange={(e) =>
+                    update({
+                      apiKey: e.target.value || undefined,
+                      removeKey: false,
                     })
                   }
-                  options={[
-                    { id: "default", label: "Provider default" },
-                    ...reasoningOptions,
-                  ]}
-                />
-              </ProviderField>
-            )}
-            {(editor.kind === "openai" || editor.kind === undefined) && (
-              <>
-                <ProviderField
-                  label="API key"
-                  htmlFor="provider-key"
-                  hint={
-                    existing?.hasKey
-                      ? "Leave empty to keep the saved key. Enter a value to replace it."
-                      : "Optional for providers that accept requests without a key."
+                  placeholder={
+                    provider.hasKey ? "Saved key unchanged" : "Enter API key"
                   }
+                />
+              </DetailField>
+            </div>
+          )}
+          <section aria-label="Model settings">
+            <h4 className="text-ui font-medium">Model & reasoning</h4>
+            <ProviderModelControls
+              provider={{ ...provider, ...values } as SavedProvider}
+              models={provider.enabled ? (state?.models ?? []) : []}
+              disabled={busy}
+              onChange={update}
+            />
+            {provider.enabled &&
+              provider.kind === "codex" &&
+              state?.connected &&
+              values.model !== "auto" &&
+              !state.models.some((model) => model.id === values.model) && (
+                <p
+                  role="alert"
+                  className="mt-3 text-supporting text-destructive"
                 >
-                  <div className="relative">
+                  This model is not available to your Codex account. Choose a
+                  model from the list.
+                </p>
+              )}
+          </section>
+          <details className="group border-t border-line pt-4">
+            <summary className="flex cursor-pointer list-none items-center justify-between text-ui font-medium">
+              Advanced
+              <ChevronDown
+                size={15}
+                className="transition-transform group-open:rotate-180"
+              />
+            </summary>
+            <div className="space-y-4 pt-5">
+              <DetailField
+                label="Custom model ID"
+                htmlFor={`model-${provider.id}`}
+                hint="Use an exact model ID or an OmniRoute combo name."
+              >
+                <Input
+                  id={`model-${provider.id}`}
+                  value={values.model}
+                  required
+                  maxLength={160}
+                  onChange={(e) => update({ model: e.target.value })}
+                  spellCheck={false}
+                />
+              </DetailField>
+              {provider.kind === "codex" ? (
+                <>
+                  <DetailField
+                    label="Binary path"
+                    htmlFor={`binary-${provider.id}`}
+                    hint="Leave empty to find codex on your PATH."
+                  >
                     <Input
-                      id="provider-key"
-                      aria-describedby="provider-key-hint"
-                      type={visibleKey ? "text" : "password"}
-                      autoComplete="new-password"
-                      maxLength={8192}
-                      value={editor.apiKey ?? ""}
-                      onChange={(e) =>
-                        setEditor({
-                          ...editor,
-                          apiKey: e.target.value || undefined,
-                          removeKey: false,
-                        })
-                      }
-                      placeholder={
-                        existing?.hasKey
-                          ? "Saved key unchanged"
-                          : "Enter API key"
-                      }
-                      className="pr-10"
+                      id={`binary-${provider.id}`}
+                      value={values.binaryPath ?? ""}
+                      onChange={(e) => update({ binaryPath: e.target.value })}
+                      placeholder="codex (auto-detect)"
                       spellCheck={false}
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={visibleKey ? "Hide API key" : "Show API key"}
-                      aria-pressed={visibleKey}
-                      onClick={() => setVisibleKey(!visibleKey)}
-                      className="absolute right-0.5 top-1/2 -translate-y-1/2"
-                    >
-                      {visibleKey ? <EyeOff size={15} /> : <Eye size={15} />}
-                    </Button>
-                  </div>
-                </ProviderField>
-                <ProviderField
-                  label="Key storage"
-                  htmlFor="provider-storage"
-                  hint={
-                    editor.storage === "session"
-                      ? "Held in memory and cleared when the local backend stops."
-                      : data.keyring.message
-                  }
-                >
-                  <ChoiceSelect
-                    id="provider-storage"
-                    aria-describedby="provider-storage-hint"
-                    label="Key storage"
-                    value={editor.storage ?? "keyring"}
-                    onChange={(storage) =>
-                      setEditor({
-                        ...editor,
-                        storage: storage as "keyring" | "session",
-                      })
-                    }
-                    options={[
-                      { id: "keyring", label: "System credential store" },
-                      { id: "session", label: "Session only" },
-                    ]}
-                  />
-                </ProviderField>
-                {existing?.hasKey && (
-                  <label className="flex items-center gap-2 text-ui">
-                    <input
-                      type="checkbox"
-                      checked={editor.removeKey ?? false}
-                      onChange={(e) =>
-                        setEditor({
-                          ...editor,
-                          removeKey: e.target.checked,
-                          apiKey: undefined,
-                        })
-                      }
+                  </DetailField>
+                  <DetailField
+                    label="CODEX_HOME"
+                    htmlFor={`home-${provider.id}`}
+                    hint="Leave empty to reuse your existing Codex login and configuration. A custom home uses that directory's account."
+                  >
+                    <Input
+                      id={`home-${provider.id}`}
+                      value={values.codexHome ?? ""}
+                      onChange={(e) => update({ codexHome: e.target.value })}
+                      placeholder="~/.codex"
+                      spellCheck={false}
                     />
-                    Remove saved key
-                  </label>
-                )}
-              </>
-            )}
-          </fieldset>
-          <div className="mt-6 flex items-center justify-end gap-2 border-t border-line pt-4">
+                  </DetailField>
+                  {state?.homePath && (
+                    <p className="break-all text-metadata text-muted">
+                      Resolved home: {state.homePath}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <DetailField
+                    label="Key storage"
+                    htmlFor={`storage-${provider.id}`}
+                    hint={data.keyring.message}
+                  >
+                    <ChoiceSelect
+                      id={`storage-${provider.id}`}
+                      label="API key storage"
+                      value={values.storage ?? "keyring"}
+                      onChange={(value) =>
+                        update({ storage: value as "keyring" | "session" })
+                      }
+                      options={[
+                        { id: "keyring", label: "System credential store" },
+                        { id: "session", label: "This session only" },
+                      ]}
+                    />
+                  </DetailField>
+                  {provider.hasKey && (
+                    <label className="flex items-center gap-2 text-supporting">
+                      <input
+                        type="checkbox"
+                        checked={values.removeKey ?? false}
+                        onChange={(e) =>
+                          update({
+                            removeKey: e.target.checked,
+                            apiKey: undefined,
+                          })
+                        }
+                      />
+                      Remove saved API key
+                    </label>
+                  )}
+                </>
+              )}
+            </div>
+          </details>
+        </fieldset>
+        {dirty && (
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
+            <span className="mr-auto text-supporting text-muted">
+              Unsaved changes
+            </span>
             <Button
               type="button"
               variant="ghost"
               disabled={busy}
-              onClick={cancel}
+              onClick={() => {
+                setDraft(null);
+                save.reset();
+              }}
             >
-              Cancel
+              Discard
             </Button>
             <Button type="submit" variant="primary" disabled={busy}>
               {save.isPending && (
-                <LoaderCircle size={15} className="animate-spin" />
-              )}
-              Save provider
-            </Button>
-          </div>
-        </form>
-      ) : (
-        <>
-          {data.providers.length ? (
-            <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
-              {data.providers.map((provider) => (
-                <li key={provider.id} className="min-w-0 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="break-words text-ui font-semibold">
-                          {provider.name}
-                        </h3>
-                        {provider.id === data.activeProviderId && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-elevated px-2 py-0.5 text-metadata">
-                            <Check size={12} />
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 break-all text-supporting text-muted">
-                        {provider.kind === "openai"
-                          ? provider.endpoint
-                          : provider.kind === "codex"
-                            ? "Codex CLI"
-                            : "OpenCode CLI"}
-                      </p>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`More options for ${provider.name}`}
-                          disabled={busy}
-                        >
-                          <MoreHorizontal size={16} />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => edit(provider)}>
-                          Edit provider
-                        </DropdownMenuItem>
-                        {provider.id !== data.activeProviderId && (
-                          <DropdownMenuItem
-                            onSelect={() => {
-                              setNotice("");
-                              save.mutate({
-                                path: "/settings/active-provider",
-                                body: { id: provider.id },
-                              });
-                            }}
-                          >
-                            Use provider
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onSelect={() => {
-                            save.reset();
-                            setNotice("");
-                            setDeleting(provider);
-                          }}
-                        >
-                          <Trash2 size={14} />
-                          Delete provider
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-supporting text-muted">
-                    <span className="break-all">
-                      Model:{" "}
-                      <span className="text-foreground">{provider.model}</span>
-                    </span>
-                    {provider.reasoningEffort && (
-                      <span>
-                        Reasoning:{" "}
-                        <span className="text-foreground">
-                          {provider.reasoningEffort}
-                        </span>
-                      </span>
-                    )}
-                    {provider.kind === "openai" && (
-                      <span className="inline-flex items-center gap-1.5">
-                        <KeyRound size={13} />
-                        {provider.hasKey
-                          ? provider.storage === "keyring"
-                            ? "Key saved in keyring"
-                            : "Key available for this session"
-                          : "No key available"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => edit(provider)}
-                    >
-                      Edit
-                    </Button>
-                    {provider.id !== data.activeProviderId && (
-                      <Button
-                        variant="ghost"
-                        disabled={busy}
-                        onClick={() => {
-                          setNotice("");
-                          save.mutate({
-                            path: "/settings/active-provider",
-                            body: { id: provider.id },
-                          });
-                        }}
-                      >
-                        Use provider
-                      </Button>
-                    )}
-                  </div>
-                  {provider.kind !== "openai" && (
-                    <CliProviderConnection
-                      provider={provider}
-                      disabled={busy}
-                      onModelChange={(change) => {
-                        setNotice("");
-                        save.mutate({
-                          path: "/settings/providers",
-                          body: { ...provider, ...change },
-                        });
-                      }}
-                    />
-                  )}
-                  {provider.kind === "openai" && (
-                    <ApiProviderModels
-                      provider={provider}
-                      disabled={busy}
-                      onChange={(change) => {
-                        setNotice("");
-                        save.mutate({
-                          path: "/settings/providers",
-                          body: { ...provider, ...change },
-                        });
-                      }}
-                    />
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="rounded-lg border border-dashed border-control-border px-6 py-10 text-center">
-              <h3 className="text-ui font-medium">No providers configured</h3>
-              <p className="mt-1 text-supporting text-muted">
-                Add a provider to choose the model used for new requests.
-              </p>
-            </div>
-          )}
-          {(data.providers.some((p) => p.kind === "openai") ||
-            data.migration.pending) && (
-            <div className="mt-5 flex items-start gap-2 text-supporting text-muted">
-              <ShieldCheck size={15} className="mt-0.5 shrink-0" />
-              <p>{data.keyring.message}</p>
-            </div>
-          )}
-          {data.migration.pending && (
-            <details className="mt-5 rounded-lg border border-line">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-ui font-medium">
-                Import existing configuration
-                <ChevronDown size={15} className="shrink-0" />
-              </summary>
-              <div className="border-t border-line p-4">
-                <p className="mb-3 text-supporting text-muted">
-                  {data.migration.message}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    disabled={busy || !data.keyring.available}
-                    onClick={() =>
-                      migration.mutate({
-                        path: "/settings/import",
-                        body: { storage: "keyring" },
-                      })
-                    }
-                  >
-                    Import to keyring
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() =>
-                      migration.mutate({
-                        path: "/settings/import",
-                        body: { storage: "session" },
-                      })
-                    }
-                  >
-                    Use for this session
-                  </Button>
-                </div>
-              </div>
-            </details>
-          )}
-        </>
-      )}
-      <AlertDialog
-        open={Boolean(deleting)}
-        onOpenChange={(open) => {
-          if (!open && !save.isPending) setDeleting(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete provider?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes “{deleting?.name}” from Grill Me and stops its
-              connection. Saved API keys are removed. Local CLI sign-in files
-              remain in this installation’s data folder.{" "}
-              {deleting?.id === data.activeProviderId
-                ? "Choose another active provider before making new requests."
-                : "You can add it again later."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <SettingsFeedback error={save.error} />
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={save.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <Button
-              variant="destructive"
-              disabled={save.isPending}
-              onClick={() => {
-                if (deleting)
-                  save.mutate({
-                    path: `/settings/providers/${deleting.id}`,
-                    method: "DELETE",
-                  });
-              }}
-            >
-              {save.isPending && (
                 <LoaderCircle size={14} className="animate-spin" />
               )}
-              Delete provider
+              Save changes
             </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+          </div>
+        )}
+        {save.isSuccess && !dirty && (
+          <p role="status" className="mt-4 text-supporting text-muted">
+            Changes saved.
+          </p>
+        )}
+      </form>
+    </section>
   );
 }
-function ProviderField({
+
+function DetailField({
   label,
   htmlFor,
   hint,
@@ -634,21 +662,15 @@ function ProviderField({
   children: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-2 @min-[600px]:grid-cols-[160px_minmax(0,1fr)] @min-[600px]:gap-x-6">
-      <label htmlFor={htmlFor} className="pt-2 text-ui font-medium">
+    <div className="mt-4 min-w-0">
+      <label
+        htmlFor={htmlFor}
+        className="mb-2 block text-supporting font-medium"
+      >
         {label}
       </label>
-      <div className="min-w-0">
-        {children}
-        {hint && (
-          <p
-            id={`${htmlFor}-hint`}
-            className="mt-1.5 text-supporting text-muted"
-          >
-            {hint}
-          </p>
-        )}
-      </div>
+      {children}
+      {hint && <p className="mt-1.5 text-supporting text-muted">{hint}</p>}
     </div>
   );
 }

@@ -137,6 +137,7 @@ try {
   await settings.saveProvider({
     id: cliId,
     name: "CLI fixture",
+    codexHome: join(root, "providers", cliId, "config"),
     kind: "codex",
     model: "fixture",
     binaryPath: "",

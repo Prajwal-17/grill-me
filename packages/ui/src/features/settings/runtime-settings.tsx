@@ -30,8 +30,8 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
   return (
     <>
       <SettingsHeading
-        title="Local runtime"
-        description="Configure local code reviews."
+        title="Advanced"
+        description="Review limits and local application data."
       />
       <form
         onSubmit={(e) => {

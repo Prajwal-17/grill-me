@@ -123,6 +123,9 @@ export function createSettingsService(
     const providers = await Promise.all(
       document.providers.map(async ({ credential, ...provider }) => ({
         ...provider,
+        enabled:
+          provider.enabled &&
+          !document.disconnectedProviders.includes(provider.id),
         hasKey: credential
           ? await store(provider.storage)
               .get(credential)
@@ -191,12 +194,19 @@ export function createSettingsService(
       }
       const record = {
         ...provider,
+        // Existing on/off state changes only through the dedicated switch action.
+        // A stale settings form must not re-enable a provider after it was turned off.
+        enabled: previous?.enabled ?? provider.enabled,
         endpoint: provider.kind === "openai" ? provider.endpoint : undefined,
         storage: mode,
         credential,
       };
-      if (previous && previous.binaryPath !== provider.binaryPath)
-        options.cli?.disconnect(provider.id);
+      if (
+        previous &&
+        (previous.binaryPath !== provider.binaryPath ||
+          previous.codexHome !== provider.codexHome)
+      )
+        options.cli?.reset(provider.id);
       try {
         persist({
           ...document,
@@ -205,10 +215,13 @@ export function createSettingsService(
             record,
           ],
           activeProviderId:
-            document.activeProviderId ??
-            (document.disconnectedProviders.includes(record.id)
+            document.activeProviderId === record.id && !record.enabled
               ? null
-              : record.id),
+              : (document.activeProviderId ??
+                (!record.enabled ||
+                document.disconnectedProviders.includes(record.id)
+                  ? null
+                  : record.id)),
         });
       } catch (error) {
         if (credential && credential !== previous?.credential)
@@ -256,6 +269,12 @@ export function createSettingsService(
             404,
           );
         const selected = document.providers.find((p) => p.id === id);
+        if (selected?.enabled === false)
+          throw new AppError(
+            "PROVIDER_DISABLED",
+            "Turn this provider on before selecting it.",
+            409,
+          );
         if (selected && selected.kind !== "openai")
           await options.cli?.connect(selected);
         persist({
@@ -367,7 +386,16 @@ export function createSettingsService(
     if (!provider)
       throw new AppError(
         "MODEL_NOT_CONFIGURED",
-        "Add and select an AI provider in Settings.",
+        "Turn on Codex or OmniRoute in Settings → Providers, then select one for AI requests.",
+        503,
+      );
+    if (
+      !provider.enabled ||
+      document.disconnectedProviders.includes(provider.id)
+    )
+      throw new AppError(
+        "PROVIDER_DISABLED",
+        "This provider is turned off. Enable it in Settings → Providers.",
         503,
       );
     let apiKey: string | undefined;
@@ -413,6 +441,33 @@ export function createSettingsService(
     snapshot,
     runtime: () => ({ ...document.runtime }),
     provider,
+    setProviderEnabled: (id: string, enabled: boolean) =>
+      exclusive(async () => {
+        const selected = document.providers.find((p) => p.id === id);
+        if (!selected)
+          throw new AppError(
+            "PROVIDER_NOT_FOUND",
+            "Choose an existing provider.",
+            404,
+          );
+        persist({
+          ...document,
+          providers: document.providers.map((p) =>
+            p.id === id ? { ...p, enabled } : p,
+          ),
+          disconnectedProviders: enabled
+            ? document.disconnectedProviders.filter((p) => p !== id)
+            : [...new Set([...document.disconnectedProviders, id])],
+          activeProviderId: enabled
+            ? (document.activeProviderId ?? id)
+            : document.activeProviderId === id
+              ? null
+              : document.activeProviderId,
+        });
+        if (enabled) options.cli?.enable(id);
+        else options.cli?.disconnect(id);
+        return get();
+      }),
     models: async (id: string) => {
       const value = await snapshot(id);
       if (value.kind === "openai") return apiModels(value);
@@ -431,6 +486,12 @@ export function createSettingsService(
     connectProvider: (id: string) =>
       exclusive(async () => {
         const value = await provider(id);
+        if (!value.enabled)
+          throw new AppError(
+            "PROVIDER_DISABLED",
+            "Turn on this provider before connecting it.",
+            409,
+          );
         const status = await options.cli!.connect(value);
         persist({
           ...document,

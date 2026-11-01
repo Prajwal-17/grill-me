@@ -152,6 +152,7 @@ export function createOpenAIModel(
     transport?: TextTransport;
     reasoningEffort?: ReasoningEffort;
     providerName?: string;
+    anonymous?: boolean;
     timeoutMs?: number;
   } = {},
 ): ModelGateway {
@@ -182,6 +183,7 @@ export function createOpenAIModel(
     return new OpenAI({
       apiKey,
       baseURL,
+      ...(options.anonymous ? { defaultHeaders: { Authorization: null } } : {}),
       ...(options.timeoutMs
         ? { timeout: options.timeoutMs, maxRetries: 0 }
         : {}),

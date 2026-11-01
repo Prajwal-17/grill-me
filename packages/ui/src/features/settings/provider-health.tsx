@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { AlertCircle } from "lucide-react";
 import type { ProviderHealth } from "@repo/contracts";
 import { apiRequest } from "@/shared/lib/api-client";
@@ -9,15 +9,21 @@ import { Button } from "@/shared/components/ui/button";
 export const providerHealthKey = ["provider-health"];
 
 export function ProviderHealthNotice() {
+  const inSettings = useLocation().pathname === "/settings";
   const health = useQuery({
     queryKey: providerHealthKey,
     queryFn: () => apiRequest<ProviderHealth>("/settings/provider-status"),
-    enabled: localTransport,
+    enabled: localTransport && !inSettings,
     staleTime: 15000,
     refetchInterval: 30000,
     retry: false,
   });
-  if (!localTransport || health.isPending || (health.data?.ok && !health.error))
+  if (
+    inSettings ||
+    !localTransport ||
+    health.isPending ||
+    (health.data?.ok && !health.error)
+  )
     return null;
   return (
     <div

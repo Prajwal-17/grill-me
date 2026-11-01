@@ -4,11 +4,11 @@ Run the complete app from the repository root with `bun dev`. Electron owns its
 Bun/SQLite backend process and the React renderer in `renderer/`. Backend and UI
 logic remain shared workspace packages, with no separate launch commands.
 
-Use Settings for installed Codex/OpenCode connections, model and reasoning selection,
-OpenAI-compatible endpoints, credentials, project folders, and review timeouts.
-CLI authentication is scoped to each edition. API keys use macOS Keychain or Linux Secret Service
+Settings → Providers offers Codex and OmniRoute, each with an on/off switch and
+a separate selector for AI requests. Codex reuses the installed CLI login and
+CODEX_HOME by default; Advanced settings allow a custom home. API keys use macOS Keychain or Linux Secret Service
 or an explicit in-memory session. No backend environment files are inherited.
-Connect project folders when submitting an implementation. Local runtime controls
+Connect project folders when submitting an implementation. Advanced settings control
 review timeouts. The top-bar version opens Settings → About and the full changelog.
 
 On macOS use Command in place of Ctrl; native menus and window controls are available.

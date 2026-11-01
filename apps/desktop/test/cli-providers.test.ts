@@ -1,11 +1,143 @@
 import { test, expect } from "bun:test";
-import { mkdtemp, writeFile, readFile, rm, chmod } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  rm,
+  chmod,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { providerInputSchema, providerSchema } from "@repo/contracts";
 import { createCliProviders } from "../../../packages/backend/src/local/providers";
 import { createSettingsService } from "../../../packages/backend/src/local/settings";
 import { sessionSecretStore } from "../../../packages/backend/src/local/secrets";
+import { providerEnvironment } from "../../../packages/backend/src/local/providers/common";
+
+test("Codex reuses an existing CLI home and reports the account without a separate sign-in", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-codex-existing-"));
+  const manager = createCliProviders(root);
+  try {
+    const shared = join(root, "existing-codex");
+    await mkdir(shared);
+    await writeFile(join(shared, "signed-in"), "existing-login");
+    const binary = join(root, "codex");
+    await writeFile(
+      binary,
+      `#!${process.execPath}\nimport ${JSON.stringify(resolve(import.meta.dir, "fixtures/cli-provider.ts"))};\n`,
+    );
+    await chmod(binary, 0o700);
+    const provider = providerSchema.parse({
+      id: crypto.randomUUID(),
+      kind: "codex",
+      name: "Codex",
+      model: "auto",
+      codexHome: shared,
+      binaryPath: binary,
+    });
+    const environment = await providerEnvironment(root, provider);
+    expect(environment.env.HOME).toBe(process.env.HOME);
+    expect(environment.env.CODEX_HOME).toBe(shared);
+    const defaults = await providerEnvironment(root, {
+      ...provider,
+      codexHome: "",
+    });
+    const inheritedHome =
+      process.env.CODEX_HOME || join(process.env.HOME!, ".codex");
+    expect(defaults.env.CODEX_HOME).toBe(
+      inheritedHome.startsWith("~/")
+        ? join(process.env.HOME!, inheritedHome.slice(2))
+        : inheritedHome,
+    );
+    const status = await manager.status(provider);
+    expect(status.connected).toBe(true);
+    expect(status.account).toEqual({
+      type: "chatgpt",
+      email: "fixture@example.test",
+      plan: "pro",
+    });
+    expect(status.homePath).toBe(shared);
+    expect(
+      await Bun.file(
+        join(root, "providers", provider.id, "config", "signed-in"),
+      ).exists(),
+    ).toBe(false);
+    manager.disconnect(provider.id);
+    expect(await readFile(join(shared, "signed-in"), "utf8")).toBe(
+      "existing-login",
+    );
+  } finally {
+    await manager.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("provider on/off state is independent from selection and persists without automatic fallback", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-provider-toggles-"));
+  const cli = createCliProviders(root);
+  let settings = createSettingsService(root, {
+    cli,
+    keyring: sessionSecretStore(),
+  });
+  try {
+    const omni = {
+      id: crypto.randomUUID(),
+      kind: "openai" as const,
+      name: "OmniRoute",
+      endpoint: "http://127.0.0.1:1/v1",
+      model: "auto",
+      enabled: false,
+    };
+    const codex = {
+      id: crypto.randomUUID(),
+      kind: "codex" as const,
+      name: "Codex",
+      binaryPath: join(root, "missing-codex"),
+      codexHome: join(root, "test-home"),
+      model: "auto",
+      enabled: false,
+    };
+    await settings.saveProvider(omni);
+    await settings.saveProvider(codex);
+    expect((await settings.get()).activeProviderId).toBeNull();
+    await expect(settings.activateProvider(codex.id)).rejects.toMatchObject({
+      code: "PROVIDER_DISABLED",
+    });
+    await settings.setProviderEnabled(omni.id, true);
+    await settings.setProviderEnabled(codex.id, true);
+    expect((await settings.get()).activeProviderId).toBe(omni.id);
+    await settings.activateProvider(codex.id);
+    expect((await settings.snapshot()).id).toBe(codex.id);
+    await settings.setProviderEnabled(codex.id, false);
+    await settings.saveProvider({
+      ...codex,
+      enabled: true,
+      name: "Edited while off",
+    });
+    expect(
+      (await settings.get()).providers.find((p) => p.id === codex.id)?.enabled,
+    ).toBe(false);
+    expect((await settings.get()).activeProviderId).toBeNull();
+    await expect(settings.snapshot(codex.id)).rejects.toMatchObject({
+      code: "PROVIDER_DISABLED",
+    });
+    await settings.activateProvider(omni.id);
+    settings.close();
+    settings = createSettingsService(root, {
+      cli,
+      keyring: sessionSecretStore(),
+    });
+    expect(
+      (await settings.get()).providers.find((p) => p.id === codex.id)?.enabled,
+    ).toBe(false);
+    expect((await settings.get()).activeProviderId).toBe(omni.id);
+  } finally {
+    settings.close();
+    await cli.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("CLI providers reuse an executable with isolated authentication, ephemeral turns, cancellation and sanitized failures", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-cli-test-"));
@@ -25,6 +157,7 @@ test("CLI providers reuse an executable with isolated authentication, ephemeral 
       model: "auto",
       reasoningEffort: "xhigh",
     });
+    p.codexHome = join(root, "providers", p.id, "config");
     const signedOut = await manager.status(p);
     expect(signedOut.installed).toBe(true);
     expect(signedOut.code).toBe("PROVIDER_AUTH_REQUIRED");
@@ -200,6 +333,7 @@ test("disconnect survives a backend restart until explicit Connect or Use provid
       binaryPath: binary,
       model: "auto",
     });
+    p.codexHome = join(root, "providers", p.id, "config");
     await settings.saveProvider(p);
     await manager.status(providerSchema.parse(p));
     await writeFile(
