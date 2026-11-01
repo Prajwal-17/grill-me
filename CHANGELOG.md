@@ -1,6 +1,6 @@
 # Changelog
 
-## desktop-v0.1.8 - 1 Nov 2026
+## desktop-v0.1.7 - 1 Nov 2026
 
 - Add private GitHub release updates without a separate update server. Collaborators connect with a profile email and a repository-scoped read-only token; the verified repository owner can reuse an existing GitHub CLI login.
 - Show update availability in the header and add private update setup, download progress, cancellation, and an explicit install-and-restart confirmation in Settings → About.
@@ -9,10 +9,6 @@
 - Install Linux DEB updates with administrator approval and replace writable macOS app bundles from verified DMGs with a rollback copy. Preserve local profiles, practice, and provider settings.
 - Report invalid or expired tokens, denied access, network failures, cancelled downloads, checksum failures, and installation problems with recovery instructions.
 - Match macOS signature verification and updater installation paths to the actual `grill-me.app` / `grill-me-dev.app` bundle names, with a packaging-configuration regression check.
-
-## desktop-v0.1.7 - 1 Nov 2026
-
-- This tag did not publish a release: macOS package verification used the display name instead of the executable-based bundle filename. The corrected private updater first ships in 0.1.8.
 
 ## desktop-v0.1.6 - 1 Nov 2026
 

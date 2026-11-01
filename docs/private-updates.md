@@ -1,6 +1,6 @@
 # Private desktop updates
 
-Grill Me 0.1.8 and later checks this private repository's stable `desktop-vX.Y.Z`
+Grill Me 0.1.7 and later checks this private repository's stable `desktop-vX.Y.Z`
 GitHub releases at startup and every six hours. You can also check in Settings →
 About. It uses GitHub directly; no update server, public mirror, or embedded token
 is needed. Releases must contain the matching architecture's installer and
@@ -41,7 +41,7 @@ References: [GitHub token creation and limitations](https://docs.github.com/en/a
 
 ## Connect the app
 
-Install 0.1.8 manually once; 0.1.6 and earlier do not have an updater. At first
+Install 0.1.7 manually once; 0.1.6 and earlier do not have an updater. At first
 profile setup, enter an email and the token. Existing profiles can connect under
 Settings → About → Application updates. Tokens are validated against GitHub and
 private repository access before they are accepted. If a token expires or is
