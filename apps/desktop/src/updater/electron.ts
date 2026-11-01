@@ -11,14 +11,13 @@ import { DesktopUpdater } from "./updater";
 import { updateCredentialStore } from "./credentials";
 import { installNativeUpdate } from "./install";
 import { executablePath } from "@repo/backend/local/executable-path";
-import type { DesktopChannel } from "../identity";
+import { desktopIdentity, type DesktopChannel } from "../identity";
 const execute = promisify(execFile);
 export async function registerUpdater(input: {
   window: BrowserWindow;
   root: string;
   channel: DesktopChannel;
   appId: string;
-  productName: string;
   trusted(event: IpcMainInvokeEvent): void;
 }) {
   const updater = new DesktopUpdater({
@@ -59,7 +58,7 @@ export async function registerUpdater(input: {
         root: input.root,
         executable: process.execPath,
         appId: input.appId,
-        productName: input.productName,
+        bundleName: `${desktopIdentity(input.channel).executableName}.app`,
         relaunch: () => app.relaunch(),
         quit: () => app.quit(),
       }),

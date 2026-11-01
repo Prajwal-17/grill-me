@@ -7,6 +7,8 @@ export function desktopIdentity(channel: DesktopChannel) {
   return {
     channel,
     productName: dev ? "Grill Me Dev" : "Grill Me",
+    // Electron Builder uses executableName for the .app filename as well.
+    executableName: dev ? "grill-me-dev" : "grill-me",
     appId: dev ? "local.grill-me.desktop-dev" : "local.grill-me.desktop",
     dataDirectory: dev ? "grill-me-desktop-dev" : "grill-me-desktop",
     partition: dev

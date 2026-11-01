@@ -49,6 +49,6 @@ if (platform === "darwin")
       "release",
       channel === "production" ? "prod" : "dev",
       arch === "arm64" ? "mac-arm64" : "mac",
-      `${desktopIdentity(channel).productName}.app`,
+      `${desktopIdentity(channel).executableName}.app`,
     ),
   ]);

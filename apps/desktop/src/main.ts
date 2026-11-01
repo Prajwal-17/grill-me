@@ -363,7 +363,6 @@ async function start() {
     root: dataRoot,
     channel: identity.channel,
     appId: identity.appId,
-    productName: identity.productName,
     trusted,
   });
   ipcMain.handle("desktop:maximize", (event) => {

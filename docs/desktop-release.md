@@ -12,7 +12,8 @@ executable.
 | Identity                  | Development                    | Production                   |
 | ------------------------- | ------------------------------ | ---------------------------- |
 | App ID                    | `local.grill-me.desktop-dev`   | `local.grill-me.desktop`     |
-| Product / macOS bundle    | Grill Me Dev.app               | Grill Me.app                 |
+| Product                   | Grill Me Dev                   | Grill Me                     |
+| macOS bundle              | grill-me-dev.app               | grill-me.app                 |
 | Linux package             | `grill-me-dev`                 | `grill-me`                   |
 | Data directory name       | `grill-me-desktop-dev`         | `grill-me-desktop`           |
 | Electron session          | `persist:grill-me-desktop-dev` | `persist:grill-me-desktop`   |
@@ -88,9 +89,9 @@ These macOS builds use ad-hoc signing, without an Apple Developer identity or
 notarization. They provide no verified developer identity. Gatekeeper may block
 downloaded builds. For a trusted download, use macOS System Settings → Privacy &
 Security → Open Anyway if macOS offers it; managed Macs may prohibit opening it.
-Do not disable Gatekeeper or change system security settings. Starting in 0.1.7,
+Do not disable Gatekeeper or change system security settings. Starting in 0.1.8,
 production builds can check private GitHub releases, download verified installers,
-and install after confirmation. Install 0.1.7 manually once when upgrading from
+and install after confirmation. Install 0.1.8 manually once when upgrading from
 older versions. See [Private desktop updates](private-updates.md) for authentication,
 token permissions, and platform requirements. Development builds never install
 production updates.

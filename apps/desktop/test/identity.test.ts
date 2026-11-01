@@ -7,6 +7,32 @@ import { backendEnvironment } from "../src/config";
 import { createSettingsService } from "@repo/backend/local/settings";
 import { sessionSecretStore } from "@repo/backend/local/secrets";
 
+test("macOS bundle names match Electron Builder executable names in both editions", async () => {
+  const base = Bun.YAML.parse(
+    await Bun.file(new URL("../electron-builder.yml", import.meta.url)).text(),
+  ) as { executableName: string; productName: string; appId: string };
+  const development = Bun.YAML.parse(
+    await Bun.file(
+      new URL("../electron-builder.dev.yml", import.meta.url),
+    ).text(),
+  ) as { executableName: string; productName: string; appId: string };
+  for (const [channel, config] of [
+    ["production", base],
+    ["development", development],
+  ] as const) {
+    const identity = desktopIdentity(channel);
+    expect(identity.executableName).toBe(config.executableName);
+    expect(identity.productName).toBe(config.productName);
+    expect(identity.appId).toBe(config.appId);
+  }
+  expect(desktopIdentity("production").executableName + ".app").toBe(
+    "grill-me.app",
+  );
+  expect(desktopIdentity("development").executableName + ".app").toBe(
+    "grill-me-dev.app",
+  );
+});
+
 test("development and production have separate persistent identities and settings", async () => {
   const dev = desktopIdentity("development");
   const prod = desktopIdentity("production");

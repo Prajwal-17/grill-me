@@ -62,7 +62,7 @@ export async function installNativeUpdate(input: {
   root: string;
   executable: string;
   appId: string;
-  productName: string;
+  bundleName: string;
   quit(): void;
   relaunch(): void;
 }) {
@@ -91,7 +91,7 @@ export async function installNativeUpdate(input: {
     );
   const destination = resolve(dirname(input.executable), "../..");
   if (
-    basename(destination) !== `${input.productName}.app` ||
+    basename(destination) !== input.bundleName ||
     destination.startsWith("/Volumes/")
   )
     throw new UpdateError(
@@ -121,7 +121,7 @@ export async function installNativeUpdate(input: {
   await rm(stage, { recursive: true, force: true });
   await mkdir(stage, { recursive: true, mode: 0o700 });
   await mkdir(mount, { recursive: true, mode: 0o700 });
-  const source = join(stage, `${input.productName}.app`);
+  const source = join(stage, input.bundleName);
   let mounted = false;
   try {
     await execute(
@@ -137,11 +137,9 @@ export async function installNativeUpdate(input: {
       { timeout: 60000 },
     );
     mounted = true;
-    await execute(
-      "/usr/bin/ditto",
-      [join(mount, `${input.productName}.app`), source],
-      { timeout: 120000 },
-    );
+    await execute("/usr/bin/ditto", [join(mount, input.bundleName), source], {
+      timeout: 120000,
+    });
     const plist = join(source, "Contents", "Info.plist");
     const identifier = await execute("/usr/libexec/PlistBuddy", [
       "-c",
