@@ -1,5 +1,14 @@
 # Changelog
 
+## desktop-v0.1.7 - 1 Nov 2026
+
+- Add private GitHub release updates without a separate update server. Collaborators connect with a profile email and a repository-scoped read-only token; the verified repository owner can reuse an existing GitHub CLI login.
+- Show update availability in the header and add private update setup, download progress, cancellation, and an explicit install-and-restart confirmation in Settings → About.
+- Encrypt saved update tokens using the operating system credential store. If secure storage is unavailable, keep the token only for the current session. Never package tokens or forward them to asset download hosts.
+- Verify installer sizes and SHA256SUMS before installation, reject downgrades and incomplete releases, and keep development builds separate from production updates.
+- Install Linux DEB updates with administrator approval and replace writable macOS app bundles from verified DMGs with a rollback copy. Preserve local profiles, practice, and provider settings.
+- Report invalid or expired tokens, denied access, network failures, cancelled downloads, checksum failures, and installation problems with recovery instructions.
+
 ## desktop-v0.1.6 - 1 Nov 2026
 
 - Reuse the installed Codex CLI account and configurable CODEX_HOME, with account and plan status.

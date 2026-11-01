@@ -3,6 +3,7 @@ import changelog from "../../../../../CHANGELOG.md?raw";
 import { useDesktopVersion } from "@/shared/components/layout/desktop-version";
 import { SettingsHeading } from "./settings-layout";
 import { parseReleaseHistory } from "./release-history";
+import { DesktopUpdatesSettings } from "./desktop-updates";
 
 const releases = parseReleaseHistory(changelog);
 
@@ -20,6 +21,7 @@ export function AboutSettings() {
               : "Loading application version…"
         }
       />
+      <DesktopUpdatesSettings />
       <section aria-labelledby="release-history-heading">
         <h3 id="release-history-heading" className="text-ui font-semibold">
           Release history

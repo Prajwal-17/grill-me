@@ -18,6 +18,7 @@ import { backendEnvironment } from "./config";
 import { windowSettingsStore } from "./window-settings";
 import { windowSettingsSchema, type DesktopState } from "@repo/contracts";
 import { desktopIdentity, type DesktopChannel } from "./identity";
+import { registerUpdater } from "./updater/electron";
 
 declare const __DESKTOP_CHANNEL__: DesktopChannel;
 const identity = desktopIdentity(__DESKTOP_CHANNEL__);
@@ -356,6 +357,14 @@ async function start() {
   ipcMain.handle("desktop:minimize", (event) => {
     trusted(event);
     window?.minimize();
+  });
+  await registerUpdater({
+    window,
+    root: dataRoot,
+    channel: identity.channel,
+    appId: identity.appId,
+    productName: identity.productName,
+    trusted,
   });
   ipcMain.handle("desktop:maximize", (event) => {
     trusted(event);

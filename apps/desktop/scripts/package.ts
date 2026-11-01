@@ -1,5 +1,7 @@
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { buildTarget } from "../src/build-target";
+import { desktopIdentity } from "../src/identity";
 const [platform, arch, channel] = process.argv.slice(2);
 if (channel !== "development" && channel !== "production")
   throw new Error("Choose development or production packaging.");
@@ -35,3 +37,18 @@ await run([
   "--publish",
   "never",
 ]);
+// The updater verifies this signature before replacing a macOS installation.
+// Check the same condition on each native runner before publishing its DMG.
+if (platform === "darwin")
+  await run([
+    "/usr/bin/codesign",
+    "--verify",
+    "--deep",
+    "--strict",
+    join(
+      "release",
+      channel === "production" ? "prod" : "dev",
+      arch === "arm64" ? "mac-arm64" : "mac",
+      `${desktopIdentity(channel).productName}.app`,
+    ),
+  ]);

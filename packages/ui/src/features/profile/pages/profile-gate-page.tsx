@@ -10,12 +10,28 @@ import { useAppStore } from "@/shared/stores/app-store";
 import { startProfile } from "@/features/profile/api/profile-api";
 import { DesktopVersionLink } from "@/shared/components/layout/desktop-version";
 import { ProviderHealthNotice } from "@/features/settings/provider-health";
+import { useDesktopUpdates } from "@/features/settings/desktop-updates";
 
 export function ProfileGatePage() {
   const [email, setEmail] = useState("");
+  const [updateToken, setUpdateToken] = useState("");
+  const updates = useDesktopUpdates();
   const setProfile = useAppStore((state) => state.setProfile);
   const start = useMutation({
-    mutationFn: () => startProfile(email),
+    mutationFn: async () => {
+      if (window.desktopBridge) {
+        const state = await window.desktopBridge.getUpdateState();
+        if (state.enabled && !state.authorized) {
+          const connected = await window.desktopBridge.configureUpdates({
+            email,
+            token: updateToken || undefined,
+          });
+          if (!connected.authorized) throw new Error(connected.message);
+          setUpdateToken("");
+        }
+      }
+      return startProfile(email);
+    },
     onSuccess: setProfile,
   });
   function submit(event: FormEvent) {
@@ -67,7 +83,42 @@ export function ProfileGatePage() {
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
-          <Button type="submit" variant="primary" disabled={start.isPending}>
+          {updates.data?.enabled && !updates.data.authorized && (
+            <label
+              className="grid gap-2 text-ui font-medium"
+              htmlFor="update-token"
+            >
+              GitHub update token
+              <Input
+                id="update-token"
+                type="password"
+                autoComplete="new-password"
+                maxLength={8192}
+                value={updateToken}
+                onChange={(event) => setUpdateToken(event.target.value)}
+                disabled={start.isPending}
+                placeholder="Read-only repository token"
+              />
+              <span className="text-supporting font-normal text-muted">
+                Saved using your system credential store when available;
+                otherwise kept for this session. The owner can leave it blank
+                when signed in through GitHub CLI.
+              </span>
+            </label>
+          )}
+          {updates.data?.authSource === "owner-cli" && (
+            <p className="text-supporting text-muted">
+              Private updates connected through the owner's GitHub CLI login.
+            </p>
+          )}
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={
+              start.isPending ||
+              (Boolean(window.desktopBridge) && updates.isPending)
+            }
+          >
             {start.isPending && (
               <LoaderCircle size={16} className="animate-spin" />
             )}

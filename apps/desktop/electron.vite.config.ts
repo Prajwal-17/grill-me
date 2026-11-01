@@ -9,7 +9,9 @@ export default defineConfig(({ mode }) => {
     main: {
       define: { __DESKTOP_CHANNEL__: JSON.stringify(identity.channel) },
       build: {
-        externalizeDeps: { exclude: ["@repo/backend", "@repo/contracts"] },
+        externalizeDeps: {
+          exclude: ["@repo/backend", "@repo/contracts", "zod"],
+        },
         rollupOptions: {
           input: { index: resolve(import.meta.dirname, "src/main.ts") },
         },

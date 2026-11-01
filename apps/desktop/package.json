@@ -1,6 +1,6 @@
 {
   "name": "@grill-me/desktop",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
   "description": "Grill Me desktop application",
@@ -40,7 +40,8 @@
     "eslint": "10.9.1",
     "tailwindcss": "^4.0.0",
     "typescript": "7.0.2",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "zod": "^4.6.7"
   },
   "homepage": "https://github.com/Prajwal-17/grill-me"
 }

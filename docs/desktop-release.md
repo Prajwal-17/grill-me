@@ -88,8 +88,12 @@ These macOS builds use ad-hoc signing, without an Apple Developer identity or
 notarization. They provide no verified developer identity. Gatekeeper may block
 downloaded builds. For a trusted download, use macOS System Settings → Privacy &
 Security → Open Anyway if macOS offers it; managed Macs may prohibit opening it.
-Do not disable Gatekeeper or change system security settings. There is no native
-automatic updater. Install subsequent builds manually.
+Do not disable Gatekeeper or change system security settings. Starting in 0.1.7,
+production builds can check private GitHub releases, download verified installers,
+and install after confirmation. Install 0.1.7 manually once when upgrading from
+older versions. See [Private desktop updates](private-updates.md) for authentication,
+token permissions, and platform requirements. Development builds never install
+production updates.
 
 ## CI downloads and releases
 

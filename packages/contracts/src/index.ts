@@ -149,9 +149,47 @@ export type DesktopState = WindowSettings & {
   focused: boolean;
 };
 export type ConnectionBootstrap = { wsUrl: string; ticket: string };
+export type DesktopUpdateState = {
+  enabled: boolean;
+  currentVersion: string;
+  authorized: boolean;
+  authSource: "owner-cli" | "saved-token" | "session-token" | null;
+  email: string | null;
+  phase:
+    | "idle"
+    | "checking"
+    | "available"
+    | "downloading"
+    | "downloaded"
+    | "installing"
+    | "error";
+  latestVersion?: string;
+  progress?: number;
+  message: string;
+};
+export const updateCredentialsSchema = z.object({
+  email: z.email().max(254),
+  token: z
+    .string()
+    .trim()
+    .min(1)
+    .max(8192)
+    .refine((v) => !/\s/.test(v), "Enter a single-line GitHub token.")
+    .optional(),
+});
 export interface DesktopBridge {
   platform: "linux" | "darwin";
   getAppVersion(): Promise<string>;
+  getUpdateState(): Promise<DesktopUpdateState>;
+  configureUpdates(
+    input: z.infer<typeof updateCredentialsSchema>,
+  ): Promise<DesktopUpdateState>;
+  forgetUpdateToken(): Promise<DesktopUpdateState>;
+  checkForUpdates(): Promise<DesktopUpdateState>;
+  downloadUpdate(): Promise<DesktopUpdateState>;
+  installUpdate(): Promise<DesktopUpdateState>;
+  cancelUpdateDownload(): Promise<DesktopUpdateState>;
+  onUpdateState(listener: (state: DesktopUpdateState) => void): () => void;
   minimizeWindow(): Promise<void>;
   toggleMaximize(): Promise<DesktopState>;
   closeWindow(): Promise<void>;

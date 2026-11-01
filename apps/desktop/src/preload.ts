@@ -3,6 +3,20 @@ import type { DesktopBridge } from "@repo/contracts";
 const bridge: DesktopBridge = {
   platform: process.platform === "darwin" ? "darwin" : "linux",
   getAppVersion: () => ipcRenderer.invoke("desktop:app-version"),
+  getUpdateState: () => ipcRenderer.invoke("desktop:update-state"),
+  configureUpdates: (input) =>
+    ipcRenderer.invoke("desktop:update-configure", input),
+  forgetUpdateToken: () => ipcRenderer.invoke("desktop:update-forget"),
+  checkForUpdates: () => ipcRenderer.invoke("desktop:update-check"),
+  downloadUpdate: () => ipcRenderer.invoke("desktop:update-download"),
+  installUpdate: () => ipcRenderer.invoke("desktop:update-install"),
+  cancelUpdateDownload: () => ipcRenderer.invoke("desktop:update-cancel"),
+  onUpdateState: (listener) => {
+    const receive = (_event: unknown, value: Parameters<typeof listener>[0]) =>
+      listener(value);
+    ipcRenderer.on("desktop:update-state", receive);
+    return () => ipcRenderer.removeListener("desktop:update-state", receive);
+  },
   minimizeWindow: () => ipcRenderer.invoke("desktop:minimize"),
   toggleMaximize: () => ipcRenderer.invoke("desktop:maximize"),
   closeWindow: () => ipcRenderer.invoke("desktop:close"),

@@ -27,6 +27,7 @@ async function runSqliteTests() {
         "./apps/desktop/test/release-notes.test.ts",
         "./apps/desktop/test/platform.test.ts",
         "./apps/desktop/test/cli-providers.test.ts",
+        "./apps/desktop/test/updater.test.ts",
       ],
       {
         cwd: root,
