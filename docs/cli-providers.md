@@ -41,7 +41,8 @@ Grill Me runs your installed `opencode serve` process on loopback. Each provider
 gets an isolated OpenCode home under Grill Me's data directory, so its accounts
 and sessions stay separate from a different CLI installation. Leave the
 executable path empty to find `opencode` on your PATH, or choose an exact binary
-in Advanced. Automatic discovery also checks `~/.opencode/bin` on macOS.
+in Advanced. Automatic discovery also checks `~/.opencode/bin` on Linux and
+macOS.
 
 OpenCode can expose models from many upstream accounts, such as Anthropic,
 OpenAI, Google, DeepSeek, and OpenCode's own catalog. Grill Me lists those

@@ -20,7 +20,7 @@ test("native targets reject unsupported and cross-architecture builds", () => {
   expect(() => buildTarget("darwin", "universal")).toThrow("Unsupported");
 });
 
-test("Finder PATH preserves inherited priority and adds Homebrew and user installations", () => {
+test("desktop PATH preserves inherited priority and adds user installations", () => {
   const paths = executablePath(
     { HOME: "/Users/fixture", PATH: "/custom/bin:/usr/bin" },
     "darwin",
@@ -34,6 +34,18 @@ test("Finder PATH preserves inherited priority and adds Homebrew and user instal
     "/Users/fixture/.local/bin",
   ])
     expect(paths).toContain(path);
+  const linuxPaths = executablePath(
+    { HOME: "/home/fixture", PATH: "/linux/custom" },
+    "linux",
+  ).split(":");
+  expect(linuxPaths[0]).toBe("/linux/custom");
+  for (const path of [
+    "/home/fixture/.local/bin",
+    "/home/fixture/.bun/bin",
+    "/home/fixture/.opencode/bin",
+    "/home/fixture/.cargo/bin",
+  ])
+    expect(linuxPaths).toContain(path);
   expect(executablePath({ PATH: "/linux/custom" }, "linux")).toBe(
     "/linux/custom",
   );

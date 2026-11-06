@@ -36,12 +36,13 @@ Keychain uses the same per-edition namespace scheme. A locked/unavailable store
 reports an error; there is no automatic plaintext fallback. Session-only memory
 storage is an explicit choice. OS credentials need their own backup or re-entry.
 
-Finder does not load shell startup files. Executable discovery preserves inherited
-PATH priority and adds both Homebrew prefixes, `~/.local/bin`, `~/.bun/bin`,
-`~/.opencode/bin`, npm-global, Volta, pnpm, Cargo, and installed nvm/fnm versions.
-Explicit executable paths in Settings take precedence. Custom installations can
-be selected there. Provider settings and API credentials remain edition-scoped;
-Codex account ownership follows the selected CODEX_HOME.
+Desktop launchers do not load shell startup files. Executable discovery preserves
+inherited PATH priority and adds both Homebrew prefixes, `~/.local/bin`,
+`~/.bun/bin`, `~/.opencode/bin`, npm-global, Volta, pnpm, Cargo, and installed
+nvm/fnm versions on Linux and macOS. Explicit executable paths in Settings take
+precedence. Custom installations can be selected there. Provider settings and API
+credentials remain edition-scoped; Codex account ownership follows the selected
+CODEX_HOME.
 
 macOS uses the native title bar, traffic lights, application/Edit/Window menus,
 and Command shortcuts (copy/paste/undo/select all, zoom, reload, settings, sidebar).

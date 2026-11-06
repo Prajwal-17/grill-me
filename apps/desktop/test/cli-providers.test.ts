@@ -13,7 +13,11 @@ import { providerInputSchema, providerSchema } from "@repo/contracts";
 import { createCliProviders } from "../../../packages/backend/src/local/providers";
 import { createSettingsService } from "../../../packages/backend/src/local/settings";
 import { sessionSecretStore } from "../../../packages/backend/src/local/secrets";
-import { providerEnvironment } from "../../../packages/backend/src/local/providers/common";
+import { executablePath } from "@repo/backend/local/executable-path";
+import {
+  executable,
+  providerEnvironment,
+} from "../../../packages/backend/src/local/providers/common";
 
 test("Codex reuses an existing CLI home and reports the account without a separate sign-in", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-codex-existing-"));
@@ -364,6 +368,35 @@ test("disconnect survives a backend restart until explicit Connect or Use provid
   } finally {
     settings.close();
     await manager.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("OpenCode auto-discovery finds a user installation outside the desktop PATH", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-opencode-path-"));
+  try {
+    const home = join(root, "home");
+    const binary = join(home, ".opencode", "bin", "opencode");
+    await mkdir(join(home, ".opencode", "bin"), { recursive: true });
+    await writeFile(
+      binary,
+      `#!${process.execPath}\nimport ${JSON.stringify(resolve(import.meta.dir, "fixtures/opencode-provider.ts"))};\n`,
+    );
+    await chmod(binary, 0o700);
+    const provider = providerSchema.parse({
+      id: crypto.randomUUID(),
+      name: "OpenCode",
+      kind: "opencode",
+      binaryPath: "",
+      model: "auto",
+    });
+    const found = await executable(provider, {
+      HOME: home,
+      PATH: executablePath({ HOME: home, PATH: "" }),
+    });
+    expect(found.path).toBe(binary);
+    expect(found.version).toContain("opencode");
+  } finally {
     await rm(root, { recursive: true, force: true });
   }
 });

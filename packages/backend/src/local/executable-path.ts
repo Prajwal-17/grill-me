@@ -1,21 +1,28 @@
 import { join } from "node:path";
 import { readdirSync } from "node:fs";
 
-/** Finder does not read shell startup files. Keep inherited PATH priority. */
+/**
+ * Desktop launchers do not read shell startup files. Keep inherited PATH
+ * priority, then add common system and user installation directories.
+ */
 export function executablePath(
   source: NodeJS.ProcessEnv,
   platform: string = process.platform,
 ) {
-  if (platform !== "darwin") return source.PATH ?? "";
   const home = source.HOME;
+  const mac = platform === "darwin";
   const paths = [
     source.PATH ?? "",
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-    "/usr/bin",
-    "/bin",
-    "/usr/sbin",
-    "/sbin",
+    ...(mac
+      ? [
+          "/opt/homebrew/bin",
+          "/usr/local/bin",
+          "/usr/bin",
+          "/bin",
+          "/usr/sbin",
+          "/sbin",
+        ]
+      : []),
   ];
   if (home) {
     paths.push(
@@ -25,14 +32,14 @@ export function executablePath(
         ".opencode/bin",
         ".npm-global/bin",
         ".volta/bin",
-        "Library/pnpm",
         ".cargo/bin",
+        ...(mac ? ["Library/pnpm"] : []),
       ].map((dir) => join(home, dir)),
     );
     for (const base of [
       ".nvm/versions/node",
       ".local/share/fnm/node-versions",
-      "Library/Application Support/fnm/node-versions",
+      ...(mac ? ["Library/Application Support/fnm/node-versions"] : []),
     ]) {
       try {
         const versions = readdirSync(join(home, base)).sort((a, b) =>
