@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## desktop-v0.1.9 - 6 Nov 2026
+
+- Find OpenCode installed under `~/.opencode/bin` when the desktop app is launched without the user's shell PATH, on Linux and macOS.
+
 ## desktop-v0.1.8 - 6 Nov 2026
 
 - Add OpenCode as a selectable AI provider for challenges, quizzes, hints, discussions, and reviews, using the installed CLI's isolated account connection.
