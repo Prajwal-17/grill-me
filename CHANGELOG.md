@@ -2,8 +2,11 @@
 
 ## Unreleased
 
+## desktop-v0.1.8 - 6 Nov 2026
+
 - Add OpenCode as a selectable AI provider for challenges, quizzes, hints, discussions, and reviews, using the installed CLI's isolated account connection.
 - Group OpenCode's model catalog by upstream provider in a searchable model picker, and keep the selected model's provider visible.
+- Send JSON schemas to OpenCode 2 structured requests and use task-neutral session instructions so one provider handles both generation and review.
 
 ## desktop-v0.1.7 - 1 Nov 2026
 
