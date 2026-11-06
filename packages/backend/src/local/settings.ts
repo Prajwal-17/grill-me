@@ -386,7 +386,7 @@ export function createSettingsService(
     if (!provider)
       throw new AppError(
         "MODEL_NOT_CONFIGURED",
-        "Turn on Codex or OmniRoute in Settings → Providers, then select one for AI requests.",
+        "Turn on Codex, OpenCode, or OmniRoute in Settings → Providers, then select one for AI requests.",
         503,
       );
     if (

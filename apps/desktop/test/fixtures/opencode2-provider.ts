@@ -42,6 +42,8 @@ const server = Bun.serve({
           connections: [],
         },
       ]);
+    if (path === "/api/provider")
+      return json([{ id: "fixture", name: "Fixture account" }]);
     if (path === "/api/model")
       return json(
         signed()

@@ -5,6 +5,8 @@ import {
   type ReasoningEffort,
 } from "@repo/contracts";
 import { ChoiceSelect } from "@/shared/components/ui/choice-select";
+import { cn } from "@/shared/lib/cn";
+import { ProviderModelPicker } from "./provider-model-picker";
 
 export const reasoningOptions = reasoningEffortSchema.options.map((id) => ({
   id,
@@ -44,12 +46,18 @@ export function ProviderModelControls({
     !efforts.includes(provider.reasoningEffort);
   return (
     <div className="mt-3 space-y-3">
-      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+      <div
+        className={cn(
+          "grid min-w-0 gap-3",
+          provider.kind !== "opencode" && "sm:grid-cols-2",
+        )}
+      >
         <label className="grid min-w-0 gap-1.5 text-supporting">
           Model
-          <ChoiceSelect
-            label={`Model for ${provider.name}`}
+          <ProviderModelPicker
+            providerName={provider.name}
             value={provider.model}
+            models={models}
             disabled={disabled}
             onChange={(model) => {
               const next =
@@ -68,15 +76,6 @@ export function ProviderModelControls({
                     : provider.reasoningEffort,
               });
             }}
-            options={[
-              { id: "auto", label: "Provider default" },
-              ...(!selected && provider.model !== "auto"
-                ? [{ id: provider.model, label: `${provider.model} (saved)` }]
-                : []),
-              ...models
-                .filter((model) => model.id !== "auto")
-                .map((model) => ({ id: model.id, label: model.name })),
-            ]}
           />
         </label>
         {provider.kind !== "opencode" && (

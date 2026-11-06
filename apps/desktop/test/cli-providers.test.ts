@@ -393,6 +393,11 @@ test("OpenCode uses an authenticated isolated server, filters user events, enfor
     });
     expect(connected.connected).toBe(true);
     expect(connected.models[0]?.id).toBe("fixture/fixture-model");
+    expect(connected.models[0]).toMatchObject({
+      name: "Fixture model",
+      providerId: "fixture",
+      providerName: "Fixture account",
+    });
     const chunks: string[] = [];
     for await (const delta of manager
       .transport(provider)
@@ -416,6 +421,22 @@ test("OpenCode uses an authenticated isolated server, filters user events, enfor
     expect(prompt.tools.bash).toBe(false);
     expect(prompt.tools.edit).toBe(false);
     expect(prompt.tools.read).toBe(false);
+    for await (const _delta of manager.transport(provider).run({
+      instructions: "Generate a quiz",
+      input: "Topic",
+      schema: { type: "object", properties: {} },
+    })) {
+      /* structured generation */
+    }
+    const generated = JSON.parse(
+      await readFile(join(home, "request.json"), "utf8"),
+    );
+    expect(generated.format).toEqual({
+      type: "json_schema",
+      schema: { type: "object", properties: {} },
+      retryCount: 0,
+    });
+    expect(generated.system).toContain("responding inside Grill Me");
   } finally {
     await manager.close();
     await rm(root, { recursive: true, force: true });
@@ -492,8 +513,13 @@ test("OpenCode 2 uses integration auth, acknowledged SSE subscription, temporary
           methodIndex: 0,
           key: "fixture-key",
         })
-      ).models[0]?.id,
-    ).toBe("fixture/fixture-model");
+      ).models[0],
+    ).toMatchObject({
+      id: "fixture/fixture-model",
+      name: "Fixture v2 model",
+      providerId: "fixture",
+      providerName: "Fixture account",
+    });
     let text = "";
     for await (const delta of manager
       .transport(provider)
@@ -508,6 +534,18 @@ test("OpenCode 2 uses integration auth, acknowledged SSE subscription, temporary
     expect(
       JSON.parse(await readFile(join(home, "instructions.json"), "utf8")).value,
     ).toContain("Never modify files");
+    for await (const _delta of manager.transport(provider).run({
+      instructions: "Generate a quiz",
+      input: "Topic",
+      schema: { type: "object", properties: {} },
+    })) {
+      /* structured generation */
+    }
+    const structured = JSON.parse(
+      await readFile(join(home, "instructions.json"), "utf8"),
+    );
+    expect(structured.value).toContain("JSON Schema");
+    expect(structured.value).toContain('"type":"object"');
     expect(await readFile(join(home, "deleted-session"), "utf8")).toBe("true");
     const controller = new AbortController();
     const waiting = (async () => {

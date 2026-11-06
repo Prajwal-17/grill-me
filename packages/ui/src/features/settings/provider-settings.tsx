@@ -6,6 +6,7 @@ import {
   ExternalLink,
   LoaderCircle,
   RefreshCw,
+  SquareTerminal,
   Terminal,
   Waypoints,
 } from "lucide-react";
@@ -25,10 +26,25 @@ import { cn } from "@/shared/lib/cn";
 import { SettingsFeedback, SettingsHeading } from "./settings-layout";
 import { useSettingsMutation } from "./use-settings-mutation";
 import { ProviderModelControls } from "./provider-model-controls";
+import { OpenCodeSignIn } from "./opencode-sign-in";
 import { providerHealthKey } from "./provider-health";
 
-type ProviderKind = "codex" | "openai";
-const providerNames = { codex: "Codex", openai: "OmniRoute" };
+type ProviderKind = "codex" | "opencode" | "openai";
+const providerNames = {
+  codex: "Codex",
+  opencode: "OpenCode",
+  openai: "OmniRoute",
+};
+const providerDescriptions = {
+  codex: "Your installed Codex CLI and ChatGPT account",
+  opencode: "Your installed OpenCode CLI and connected model accounts",
+  openai: "Your OpenAI-compatible model gateway",
+};
+const providerFallbackIds = {
+  codex: "00000000-0000-4000-8000-000000000001",
+  opencode: "00000000-0000-4000-8000-000000000003",
+  openai: "00000000-0000-4000-8000-000000000002",
+};
 const signInCodes = [
   "PROVIDER_AUTH_REQUIRED",
   "PROVIDER_LOGIN_FAILED",
@@ -58,17 +74,14 @@ function primaryProvider(
       (p) => p.kind === kind && p.id === data.activeProviderId,
     ) ??
     data.providers.find((p) => p.kind === kind) ?? {
-      id:
-        kind === "codex"
-          ? "00000000-0000-4000-8000-000000000001"
-          : "00000000-0000-4000-8000-000000000002",
+      id: providerFallbackIds[kind],
       name: providerNames[kind],
       kind,
       enabled: false,
       codexHome: "",
       binaryPath: "",
       endpoint: kind === "openai" ? "http://127.0.0.1:20128/v1" : undefined,
-      ...data.providerDefaults,
+      ...(kind === "opencode" ? { model: "auto" } : data.providerDefaults),
       storage: data.keyring.available ? "keyring" : "session",
       hasKey: false,
     }
@@ -85,7 +98,7 @@ function useProviderStatus(provider: SavedProvider) {
       provider.enabled,
     ],
     queryFn: async (): Promise<ProviderConnection> => {
-      if (provider.kind === "codex")
+      if (provider.kind !== "openai")
         return apiRequest(`/settings/providers/${provider.id}/connection`);
       const models = await apiRequest<ProviderModel[]>(
         `/settings/providers/${provider.id}/models`,
@@ -109,15 +122,13 @@ function useProviderStatus(provider: SavedProvider) {
 }
 
 export function ProviderSettings({ data }: { data: LocalSettings }) {
-  const providers = [
-    primaryProvider(data, "codex"),
-    primaryProvider(data, "openai"),
-  ];
-  const [selected, setSelected] = useState<ProviderKind>(() =>
-    data.providers.find((p) => p.id === data.activeProviderId)?.kind ===
-    "openai"
-      ? "openai"
-      : "codex",
+  const providers = (["codex", "opencode", "openai"] as const).map((kind) =>
+    primaryProvider(data, kind),
+  );
+  const [selected, setSelected] = useState<ProviderKind>(
+    () =>
+      (data.providers.find((p) => p.id === data.activeProviderId)?.kind as
+        ProviderKind | undefined) ?? "codex",
   );
   const change = useSettingsMutation();
   const enabled = providers.filter((p) => p.enabled);
@@ -125,13 +136,14 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
     <>
       <SettingsHeading
         title="Providers"
-        description="Use your Codex account or connect through OmniRoute."
+        description="Use your Codex or OpenCode account, or connect through OmniRoute."
       />
       <div className="mb-7 flex flex-col gap-3 border-y border-line py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="text-ui font-medium">Use for AI requests</h3>
           <p className="mt-1 text-supporting text-muted">
-            Both providers can be on. Choose which one handles new requests.
+            All providers can be on. Choose which one handles new challenges,
+            quizzes, hints, and reviews.
           </p>
         </div>
         <div className="w-full shrink-0 sm:w-56">
@@ -239,7 +251,12 @@ function ProviderListItem({
   onToggle: (value: boolean) => void;
 }) {
   const status = useProviderStatus(provider);
-  const Icon = provider.kind === "codex" ? Terminal : Waypoints;
+  const Icon =
+    provider.kind === "codex"
+      ? Terminal
+      : provider.kind === "opencode"
+        ? SquareTerminal
+        : Waypoints;
   const summary = !provider.enabled
     ? "Off"
     : status.isFetching && !status.data
@@ -327,7 +344,7 @@ function ProviderDetails({
   });
   const busy = save.isPending || login.isPending;
   const state = status.data;
-  const name = providerNames[provider.kind as ProviderKind];
+  const name = providerNames[provider.kind];
   return (
     <section
       id={`provider-detail-${provider.id}`}
@@ -338,9 +355,7 @@ function ProviderDetails({
         <div>
           <h3 className="text-section font-semibold">{name}</h3>
           <p className="mt-1 text-supporting text-muted">
-            {provider.kind === "codex"
-              ? "Your installed CLI and ChatGPT account"
-              : "Your OpenAI-compatible model gateway"}
+            {providerDescriptions[provider.kind]}
           </p>
         </div>
         <Button
@@ -425,7 +440,7 @@ function ProviderDetails({
                   </p>
                 </div>
               )}
-            {state?.login && (
+            {provider.kind === "codex" && state?.login && (
               <div className="mt-3 space-y-3">
                 <p className="text-supporting text-muted">
                   Complete Codex sign-in in your browser, then return here.
@@ -439,6 +454,13 @@ function ProviderDetails({
                   </Button>
                 )}
               </div>
+            )}
+            {provider.kind === "opencode" && (
+              <OpenCodeSignIn
+                provider={provider}
+                status={state}
+                disabled={busy}
+              />
             )}
           </>
         )}
@@ -498,7 +520,9 @@ function ProviderDetails({
             </div>
           )}
           <section aria-label="Model settings">
-            <h4 className="text-ui font-medium">Model & reasoning</h4>
+            <h4 className="text-ui font-medium">
+              {provider.kind === "opencode" ? "Model" : "Model & reasoning"}
+            </h4>
             <ProviderModelControls
               provider={{ ...provider, ...values } as SavedProvider}
               models={provider.enabled ? (state?.models ?? []) : []}
@@ -506,7 +530,7 @@ function ProviderDetails({
               onChange={update}
             />
             {provider.enabled &&
-              provider.kind === "codex" &&
+              provider.kind !== "openai" &&
               state?.connected &&
               values.model !== "auto" &&
               !state.models.some((model) => model.id === values.model) && (
@@ -514,8 +538,8 @@ function ProviderDetails({
                   role="alert"
                   className="mt-3 text-supporting text-destructive"
                 >
-                  This model is not available to your Codex account. Choose a
-                  model from the list.
+                  This model is not available to {name}. Choose a model from the
+                  list.
                 </p>
               )}
           </section>
@@ -531,7 +555,7 @@ function ProviderDetails({
               <DetailField
                 label="Custom model ID"
                 htmlFor={`model-${provider.id}`}
-                hint="Use an exact model ID or an OmniRoute combo name."
+                hint="Use an exact model ID or provider-specific name."
               >
                 <Input
                   id={`model-${provider.id}`}
@@ -542,38 +566,44 @@ function ProviderDetails({
                   spellCheck={false}
                 />
               </DetailField>
-              {provider.kind === "codex" ? (
+              {provider.kind !== "openai" ? (
                 <>
                   <DetailField
                     label="Binary path"
                     htmlFor={`binary-${provider.id}`}
-                    hint="Leave empty to find codex on your PATH."
+                    hint={`Leave empty to find ${provider.kind} on your PATH.`}
                   >
                     <Input
                       id={`binary-${provider.id}`}
                       value={values.binaryPath ?? ""}
                       onChange={(e) => update({ binaryPath: e.target.value })}
-                      placeholder="codex (auto-detect)"
+                      placeholder={`${provider.kind} (auto-detect)`}
                       spellCheck={false}
                     />
                   </DetailField>
-                  <DetailField
-                    label="CODEX_HOME"
-                    htmlFor={`home-${provider.id}`}
-                    hint="Leave empty to reuse your existing Codex login and configuration. A custom home uses that directory's account."
-                  >
-                    <Input
-                      id={`home-${provider.id}`}
-                      value={values.codexHome ?? ""}
-                      onChange={(e) => update({ codexHome: e.target.value })}
-                      placeholder="~/.codex"
-                      spellCheck={false}
-                    />
-                  </DetailField>
-                  {state?.homePath && (
-                    <p className="break-all text-metadata text-muted">
-                      Resolved home: {state.homePath}
-                    </p>
+                  {provider.kind === "codex" && (
+                    <>
+                      <DetailField
+                        label="CODEX_HOME"
+                        htmlFor={`home-${provider.id}`}
+                        hint="Leave empty to reuse your existing Codex login and configuration. A custom home uses that directory's account."
+                      >
+                        <Input
+                          id={`home-${provider.id}`}
+                          value={values.codexHome ?? ""}
+                          onChange={(e) =>
+                            update({ codexHome: e.target.value })
+                          }
+                          placeholder="~/.codex"
+                          spellCheck={false}
+                        />
+                      </DetailField>
+                      {state?.homePath && (
+                        <p className="break-all text-metadata text-muted">
+                          Resolved home: {state.homePath}
+                        </p>
+                      )}
+                    </>
                   )}
                 </>
               ) : (

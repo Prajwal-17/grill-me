@@ -20,6 +20,9 @@ export function defaultProviderSettings(channel: string) {
 export type ProviderModel = {
   id: string;
   name: string;
+  /** Upstream catalog group, such as an OpenCode account provider. */
+  providerId?: string;
+  providerName?: string;
   reasoningEfforts?: ReasoningEffort[];
   defaultReasoningEffort?: ReasoningEffort;
 };

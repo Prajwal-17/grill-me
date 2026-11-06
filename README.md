@@ -17,9 +17,9 @@ This opens the complete Electron application, including its private local backen
 and React UI. There are no separate web/backend launch modes and no Docker setup.
 React changes hot reload; restart after backend changes.
 
-Use your installed Codex CLI account or an OmniRoute endpoint in
-**Settings → Providers**. Turn either provider on, then choose which handles AI
-requests. Grill Me does not install Codex. See
+Use your installed Codex or OpenCode CLI, or an OmniRoute endpoint, in
+**Settings → Providers**. Turn a provider on, then choose which one handles AI
+requests. Grill Me does not install Codex or OpenCode. See
 [CLI connections and conversation recovery](docs/cli-providers.md).
 
 ## Development and production

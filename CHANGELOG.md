@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add OpenCode as a selectable AI provider for challenges, quizzes, hints, discussions, and reviews, using the installed CLI's isolated account connection.
+- Group OpenCode's model catalog by upstream provider in a searchable model picker, and keep the selected model's provider visible.
+
 ## desktop-v0.1.7 - 1 Nov 2026
 
 - Add private GitHub release updates without a separate update server. Collaborators connect with a profile email and a repository-scoped read-only token; the verified repository owner can reuse an existing GitHub CLI login.
