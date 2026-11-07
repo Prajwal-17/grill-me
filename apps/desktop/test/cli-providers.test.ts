@@ -143,7 +143,7 @@ test("provider on/off state is independent from selection and persists without a
   }
 });
 
-test("CLI providers reuse an executable with isolated authentication, ephemeral turns, cancellation and sanitized failures", async () => {
+test("CLI providers reuse an executable with isolated authentication, saved turns, cancellation and sanitized failures", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-cli-test-"));
   const manager = createCliProviders(root);
   try {
@@ -191,7 +191,7 @@ test("CLI providers reuse an executable with isolated authentication, ephemeral 
     const params = JSON.parse(
       await readFile(join(home, "thread.json"), "utf8"),
     );
-    expect(params.ephemeral).toBe(true);
+    expect(params).not.toHaveProperty("ephemeral");
     expect(params.sandbox).toBe("read-only");
     expect(params.cwd.startsWith(root)).toBe(true);
     expect(
@@ -401,7 +401,7 @@ test("OpenCode auto-discovery finds a user installation outside the desktop PATH
   }
 });
 
-test("OpenCode uses an authenticated isolated server, filters user events, enforces review permissions and removes temporary sessions", async () => {
+test("OpenCode uses an authenticated isolated server, filters user events, enforces review permissions and keeps sessions", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-opencode-test-"));
   const manager = createCliProviders(root);
   try {
@@ -439,7 +439,8 @@ test("OpenCode uses an authenticated isolated server, filters user events, enfor
     expect(chunks.join("")).toBe("OpenCode response");
     expect(chunks.join("")).not.toContain("User text");
     const home = join(root, "providers", provider.id, "data");
-    expect(await readFile(join(home, "deleted-session"), "utf8")).toBe("true");
+    expect(await Bun.file(join(home, "created-session")).exists()).toBe(true);
+    expect(await Bun.file(join(home, "deleted-session")).exists()).toBe(false);
     const permissions = JSON.parse(
       await readFile(join(home, "permissions.json"), "utf8"),
     );
@@ -505,7 +506,7 @@ test("provider errors distinguish limits, authentication, unsupported protocols,
   ).not.toContain("sensitive-fixture");
 });
 
-test("OpenCode 2 uses integration auth, acknowledged SSE subscription, temporary sessions, and cancellation", async () => {
+test("OpenCode 2 uses integration auth, acknowledged SSE subscription, saved sessions, and cancellation", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-opencode2-test-"));
   const manager = createCliProviders(root);
   try {
@@ -579,7 +580,8 @@ test("OpenCode 2 uses integration auth, acknowledged SSE subscription, temporary
     );
     expect(structured.value).toContain("JSON Schema");
     expect(structured.value).toContain('"type":"object"');
-    expect(await readFile(join(home, "deleted-session"), "utf8")).toBe("true");
+    expect(await Bun.file(join(home, "created-session")).exists()).toBe(true);
+    expect(await Bun.file(join(home, "deleted-session")).exists()).toBe(false);
     const controller = new AbortController();
     const waiting = (async () => {
       for await (const _delta of manager

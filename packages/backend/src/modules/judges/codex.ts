@@ -165,7 +165,6 @@ export async function codexJudge(
       cwd: workspace,
       approvalPolicy: "never",
       sandbox: "read-only",
-      ephemeral: true,
       model,
       baseInstructions: JUDGE_INSTRUCTIONS,
       developerInstructions:

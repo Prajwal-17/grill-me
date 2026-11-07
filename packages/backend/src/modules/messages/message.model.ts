@@ -1,5 +1,5 @@
 import { asc, eq } from "drizzle-orm";
-import { db, databaseDialect, sqliteDatabase } from "../../shared/database/db";
+import { db, sqliteDatabase } from "../../shared/database/db";
 import { changed } from "../../local/changes";
 import { AppError } from "../../shared/errors/app-error";
 import { messages } from "../../shared/database/schema";
@@ -8,7 +8,6 @@ import type { ConversationMode, MessageAttachment } from "./message.schema";
 export type MessageRow = typeof messages.$inferSelect;
 
 export const messageModel = {
-  durable: () => databaseDialect() === "sqlite",
   async beginExchange(input: {
     challengeId: string;
     content: string;
@@ -99,14 +98,13 @@ export const messageModel = {
     });
   },
   async recover() {
-    if (databaseDialect() === "sqlite")
-      await sqliteDatabase().local((database) => {
-        database
-          .query(
-            "UPDATE messages SET status='interrupted',error='The app stopped before this response finished. Retry when ready.' WHERE status='streaming'",
-          )
-          .run();
-      });
+    await sqliteDatabase().local((database) => {
+      database
+        .query(
+          "UPDATE messages SET status='interrupted',error='The app stopped before this response finished. Retry when ready.' WHERE status='streaming'",
+        )
+        .run();
+    });
   },
   findRowsByChallenge(challengeId: string) {
     return db

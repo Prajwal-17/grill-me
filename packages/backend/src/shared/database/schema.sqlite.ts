@@ -27,7 +27,7 @@ const boolean = (name: string) => integer(name, { mode: "boolean" });
 const doublePrecision = real;
 const serial = (name: string) => integer(name);
 
-// Desktop-only schema. Keep row shapes in sync with the PostgreSQL schema.
+// The application's only schema. Migrations live in drizzle-sqlite.
 export const profiles = sqliteTable("profiles", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),

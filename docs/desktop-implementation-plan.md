@@ -15,7 +15,7 @@
 - Start maximized by default, offer windowed startup, and retain F11 for manual fullscreen.
 - Support multiple OpenAI-compatible providers first. Native Anthropic/Gemini adapters are outside this iteration.
 - Use T3Code as an architectural reference and Relay as the build/workflow reference.
-- Retain the existing web deployment entry points and PostgreSQL behavior until an explicit deployment.
+- Standardize on the existing local SQLite database and remove the legacy PostgreSQL path.
 
 ## 1. Shared packages and explicit startup
 
@@ -26,7 +26,7 @@
 - [x] Keep `apps/web` as the independently runnable Vite host, and make Electron render the same package.
 - [x] Introduce `packages/contracts` for validated settings and transport messages and `packages/client` for the WebSocket connection.
 - [x] Replace desktop source-rewriting aliases with explicit SQLite selection behind the shared database boundary.
-- [x] Keep PostgreSQL selection explicit for the existing production entry point; local launchers reject production overrides.
+- [x] Use SQLite for every runtime; local launchers reject production overrides.
 - [x] Update workspace dependencies, TypeScript/ESLint/Vite/Tailwind paths, tests, migration resources and Docker build inputs after extraction.
 
 Acceptance: the backend package can be imported without a database; the same UI and services run from both desktop and web hosts; existing routes, storage keys and desktop SQLite data remain usable.
@@ -37,7 +37,7 @@ Acceptance: the backend package can be imported without a database; the same UI 
 - [x] `bun dev:web`: browser UI and authenticated local SQLite backend, without Docker.
 - [x] `bun dev:backend`: independently running local backend.
 - [x] `bun dev:ui`: UI against an already running local backend.
-- [x] Retain an explicitly named PostgreSQL development command for the legacy deployment workflow.
+- [x] Remove the legacy PostgreSQL development command and Docker database workflow.
 - [x] Have Electron launch a separate Bun backend process importing the shared package; do not run SQLite/LLM jobs inside Electron main.
 - [x] Define readiness, error reporting and clean shutdown, including child jobs and database handles.
 - [x] Prevent multiple backend owners of one SQLite data directory; isolate standalone, desktop and test roots by default.
@@ -118,7 +118,7 @@ References:
 6. Run final formatting, lint, types, isolated SQLite tests and source-mode desktop/browser smoke checks. Fix regressions in follow-up commits.
 7. Push this branch to update the existing PR and rewrite its title/body around the final implementation and actual validation.
 
-Tests must use temporary data roots and fake providers. Live production PostgreSQL, production deployment commands and real provider calls are not part of verification. Local `build`, `package:*` and Debian installation commands must not run during implementation.
+Tests must use temporary data roots and fake providers. Live production databases, production deployment commands and real provider calls are not part of verification. Local `build`, `package:*` and Debian installation commands must not run during implementation.
 
 ## Implementation and verification record
 
@@ -129,7 +129,7 @@ Tests must use temporary data roots and fake providers. Live production PostgreS
 - Native Secret Service storage passed a round-trip in a private D-Bus session with a disposable encrypted GNOME keyring; the normal user keyring was not accessed.
 - Electron builder inheritance and schema were validated without invoking a build. Workflow YAML was parsed locally.
 - Formatting, lint and TypeScript checks are required before final handoff. Linux Debian packaging and the packaged-app smoke are configured for manual CI and have deliberately not been run locally.
-- The legacy PostgreSQL/Docker deployment entry points were retained and their source paths updated; production databases and deployments were not accessed.
+- The legacy PostgreSQL/Docker deployment entry points were removed; production databases and deployments were not accessed.
 
 - Follow-up: startup now defaults to maximized, migrates legacy fullscreen settings without discarding zoom, and restores saved zoom after navigation. The Electron source smoke verifies zoom across a complete process restart.
 - Frameless follow-up: source smoke verifies native maximize/restore and close, both themes, and saved zoom after reload and a complete process restart. Browser smoke confirms desktop captions are absent. Finish review accepted all four captures with no material fixes; no local package build or production access was used.
@@ -141,9 +141,9 @@ Tests must use temporary data roots and fake providers. Live production PostgreS
 - [x] Scope CLI config/authentication/runtime files to owner-only installation directories. Keep existing OpenAI-compatible keyring/session connections compatible.
 - [x] Route all local AI operations through the selected provider. Limit project review to submitted snapshots, with execution/editing denied and inspection-only evidence.
 - [x] Keep SQLite as the local discussion archive. Save user/pending replies before inference; checkpoint partial replies; retain failures and cancellation; recover interrupted replies without automatic replay.
-- [x] Add minimal follow-ups in the existing Overview, with Stop and Retry. Retry reuses the original user message. Codex requests are ephemeral; OpenCode sessions are deleted after use.
+- [x] Add minimal follow-ups in the existing Overview, with Stop and Retry. Retry reuses the original user message. Codex and OpenCode keep provider-side history in addition to the local SQLite archive.
 - [x] Cover CLI protocols with fake executables and source-mode UI flows. Check installed Codex/OpenCode startup/catalog only in temporary directories, without real credentials or inference.
 
 See [CLI provider connections](cli-providers.md) for lifecycle, authentication,
-conversation storage, and verification details. Production SQL migrations remain
+conversation storage, and verification details. SQLite migrations remain
 unchanged. Desktop packaging remains deferred to the manual CI workflow.

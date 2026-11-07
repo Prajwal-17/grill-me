@@ -553,20 +553,18 @@ export class OpenCodeConnection {
       signal.throwIfAborted();
       yield* queue;
     } finally {
+      const aborted = signal.aborted;
       signal.removeEventListener("abort", abort);
       events.abort();
-      if (!signal.aborted) controller.abort();
+      if (!aborted) controller.abort();
       await streaming.catch(() => {});
-      await this.request(
-        `/session/${encodeURIComponent(session.id)}/abort`,
-        {},
-        { directory },
-      ).catch(() => {});
-      await this.request(
-        `/session/${encodeURIComponent(session.id)}`,
-        undefined,
-        { method: "DELETE", directory },
-      ).catch(() => {});
+      // Keep the session so OpenCode retains the conversation and tool calls.
+      if (aborted)
+        await this.request(
+          `/session/${encodeURIComponent(session.id)}/abort`,
+          {},
+          { directory },
+        ).catch(() => {});
       this.controllers.delete(controller);
     }
   }

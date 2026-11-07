@@ -61,7 +61,6 @@ test("development and production have separate persistent identities and setting
         rendererRoot: "/renderer",
         settings: {},
         inherited: {
-          DATABASE_URL: "forbidden",
           GRILL_ME_HOME: "/forbidden",
           APP_ENV: "production",
           GRILL_DESKTOP_CHANNEL: "production",
@@ -70,7 +69,6 @@ test("development and production have separate persistent identities and setting
       expect(env.APP_ENV).toBe(identity.channel);
       expect(env.GRILL_DESKTOP_CHANNEL).toBe(identity.channel);
       expect(env.GRILL_ME_SQLITE_PATH).toBe(join(dataRoot, "grill-me.sqlite"));
-      expect(env).not.toHaveProperty("DATABASE_URL");
       const service = createSettingsService(dataRoot, {
         keyring: sessionSecretStore(),
       });
@@ -112,17 +110,14 @@ test("production desktop boots an isolated SQLite runtime without production dat
       ],
       {
         cwd: join(import.meta.dir, ".."),
-        env: {
-          ...backendEnvironment({
-            channel: "production",
-            dataRoot: root,
-            token: "fixture",
-            port: 0,
-            rendererRoot: "",
-            settings: {},
-          }),
-          DATABASE_URL: "invalid-do-not-use",
-        },
+        env: backendEnvironment({
+          channel: "production",
+          dataRoot: root,
+          token: "fixture",
+          port: 0,
+          rendererRoot: "",
+          settings: {},
+        }),
         stdout: "pipe",
         stderr: "pipe",
       },

@@ -22,30 +22,12 @@ function configured(name: string) {
   return value || null;
 }
 
-export function appEnvironment() {
-  const value = configured("APP_ENV") ?? configured("NODE_ENV");
-  return value === "production" || value === "test" ? value : "development";
-}
-
 export function appConfigRoot() {
   const direct = configured("GRILL_ME_HOME");
   if (direct) return resolve(direct);
   const configHome =
     configured("XDG_CONFIG_HOME") ?? join(homedir(), ".config");
   return resolve(configHome, APP_NAME);
-}
-
-export function databaseUrl() {
-  const database =
-    appEnvironment() === "production"
-      ? "grill-me"
-      : appEnvironment() === "test"
-        ? "grill-me-test"
-        : "grill-me-dev";
-  return (
-    configured("DATABASE_URL") ??
-    `postgresql://prajwal-17:prajwal2004@localhost:5432/${database}`
-  );
 }
 
 export function submissionsPath() {

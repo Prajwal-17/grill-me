@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { backendEnvironment } from "../src/config";
 
-// Ordinary PostgreSQL runs can discover this file without opening SQLite.
 describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
   "desktop SQLite isolation",
   () => {
@@ -104,7 +103,7 @@ describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
   },
 );
 
-test("desktop configuration cannot inherit production database or storage paths", async () => {
+test("desktop configuration cannot inherit production storage paths", async () => {
   const root = await mkdtemp(join(tmpdir(), "desktop-config-"));
   try {
     const env = backendEnvironment({
@@ -113,7 +112,6 @@ test("desktop configuration cannot inherit production database or storage paths"
       port: 0,
       rendererRoot: "/renderer",
       settings: {
-        DATABASE_URL: "postgresql://forbidden",
         GRILL_ME_HOME: "/production",
         CODEX_MODEL: "fixture",
         PROJECTS_ROOT: "/retired/default",
@@ -121,7 +119,6 @@ test("desktop configuration cannot inherit production database or storage paths"
       inherited: {
         APP_ENV: "production",
         NODE_ENV: "production",
-        DATABASE_URL: "postgresql://forbidden",
         SNAPSHOT_ROOT: "/production/submissions",
         CODEX_HOME: "/user/custom-codex",
         PROJECTS_ROOT: "/retired/inherited",
@@ -136,7 +133,6 @@ test("desktop configuration cannot inherit production database or storage paths"
       CODEX_MODEL: "fixture",
     });
     expect(env.PATH.split(":")[0]).toBe("/usr/bin");
-    expect(env).not.toHaveProperty("DATABASE_URL");
     expect(env).not.toHaveProperty("SNAPSHOT_ROOT");
     expect(env).toHaveProperty("CODEX_HOME", "/user/custom-codex");
     expect(env).not.toHaveProperty("PROJECTS_ROOT");

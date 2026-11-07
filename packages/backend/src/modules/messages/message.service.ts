@@ -81,8 +81,7 @@ export function createMessageService(dependencies: {
           .filter((m) => m.role === "assistant" && m.status === "completed")
           .map((m) => m.replyTo),
       );
-      const durable = messages.durable();
-      const turn = durable ? await messages.beginExchange(input) : null;
+      const turn = await messages.beginExchange(input);
       let reply = "";
       let savedAt = Date.now();
       try {
@@ -154,12 +153,6 @@ export function createMessageService(dependencies: {
       signal?: AbortSignal,
     ) {
       await owned(challengeId, profileId);
-      if (!messages.durable())
-        throw new AppError(
-          "MESSAGE_NOT_RETRYABLE",
-          "Saved response retries are available in local mode.",
-          409,
-        );
       const original = await messages.retryInput(challengeId, id);
       return this.respond(
         {

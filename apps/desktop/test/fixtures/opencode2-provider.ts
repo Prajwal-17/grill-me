@@ -96,6 +96,7 @@ const server = Bun.serve({
         { headers: { "content-type": "text/event-stream" } },
       );
     if (path === "/api/session" && request.method === "POST") {
+      writeFileSync(join(home, "created-session"), "true");
       writeFileSync(
         join(home, "permissions.json"),
         JSON.stringify(await request.json()),
