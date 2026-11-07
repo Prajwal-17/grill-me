@@ -293,9 +293,9 @@ wide above the 1180px workspace breakpoint, and a drawer below it. File previews
 retain their existing wide-panel and full-screen controls.
 
 Settings and Preferences use `SettingsLayout`: a 208px category column beside an
-800px content panel. Providers opens by default and uses a provider list beside
-a single details panel. Below 740px of panel width, the list stacks above the
-details. The category column is unboxed: transparent background, no separator,
+800px content panel. Providers opens by default with a full-width provider list
+above the selected provider's details. The category column is unboxed:
+transparent background, no separator,
 no border, no full-height panel treatment. Category buttons use icons and 40px
 rows. Below 768px, a Sections button opens the category list in a Sheet.
 Content uses 16px mobile and 24px desktop gutters. Switching categories resets
@@ -401,12 +401,15 @@ rather than installing a second component vocabulary. Configuration reference:
   Connecting records the original folder path without importing its contents.
   Starting a review saves a filtered snapshot in the current app edition's data
   folder; later source edits do not change that saved review.
-- **Application settings:** Providers has exactly two entries: Codex and OmniRoute.
-  Each has an independently labelled on/off switch; selecting a row opens its
-  details without changing the active provider. A separate Use for AI requests
-  selector lists enabled providers. Turning off the selected provider clears the
-  selection. No silent fallback. Status, account/plan, version, refresh, model, and
-  reasoning controls live in the detail panel. Codex uses the installed CLI's
+- **Application settings:** Providers lists Codex, OpenCode, and OmniRoute. The
+  default-provider picker and the OpenCode account picker are searchable
+  comboboxes. Each provider has an independently labelled on/off switch; selecting
+  a provider opens its details below the list without changing the active
+  provider. Turning off the selected provider clears the selection. No silent
+  fallback. A compact status row carries connection state, version, account/plan,
+  refresh, and the account action. Model and reasoning controls follow. OpenCode
+  account sign-in uses labelled provider and method fields, a searchable account
+  list, and a masked API key with a reveal control. Codex uses the installed CLI's
   existing login by default. Executable/home paths and custom model IDs live in an
   Advanced disclosure. OmniRoute shows endpoint and a masked optional API key; key
   storage and removal stay in Advanced. Drafts survive switching providers and
