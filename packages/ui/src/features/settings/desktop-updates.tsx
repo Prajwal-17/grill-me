@@ -72,10 +72,7 @@ export function DesktopUpdatesSettings() {
     data?.phase === "checking" ||
     data?.phase === "installing";
   return (
-    <section
-      aria-labelledby="updates-heading"
-      className="mb-8 border-b border-line pb-7"
-    >
+    <section aria-labelledby="updates-heading" className="mb-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 id="updates-heading" className="text-ui font-semibold">
           Updates

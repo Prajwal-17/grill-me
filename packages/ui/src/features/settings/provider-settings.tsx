@@ -208,7 +208,7 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
       </SettingsRow>
       <SettingsFeedback error={change.error} />
       <div
-        className="mt-6 overflow-hidden rounded-lg border border-line bg-surface"
+        className="mt-6 overflow-hidden rounded-lg bg-surface"
         role="group"
         aria-label="AI providers"
       >
@@ -419,7 +419,7 @@ function ProviderDetails({
           Refresh
         </Button>
       </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-y border-line py-3">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line py-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
           <span
             className={cn(
@@ -597,7 +597,7 @@ function ProviderDetails({
                 </p>
               )}
           </section>
-          <details className="group border-t border-line pt-4">
+          <details className="group">
             <summary className="flex cursor-pointer list-none items-center justify-between text-ui font-medium">
               Advanced
               <ChevronDown

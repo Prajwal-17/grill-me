@@ -27,7 +27,7 @@ export function AboutSettings() {
         <h3 id="release-history-heading" className="text-ui font-semibold">
           Release history
         </h3>
-        <div className="mt-3 divide-y divide-line border-y border-line">
+        <div className="mt-3 divide-y divide-line">
           {releases.map((release) => (
             <article key={release.version} className="py-5 first:pt-4">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

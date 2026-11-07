@@ -36,7 +36,7 @@ export function SettingsRow({
   children: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-2 border-b border-line py-4 last:border-b-0 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6">
+    <div className="grid min-w-0 gap-2 py-4 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6">
       {htmlFor ? (
         <label htmlFor={htmlFor} className="pt-1.5 text-ui font-medium">
           {label}

@@ -325,7 +325,10 @@ to each submission; there is no global default or allowed-projects root.
 Credential availability and errors stay with provider settings,
 where they affect the user's choices. Settings rows use the same label column as
 Preferences and stack below 600px of panel width; wider rows align labels with
-controls. Category links update the `section` query parameter while preserving
+controls. Rows rely on spacing instead of repeated dividers. Keep a divider only
+under the section heading, between provider rows, below the provider status
+strip, and before form action bars; release history keeps dividers between
+releases. Category links update the `section` query parameter while preserving
 unrelated URL state.
 
 ## Elevation & Depth
