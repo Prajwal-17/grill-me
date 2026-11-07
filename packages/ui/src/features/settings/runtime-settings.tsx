@@ -6,7 +6,6 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
   SettingsFeedback,
-  SettingsGroup,
   SettingsHeading,
   SettingsRow,
 } from "./settings-layout";
@@ -29,10 +28,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
   });
   return (
     <>
-      <SettingsHeading
-        title="Advanced"
-        description="Review limits and local application data."
-      />
+      <SettingsHeading title="Advanced" />
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -40,12 +36,8 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
         }}
       >
         <fieldset disabled={save.isPending} className="min-w-0">
-          <SettingsGroup title="Review limits">
-            <SettingsRow
-              label="Review timeout (seconds)"
-              htmlFor="review-timeout"
-              description="Maximum time allowed for a review."
-            >
+          <SettingsRow label="Review timeout" htmlFor="review-timeout">
+            <div className="flex max-w-56 items-center gap-2.5">
               <Input
                 id="review-timeout"
                 type="number"
@@ -59,16 +51,28 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
                 }
                 className="tabular-nums"
               />
-            </SettingsRow>
-          </SettingsGroup>
+              <span className="text-supporting text-muted">seconds</span>
+            </div>
+          </SettingsRow>
         </fieldset>
+        {window.desktopBridge && (
+          <SettingsRow label="App data">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={openDataFolder.isPending}
+              onClick={() => openDataFolder.mutate()}
+            >
+              <FolderOpen size={15} />
+              Open folder
+            </Button>
+          </SettingsRow>
+        )}
         <SettingsFeedback
           error={save.error ?? openDataFolder.error}
-          message={
-            save.isSuccess && !dirty ? "Runtime settings saved." : undefined
-          }
+          message={save.isSuccess && !dirty ? "Settings saved." : undefined}
         />
-        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
           {dirty && (
             <span className="mr-auto text-supporting text-muted">
               Unsaved changes
@@ -83,7 +87,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
               save.reset();
             }}
           >
-            Discard changes
+            Discard
           </Button>
           <Button
             type="submit"
@@ -93,21 +97,10 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
             {save.isPending && (
               <LoaderCircle size={14} className="animate-spin" />
             )}
-            Save runtime settings
+            Save changes
           </Button>
         </div>
       </form>
-      {window.desktopBridge && (
-        <Button
-          variant="ghost"
-          className="mt-5 -ml-3 text-muted"
-          disabled={openDataFolder.isPending}
-          onClick={() => openDataFolder.mutate()}
-        >
-          <FolderOpen size={15} />
-          Open app data folder
-        </Button>
-      )}
     </>
   );
 }

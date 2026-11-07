@@ -1,7 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import changelog from "../../../../../CHANGELOG.md?raw";
 import { useDesktopVersion } from "@/shared/components/layout/desktop-version";
-import { SettingsHeading } from "./settings-layout";
+import { SettingsHeading, SettingsRow } from "./settings-layout";
 import { parseReleaseHistory } from "./release-history";
 import { DesktopUpdatesSettings } from "./desktop-updates";
 
@@ -9,24 +9,25 @@ const releases = parseReleaseHistory(changelog);
 
 export function AboutSettings() {
   const version = useDesktopVersion();
+  const versionLabel = version.data
+    ? `v${version.data}`
+    : version.isError
+      ? "Unavailable"
+      : "Loading…";
   return (
     <div>
-      <SettingsHeading
-        title="About"
-        description={
-          version.data
-            ? `Grill Me ${version.data}`
-            : version.isError
-              ? "Could not read the application version."
-              : "Loading application version…"
-        }
-      />
-      <DesktopUpdatesSettings />
+      <SettingsHeading title="About" />
+      <SettingsRow label="Version">
+        <p className="pt-1.5 text-ui tabular-nums text-muted">{versionLabel}</p>
+      </SettingsRow>
+      <div className="mt-7">
+        <DesktopUpdatesSettings />
+      </div>
       <section aria-labelledby="release-history-heading">
         <h3 id="release-history-heading" className="text-ui font-semibold">
           Release history
         </h3>
-        <div className="mt-3 divide-y divide-line border-y border-line">
+        <div className="mt-3 divide-y divide-line">
           {releases.map((release) => (
             <article key={release.version} className="py-5 first:pt-4">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">

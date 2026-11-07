@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Check, CircleAlert } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
@@ -9,66 +9,42 @@ export function SettingsHeading({
   action,
 }: {
   title: string;
-  description: string;
+  description?: string;
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
       <div className="min-w-0">
         <h2 className="text-section font-semibold tracking-[-0.02em]">
           {title}
         </h2>
-        <p className="mt-1 text-supporting text-muted">{description}</p>
+        {description && (
+          <p className="mt-1 text-supporting text-muted">{description}</p>
+        )}
       </div>
       {action}
     </div>
   );
 }
-export function SettingsGroup({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  const id = useId();
-  return (
-    <section aria-labelledby={id} className="mb-6">
-      <h3 id={id} className="mb-2.5 text-ui font-semibold">
-        {title}
-      </h3>
-      <div className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
-        {children}
-      </div>
-    </section>
-  );
-}
 export function SettingsRow({
   label,
-  description,
   htmlFor,
   children,
 }: {
   label: string;
-  description?: ReactNode;
   htmlFor?: string;
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-3 px-4 py-3.5 @min-[600px]:flex-row @min-[600px]:items-center @min-[600px]:justify-between @min-[600px]:gap-6">
-      <div className="min-w-0 flex-1">
-        {htmlFor ? (
-          <label htmlFor={htmlFor} className="text-ui font-medium">
-            {label}
-          </label>
-        ) : (
-          <p className="text-ui font-medium">{label}</p>
-        )}
-        {description && (
-          <p className="mt-0.5 text-supporting text-muted">{description}</p>
-        )}
-      </div>
-      <div className="w-full min-w-0 shrink-0 @min-[600px]:w-56">
+    <div className="grid min-w-0 gap-2 py-4 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6">
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className="pt-1.5 text-ui font-medium">
+          {label}
+        </label>
+      ) : (
+        <div className="pt-1.5 text-ui font-medium">{label}</div>
+      )}
+      <div className="min-w-0 [&_input]:text-ui [&_[role=combobox]]:h-9">
         {children}
       </div>
     </div>

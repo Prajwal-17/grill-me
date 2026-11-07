@@ -72,13 +72,10 @@ export function DesktopUpdatesSettings() {
     data?.phase === "checking" ||
     data?.phase === "installing";
   return (
-    <section
-      aria-labelledby="updates-heading"
-      className="mb-8 border-b border-line pb-7"
-    >
+    <section aria-labelledby="updates-heading" className="mb-8">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 id="updates-heading" className="text-ui font-semibold">
-          Application updates
+          Updates
         </h3>
         <Button
           variant="ghost"
@@ -97,7 +94,7 @@ export function DesktopUpdatesSettings() {
       </div>
       {state.isPending && (
         <p role="status" className="text-supporting text-muted">
-          Checking private update access…
+          Checking update access…
         </p>
       )}
       <SettingsFeedback
@@ -109,12 +106,6 @@ export function DesktopUpdatesSettings() {
       />
       {data && (
         <>
-          {!data.enabled && (
-            <p className="mb-3 text-supporting text-muted">
-              Updates install only in the packaged production app. Development
-              builds stay separate.
-            </p>
-          )}
           {data.phase !== "error" && (
             <p role="status" className="mb-3 text-supporting text-muted">
               {data.message}
@@ -222,9 +213,8 @@ export function DesktopUpdatesSettings() {
                 />
               </label>
               <p className="text-supporting text-muted">
-                Use a fine-grained token with Contents: read access to this
-                repository. The owner can leave this blank after signing in with
-                GitHub CLI.
+                Use a fine-grained token with Contents: read. Leave blank when
+                signed in with GitHub CLI.
               </p>
               <Button type="submit" variant="primary" disabled={working}>
                 {working && <LoaderCircle size={14} className="animate-spin" />}

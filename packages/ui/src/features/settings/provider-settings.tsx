@@ -1,13 +1,13 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Check,
   ChevronDown,
   ExternalLink,
   LoaderCircle,
   RefreshCw,
   SquareTerminal,
   Terminal,
+  UserRoundPlus,
   Waypoints,
 } from "lucide-react";
 import type {
@@ -20,10 +20,15 @@ import type {
 import { Button } from "@/shared/components/ui/button";
 import { ChoiceSelect } from "@/shared/components/ui/choice-select";
 import { Input } from "@/shared/components/ui/input";
+import { SearchSelect } from "@/shared/components/ui/search-select";
 import { Switch } from "@/shared/components/ui/switch";
 import { apiRequest } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
-import { SettingsFeedback, SettingsHeading } from "./settings-layout";
+import {
+  SettingsFeedback,
+  SettingsHeading,
+  SettingsRow,
+} from "./settings-layout";
 import { useSettingsMutation } from "./use-settings-mutation";
 import { ProviderModelControls } from "./provider-model-controls";
 import { OpenCodeSignIn } from "./opencode-sign-in";
@@ -36,9 +41,14 @@ const providerNames = {
   openai: "OmniRoute",
 };
 const providerDescriptions = {
-  codex: "Your installed Codex CLI and ChatGPT account",
-  opencode: "Your installed OpenCode CLI and connected model accounts",
-  openai: "Your OpenAI-compatible model gateway",
+  codex: "ChatGPT through the Codex CLI",
+  opencode: "OpenCode CLI accounts",
+  openai: "OpenAI-compatible gateway",
+};
+const providerIcons = {
+  codex: Terminal,
+  opencode: SquareTerminal,
+  openai: Waypoints,
 };
 const providerFallbackIds = {
   codex: "00000000-0000-4000-8000-000000000001",
@@ -121,6 +131,28 @@ function useProviderStatus(provider: SavedProvider) {
   });
 }
 
+function ProviderMark({
+  kind,
+  muted = false,
+}: {
+  kind: ProviderKind;
+  muted?: boolean;
+}) {
+  const Icon = providerIcons[kind];
+  return (
+    <span
+      className={cn(
+        "grid size-9 shrink-0 place-items-center rounded-md border",
+        muted
+          ? "border-line bg-canvas/40 text-muted"
+          : "border-line-strong bg-surface text-foreground",
+      )}
+    >
+      <Icon size={17} aria-hidden="true" />
+    </span>
+  );
+}
+
 export function ProviderSettings({ data }: { data: LocalSettings }) {
   const providers = (["codex", "opencode", "openai"] as const).map((kind) =>
     primaryProvider(data, kind),
@@ -132,54 +164,57 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
   );
   const change = useSettingsMutation();
   const enabled = providers.filter((p) => p.enabled);
+  const activeId = enabled.some((p) => p.id === data.activeProviderId)
+    ? data.activeProviderId!
+    : "none";
+  const providerOptions = enabled.map((provider) => {
+    const kind = provider.kind as ProviderKind;
+    const Icon = providerIcons[kind];
+    return {
+      id: provider.id,
+      label: providerNames[kind],
+      description: providerDescriptions[kind],
+      icon: <Icon size={15} aria-hidden="true" />,
+      keywords: [kind],
+    };
+  });
   return (
     <>
-      <SettingsHeading
-        title="Providers"
-        description="Use your Codex or OpenCode account, or connect through OmniRoute."
-      />
-      <div className="mb-7 flex flex-col gap-3 border-y border-line py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-ui font-medium">Use for AI requests</h3>
-          <p className="mt-1 text-supporting text-muted">
-            All providers can be on. Choose which one handles new challenges,
-            quizzes, hints, and reviews.
-          </p>
-        </div>
-        <div className="w-full shrink-0 sm:w-56">
-          <ChoiceSelect
-            label="Provider used for AI requests"
-            value={
-              enabled.some((p) => p.id === data.activeProviderId)
-                ? data.activeProviderId!
-                : "none"
-            }
-            disabled={change.isPending}
-            onChange={(id) =>
-              change.mutate({
-                path: "/settings/active-provider",
-                body: { id: id === "none" ? null : id },
-              })
-            }
-            options={[
-              { id: "none", label: "No provider selected" },
-              ...enabled.map((p) => ({
-                id: p.id,
-                label: providerNames[p.kind as ProviderKind],
-              })),
-            ]}
-          />
-        </div>
-      </div>
+      <SettingsHeading title="Providers" />
+      <SettingsRow label="Use for AI requests" htmlFor="active-provider">
+        <SearchSelect
+          id="active-provider"
+          label="Use for AI requests"
+          value={activeId}
+          disabled={change.isPending}
+          onChange={(id) =>
+            change.mutate({
+              path: "/settings/active-provider",
+              body: { id: id === "none" ? null : id },
+            })
+          }
+          placeholder="None"
+          searchPlaceholder="Search providers…"
+          emptyMessage="No matching providers."
+          options={[
+            {
+              id: "none",
+              label: "None",
+              description: "No provider selected",
+            },
+            ...providerOptions,
+          ]}
+        />
+      </SettingsRow>
       <SettingsFeedback error={change.error} />
-      <div className="provider-workbench grid min-w-0 overflow-hidden rounded-xl border border-line bg-surface @min-[740px]:grid-cols-[230px_minmax(0,1fr)]">
-        <div
-          className="divide-y divide-line border-b border-line @min-[740px]:border-b-0 @min-[740px]:border-r"
-          role="group"
-          aria-label="AI providers"
-        >
+      <div
+        className="mt-6 overflow-hidden rounded-lg bg-surface"
+        role="group"
+        aria-label="AI providers"
+      >
+        <div className="divide-y divide-line">
           {providers.map((provider) => (
-            <ProviderListItem
+            <ProviderOption
               key={provider.id}
               provider={provider}
               selected={selected === provider.kind}
@@ -203,13 +238,13 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
             />
           ))}
         </div>
-        <div className="min-w-0">
-          {providers.map((provider) => (
-            <div key={provider.id} hidden={selected !== provider.kind}>
-              <ProviderDetails provider={provider} data={data} />
-            </div>
-          ))}
-        </div>
+      </div>
+      <div className="mt-7 min-w-0">
+        {providers.map((provider) => (
+          <div key={provider.id} hidden={selected !== provider.kind}>
+            <ProviderDetails provider={provider} data={data} />
+          </div>
+        ))}
       </div>
       {data.migration.pending && (
         <div className="mt-6 border-t border-line pt-4">
@@ -235,7 +270,7 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
   );
 }
 
-function ProviderListItem({
+function ProviderOption({
   provider,
   selected,
   active,
@@ -251,12 +286,7 @@ function ProviderListItem({
   onToggle: (value: boolean) => void;
 }) {
   const status = useProviderStatus(provider);
-  const Icon =
-    provider.kind === "codex"
-      ? Terminal
-      : provider.kind === "opencode"
-        ? SquareTerminal
-        : Waypoints;
+  const kind = provider.kind as ProviderKind;
   const summary = !provider.enabled
     ? "Off"
     : status.isFetching && !status.data
@@ -268,38 +298,37 @@ function ProviderListItem({
   return (
     <div
       className={cn(
-        "flex items-start gap-2 px-4 py-5",
-        selected ? "bg-elevated" : "bg-canvas/40",
+        "flex items-center gap-3 px-4 py-3.5 transition-colors",
+        selected && "bg-elevated ring-1 ring-inset ring-foreground/10",
       )}
     >
       <button
         type="button"
         aria-pressed={selected}
         aria-controls={`provider-detail-${provider.id}`}
-        className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left outline-offset-4"
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left outline-offset-4"
         onClick={onSelect}
       >
-        <Icon size={18} className="mt-0.5 shrink-0 text-muted" />
+        <ProviderMark kind={kind} muted={!selected} />
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2 text-ui font-medium">
-            {providerNames[provider.kind as ProviderKind]}
-            {active && <Check size={13} aria-label="In use" />}
+            {providerNames[kind]}
+            {active && (
+              <span className="text-metadata font-normal text-muted">
+                In use
+              </span>
+            )}
           </span>
           <span
-            className="mt-1 block truncate text-supporting text-muted"
+            className="mt-0.5 block truncate text-supporting text-muted"
             title={summary}
           >
             {summary}
           </span>
-          {status.data?.account?.plan && provider.enabled && (
-            <span className="mt-1 block text-metadata text-muted">
-              ChatGPT {planLabel(status.data.account.plan)}
-            </span>
-          )}
         </span>
       </button>
       <Switch
-        aria-label={`Enable ${providerNames[provider.kind as ProviderKind]}`}
+        aria-label={`Enable ${providerNames[kind]}`}
         checked={provider.enabled}
         disabled={busy}
         onCheckedChange={onToggle}
@@ -318,6 +347,7 @@ function ProviderDetails({
   const queries = useQueryClient();
   const status = useProviderStatus(provider);
   const [draft, setDraft] = useState<ProviderInput | null>(null);
+  const [signInEditing, setSignInEditing] = useState(false);
   const save = useSettingsMutation(() => setDraft(null));
   const values: ProviderInput = draft ?? provider;
   const update = (patch: Partial<ProviderInput>) => {
@@ -344,19 +374,37 @@ function ProviderDetails({
   });
   const busy = save.isPending || login.isPending;
   const state = status.data;
-  const name = providerNames[provider.kind];
+  const kind = provider.kind as ProviderKind;
+  const name = providerNames[kind];
+  const connected = Boolean(state?.connected && !status.error);
+  const canSignInToCodex =
+    kind === "codex" &&
+    provider.enabled &&
+    state?.installed &&
+    (!state.code || signInCodes.includes(state.code)) &&
+    !state.authenticated &&
+    !state.login;
+  const canConnectOpenCode =
+    kind === "opencode" &&
+    provider.enabled &&
+    state?.installed &&
+    Boolean(state.authMethods?.length);
+  const showOpenCodeConnect = canConnectOpenCode && connected && !signInEditing;
   return (
     <section
       id={`provider-detail-${provider.id}`}
       aria-label={`${name} settings`}
-      className="min-w-0 p-5 sm:p-6"
+      className="min-w-0"
     >
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-section font-semibold">{name}</h3>
-          <p className="mt-1 text-supporting text-muted">
-            {providerDescriptions[provider.kind]}
-          </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <ProviderMark kind={kind} />
+          <div className="min-w-0">
+            <h3 className="text-reading font-semibold">{name}</h3>
+            <p className="text-supporting text-muted">
+              {providerDescriptions[kind]}
+            </p>
+          </div>
         </div>
         <Button
           variant="ghost"
@@ -371,100 +419,109 @@ function ProviderDetails({
           Refresh
         </Button>
       </div>
-      <div className="mb-6 border-b border-line pb-5">
-        <div className="flex items-center gap-2 text-ui">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line py-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
           <span
             className={cn(
-              "size-2 rounded-full",
+              "size-2 shrink-0 rounded-full",
               !provider.enabled
                 ? "bg-muted"
-                : state?.connected && !status.error
+                : connected
                   ? "bg-success"
                   : "bg-warning",
             )}
           />
-          <span className="font-medium">
+          <span className="text-ui font-medium">
             {!provider.enabled
               ? "Turned off"
               : status.isFetching && !state
                 ? "Checking connection…"
-                : state?.connected && !status.error
+                : connected
                   ? "Connected"
                   : "Needs attention"}
           </span>
+          {state?.version && (
+            <span className="text-supporting tabular-nums text-muted">
+              {state.version}
+            </span>
+          )}
+          {provider.enabled && state?.account && (
+            <span className="min-w-0 max-w-full truncate text-supporting text-muted">
+              {state.account.email ??
+                (state.account.type === "apiKey"
+                  ? "API key account"
+                  : "Codex account")}
+              {state.account.plan &&
+                ` · ChatGPT ${planLabel(state.account.plan)}`}
+            </span>
+          )}
         </div>
-        {!provider.enabled ? (
-          <p className="mt-2 text-supporting text-muted">
-            Turn on {name} to check its connection and use its models.
-          </p>
-        ) : (
-          <>
-            {state?.account && (
-              <p className="mt-2 break-words text-ui">
-                {state.account.email ??
-                  (state.account.type === "apiKey"
-                    ? "API key account"
-                    : "Codex account")}
-                {state.account.plan && (
-                  <span className="ml-2 text-supporting text-muted">
-                    ChatGPT {planLabel(state.account.plan)}
-                  </span>
-                )}
-              </p>
+        {canSignInToCodex && (
+          <Button size="sm" disabled={busy} onClick={() => login.mutate()}>
+            {login.isPending && (
+              <LoaderCircle size={14} className="animate-spin" />
             )}
-            {state?.version && (
-              <p className="mt-1 text-metadata text-muted">{state.version}</p>
-            )}
-            {(status.error || (state?.code && !state.login)) && (
-              <div className="mt-3">
-                <SettingsFeedback
-                  error={status.error ?? new Error(state?.message)}
-                />
-              </div>
-            )}
-            {provider.kind === "codex" &&
-              state?.installed &&
-              (!state.code || signInCodes.includes(state.code)) &&
-              !state.authenticated &&
-              !state.login && (
-                <div className="mt-3">
-                  <Button disabled={busy} onClick={() => login.mutate()}>
-                    {login.isPending && (
-                      <LoaderCircle size={14} className="animate-spin" />
-                    )}
-                    Sign in to Codex
-                  </Button>
-                  <p className="mt-2 text-supporting text-muted">
-                    You can also run <code>codex login</code> in your terminal,
-                    then refresh.
-                  </p>
-                </div>
-              )}
-            {provider.kind === "codex" && state?.login && (
-              <div className="mt-3 space-y-3">
-                <p className="text-supporting text-muted">
-                  Complete Codex sign-in in your browser, then return here.
-                </p>
-                {state.login.url && (
-                  <Button asChild>
-                    <a href={state.login.url} target="_blank" rel="noreferrer">
-                      Open sign-in page
-                      <ExternalLink size={14} />
-                    </a>
-                  </Button>
-                )}
-              </div>
-            )}
-            {provider.kind === "opencode" && (
-              <OpenCodeSignIn
-                provider={provider}
-                status={state}
-                disabled={busy}
-              />
-            )}
-          </>
+            Sign in
+          </Button>
+        )}
+        {showOpenCodeConnect && (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={() => setSignInEditing(true)}
+          >
+            <UserRoundPlus size={14} />
+            Connect account
+          </Button>
         )}
       </div>
+      {!provider.enabled && (
+        <p className="mt-3 text-supporting text-muted">
+          Turn on {name} to use its models.
+        </p>
+      )}
+      {provider.enabled && (
+        <>
+          {(status.error || (state?.code && !state.login)) && (
+            <div className="mt-3">
+              <SettingsFeedback
+                error={status.error ?? new Error(state?.message)}
+              />
+            </div>
+          )}
+          {canSignInToCodex && (
+            <p className="mt-3 text-supporting text-muted">
+              Or run <code>codex login</code>, then refresh.
+            </p>
+          )}
+          {kind === "codex" && state?.login && (
+            <div className="mt-4 rounded-lg border border-line bg-canvas/40 p-4">
+              <p className="text-ui font-medium">Finish Codex sign-in</p>
+              <p className="mt-1 text-supporting text-muted">
+                Complete sign-in in your browser, then return here.
+              </p>
+              {state.login.url && (
+                <Button asChild size="sm" className="mt-3">
+                  <a href={state.login.url} target="_blank" rel="noreferrer">
+                    Open sign-in page
+                    <ExternalLink size={14} />
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
+          {kind === "opencode" && (
+            <OpenCodeSignIn
+              provider={provider}
+              status={state}
+              disabled={busy}
+              editing={signInEditing}
+              onDone={() => setSignInEditing(false)}
+            />
+          )}
+        </>
+      )}
       <SettingsFeedback error={save.error ?? login.error} />
       <form
         onSubmit={(event) => {
@@ -474,6 +531,7 @@ function ProviderDetails({
             body: { ...values, enabled: provider.enabled },
           });
         }}
+        className="mt-6 min-w-0"
       >
         <fieldset disabled={busy} className="min-w-0 space-y-6">
           {provider.kind === "openai" && (
@@ -520,9 +578,6 @@ function ProviderDetails({
             </div>
           )}
           <section aria-label="Model settings">
-            <h4 className="text-ui font-medium">
-              {provider.kind === "opencode" ? "Model" : "Model & reasoning"}
-            </h4>
             <ProviderModelControls
               provider={{ ...provider, ...values } as SavedProvider}
               models={provider.enabled ? (state?.models ?? []) : []}
@@ -538,12 +593,11 @@ function ProviderDetails({
                   role="alert"
                   className="mt-3 text-supporting text-destructive"
                 >
-                  This model is not available to {name}. Choose a model from the
-                  list.
+                  Not available to {name}. Choose another model.
                 </p>
               )}
           </section>
-          <details className="group border-t border-line pt-4">
+          <details className="group">
             <summary className="flex cursor-pointer list-none items-center justify-between text-ui font-medium">
               Advanced
               <ChevronDown
@@ -555,7 +609,7 @@ function ProviderDetails({
               <DetailField
                 label="Custom model ID"
                 htmlFor={`model-${provider.id}`}
-                hint="Use an exact model ID or provider-specific name."
+                hint="Exact model ID."
               >
                 <Input
                   id={`model-${provider.id}`}
@@ -571,7 +625,7 @@ function ProviderDetails({
                   <DetailField
                     label="Binary path"
                     htmlFor={`binary-${provider.id}`}
-                    hint={`Leave empty to find ${provider.kind} on your PATH.`}
+                    hint={`Leave empty to find ${provider.kind} on PATH.`}
                   >
                     <Input
                       id={`binary-${provider.id}`}
@@ -586,7 +640,7 @@ function ProviderDetails({
                       <DetailField
                         label="CODEX_HOME"
                         htmlFor={`home-${provider.id}`}
-                        hint="Leave empty to reuse your existing Codex login and configuration. A custom home uses that directory's account."
+                        hint="Leave empty to reuse your existing Codex login."
                       >
                         <Input
                           id={`home-${provider.id}`}

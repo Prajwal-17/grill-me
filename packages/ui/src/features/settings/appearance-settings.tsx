@@ -7,7 +7,6 @@ import { useAppStore, type Theme } from "@/shared/stores/app-store";
 import type { DesktopState } from "@repo/contracts";
 import {
   SettingsFeedback,
-  SettingsGroup,
   SettingsHeading,
   SettingsRow,
 } from "./settings-layout";
@@ -30,10 +29,7 @@ export function AppearanceSettings() {
   });
   return (
     <>
-      <SettingsHeading
-        title="Appearance"
-        description="Customize how Grill Me looks on this device."
-      />
+      <SettingsHeading title="Appearance" />
       <SettingsFeedback
         error={native.error ?? state.error}
         onRetry={
@@ -45,31 +41,22 @@ export function AppearanceSettings() {
             : undefined
         }
       />
-      <SettingsGroup title="Display">
-        <SettingsRow
+      <SettingsRow label="Theme" htmlFor="appearance-theme">
+        <ChoiceSelect
+          id="appearance-theme"
           label="Theme"
-          description="Choose a light or dark appearance."
-        >
-          <ChoiceSelect
-            label="Theme"
-            value={theme}
-            onChange={(value) => setTheme(value as Theme)}
-            options={[
-              { id: "light", label: "Light" },
-              { id: "dark", label: "Dark" },
-            ]}
-          />
-        </SettingsRow>
-        {bridge && state.data && (
-          <SettingsRow
-            label="Application zoom"
-            description={
-              <>
-                <Kbd>Ctrl +</Kbd> / <Kbd>Ctrl −</Kbd> to adjust
-              </>
-            }
-          >
-            <div className="flex items-center gap-1">
+          value={theme}
+          onChange={(value) => setTheme(value as Theme)}
+          options={[
+            { id: "light", label: "Light" },
+            { id: "dark", label: "Dark" },
+          ]}
+        />
+      </SettingsRow>
+      {bridge && state.data && (
+        <SettingsRow label="Application zoom">
+          <div>
+            <div className="flex max-w-56 items-center gap-1">
               <div className="flex flex-1 items-center justify-between rounded-lg border border-input bg-canvas p-0.5">
                 <Button
                   variant="ghost"
@@ -107,9 +94,12 @@ export function AppearanceSettings() {
                 <RotateCcw size={14} />
               </Button>
             </div>
-          </SettingsRow>
-        )}
-      </SettingsGroup>
+            <p className="mt-1.5 text-supporting text-muted">
+              <Kbd>Ctrl +</Kbd> / <Kbd>Ctrl −</Kbd> to adjust
+            </p>
+          </div>
+        </SettingsRow>
+      )}
     </>
   );
 }
