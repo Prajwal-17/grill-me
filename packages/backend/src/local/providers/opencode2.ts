@@ -338,21 +338,17 @@ export class OpenCode2 {
     } catch (error) {
       throw providerError(error, "OpenCode");
     } finally {
+      const aborted = signal.aborted;
       signal.removeEventListener("abort", abort);
       events.abort();
       await reader?.cancel().catch(() => {});
-      if (sessionId) {
+      // Keep the session so OpenCode retains the conversation and tool calls.
+      if (sessionId && aborted)
         await this.request(
           `/api/session/${encodeURIComponent(sessionId)}/interrupt`,
           {},
           {},
         ).catch(() => {});
-        await this.request(
-          `/api/session/${encodeURIComponent(sessionId)}`,
-          undefined,
-          { method: "DELETE" },
-        ).catch(() => {});
-      }
       this.runs.delete(controller);
     }
   }

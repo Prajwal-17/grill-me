@@ -27,7 +27,7 @@ are explicit; app startup marks partial unfinished responses interrupted.
 Build channels are compiled into the main process and renderer, checked against
 package metadata, and passed explicitly to the backend. A production binary
 cannot be switched to development by exporting an environment variable.
-Production also uses SQLite and refuses PostgreSQL in the desktop runtime.
+Both editions use only local SQLite; no external database is required.
 
 See [builds and releases](../../docs/desktop-release.md) for exact package commands,
 CI workflows, versioning, installation, and storage. See

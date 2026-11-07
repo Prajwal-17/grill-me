@@ -25,8 +25,8 @@ On macOS, data is under `~/Library/Application Support/<data directory name>/`.
 On Linux it is under `$XDG_CONFIG_HOME/<data directory name>/`, defaulting to
 `~/.config/`. Each directory owns its SQLite database, settings, uploads, review
 snapshots, logs, API credentials, and Electron session data. Both editions
-can be installed and run side by side. Neither reads or migrates production
-PostgreSQL or the other edition's data. Provider selection is edition-specific;
+can be installed and run side by side. Neither reads or migrates the other
+edition's data. Provider selection is edition-specific;
 Codex deliberately reuses the host CLI login unless a custom home is configured.
 Back up data with the edition closed. Uninstalling retains data.
 

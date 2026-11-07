@@ -31,9 +31,10 @@ explicitly. New connections use the normal CLI home.
 Grill Me does not install or update Codex. Model and supported reasoning choices
 come from the CLI catalog. An unavailable model or reasoning selection is
 reported before a turn starts. Local review workspaces and temporary files stay
-in Grill Me's data directory. Turns are ephemeral, use read-only snapshot tools,
-and disable shell execution, editing, hooks, web search, and configured app/MCP
-integrations for the review. Submitted code is never executed.
+in Grill Me's data directory. Turns are saved to the Codex thread history in the
+configured CODEX_HOME, use read-only snapshot tools, and disable shell execution,
+editing, hooks, web search, and configured app/MCP integrations for the review.
+Submitted code is never executed.
 
 ## OpenCode: use your installed CLI and connected accounts
 
@@ -58,10 +59,21 @@ code is required. Grill Me does not save OpenCode credentials in its settings
 database; OpenCode stores them in the provider's isolated home. Turning OpenCode
 off stops Grill Me's owned server process without logging out of the CLI.
 
-OpenCode turns are ephemeral and read-only. Grill Me removes the temporary
-session after each request, allows only read/glob/grep during code review, and
-denies shell execution, editing, web access, and other tools. Submitted code is
-never executed.
+OpenCode turns are saved in the provider's isolated data directory. Grill Me
+keeps each session after the request completes or is cancelled, so OpenCode also
+retains the conversation and any tool calls it made. Review sessions allow only
+read/glob/grep during code review and deny shell execution, editing, web access,
+and other tools. Submitted code is never executed.
+
+## Conversation storage
+
+Grill Me saves every user message, partial reply, and completed reply in its
+local SQLite database. CLI providers also keep the same request in their own
+history: Codex threads stay in the configured CODEX_HOME, and OpenCode sessions
+stay in the provider's isolated data directory together with any tool calls made
+during the request. Nothing is deleted after a successful, failed, or cancelled
+turn. OpenAI-compatible endpoints receive requests without an explicit no-store
+flag, so any server-side retention they offer is available as well.
 
 ## OmniRoute
 

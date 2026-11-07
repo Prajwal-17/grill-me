@@ -213,7 +213,6 @@ export function createOpenAIModel(
     const request = {
       model,
       ...(reasoning ? { reasoning } : {}),
-      store: false,
       instructions:
         input.prompt.instructions +
         "\n" +
@@ -351,7 +350,6 @@ export function createOpenAIModel(
     const request = {
       model,
       ...(reasoning ? { reasoning } : {}),
-      store: false,
       stream: true as const,
       instructions: input.instructions,
       input: input.input,

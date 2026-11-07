@@ -1,1 +1,0 @@
-ALTER TABLE "quizzes" ADD COLUMN "title" text;

@@ -23,9 +23,6 @@ import type { GeneratedQuiz } from "../../../packages/backend/src/modules/quizze
 import type { QuizService } from "../../../packages/backend/src/modules/quizzes/quiz.service";
 import { fixtureSql } from "./fixture-sql";
 
-process.env.DATABASE_URL =
-  process.env.TEST_DATABASE_URL ??
-  "postgresql://prajwal-17:prajwal2004@localhost:5432/grill-me-test";
 const testRoot = "/tmp/grill-me-tests-" + crypto.randomUUID();
 process.env.SNAPSHOT_ROOT = testRoot + "/snapshots";
 process.env.UPLOAD_ROOT = testRoot + "/uploads";
@@ -35,13 +32,22 @@ afterAll(async () => {
 });
 
 const { createApp } = await import("../../../packages/backend/src/app");
-const { db, migrateDatabase } =
+const { migrateDatabase } =
   await import("../../../packages/backend/src/shared/database/db");
 await migrateDatabase();
-if (!process.env.GRILL_ME_SQLITE_PATH)
-  await fixtureSql(
-    "TRUNCATE TABLE verification_runs, review_jobs, submissions, projects, ai_log_events, ai_logs, messages, challenges, profile_preferences, profiles RESTART IDENTITY CASCADE",
-  );
+for (const table of [
+  "verification_runs",
+  "review_jobs",
+  "submissions",
+  "projects",
+  "ai_log_events",
+  "ai_logs",
+  "messages",
+  "challenges",
+  "profile_preferences",
+  "profiles",
+])
+  await fixtureSql(`DELETE FROM ${table}`);
 const { createOpenAIModel } =
   await import("../../../packages/backend/src/modules/ai/openai.model");
 const { logModel } =
@@ -675,9 +681,9 @@ describe("standalone quizzes", () => {
         [quiz.id],
       );
       const snapshot =
-        typeof stored[0].context_snapshot === "string"
-          ? JSON.parse(stored[0].context_snapshot)
-          : stored[0].context_snapshot;
+        typeof stored[0]!.context_snapshot === "string"
+          ? JSON.parse(stored[0]!.context_snapshot)
+          : stored[0]!.context_snapshot;
       expect(snapshot.currentRequest).toBe(prompt.trim());
     }
     expect(detailed.length).toBeGreaterThan(200);
@@ -2596,7 +2602,7 @@ describe("structured practice reviews", () => {
       expect(selected).toBe("gpt-5.6-terra");
     } else throw new Error("Fixture must route through Codex.");
   });
-  test("ephemeral Codex reviews durably log both wire directions including failed tool calls", async () => {
+  test("saved Codex reviews durably log both wire directions including failed tool calls", async () => {
     const { owner, challenge } = await fixture();
     const { mkdtemp, writeFile, chmod, rm } = await import("node:fs/promises");
     const root = await mkdtemp("/tmp/grill-wire-");
@@ -2613,8 +2619,8 @@ createInterface({input: process.stdin}).on("line", line => {
  if (r.method === "initialize") send({id:r.id,result:{}});
  if (r.method === "config/read") send({id:r.id,result:{config:{}}});
  if (r.method === "thread/start") {
-  if (!r.params.ephemeral) return send({id:r.id,error:{message:"Must be ephemeral"}});
-  send({id:r.id,result:{thread:{id:"ephemeral-fixture"},model:r.params.model}});
+  if (r.params.ephemeral) return send({id:r.id,error:{message:"Must not be ephemeral"}});
+  send({id:r.id,result:{thread:{id:"saved-fixture"},model:r.params.model}});
  }
  if (r.method === "turn/start") {
   send({id:r.id,result:{turn:{id:"turn-fixture"}}});
@@ -2622,8 +2628,8 @@ createInterface({input: process.stdin}).on("line", line => {
  }
  if(r.id===900 && r.result) send({id:901,method:"item/tool/call",params:{tool:"grill_read_file",arguments:{path:"answer.py"}}});
  if(r.id===901 && r.result) {
-  send({method:"item/completed",params:{threadId:"ephemeral-fixture",item:{type:"agentMessage",text:${JSON.stringify(JSON.stringify(response))}}}});
-  send({method:"turn/completed",params:{threadId:"ephemeral-fixture",turn:{status:"completed"}}});
+  send({method:"item/completed",params:{threadId:"saved-fixture",item:{type:"agentMessage",text:${JSON.stringify(JSON.stringify(response))}}}});
+  send({method:"turn/completed",params:{threadId:"saved-fixture",turn:{status:"completed"}}});
  }
 });
 `,
@@ -2651,9 +2657,9 @@ createInterface({input: process.stdin}).on("line", line => {
       );
       const log = (await logModel.findOwned(logId, owner.id))!;
       expect(log.requestBody.threadStart).toMatchObject({
-        ephemeral: true,
         model: "gpt-5.6-terra",
       });
+      expect(log.requestBody.threadStart).not.toHaveProperty("ephemeral");
       expect(log.status).toBe("success");
       expect(log.responseText).toContain(response.summary);
       const wire = log.streamEvents as {
@@ -3113,7 +3119,7 @@ describe("developer profile and frozen context", () => {
       "SELECT guided_preferences FROM profile_preferences WHERE profile_id=$1",
       [owner.id],
     );
-    expect(row[0].guided_preferences).toEqual(old);
+    expect(row[0]!.guided_preferences).toEqual(old);
     const unchanged = (
       await json<{ data: LearnerContext["preferences"] }>(
         await request(app, "/profiles/preferences", owner.id, {

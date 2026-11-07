@@ -136,7 +136,6 @@ test("backend package imports without opening a database or listeners", async ()
         APP_ENV: "production",
         GRILL_ME_DESKTOP: "1",
         GRILL_ME_SQLITE_PATH: "relative-invalid",
-        DATABASE_URL: "invalid",
       },
       stdout: "pipe",
       stderr: "pipe",
@@ -549,29 +548,4 @@ test("configured provider endpoint, key and model drive local AI calls without l
     ws.close();
     await provider.stop(true);
   }
-});
-
-test("the PostgreSQL adapter preserves its callable client methods without opening a connection", async () => {
-  const script = Bun.spawn(
-    [
-      process.execPath,
-      "--no-env-file",
-      "-e",
-      `
- const {initializeDatabase,db,closeDatabase}=await import("@repo/backend/shared/database/db");
- await initializeDatabase({dialect:"postgres",url:"postgresql://fixture:fixture@127.0.0.1:1/unused"});
- if(typeof db.$client.unsafe!=="function"||typeof db.$client.close!=="function")throw new Error("Native SQL client methods were lost");
- await closeDatabase();
- `,
-    ],
-    {
-      cwd: new URL("..", import.meta.url).pathname,
-      env: { PATH: process.env.PATH, APP_ENV: "test" },
-      stdout: "pipe",
-      stderr: "pipe",
-    },
-  );
-  const status = await script.exited;
-  if (status) console.error(await new Response(script.stderr).text());
-  expect(status).toBe(0);
 });
