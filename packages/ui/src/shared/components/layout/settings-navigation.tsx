@@ -33,11 +33,9 @@ export const preferenceSections = (
 export function SettingsSectionNavigation({
   kind,
   close,
-  horizontal = false,
 }: {
   kind: "settings" | "preferences";
   close?: () => void;
-  horizontal?: boolean;
 }) {
   const { pathname } = useLocation();
   const [params] = useSearchParams();
@@ -47,7 +45,7 @@ export function SettingsSectionNavigation({
     sections[0].id;
 
   return (
-    <ul className={horizontal ? "flex gap-5 overflow-x-auto" : "grid gap-1"}>
+    <ul className="grid gap-1">
       {sections.map(({ id, label, icon: Icon }) => {
         const next = new URLSearchParams(params);
         next.set("section", id);
@@ -58,18 +56,10 @@ export function SettingsSectionNavigation({
               onClick={close}
               aria-current={active === id ? "page" : undefined}
               className={cn(
-                horizontal
-                  ? "flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-1 text-ui outline-offset-[-4px] transition-colors"
-                  : "sidebar-nav-item flex items-center gap-2.5 rounded-md px-3 transition-colors duration-100",
-                horizontal
-                  ? active === id
-                    ? "border-foreground font-medium text-foreground"
-                    : "border-transparent text-muted hover:text-foreground"
-                  : undefined,
-                !horizontal &&
-                  (active === id
-                    ? "bg-nav-active font-medium text-nav-active-foreground"
-                    : "text-muted hover:bg-elevated hover:text-foreground"),
+                "sidebar-nav-item flex items-center gap-2.5 rounded-md px-3 transition-colors duration-100",
+                active === id
+                  ? "bg-nav-active font-medium text-nav-active-foreground"
+                  : "text-muted hover:bg-elevated hover:text-foreground",
               )}
             >
               <Icon size={16} className="shrink-0" aria-hidden="true" />

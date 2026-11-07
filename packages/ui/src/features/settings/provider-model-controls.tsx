@@ -45,7 +45,7 @@ export function ProviderModelControls({
     efforts &&
     !efforts.includes(provider.reasoningEffort);
   return (
-    <div className="mt-3 space-y-3">
+    <div className="space-y-3">
       <div
         className={cn(
           "grid min-w-0 gap-3",

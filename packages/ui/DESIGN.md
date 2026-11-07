@@ -258,10 +258,10 @@ scrolling. Page actions belong to their content, outside the draggable title bar
 The sidebar holds 40px creation and labeled navigation rows for Home,
 Challenges, Quizzes, and Preferences. History, Settings, and Logs are anchored
 at the bottom of the navigation, above the account controls.
-Settings uses a horizontal tab row for Providers, Appearance, Advanced, and About.
-Preferences retains its open category column beside the main sidebar. Practice lists and
-filters stay in the main content; do not add a recent-practice feed to the
-sidebar. Account controls remain anchored in the footer. Appearance is managed in Settings. Mobile
+Settings and Preferences share an open category column beside the main sidebar.
+Settings lists Providers, Appearance, Advanced, and About; Preferences lists
+Profile, Practice, and Projects. Practice lists and filters stay in the main
+content; do not add a recent-practice feed to the sidebar. Account controls remain anchored in the footer. Appearance is managed in Settings. Mobile
 navigation, creation, and account controls use targets at least 44px
 high.
 
@@ -292,16 +292,16 @@ areas are constrained to approximately 880px. The optional reference is 340px
 wide above the 1180px workspace breakpoint, and a drawer below it. File previews
 retain their existing wide-panel and full-screen controls.
 
-Settings uses a centered 1120px content panel beneath horizontal tabs. Providers
-opens by default and uses a two-entry list beside a single details panel. Below
-740px of panel width, the list stacks above the details. Preferences uses
-`SettingsLayout` with a 208px category column and an 800px content panel. The category column
-is unboxed: transparent background, no separator, no border, no full-height
-panel treatment. Category buttons use icons and 40px rows. Below 768px, a
-Sections button opens the category list in a Sheet. Content uses 16px mobile
-and 24px desktop gutters. Switching categories resets content scroll without
-remounting sections, preserving unsaved drafts. Before selecting a profile,
-Settings uses the same category column without the global navigation.
+Settings and Preferences use `SettingsLayout`: a 208px category column beside an
+800px content panel. Providers opens by default and uses a provider list beside
+a single details panel. Below 740px of panel width, the list stacks above the
+details. The category column is unboxed: transparent background, no separator,
+no border, no full-height panel treatment. Category buttons use icons and 40px
+rows. Below 768px, a Sections button opens the category list in a Sheet.
+Content uses 16px mobile and 24px desktop gutters. Switching categories resets
+content scroll without remounting sections, preserving unsaved drafts. Before
+selecting a profile, Settings uses the same category column without the global
+navigation.
 
 Preferences keep Profile, Practice, and Projects mounted. The desktop app
 configures code reviews exclusively in Settings → AI providers; the web host
@@ -323,9 +323,10 @@ startup and F11 remain available independently. Runtime retains review timeout,
 save/discard actions, and a quiet app-data folder action. Project selection belongs
 to each submission; there is no global default or allowed-projects root.
 Credential availability and errors stay with provider settings,
-where they affect the user's choices. Settings rows stack below 600px of panel
-width; wider rows align labels and descriptions with controls. Category links
-update the `section` query parameter while preserving unrelated URL state.
+where they affect the user's choices. Settings rows use the same label column as
+Preferences and stack below 600px of panel width; wider rows align labels with
+controls. Category links update the `section` query parameter while preserving
+unrelated URL state.
 
 ## Elevation & Depth
 

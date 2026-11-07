@@ -130,7 +130,7 @@ export function OpenCodeSignIn({
   return (
     <div className="mt-3 space-y-3 rounded-lg border border-line bg-canvas/40 p-3">
       <p className="text-supporting text-muted">
-        Sign in through OpenCode to add its models to this provider.
+        Sign in through OpenCode to use its models.
       </p>
       <ChoiceSelect
         label={`Account for ${provider.name}`}
@@ -175,7 +175,7 @@ export function OpenCodeSignIn({
             onChange={(event) => setSecret(event.target.value)}
           />
           <span className="text-supporting text-muted">
-            Managed by OpenCode for this Grill Me installation.
+            Managed by OpenCode.
           </span>
         </label>
       )}

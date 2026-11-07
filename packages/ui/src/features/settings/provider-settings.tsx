@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Check,
   ChevronDown,
   ExternalLink,
   LoaderCircle,
@@ -23,7 +22,11 @@ import { Input } from "@/shared/components/ui/input";
 import { Switch } from "@/shared/components/ui/switch";
 import { apiRequest } from "@/shared/lib/api-client";
 import { cn } from "@/shared/lib/cn";
-import { SettingsFeedback, SettingsHeading } from "./settings-layout";
+import {
+  SettingsFeedback,
+  SettingsHeading,
+  SettingsRow,
+} from "./settings-layout";
 import { useSettingsMutation } from "./use-settings-mutation";
 import { ProviderModelControls } from "./provider-model-controls";
 import { OpenCodeSignIn } from "./opencode-sign-in";
@@ -36,9 +39,9 @@ const providerNames = {
   openai: "OmniRoute",
 };
 const providerDescriptions = {
-  codex: "Your installed Codex CLI and ChatGPT account",
-  opencode: "Your installed OpenCode CLI and connected model accounts",
-  openai: "Your OpenAI-compatible model gateway",
+  codex: "ChatGPT through the Codex CLI",
+  opencode: "OpenCode CLI accounts",
+  openai: "OpenAI-compatible gateway",
 };
 const providerFallbackIds = {
   codex: "00000000-0000-4000-8000-000000000001",
@@ -134,45 +137,33 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
   const enabled = providers.filter((p) => p.enabled);
   return (
     <>
-      <SettingsHeading
-        title="Providers"
-        description="Use your Codex or OpenCode account, or connect through OmniRoute."
-      />
-      <div className="mb-7 flex flex-col gap-3 border-y border-line py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-ui font-medium">Use for AI requests</h3>
-          <p className="mt-1 text-supporting text-muted">
-            All providers can be on. Choose which one handles new challenges,
-            quizzes, hints, and reviews.
-          </p>
-        </div>
-        <div className="w-full shrink-0 sm:w-56">
-          <ChoiceSelect
-            label="Provider used for AI requests"
-            value={
-              enabled.some((p) => p.id === data.activeProviderId)
-                ? data.activeProviderId!
-                : "none"
-            }
-            disabled={change.isPending}
-            onChange={(id) =>
-              change.mutate({
-                path: "/settings/active-provider",
-                body: { id: id === "none" ? null : id },
-              })
-            }
-            options={[
-              { id: "none", label: "No provider selected" },
-              ...enabled.map((p) => ({
-                id: p.id,
-                label: providerNames[p.kind as ProviderKind],
-              })),
-            ]}
-          />
-        </div>
-      </div>
+      <SettingsHeading title="Providers" />
+      <SettingsRow label="Use for AI requests">
+        <ChoiceSelect
+          label="Provider used for AI requests"
+          value={
+            enabled.some((p) => p.id === data.activeProviderId)
+              ? data.activeProviderId!
+              : "none"
+          }
+          disabled={change.isPending}
+          onChange={(id) =>
+            change.mutate({
+              path: "/settings/active-provider",
+              body: { id: id === "none" ? null : id },
+            })
+          }
+          options={[
+            { id: "none", label: "None" },
+            ...enabled.map((p) => ({
+              id: p.id,
+              label: providerNames[p.kind as ProviderKind],
+            })),
+          ]}
+        />
+      </SettingsRow>
       <SettingsFeedback error={change.error} />
-      <div className="provider-workbench grid min-w-0 overflow-hidden rounded-xl border border-line bg-surface @min-[740px]:grid-cols-[230px_minmax(0,1fr)]">
+      <div className="provider-workbench mt-6 grid min-w-0 overflow-hidden rounded-lg border border-line bg-surface @min-[740px]:grid-cols-[230px_minmax(0,1fr)]">
         <div
           className="divide-y divide-line border-b border-line @min-[740px]:border-b-0 @min-[740px]:border-r"
           role="group"
@@ -268,8 +259,8 @@ function ProviderListItem({
   return (
     <div
       className={cn(
-        "flex items-start gap-2 px-4 py-5",
-        selected ? "bg-elevated" : "bg-canvas/40",
+        "flex items-start gap-2 px-4 py-4 transition-colors",
+        selected ? "bg-elevated" : "bg-transparent",
       )}
     >
       <button
@@ -279,11 +270,21 @@ function ProviderListItem({
         className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left outline-offset-4"
         onClick={onSelect}
       >
-        <Icon size={18} className="mt-0.5 shrink-0 text-muted" />
+        <Icon
+          size={16}
+          className={cn(
+            "mt-0.5 shrink-0",
+            selected ? "text-foreground" : "text-muted",
+          )}
+        />
         <span className="min-w-0">
           <span className="flex flex-wrap items-center gap-2 text-ui font-medium">
             {providerNames[provider.kind as ProviderKind]}
-            {active && <Check size={13} aria-label="In use" />}
+            {active && (
+              <span className="text-metadata font-normal text-muted">
+                In use
+              </span>
+            )}
           </span>
           <span
             className="mt-1 block truncate text-supporting text-muted"
@@ -353,7 +354,7 @@ function ProviderDetails({
     >
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-section font-semibold">{name}</h3>
+          <h3 className="text-ui font-semibold">{name}</h3>
           <p className="mt-1 text-supporting text-muted">
             {providerDescriptions[provider.kind]}
           </p>
@@ -395,7 +396,7 @@ function ProviderDetails({
         </div>
         {!provider.enabled ? (
           <p className="mt-2 text-supporting text-muted">
-            Turn on {name} to check its connection and use its models.
+            Turn on {name} to use its models.
           </p>
         ) : (
           <>
@@ -435,8 +436,7 @@ function ProviderDetails({
                     Sign in to Codex
                   </Button>
                   <p className="mt-2 text-supporting text-muted">
-                    You can also run <code>codex login</code> in your terminal,
-                    then refresh.
+                    Or run <code>codex login</code>, then refresh.
                   </p>
                 </div>
               )}
@@ -520,9 +520,6 @@ function ProviderDetails({
             </div>
           )}
           <section aria-label="Model settings">
-            <h4 className="text-ui font-medium">
-              {provider.kind === "opencode" ? "Model" : "Model & reasoning"}
-            </h4>
             <ProviderModelControls
               provider={{ ...provider, ...values } as SavedProvider}
               models={provider.enabled ? (state?.models ?? []) : []}
@@ -538,8 +535,7 @@ function ProviderDetails({
                   role="alert"
                   className="mt-3 text-supporting text-destructive"
                 >
-                  This model is not available to {name}. Choose a model from the
-                  list.
+                  Not available to {name}. Choose another model.
                 </p>
               )}
           </section>
@@ -555,7 +551,7 @@ function ProviderDetails({
               <DetailField
                 label="Custom model ID"
                 htmlFor={`model-${provider.id}`}
-                hint="Use an exact model ID or provider-specific name."
+                hint="Exact model ID."
               >
                 <Input
                   id={`model-${provider.id}`}
@@ -571,7 +567,7 @@ function ProviderDetails({
                   <DetailField
                     label="Binary path"
                     htmlFor={`binary-${provider.id}`}
-                    hint={`Leave empty to find ${provider.kind} on your PATH.`}
+                    hint={`Leave empty to find ${provider.kind} on PATH.`}
                   >
                     <Input
                       id={`binary-${provider.id}`}
@@ -586,7 +582,7 @@ function ProviderDetails({
                       <DetailField
                         label="CODEX_HOME"
                         htmlFor={`home-${provider.id}`}
-                        hint="Leave empty to reuse your existing Codex login and configuration. A custom home uses that directory's account."
+                        hint="Leave empty to reuse your existing Codex login."
                       >
                         <Input
                           id={`home-${provider.id}`}

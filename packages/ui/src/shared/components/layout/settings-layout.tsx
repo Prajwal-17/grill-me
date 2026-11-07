@@ -26,31 +26,11 @@ export function SettingsLayout({
     panel.current?.scrollTo({ top: 0 });
   }, [activeSection]);
 
-  return kind === "settings" ? (
-    <div className="flex h-full min-h-0 flex-col">
-      <nav
-        aria-label="Settings sections"
-        className="shrink-0 border-b border-line px-4 md:px-8"
-      >
-        <div className="mx-auto max-w-[1120px]">
-          <SettingsSectionNavigation kind="settings" horizontal />
-        </div>
-      </nav>
-      <main
-        ref={panel}
-        data-slot="settings-content"
-        className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-7 md:px-8 md:py-8"
-      >
-        <div className="@container mx-auto w-full max-w-[1120px]">
-          {children}
-        </div>
-      </main>
-    </div>
-  ) : (
+  return (
     <div className="flex h-full min-h-0 min-w-0 flex-col md:flex-row">
       <aside
         aria-label={label}
-        className="hidden w-52 shrink-0 overflow-y-auto pl-6 pr-2 py-6 md:block"
+        className="hidden w-52 shrink-0 overflow-y-auto py-6 pl-6 pr-2 md:block"
       >
         <nav aria-label={label}>
           <SettingsSectionNavigation kind={kind} />
