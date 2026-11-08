@@ -2,87 +2,174 @@
 
 ## Unreleased
 
-## desktop-v0.1.9 - 6 Nov 2026
+## desktop-v0.1.10 - 08 Nov 2026
 
-- Find OpenCode installed under `~/.opencode/bin` when the desktop app is launched without the user's shell PATH, on Linux and macOS.
+### Changed
 
-## desktop-v0.1.8 - 6 Nov 2026
+- Keep OpenCode sessions after each request so conversation history stays available
+- Rebuild Settings with the same category column as Preferences
+- Revamp Providers with full-width rows, searchable pickers, and visible labels
+- Mask API keys and add reveal controls
 
-- Add OpenCode as a selectable AI provider for challenges, quizzes, hints, discussions, and reviews, using the installed CLI's isolated account connection.
-- Group OpenCode's model catalog by upstream provider in a searchable model picker, and keep the selected model's provider visible.
-- Send JSON schemas to OpenCode 2 structured requests and use task-neutral session instructions so one provider handles both generation and review.
+### Removed
 
-## desktop-v0.1.7 - 1 Nov 2026
+- Remove PostgreSQL support; SQLite is now the only database
 
-- Add private GitHub release updates without a separate update server. Collaborators connect with a profile email and a repository-scoped read-only token; the verified repository owner can reuse an existing GitHub CLI login.
-- Show update availability in the header and add private update setup, download progress, cancellation, and an explicit install-and-restart confirmation in Settings → About.
-- Encrypt saved update tokens using the operating system credential store. If secure storage is unavailable, keep the token only for the current session. Never package tokens or forward them to asset download hosts.
-- Verify installer sizes and SHA256SUMS before installation, reject downgrades and incomplete releases, and keep development builds separate from production updates.
-- Install Linux DEB updates with administrator approval and replace writable macOS app bundles from verified DMGs with a rollback copy. Preserve local profiles, practice, and provider settings.
-- Report invalid or expired tokens, denied access, network failures, cancelled downloads, checksum failures, and installation problems with recovery instructions.
-- Match macOS signature verification and updater installation paths to the actual `grill-me.app` / `grill-me-dev.app` bundle names, with a packaging-configuration regression check.
+## desktop-v0.1.9 - 06 Nov 2026
 
-## desktop-v0.1.6 - 1 Nov 2026
-
-- Reuse the installed Codex CLI account and configurable CODEX_HOME, with account and plan status.
-- Simplify Settings to two providers, Codex and OmniRoute, with independent on/off switches and an explicit provider selector.
-- Replace the extra Settings sidebar with tabs and a provider list/detail panel; keep errors inline and advanced paths out of the main setup flow.
-- Show the installed desktop version in the top bar, with a link to the release history in Settings.
-- Bundle the full desktop release history from 0.1.0 onward in Settings → About, and preview historical GitHub release-note backfills through the release script.
-- Add per-provider reasoning settings and account model discovery. New production providers default to GPT-6.1 Sol with high reasoning; new development providers default to GPT-6 Luna with medium reasoning. Preserve saved model choices.
-- Send the selected reasoning effort to Codex CLI turns and OpenAI-compatible Responses requests, including OmniRoute. Validate Codex model capabilities before starting a turn.
-- Show provider connection problems before AI work, with retry and Settings actions. Report missing CLIs, sign-in failures/expiry, unavailable models, unsupported settings, authentication/access failures, rate limits, timeouts, malformed responses, and offline providers with recovery guidance.
-- Remove standalone prompt-evaluation and keyring diagnostics, and consolidate test and release-note scripts.
-
-## desktop-v0.1.5 - 31 Oct 2026
-
-- Create challenges and quizzes directly from a focused Home composer, with separate drafts, prompt enhancement, and generation options.
-- Add borderless category navigation for Settings and Preferences, enlarge sidebar controls, and move History, Settings, and Logs to the bottom.
-- Simplify implementation submission with visible folder, file, and code sources and a combined source summary.
-- Remove redundant quiz-list actions and desktop preference controls; keep appearance and provider configuration in Settings.
-- Fix native keyring loading in the compiled desktop backend so saved provider credentials remain available.
-
-## desktop-v0.1.4 - 30 Oct 2026
-
-- Include the native credential-storage library in desktop installers so saved API keys can use the Linux keyring and macOS Keychain.
-- Fail packaging when the credential loader or native binding is missing.
-
-## desktop-v0.1.3 - 30 Oct 2026
-
-- Introduce macOS desktop builds for Apple Silicon and Intel, including native menus, Keychain support, and separate development and production editions. The native credential library was added to installers in 0.1.4.
-- The preceding 0.1.2 tag did not publish installers; its macOS changes first shipped in this release.
-- Fix macOS project-folder permission errors and canonical temporary-path tests.
-- Preserve Finder executable discovery in desktop isolation checks.
-
-## desktop-v0.1.2 - 30 Oct 2026
-
-- This tag's production build failed, so no installers or GitHub release were published. Its macOS support shipped in 0.1.3.
-- Add isolated macOS Intel and Apple Silicon editions with Keychain storage,
-  native application behavior, and ad-hoc DMG builds in CI.
-
-## desktop-v0.1.1 - 30 Oct 2026
+Patch release fixing OpenCode discovery.
 
 ### Fixed
 
-- Complete Linux launcher and window icons, including the steak and smoke
+- Find OpenCode installed in `~/.opencode/bin` when launched without the shell `PATH`
+
+## desktop-v0.1.8 - 06 Nov 2026
+
+OpenCode added as a selectable provider with grouped models.
+
+### Added
+
+- Add OpenCode for challenges, quizzes, hints, discussions, and reviews
+- Group OpenCode models by upstream provider
+- Add a searchable model picker with provider labels
+
+### Changed
+
+- Send JSON schemas to OpenCode 2 structured requests
+- Use task-neutral session instructions for generation and review
+
+## desktop-v0.1.7 - 01 Nov 2026
+
+Private GitHub updates without a separate server.
+
+### Added
+
+- Add private GitHub release updates
+- Connect with a profile email and repository-scoped read-only token
+- Reuse the owner's existing GitHub CLI login
+- Show update availability in the header
+- Add download progress, cancellation, and install confirmation
+- Encrypt saved tokens with the OS credential store, or keep them session-only
+- Verify sizes and `SHA256SUMS`, and reject downgrades or incomplete releases
+- Install Linux DEBs with administrator approval
+- Replace writable macOS bundles from verified DMGs with a rollback copy
+- Preserve profiles, practice, and provider settings
+- Report token, access, download, checksum, and install errors
+- Add recovery steps for failed updates
+
+### Fixed
+
+- Match macOS updater paths and signatures to `grill-me.app` and `grill-me-dev.app`
+
+## desktop-v0.1.6 - 01 Nov 2026
+
+Provider setup simplified with reasoning controls and release history.
+
+### Added
+
+- Reuse the installed Codex CLI account and `CODEX_HOME`
+- Show Codex account and plan status
+- Add per-provider reasoning settings and model discovery
+- Default production providers to GPT-6.1 Sol with high reasoning
+- Default development providers to GPT-6 Luna with medium reasoning
+- Show the installed version in the top bar
+- Add release history to Settings → About
+- Add provider connection errors with retry and Settings actions
+
+### Changed
+
+- Reduce Settings to Codex and OmniRoute with independent switches
+- Replace the Settings sidebar with tabs and a provider details panel
+- Send reasoning effort to Codex and OpenAI-compatible providers
+- Validate Codex model capabilities before starting a turn
+
+### Removed
+
+- Remove prompt-evaluation and keyring diagnostics
+- Consolidate test and release-note scripts
+
+## desktop-v0.1.5 - 31 Oct 2026
+
+Challenge and quiz creation unified on Home, with navigation refinements.
+
+### Added
+
+- Create challenges and quizzes from the focused Home composer
+- Keep separate drafts for challenge and quiz creation
+- Add prompt enhancement and generation options
+
+### Changed
+
+- Add borderless category navigation to Settings and Preferences
+- Enlarge sidebar controls and move History, Settings, and Logs to the bottom
+- Simplify submission with visible folder, file, and code sources
+- Remove redundant quiz-list actions and desktop preference controls
+
+### Fixed
+
+- Fix native keyring loading in the compiled backend
+
+## desktop-v0.1.4 - 30 Oct 2026
+
+Native credential storage shipped in installers.
+
+### Fixed
+
+- Include native credential storage in desktop installers
+- Use Linux keyring and macOS Keychain for saved API keys
+- Fail packaging when the credential loader or native binding is missing
+
+## desktop-v0.1.3 - 30 Oct 2026
+
+First release with macOS builds; 0.1.2 did not publish and native credentials shipped in 0.1.4.
+
+### Added
+
+- Add macOS builds for Apple Silicon and Intel
+- Add native menus, Keychain support, and separate dev/prod editions
+
+### Fixed
+
+- Fix macOS project-folder permission errors
+- Fix canonical temporary-path tests
+- Preserve Finder executable discovery in desktop isolation checks
+
+## desktop-v0.1.2 - 30 Oct 2026
+
+This tag's production build failed, so no installers or GitHub release were published; macOS support shipped in 0.1.3.
+
+### Added
+
+- Add isolated macOS Intel and Apple Silicon editions
+- Add Keychain storage and native application behavior
+- Add ad-hoc DMG builds in CI
+
+## desktop-v0.1.1 - 30 Oct 2026
+
+Linux icon fixes.
+
+### Fixed
+
+- Complete Linux launcher and window icons
+- Include the steak and smoke mark
 
 ## desktop-v0.1.0 - 30 Oct 2026
 
 First Linux desktop release.
 
-### Features
+### Added
 
 - Personalized coding challenges, quizzes, and review conversations
-- Connect local project folders and save snapshots when submitting reviews
+- Local project folders and review snapshots
 - Codex CLI, OpenCode CLI, and OpenAI-compatible providers
 
-### Refactored
+### Changed
 
-- Run Electron, React, and the local SQLite backend together without Docker
-- Keep development and production data, settings, and credentials separate
+- Run Electron, React, and SQLite without Docker
+- Keep development and production data separate
 
 ### Fixed
 
-- Native folder selection and manually entered project paths
-- Persistent zoom level and maximized startup
+- Native folder selection and manual project paths
+- Persistent zoom and maximized startup
 - Compact window controls, sidebar navigation, and settings
