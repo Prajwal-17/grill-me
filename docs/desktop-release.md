@@ -106,14 +106,17 @@ has a download link in the workflow summary. Development installers are uploaded
 directly without a ZIP wrapper and expire after 14 days. The private repository
 requires GitHub access to download artifacts. Development never publishes Releases.
 
-**Desktop Production Build and Release** supports manual artifact-only builds.
-A push of `desktop-v<version>` checks the desktop manifest version, builds all
-three production installers, then publishes one release only after all builds
-succeed. Only the publishing job has release-writing permission. Production CI
-artifacts are archives containing an installer; release assets are just the
-`.deb`, two architecture-specific `.dmg` files, and SHA256SUMS, alongside GitHub's
-automatic source archives. No development installers, updater feeds, blockmaps,
-updater ZIPs, or SOURCE_COMMIT files are published.
+**Desktop Production Build and Release** supports manual build-only runs that do
+not publish. A push of `desktop-v<version>` checks the desktop manifest version,
+builds all three production installers, uploads each installer directly to a
+draft GitHub release, then adds SHA256SUMS and publishes the release only after
+all builds succeed. Build jobs can write only their own release assets; the final
+job publishes the release. Release assets are just the `.deb`, two
+architecture-specific `.dmg` files, and SHA256SUMS, alongside GitHub's automatic
+source archives. Tag releases do not use Actions artifacts. Manual dispatches
+still use temporary Actions artifacts for their installers. No development
+installers, updater feeds, blockmaps, updater ZIPs, or SOURCE_COMMIT files are
+published.
 
 Before a future release, update root/desktop versions, lockfile, and a matching
 `## desktop-v<version>` entry in root CHANGELOG.md. Release notes contain only that entry;
