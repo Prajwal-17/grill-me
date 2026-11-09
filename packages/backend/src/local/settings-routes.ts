@@ -1,6 +1,10 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { providerInputSchema, runtimeSettingsSchema } from "@repo/contracts";
+import {
+  providerInputSchema,
+  runtimeSettingsSchema,
+  credentialStorageSchema,
+} from "@repo/contracts";
 import { parseInput, readJson } from "../shared/http/validation";
 import type { SettingsService } from "./settings";
 import type { CliProviders } from "./providers";
@@ -103,7 +107,7 @@ export function settingsRoutes(service: SettingsService, cli: CliProviders) {
   );
   routes.post("/import", async (c) => {
     const input = parseInput(
-      z.object({ storage: z.enum(["keyring", "session"]) }),
+      z.object({ storage: credentialStorageSchema }),
       await readJson(c.req.raw),
     );
     return c.json({ data: await service.migrateLegacy(input.storage) });

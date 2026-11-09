@@ -86,9 +86,12 @@ Package-level checks are available with `bun run lint` and
   `grill-me-v1` subprotocol. Keep origin checks, payload limits, backpressure,
   and clean shutdown intact.
 - Never expose secrets in the renderer, URLs, logs, process arguments, SQLite, or
-  request payloads. API keys go through `SecretStore` (macOS Keychain or Linux
-  Secret Service) or the explicit session-only store; update tokens use Electron
-  `safeStorage`. There is no plaintext fallback.
+  request payloads. API keys go through `SecretStore` (macOS Keychain, Linux
+  Secret Service, an explicit owner-only plaintext file at
+  `<data root>/secrets.json` with `0600` permissions, or the explicit
+  session-only store); update tokens use Electron `safeStorage`. Plaintext
+  credential storage must stay user-selectable or the fallback used when the OS
+  credential store is unavailable, and the file must never be world-readable.
 - SQLite is the only database runtime. Keep `schema.sqlite.ts`,
   `drizzle-sqlite/0000_desktop.sql`, and the `PRAGMA user_version` migration in
   `db.sqlite.ts` in sync. Follow the compatibility rules below; existing practice

@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { chmod, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 export interface SecretStore {
   get(id: string): Promise<string | undefined>;
   set(id: string, value: string): Promise<void>;
@@ -19,6 +21,94 @@ export function sessionSecretStore(): SecretStore {
       available: true,
       message: "Keys are held in memory until the backend closes.",
     }),
+  };
+}
+export function fileSecretStore(dataRoot: string): SecretStore {
+  const path = join(dataRoot, "secrets.json");
+  let secrets: Record<string, string> | undefined;
+  let tail: Promise<unknown> = Promise.resolve();
+  function exclusive<T>(work: () => Promise<T>) {
+    const pending = tail.then(work);
+    tail = pending.catch(() => {});
+    return pending;
+  }
+  const load = async () => {
+    if (secrets) return secrets;
+    let text: string;
+    try {
+      text = await readFile(path, "utf8");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+      secrets = {};
+      return secrets;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch (error) {
+      throw new Error("The local credential file is not valid JSON.", {
+        cause: error,
+      });
+    }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      throw new Error("The local credential file has an invalid format.");
+    secrets = Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+    // Repair permissions if the file was created by an older version or tool.
+    await chmod(path, 0o600).catch(() => {});
+    return secrets;
+  };
+  const persist = async (next: Record<string, string>) => {
+    const temp = `${path}.${process.pid}.${crypto.randomUUID()}.tmp`;
+    try {
+      await writeFile(temp, `${JSON.stringify(next, null, 2)}\n`, {
+        mode: 0o600,
+      });
+      await chmod(temp, 0o600);
+      await rename(temp, path);
+      await chmod(path, 0o600);
+    } catch (error) {
+      await unlink(temp).catch(() => {});
+      throw error;
+    }
+  };
+  return {
+    get: (id) => exclusive(async () => (await load())[id]),
+    set: (id, value) =>
+      exclusive(async () => {
+        const next = { ...(await load()), [id]: value };
+        await persist(next);
+        secrets = next;
+      }),
+    remove: (id) =>
+      exclusive(async () => {
+        const current = await load();
+        if (!(id in current)) return;
+        const next = { ...current };
+        delete next[id];
+        await persist(next);
+        secrets = next;
+      }),
+    status: () =>
+      exclusive(async () => {
+        try {
+          await load();
+          return {
+            available: true,
+            message:
+              "Saved keys are stored in plaintext in this app's data folder with owner-only permissions (0600).",
+          };
+        } catch {
+          return {
+            available: false,
+            message:
+              "The local credential file is unreadable. Fix or remove it, or choose session-only storage.",
+          };
+        }
+      }),
   };
 }
 export function nativeSecretStore(
@@ -79,7 +169,7 @@ export function nativeSecretStore(
       } catch {
         return {
           available: false,
-          message: `The ${process.platform === "darwin" ? "macOS Keychain" : "Linux keyring"} is locked or unavailable. Unlock it to save keys, or choose session only.`,
+          message: `The ${process.platform === "darwin" ? "macOS Keychain" : "Linux keyring"} is locked or unavailable. Unlock it to save keys, or choose plaintext file or session-only storage.`,
         };
       }
     },

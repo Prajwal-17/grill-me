@@ -32,9 +32,13 @@ Back up data with the edition closed. Uninstalling retains data.
 
 API keys use macOS Keychain or Linux Secret Service through `@napi-rs/keyring`.
 The existing Linux service prefix plus SHA-256 data-root hash is unchanged.
-Keychain uses the same per-edition namespace scheme. A locked/unavailable store
-reports an error; there is no automatic plaintext fallback. Session-only memory
-storage is an explicit choice. OS credentials need their own backup or re-entry.
+Keychain uses the same per-edition namespace scheme. When the OS credential store
+is locked or unavailable, new providers use `<data directory>/secrets.json`, a
+plaintext file with owner-only permissions (`0600`), or you can select it
+explicitly. It persists without prompts, but any process running as your user can
+read it; use it only when you accept that trade-off. Session-only memory storage
+is also an explicit choice. OS credentials need their own backup or re-entry;
+plaintext credentials are included when you back up the data directory.
 
 Desktop launchers do not load shell startup files. Executable discovery preserves
 inherited PATH priority and adds both Homebrew prefixes, `~/.local/bin`,

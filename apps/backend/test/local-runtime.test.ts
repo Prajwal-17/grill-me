@@ -1,11 +1,19 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  rm,
+  readFile,
+  writeFile,
+  chmod,
+  stat,
+} from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { defaultProviderSettings } from "../../../packages/contracts/src";
 import { createSettingsService } from "@repo/backend/local/settings";
 import {
+  fileSecretStore,
   sessionSecretStore,
   type SecretStore,
 } from "@repo/backend/local/secrets";
@@ -206,6 +214,66 @@ test("session-only keys disappear after restart and are never silently persisted
     settings = createSettingsService(root, { keyring: sessionSecretStore() });
     expect((await settings.get()).providers[0]?.hasKey).toBe(false);
     await expect(settings.snapshot()).rejects.toThrow("again");
+  } finally {
+    settings.close();
+  }
+});
+test("plaintext credential files use owner-only permissions and persist", async () => {
+  const root = await temp();
+  const path = join(root, "secrets.json");
+  const store = fileSecretStore(root);
+  await store.set("fixture-key", "fixture-secret");
+  expect((await stat(path)).mode & 0o777).toBe(0o600);
+  expect(await readFile(path, "utf8")).toContain("fixture-secret");
+  expect(await fileSecretStore(root).get("fixture-key")).toBe("fixture-secret");
+  await chmod(path, 0o644);
+  const repaired = fileSecretStore(root);
+  expect((await repaired.status()).available).toBe(true);
+  expect((await stat(path)).mode & 0o777).toBe(0o600);
+  await repaired.remove("fixture-key");
+  expect(await repaired.get("fixture-key")).toBeUndefined();
+});
+test("file-backed API keys survive restart and stay out of settings SQLite", async () => {
+  const root = await temp();
+  const p = { ...provider(), storage: "file" as const };
+  let settings = createSettingsService(root, { keyring: sessionSecretStore() });
+  try {
+    await settings.saveProvider(p);
+    expect((await settings.get()).providers[0]).toMatchObject({
+      storage: "file",
+      hasKey: true,
+    });
+    expect(JSON.stringify(await settings.get())).not.toContain(p.apiKey);
+    settings.close();
+    settings = createSettingsService(root, { keyring: sessionSecretStore() });
+    expect((await settings.snapshot()).apiKey).toBe(p.apiKey);
+    expect((await settings.get()).providers[0]?.hasKey).toBe(true);
+    expect(await readFile(join(root, "secrets.json"), "utf8")).toContain(
+      p.apiKey,
+    );
+    expect(
+      (await readFile(join(root, "settings.sqlite"))).includes(p.apiKey),
+    ).toBe(false);
+  } finally {
+    settings.close();
+  }
+});
+test("legacy keys migrate to the plaintext file and are removed after verification", async () => {
+  const root = await temp();
+  const path = join(root, "backend.env");
+  const key = "file-migration-fixture-secret";
+  await writeFile(path, `LLM_API_KEY=${key}\nLLM_MODEL=fixture\n`, {
+    mode: 0o600,
+  });
+  const settings = createSettingsService(root, {
+    keyring: sessionSecretStore(),
+  });
+  try {
+    await settings.migrateLegacy("file");
+    expect(await readFile(path, "utf8")).not.toContain(key);
+    expect(await readFile(join(root, "secrets.json"), "utf8")).toContain(key);
+    expect((await settings.snapshot()).apiKey).toBe(key);
+    expect((await settings.get()).migration.pending).toBe(false);
   } finally {
     settings.close();
   }

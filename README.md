@@ -34,7 +34,7 @@ requests. Grill Me does not install Codex or OpenCode. See
 The table shows Linux paths; the config root follows `XDG_CONFIG_HOME`. macOS
 uses `~/Library/Application Support/` with the same edition directory names. Both editions can be installed
 and running simultaneously. SQLite, settings, window preferences, zoom, Electron
-sessions, browser storage, keyring entries, uploads, snapshots,
+sessions, browser storage, keyring entries or plaintext credential files, uploads, snapshots,
 and logs are separate. Both editions use their own local SQLite database; no
 external database is required. Existing dev data stays in the same folder. Data
 is never copied between editions automatically.

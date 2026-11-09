@@ -60,6 +60,8 @@ export const providerSchema = z.object({
   reasoningEffort: reasoningEffortSchema.optional(),
 });
 export type Provider = z.infer<typeof providerSchema>;
+export const credentialStorageSchema = z.enum(["keyring", "session", "file"]);
+export type CredentialStorage = z.infer<typeof credentialStorageSchema>;
 export const providerInputSchema = providerSchema
   .extend({
     apiKey: z
@@ -73,7 +75,7 @@ export const providerInputSchema = providerSchema
       )
       .optional(),
     removeKey: z.boolean().optional(),
-    storage: z.enum(["keyring", "session"]).default("keyring"),
+    storage: credentialStorageSchema.default("keyring"),
   })
   .refine(
     (v) => !(v.apiKey && v.removeKey),
@@ -96,7 +98,7 @@ export const providerInputSchema = providerSchema
 export type ProviderInput = z.input<typeof providerInputSchema>;
 export type SavedProvider = Provider & {
   hasKey: boolean;
-  storage: "keyring" | "session";
+  storage: CredentialStorage;
 };
 export type ProviderConnection = {
   account?: { type: string; email?: string; plan?: string };
@@ -275,5 +277,5 @@ export interface SettingsApi {
   activateProvider(id: string | null): Promise<LocalSettings>;
   saveRuntime(input: RuntimeSettings): Promise<LocalSettings>;
   testProvider(id: string): Promise<ProviderHealth>;
-  migrateLegacy(storage: "keyring" | "session"): Promise<LocalSettings>;
+  migrateLegacy(storage: CredentialStorage): Promise<LocalSettings>;
 }

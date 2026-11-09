@@ -38,7 +38,7 @@
     },
     "apps/desktop": {
       "name": "@grill-me/desktop",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "devDependencies": {
         "@repo/backend": "workspace:*",
         "@repo/contracts": "workspace:*",
