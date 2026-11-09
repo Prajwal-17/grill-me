@@ -11,6 +11,7 @@ import {
   Waypoints,
 } from "lucide-react";
 import type {
+  CredentialStorage,
   LocalSettings,
   ProviderConnection,
   ProviderInput,
@@ -92,7 +93,7 @@ function primaryProvider(
       binaryPath: "",
       endpoint: kind === "openai" ? "http://127.0.0.1:20128/v1" : undefined,
       ...(kind === "opencode" ? { model: "auto" } : data.providerDefaults),
-      storage: data.keyring.available ? "keyring" : "session",
+      storage: data.keyring.available ? "keyring" : "file",
       hasKey: false,
     }
   );
@@ -257,7 +258,7 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
               change.mutate({
                 path: "/settings/import",
                 body: {
-                  storage: data.keyring.available ? "keyring" : "session",
+                  storage: data.keyring.available ? "keyring" : "file",
                 },
               })
             }
@@ -665,17 +666,25 @@ function ProviderDetails({
                   <DetailField
                     label="Key storage"
                     htmlFor={`storage-${provider.id}`}
-                    hint={data.keyring.message}
+                    hint={
+                      values.storage === "file"
+                        ? "Saved unencrypted in the app data folder. Any process running as you can read it."
+                        : data.keyring.message
+                    }
                   >
                     <ChoiceSelect
                       id={`storage-${provider.id}`}
                       label="API key storage"
                       value={values.storage ?? "keyring"}
                       onChange={(value) =>
-                        update({ storage: value as "keyring" | "session" })
+                        update({ storage: value as CredentialStorage })
                       }
                       options={[
                         { id: "keyring", label: "System credential store" },
+                        {
+                          id: "file",
+                          label: "Plaintext file (owner-only)",
+                        },
                         { id: "session", label: "This session only" },
                       ]}
                     />

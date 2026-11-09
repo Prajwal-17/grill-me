@@ -8,6 +8,8 @@ import {
   providerInputSchema,
   runtimeSettingsSchema,
   defaultProviderSettings,
+  credentialStorageSchema,
+  type CredentialStorage,
   type ProviderInput,
   type LocalSettings,
   type RuntimeSettings,
@@ -19,12 +21,13 @@ import type { CliProviders } from "./providers";
 import { apiModels } from "./providers/api";
 import { providerError } from "./providers/common";
 import {
+  fileSecretStore,
   nativeSecretStore,
   sessionSecretStore,
   type SecretStore,
 } from "./secrets";
 const recordSchema = providerSchema.extend({
-  storage: z.enum(["keyring", "session"]),
+  storage: credentialStorageSchema,
   credential: z.string().uuid().optional(),
 });
 const documentSchema = z.object({
@@ -41,6 +44,7 @@ export function createSettingsService(
   options: {
     keyring?: SecretStore;
     session?: SecretStore;
+    file?: SecretStore;
     modulePath?: string;
     cli?: CliProviders;
     channel?: "development" | "production";
@@ -57,6 +61,7 @@ export function createSettingsService(
   const keyring =
     options.keyring ?? nativeSecretStore(root, options.modulePath);
   const session = options.session ?? sessionSecretStore();
+  const file = options.file ?? fileSecretStore(root);
   const providerDefaults = defaultProviderSettings(
     options.channel ?? process.env.GRILL_DESKTOP_CHANNEL ?? "development",
   );
@@ -81,8 +86,8 @@ export function createSettingsService(
     tail = pending.catch(() => {});
     return pending;
   }
-  const store = (mode: "keyring" | "session") =>
-    mode === "keyring" ? keyring : session;
+  const store = (mode: CredentialStorage) =>
+    mode === "keyring" ? keyring : mode === "session" ? session : file;
   const persist = (next: Document) => {
     db.query(
       "INSERT INTO settings(id,document) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET document=excluded.document",
@@ -99,7 +104,7 @@ export function createSettingsService(
       throw error;
     }
   };
-  const protect = async (mode: "keyring" | "session", value: string) => {
+  const protect = async (mode: CredentialStorage, value: string) => {
     const id = crypto.randomUUID();
     try {
       await store(mode).set(id, value);
@@ -110,9 +115,18 @@ export function createSettingsService(
       await store(mode)
         .remove(id)
         .catch(() => {});
+      if (mode === "file")
+        throw new AppError(
+          "CREDENTIAL_FILE_UNAVAILABLE",
+          "The key could not be saved to the local credential file. Check the data folder permissions and try again.",
+          503,
+          true,
+        );
       throw new AppError(
         "KEYRING_UNAVAILABLE",
-        "The key could not be saved. Unlock your system credential store or choose session only.",
+        mode === "session"
+          ? "The key could not be kept for this session. Try again."
+          : "The key could not be saved. Unlock your system credential store or choose plaintext file or session-only storage.",
         503,
         true,
       );
@@ -144,7 +158,7 @@ export function createSettingsService(
       migration: {
         pending: Boolean(old) && !sessionImported,
         message: old
-          ? "Existing backend.env settings can be imported. A plaintext key is removed only after verified keyring storage."
+          ? "Existing backend.env settings can be imported. A plaintext key is removed only after verified persistent storage."
           : null,
       },
     } satisfies LocalSettings;
@@ -177,8 +191,14 @@ export function createSettingsService(
           value = await store(previous.storage).get(previous.credential);
         } catch {
           throw new AppError(
-            "KEYRING_UNAVAILABLE",
-            "Unlock your keyring before changing key storage.",
+            previous.storage === "file"
+              ? "CREDENTIAL_FILE_UNAVAILABLE"
+              : "KEYRING_UNAVAILABLE",
+            previous.storage === "file"
+              ? "The local credential file could not be read. Check the data folder permissions before changing key storage."
+              : previous.storage === "session"
+                ? "This session-only key is unavailable. Enter the API key again to change its storage."
+                : "Unlock your keyring before changing key storage.",
             503,
             true,
           );
@@ -353,13 +373,15 @@ export function createSettingsService(
         contextTokens: Number(old.DIRECT_REVIEW_CONTEXT_TOKENS ?? 12000),
         judgeTimeoutMs: Number(old.JUDGE_TIMEOUT_MS ?? 900000),
       });
-      if (mode === "keyring") {
+      if (mode !== "session") {
         const text = await readFile(legacyPath, "utf8");
         await writeFile(
           legacyPath,
           text.replace(
             /^\s*(?:export\s+)?LLM_API_KEY\s*=.*$/gm,
-            "# LLM_API_KEY migrated to the system credential store",
+            mode === "file"
+              ? "# LLM_API_KEY migrated to the owner-only plaintext credential file"
+              : "# LLM_API_KEY migrated to the system credential store",
           ),
           { mode: 0o600 },
         );
@@ -404,8 +426,14 @@ export function createSettingsService(
         apiKey = await store(provider.storage).get(provider.credential);
       } catch {
         throw new AppError(
-          "KEYRING_UNAVAILABLE",
-          "Unlock your system credential store to use this provider.",
+          provider.storage === "file"
+            ? "CREDENTIAL_FILE_UNAVAILABLE"
+            : "KEYRING_UNAVAILABLE",
+          provider.storage === "file"
+            ? "The local credential file could not be read. Check the data folder permissions, then enter this provider's API key again in Settings."
+            : provider.storage === "session"
+              ? "This session-only API key is no longer available. Enter this provider's API key again in Settings."
+              : "Unlock your system credential store to use this provider.",
           503,
           true,
         );

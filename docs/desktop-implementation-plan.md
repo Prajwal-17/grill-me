@@ -65,12 +65,12 @@ Acceptance: profile/settings/challenge/quiz flows work over WebSockets, live pro
 - [x] Keep machine/provider settings separate from existing profile learning preferences.
 - [x] Add provider creation, editing, deletion, active selection, endpoint/model fields, key replacement/removal, and connection testing.
 - [x] Persist non-secret settings and credential references; return only saved-key status after saving.
-- [x] Add a shared `SecretStore` interface with a Linux Secret Service implementation and an explicitly session-only implementation.
-- [x] Require the persistent Secret Service backend, with no automatic weak/plaintext persistence fallback.
-- [x] Report unavailable/locked keyring states in the UI and allow explicit session-only credentials.
+- [x] Add a shared `SecretStore` interface with a Linux Secret Service implementation, an owner-only plaintext file implementation, and an explicitly session-only implementation.
+- [x] Prefer the persistent Secret Service backend, with an owner-only plaintext file fallback (`0600`) when it is locked or unavailable.
+- [x] Report unavailable/locked keyring states in the UI and allow owner-only plaintext file or explicit session-only credentials.
 - [x] Keep API keys out of SQLite, browser persistence, logs, URLs, process arguments and the backend child environment.
 - [x] Apply settings to new provider calls without restarting; snapshot a running job's provider configuration.
-- [x] Migrate existing desktop `backend.env` settings once. Remove a plaintext key only after the keyring write/read is verified; preserve the file if migration fails.
+- [x] Migrate existing desktop `backend.env` settings once. Remove a plaintext key only after persistent storage write/read is verified; preserve the file if migration fails.
 - [x] Support CLI executable/model selection per provider, plus project/review settings, through validated controls without arbitrary environment overrides.
 - [x] Provide local backend status, data-folder access and redacted diagnostics.
 
@@ -138,7 +138,7 @@ Tests must use temporary data roots and fake providers. Live production database
 
 - [x] Connect installed Codex and OpenCode executables without downloading, bundling, or installing them; remove the legacy setup/doctor scripts and Docker Codex installation/mounts.
 - [x] Use app-server authentication/models for Codex, and authenticated loopback adapters for OpenCode 1.x and 2.x; expose sign-in, dynamic model selection, reconnect, and disconnect in existing settings.
-- [x] Scope CLI config/authentication/runtime files to owner-only installation directories. Keep existing OpenAI-compatible keyring/session connections compatible.
+- [x] Scope CLI config/authentication/runtime files to owner-only installation directories. Keep existing OpenAI-compatible keyring/session/file connections compatible.
 - [x] Route all local AI operations through the selected provider. Limit project review to submitted snapshots, with execution/editing denied and inspection-only evidence.
 - [x] Keep SQLite as the local discussion archive. Save user/pending replies before inference; checkpoint partial replies; retain failures and cancellation; recover interrupted replies without automatic replay.
 - [x] Add minimal follow-ups in the existing Overview, with Stop and Retry. Retry reuses the original user message. Codex and OpenCode keep provider-side history in addition to the local SQLite archive.

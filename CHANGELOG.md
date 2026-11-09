@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## desktop-v0.1.11 - 09 Nov 2026
+
+### Added
+
+- Add an owner-only plaintext API key file (`secrets.json`, mode `0600`) as a fallback when the system credential store is unavailable; it persists without prompts, but any process running as you can read it
+
 ## desktop-v0.1.10 - 08 Nov 2026
 
 ### Changed

@@ -80,8 +80,10 @@ flag, so any server-side retention they offer is available as well.
 Enter the OpenAI-compatible base endpoint (usually including `/v1`) and an API
 key if required. Available models come from `/models`; Advanced → Custom model
 ID accepts an OmniRoute combo name or another exact model ID. Without a key,
-requests omit the Authorization header. Keys use the system credential store or
-explicit session-only storage; there is no plaintext fallback.
+requests omit the Authorization header. Keys use the system credential store, an
+owner-only plaintext file (`secrets.json`, mode `0600`) when the credential store
+is unavailable or selected, or explicit session-only storage. The plaintext file
+is not encrypted and can be read by any process running as your user.
 
 ## Models and errors
 
