@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import type { DesktopUpdateState } from "@repo/contracts";
+import type { DesktopUpdateState } from "@repo/backend/shared/contracts";
 import { DesktopUpdater } from "../src/updater/updater";
 import { GitHubUpdates, newerVersion } from "../src/updater/github";
 import {

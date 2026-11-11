@@ -1,6 +1,9 @@
 import { readFileSync, writeFileSync, renameSync } from "node:fs";
 import { join } from "node:path";
-import { windowSettingsSchema, type WindowSettings } from "@repo/contracts";
+import {
+  windowSettingsSchema,
+  type WindowSettings,
+} from "@repo/backend/shared/contracts";
 export function windowSettingsStore(root: string) {
   const path = join(root, "desktop-settings.json");
   let value: WindowSettings;

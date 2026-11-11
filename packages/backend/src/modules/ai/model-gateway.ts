@@ -16,7 +16,7 @@ import type {
   ChatMessage,
   MessageAttachment,
 } from "../messages/message.schema";
-import type { ModelSelection } from "@repo/contracts";
+import type { ModelSelection } from "@repo/backend/shared/contracts";
 import type { ProfilePreferences } from "../profiles/profile.schema";
 import type {
   GeneratedQuiz,

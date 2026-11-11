@@ -14,8 +14,10 @@ bun dev
 ```
 
 This opens the complete Electron application, including its private local backend
-and React UI. There are no separate web/backend launch modes and no Docker setup.
-React changes hot reload; restart after backend changes.
+and React UI. The renderer source lives in `apps/web` and can be compiled on its
+own with `bun run web:build`; the shipped runtime remains Electron. There are no
+separate web/backend launch modes and no Docker setup. React changes hot reload;
+restart after backend changes.
 
 Use your installed Codex or OpenCode CLI, or an OmniRoute endpoint, in
 **Settings → Providers**. Turn a provider on, then choose which one handles AI
@@ -70,5 +72,5 @@ Browser/Electron E2E suites and their CI steps have been removed. Focused tests
 use temporary data and fake providers, with no production database or paid model
 calls. SQL migration history is retained as source history, not a deployment path.
 
-The shared implementation lives in `packages/backend`, `packages/ui`,
-`packages/contracts`, and `packages/client`; Electron is the application host.
+The frontend lives in `apps/web`; Electron renders that Vite app. The backend and
+its shared transport contracts and preference options live in `packages/backend`.

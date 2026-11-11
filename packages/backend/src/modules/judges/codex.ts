@@ -1,4 +1,4 @@
-import { DEFAULT_CODEX_MODEL } from "@repo/preferences";
+import { DEFAULT_CODEX_MODEL } from "@repo/backend/shared/preferences";
 import {
   verifySubmission,
   verificationAvailable,

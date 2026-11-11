@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { EMPTY_GUIDED } from "@repo/preferences";
+import { EMPTY_GUIDED } from "@repo/backend/shared/preferences";
 import { db, first, lockRows } from "../../shared/database/db";
 import { profilePreferences, profiles } from "../../shared/database/schema";
 import {

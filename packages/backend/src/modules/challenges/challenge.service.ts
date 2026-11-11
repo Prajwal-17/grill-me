@@ -3,7 +3,7 @@ import {
   PROMPT_VERSION,
   CALIBRATION_VERSION,
 } from "../ai/prompts/core";
-import type { ModelSelection } from "@repo/contracts";
+import type { ModelSelection } from "@repo/backend/shared/contracts";
 import { AppError } from "../../shared/errors/app-error";
 import type { BuildModelInput, ModelGateway } from "../ai/model-gateway";
 import type { MessageModel } from "../messages/message.model";

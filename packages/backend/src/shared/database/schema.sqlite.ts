@@ -1,4 +1,4 @@
-import type { GuidedPreferences } from "@repo/preferences";
+import type { GuidedPreferences } from "@repo/backend/shared/preferences";
 import type {
   GenerationError,
   GenerationRequest,

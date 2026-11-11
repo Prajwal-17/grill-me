@@ -3,7 +3,10 @@ import { rm } from "node:fs/promises";
 import { uploadInfo } from "../projects/uploads";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { modelSelectionSchema, type ModelSelection } from "@repo/contracts";
+import {
+  modelSelectionSchema,
+  type ModelSelection,
+} from "@repo/backend/shared/contracts";
 import { db } from "../../shared/database/db";
 import {
   challenges,

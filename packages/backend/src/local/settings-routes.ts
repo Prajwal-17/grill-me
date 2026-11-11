@@ -4,7 +4,7 @@ import {
   providerInputSchema,
   runtimeSettingsSchema,
   credentialStorageSchema,
-} from "@repo/contracts";
+} from "@repo/backend/shared/contracts";
 import { AppError } from "../shared/errors/app-error";
 import { parseInput, readJson } from "../shared/http/validation";
 import type { SettingsService } from "./settings";

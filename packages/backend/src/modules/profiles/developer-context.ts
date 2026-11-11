@@ -7,7 +7,7 @@ import {
   normalizeTechnology,
   optionLabel,
   optionLabels,
-} from "@repo/preferences";
+} from "@repo/backend/shared/preferences";
 import type { ProfilePreferences } from "./profile.schema";
 
 const catalog = [...LANGUAGES, ...STACK];

@@ -1,5 +1,5 @@
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import type { ModelSelection } from "@repo/contracts";
+import type { ModelSelection } from "@repo/backend/shared/contracts";
 import { AppError } from "../../../shared/errors/app-error";
 import { startAiLog } from "../../logs/ai-log-recorder";
 import type { LogOperation } from "../../logs/log.schema";

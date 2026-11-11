@@ -1,4 +1,7 @@
-import type { Provider, ProviderConnection } from "@repo/contracts";
+import type {
+  Provider,
+  ProviderConnection,
+} from "@repo/backend/shared/contracts";
 import { CodexConnection } from "./codex";
 import { OpenCodeConnection } from "./opencode";
 import { AppError } from "../../shared/errors/app-error";

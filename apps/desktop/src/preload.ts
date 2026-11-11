@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { DesktopBridge } from "@repo/contracts";
+import type { DesktopBridge } from "@repo/backend/shared/contracts";
 const bridge: DesktopBridge = {
   platform: process.platform === "darwin" ? "darwin" : "linux",
   getAppVersion: () => ipcRenderer.invoke("desktop:app-version"),

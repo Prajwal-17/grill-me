@@ -3,7 +3,7 @@ import {
   type Provider,
   type ProviderConnection,
   type ProviderModel,
-} from "@repo/contracts";
+} from "@repo/backend/shared/contracts";
 import { CodexClient } from "../../modules/judges/codex-client";
 import {
   snapshotTools,

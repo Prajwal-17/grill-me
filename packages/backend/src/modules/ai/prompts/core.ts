@@ -6,7 +6,7 @@ import {
   STACK,
   optionLabel,
   optionLabels,
-} from "@repo/preferences";
+} from "@repo/backend/shared/preferences";
 import { projectDeveloperContext } from "../../profiles/developer-context";
 import type { Challenge } from "../../challenges/challenge.schema";
 import type { ChatMessage } from "../../messages/message.schema";

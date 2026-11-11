@@ -4,7 +4,7 @@ import {
   STACK,
   normalizeTechnologies,
   type ResumePreview,
-} from "@repo/preferences";
+} from "@repo/backend/shared/preferences";
 import { AppError } from "../../shared/errors/app-error";
 
 const supported = (max: number) =>

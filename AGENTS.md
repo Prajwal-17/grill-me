@@ -3,13 +3,13 @@
 Grill Me is a local-first desktop practice companion for developers. Users create
 challenges and quizzes, build in their own editor, submit code or connect a local
 project, and receive AI reviews. Data stays on the machine in the edition's data
-directory. Electron is the application host; the Bun backend and React renderer
-are private local components, not separately hosted services.
+directory. Electron is the desktop host for the Vite React app in `apps/web`; the
+Bun backend is a private local component, not a separately hosted service.
 
 ## Stack
 
 - Bun 1.4.1 workspaces with Turborepo; Node.js 24 or newer for source tooling.
-- Electron 43 with electron-vite and React 19.
+- Electron 43 with electron-vite, Vite 7, and React 19.
 - Hono and Zod on the backend.
 - Drizzle ORM over SQLite (`bun:sqlite`, WAL mode); no PostgreSQL database or
   Docker setup.
@@ -19,21 +19,18 @@ are private local components, not separately hosted services.
 
 ## Repository map
 
+- `apps/web` — the Vite React SPA, its routes, features, components, styles,
+  assets, client state, and WebSocket RPC client. Electron builds this app as its
+  renderer. See [`apps/web/AGENTS.md`](apps/web/AGENTS.md) for frontend rules.
 - `apps/desktop` — Electron main/preload processes, window behavior, private
-  updates, build scripts, packaging config, and the `renderer` entry point.
-- `apps/backend/test` — backend, local-server, contracts, resume, and project
-  integration tests. There is no separate backend application host.
+  updates, build scripts, and packaging config.
+- `packages/backend/test` — backend, local-server, contracts, resume, and
+  project integration tests. There is no separate backend application host.
 - `packages/backend` — Hono app, domain modules, local RPC server, provider
-  adapters, SQLite schema/migrations, storage, and AI prompts.
-- `packages/ui` — the React SPA rendered by Electron. See
-  [`packages/ui/AGENTS.md`](packages/ui/AGENTS.md) for frontend rules.
-- `packages/contracts` — Zod schemas and types for desktop IPC, RPC frames,
-  provider settings, and runtime settings.
-- `packages/client` — WebSocket RPC client used by the desktop renderer.
-- `packages/preferences` — static preference and technology-stack options.
+  adapters, SQLite schema/migrations, storage, AI prompts, and the shared
+  transport contracts and preference options under `src/shared`.
 - `scripts` — isolated test runner and release-note extraction.
 - `docs` — detailed provider, release, update, and implementation notes.
-- `apps/web` is a stale build artifact. It is not a host; do not add code there.
 
 ## Commands
 
@@ -43,6 +40,7 @@ Run commands from the repository root.
 bun install              # install workspace dependencies
 bun dev                  # complete Electron app, backend, and renderer
 bun run check            # Prettier, ESLint, and TypeScript
+bun run web:build        # compile the Vite app without Electron
 bun run test:desktop     # alias for the isolated SQLite test suite
 bun run test:isolated    # canonical temporary-data test command
 bun run desktop:build    # compile the production app without an installer
@@ -86,8 +84,10 @@ Package-level checks are available with `bun run lint` and
 
 - Electron owns process lifecycle. `apps/desktop/src/main.ts` compiles the
   backend child process, starts it on loopback with a random bearer token, and
-  loads the renderer from `grill-me://app` (or the Vite dev URL). Do not add a
-  standalone backend or browser launch path.
+  loads the renderer from `grill-me://app` (or the Vite dev URL). The renderer
+  source belongs in `apps/web`; Electron builds it through electron-vite. Do not
+  recreate a UI package under `packages` or add a standalone backend/browser
+  launch path.
 - Keep development and production identities aligned across the build channel,
   data directory, Electron session partition, renderer storage key, credential
   namespace, and installer output. A production binary must never be switchable
@@ -167,9 +167,13 @@ columns, tables, indexes, IDs, timestamps, profiles, and migration history.
 
 ## Contracts and transport
 
-- `packages/contracts` is the source of truth for the IPC bridge, RPC protocol,
-  provider settings, and runtime settings. Update the schema and inferred types
-  together, and bump `PROTOCOL_VERSION` for breaking wire changes.
+- `packages/backend/src/shared/contracts.ts` is the source of truth for the IPC
+  bridge, RPC protocol, provider settings, and runtime settings. Update the
+  schema and inferred types together, and bump `PROTOCOL_VERSION` for breaking
+  wire changes.
+- `packages/backend/src/shared/preferences.ts` holds the shared preference and
+  technology-stack options. Keep frontend and backend imports on that module
+  instead of duplicating option lists.
 - Application reads and writes use `apiRequest` / `streamRequest`; desktop
   traffic travels over the WebSocket client. Do not call `fetch` for domain data
   in feature code. File uploads and downloads may use HTTP where required.

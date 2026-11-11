@@ -1,4 +1,4 @@
-import type { Provider, ProviderModel } from "@repo/contracts";
+import type { Provider, ProviderModel } from "@repo/backend/shared/contracts";
 import { AppError } from "../../shared/errors/app-error";
 import { providerError } from "./common";
 

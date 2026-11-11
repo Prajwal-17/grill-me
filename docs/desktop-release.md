@@ -82,7 +82,7 @@ Silicon use a native arm64 shell/Bun/Node for arm64 packages; Intel CI supplies
 native x64 builds. Target metadata is checked before packaging and on startup.
 
 macOS packaging generates `resources/icon.icns` reproducibly from the full-color
-`renderer/public/icon.svg` using pinned resvg and PNG ICNS chunks. Run
+`apps/web/public/icon.svg` using pinned resvg and PNG ICNS chunks. Run
 `bun run --cwd apps/desktop icons:mac` to regenerate separately. No macOS icon
 utilities run during Linux development. The bundle, Dock, and DMG use this icon.
 

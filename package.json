@@ -17,6 +17,7 @@
     "desktop:build": "bun run --cwd apps/desktop build:prod",
     "desktop:deb": "bun run --cwd apps/desktop package:deb",
     "test:desktop": "bun run test:isolated",
+    "web:build": "bun run --cwd apps/web build",
     "desktop:build:dev": "bun run --cwd apps/desktop build:dev",
     "desktop:deb:dev": "bun run --cwd apps/desktop package:deb:dev",
     "desktop:dmg:arm64": "bun run --cwd apps/desktop package:dmg:arm64",
