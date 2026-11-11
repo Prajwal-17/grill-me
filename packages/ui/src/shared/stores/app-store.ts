@@ -1,6 +1,6 @@
 import { env } from "@/shared/config/env";
 
-import type { Profile } from "@/shared/types/api";
+import type { ModelSelection, Profile } from "@/shared/types/api";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -11,11 +11,13 @@ type AppStore = {
   theme: Theme;
   sidebarCollapsed: boolean;
   hydrated: boolean;
+  composerModel: ModelSelection | null;
   setProfile: (profile: Profile) => void;
   clearProfile: () => void;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setHydrated: (hydrated: boolean) => void;
+  setComposerModel: (selection: ModelSelection | null) => void;
 };
 
 const APP_ENV = env.appEnv;
@@ -31,6 +33,30 @@ function isProfile(value: unknown): value is Profile {
   );
 }
 
+const reasoningValues = new Set([
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+]);
+
+function isModelSelection(value: unknown): value is ModelSelection {
+  if (!value || typeof value !== "object") return false;
+  const selection = value as Partial<ModelSelection>;
+  return (
+    typeof selection.providerId === "string" &&
+    typeof selection.model === "string" &&
+    selection.model.length > 0 &&
+    (selection.reasoningEffort === undefined ||
+      selection.reasoningEffort === null ||
+      reasoningValues.has(selection.reasoningEffort))
+  );
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
@@ -38,20 +64,23 @@ export const useAppStore = create<AppStore>()(
       theme: "dark",
       sidebarCollapsed: false,
       hydrated: false,
+      composerModel: null,
       setProfile: (profile) => set({ profile }),
       clearProfile: () => set({ profile: null }),
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setHydrated: (hydrated) => set({ hydrated }),
+      setComposerModel: (composerModel) => set({ composerModel }),
     }),
     {
       name: APP_STORAGE_KEY,
       skipHydration: true,
-      partialize: ({ profile, theme, sidebarCollapsed }) => ({
+      partialize: ({ profile, theme, sidebarCollapsed, composerModel }) => ({
         profile,
         theme,
         sidebarCollapsed,
+        composerModel,
       }),
       merge: (persisted, current) => {
         const saved = persisted as Partial<AppStore> | undefined;
@@ -60,6 +89,9 @@ export const useAppStore = create<AppStore>()(
           profile: isProfile(saved?.profile) ? saved.profile : null,
           theme: saved?.theme === "light" ? "light" : "dark",
           sidebarCollapsed: saved?.sidebarCollapsed === true,
+          composerModel: isModelSelection(saved?.composerModel)
+            ? saved.composerModel
+            : null,
         };
       },
       onRehydrateStorage: () => (state) => state?.setHydrated(true),

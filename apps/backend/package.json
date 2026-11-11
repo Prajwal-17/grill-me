@@ -8,14 +8,16 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@earendil-works/pi-ai": "1.5.2",
+    "@repo/backend": "workspace:*",
+    "@repo/contracts": "workspace:*",
     "@repo/preferences": "*",
     "drizzle-orm": "^0.44.0",
     "hono": "^4.0.0",
     "mammoth": "^1.13.0",
     "openai": "^5.0.0",
     "unpdf": "^1.9.1",
-    "zod": "^4.0.0",
-    "@repo/backend": "workspace:*"
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",

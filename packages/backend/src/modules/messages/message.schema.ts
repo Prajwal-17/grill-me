@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { modelSelectionSchema } from "@repo/contracts";
 
 const sourceExtensions = new Set([
   "asm",
@@ -83,22 +84,56 @@ export function isAcceptedAttachmentName(filename: string) {
   return Boolean(extension && sourceExtensions.has(extension));
 }
 
-export const messageAttachmentSchema = z.object({
-  filename: z
-    .string()
-    .trim()
-    .min(1)
-    .max(255)
-    .refine((value) => !/[\\/\r\n]/.test(value), {
-      message: "Attachment filenames cannot contain paths or line breaks.",
-    })
-    .refine(isAcceptedAttachmentName, {
-      message: "Only source-code and plain-text files are accepted.",
-    }),
-  text: z.string().refine((value) => !value.includes("\0"), {
-    message: "Binary files are not accepted.",
-  }),
-});
+export const messageAttachmentSchema = z
+  .object({
+    filename: z
+      .string()
+      .trim()
+      .min(1)
+      .max(255)
+      .refine((value) => !/[\\/\r\n]/.test(value), {
+        message: "Attachment filenames cannot contain paths or line breaks.",
+      }),
+    text: z
+      .string()
+      .default("")
+      .refine((value) => !value.includes("\0"), {
+        message: "Binary files are not accepted as text.",
+      }),
+    /** Supported image attachment data, when the selected model accepts images. */
+    mimeType: z
+      .string()
+      .regex(/^image\/(?:png|jpeg|webp|gif)$/)
+      .optional(),
+    data: z.string().max(7_000_000).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.data && !value.mimeType)
+      context.addIssue({
+        code: "custom",
+        path: ["mimeType"],
+        message: "Image attachments need a supported MIME type.",
+      });
+    if (!value.text && !value.data)
+      context.addIssue({
+        code: "custom",
+        path: ["text"],
+        message: "Add text or image data.",
+      });
+    if (value.data && !/\.(?:png|jpe?g|webp|gif)$/i.test(value.filename))
+      context.addIssue({
+        code: "custom",
+        path: ["filename"],
+        message: "Image attachments must use png, jpeg, webp, or gif.",
+      });
+    if (!value.data && !isAcceptedAttachmentName(value.filename))
+      context.addIssue({
+        code: "custom",
+        path: ["filename"],
+        message:
+          "Only source-code, plain-text, or supported image files are accepted.",
+      });
+  });
 
 export const messageModeSchema = z.enum([
   "generate",
@@ -127,6 +162,7 @@ export const createMessageRequestSchema = z
     content: z.string().trim().default(""),
     mode: z.enum(["clarify", "review"]),
     attachments: z.array(messageAttachmentSchema).default([]),
+    selection: modelSelectionSchema.optional(),
   })
   .superRefine((input, context) => {
     if (!input.content && input.attachments.length === 0) {
@@ -144,6 +180,10 @@ export const createMessageRequestSchema = z
       });
     }
   });
+
+export const retryMessageRequestSchema = z.object({
+  selection: modelSelectionSchema.optional(),
+});
 
 export type ChatMessage = z.infer<typeof messageSchema>;
 export type MessageAttachment = z.infer<typeof messageAttachmentSchema>;

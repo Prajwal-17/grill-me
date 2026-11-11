@@ -106,9 +106,9 @@ export function createSqliteDatabase(path: string) {
     const version = (
       sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    if (version > 2)
+    if (version > 3)
       throw new Error("This database needs a newer desktop application.");
-    if (version === 2) return;
+    if (version === 3) return;
     sqlite
       .transaction(() => {
         if (version === 0) {
@@ -122,9 +122,51 @@ export function createSqliteDatabase(path: string) {
         BEGIN SELECT RAISE(ABORT, 'Generation numbers and profiles are immutable'); END;`);
           }
         }
-        sqlite.exec(
-          "ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'completed' CHECK(status IN ('streaming','completed','failed','cancelled','interrupted')); ALTER TABLE messages ADD COLUMN error TEXT; ALTER TABLE messages ADD COLUMN reply_to TEXT; PRAGMA user_version = 2;",
-        );
+        if (version < 2)
+          sqlite.exec(
+            "ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'completed' CHECK(status IN ('streaming','completed','failed','cancelled','interrupted')); ALTER TABLE messages ADD COLUMN error TEXT; ALTER TABLE messages ADD COLUMN reply_to TEXT;",
+          );
+        if (version < 3)
+          sqlite.exec(`ALTER TABLE review_jobs ADD COLUMN model_selection TEXT;
+CREATE TABLE agent_runs (
+  id text PRIMARY KEY NOT NULL,
+  profile_id text NOT NULL,
+  operation text NOT NULL,
+  challenge_id text,
+  resource_kind text,
+  resource_id text,
+  provider_id text NOT NULL,
+  provider_name text NOT NULL,
+  provider_preset text NOT NULL,
+  model text NOT NULL,
+  reasoning_effort text,
+  status text DEFAULT 'running' NOT NULL,
+  error_code text,
+  error_message text,
+  turn_count integer DEFAULT 0 NOT NULL,
+  tool_call_count integer DEFAULT 0 NOT NULL,
+  input_tokens integer,
+  output_tokens integer,
+  total_tokens integer,
+  started_at integer NOT NULL,
+  completed_at integer,
+  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON UPDATE no action ON DELETE cascade,
+  FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON UPDATE no action ON DELETE set null,
+  CONSTRAINT agent_runs_status_check CHECK(status in ('running','completed','failed','cancelled','interrupted'))
+);
+CREATE INDEX agent_runs_profile_started_idx ON agent_runs (profile_id, started_at, id);
+CREATE INDEX agent_runs_status_started_idx ON agent_runs (status, started_at);
+CREATE TABLE agent_run_events (
+  id integer PRIMARY KEY NOT NULL,
+  run_id text NOT NULL,
+  sequence integer NOT NULL,
+  type text NOT NULL,
+  payload text NOT NULL,
+  created_at integer NOT NULL,
+  FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON UPDATE no action ON DELETE cascade
+);
+CREATE UNIQUE INDEX agent_run_events_run_sequence_unique ON agent_run_events (run_id, sequence);`);
+        sqlite.exec("PRAGMA user_version = 3;");
       })
       .immediate();
     const violations = sqlite.query("PRAGMA foreign_key_check").all();

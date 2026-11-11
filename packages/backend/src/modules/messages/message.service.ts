@@ -1,4 +1,4 @@
-import { recentLearningEvidence } from "../reviews/learning-evidence";
+import type { ModelSelection } from "@repo/contracts";
 import type { ModelGateway } from "../ai/model-gateway";
 import type { ChallengeModel } from "../challenges/challenge.model";
 import {
@@ -27,21 +27,13 @@ export function createMessageService(dependencies: {
 
   async function learnerContext(profileId: string) {
     const preferences = await profiles.getPreferences(profileId);
+    // A discussion uses only its own transcript. Stored history remains
+    // available to the existing history screens but never enriches a run.
     return {
       profileId,
       preferences,
-      recentEvidence: preferences.includeRecentChallenges
-        ? await recentLearningEvidence(profileId)
-        : [],
-      recentChallenges: (preferences.includeRecentChallenges
-        ? await challenges.findRecent(profileId, 10)
-        : []
-      ).map((row) => ({
-        title: row.title,
-        scope: row.scope,
-        contextualDifficulty: row.contextualDifficulty,
-        summary: row.problemStatement.slice(0, 500),
-      })),
+      recentEvidence: [],
+      recentChallenges: [],
     };
   }
 
@@ -59,6 +51,7 @@ export function createMessageService(dependencies: {
         content: string;
         mode: ConversationMode;
         attachments: MessageAttachment[];
+        selection?: ModelSelection;
         signal?: AbortSignal;
         userId?: string;
       },
@@ -91,6 +84,7 @@ export function createMessageService(dependencies: {
           messages: transcript.filter(
             (m) =>
               m.status === "completed" &&
+              m.mode !== "hint" &&
               m.id !== input.userId &&
               !(
                 m.role === "user" &&
@@ -101,6 +95,7 @@ export function createMessageService(dependencies: {
           content: input.content,
           mode: input.mode,
           attachments: input.attachments,
+          selection: input.selection,
           learner: await learnerContext(input.profileId),
         })) {
           input.signal?.throwIfAborted();
@@ -151,6 +146,7 @@ export function createMessageService(dependencies: {
       id: string,
       onDelta: (delta: string) => Promise<void>,
       signal?: AbortSignal,
+      selection?: ModelSelection,
     ) {
       await owned(challengeId, profileId);
       const original = await messages.retryInput(challengeId, id);
@@ -163,6 +159,7 @@ export function createMessageService(dependencies: {
           attachments: original.attachments,
           userId: original.id,
           signal,
+          selection,
         },
         onDelta,
       );

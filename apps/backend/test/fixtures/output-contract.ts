@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   buildGenerationResultSchema,
   type BuildScope,
-} from "../../challenges/challenge.schema";
+} from "@repo/backend/modules/challenges/challenge.schema";
 export const preparationJsonSchema = {
   type: "object",
   additionalProperties: false,

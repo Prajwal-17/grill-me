@@ -3,6 +3,7 @@ import type {
   Challenge,
   ChatMessage,
   MessageAttachment,
+  ModelSelection,
 } from "@/shared/types/api";
 
 export type ComposerMode = "clarify" | "review";
@@ -23,13 +24,19 @@ export function sendMessage(
   attachments: MessageAttachment[],
   onDelta: (delta: string) => void,
   signal?: AbortSignal,
+  selection?: ModelSelection,
 ) {
   return streamRequest<ChatMessage>(
     `/challenges/${challengeId}/messages`,
     {
       method: "POST",
       signal,
-      body: JSON.stringify({ content, mode, attachments }),
+      body: JSON.stringify({
+        content,
+        mode,
+        attachments,
+        ...(selection ? { selection } : {}),
+      }),
     },
     profileId,
     onDelta,
@@ -56,10 +63,15 @@ export function retryMessage(
   messageId: string,
   onDelta: (delta: string) => void,
   signal?: AbortSignal,
+  selection?: ModelSelection,
 ) {
   return streamRequest<ChatMessage>(
     `/challenges/${challengeId}/messages/${messageId}/retry`,
-    { method: "POST", body: "{}", signal },
+    {
+      method: "POST",
+      body: JSON.stringify(selection ? { selection } : {}),
+      signal,
+    },
     profileId,
     onDelta,
   );

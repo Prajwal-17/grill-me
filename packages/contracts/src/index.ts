@@ -12,6 +12,35 @@ export const reasoningEffortSchema = z.enum([
   "ultra",
 ]);
 export type ReasoningEffort = z.infer<typeof reasoningEffortSchema>;
+export const providerPresetSchema = z.enum([
+  "custom",
+  "omniroute",
+  "openai",
+  "openrouter",
+  "opencode-go",
+]);
+export type ProviderPreset = z.infer<typeof providerPresetSchema>;
+export const providerProtocolSchema = z.enum([
+  "openai-responses",
+  "openai-completions",
+  "anthropic-messages",
+  "google-generative-ai",
+]);
+export type ProviderProtocol = z.infer<typeof providerProtocolSchema>;
+export const modelCapabilitiesSchema = z.object({
+  tools: z.boolean().default(true),
+  images: z.boolean().default(false),
+  reasoning: z.boolean().default(false),
+  /** Optional override for endpoints that do not publish reasoning levels. */
+  reasoningEfforts: z.array(reasoningEffortSchema).optional(),
+});
+export type ModelCapabilities = z.infer<typeof modelCapabilitiesSchema>;
+export const modelSelectionSchema = z.object({
+  providerId: z.string().uuid(),
+  model: z.string().trim().min(1).max(160),
+  reasoningEffort: reasoningEffortSchema.nullable().optional(),
+});
+export type ModelSelection = z.infer<typeof modelSelectionSchema>;
 export function defaultProviderSettings(channel: string) {
   return channel === "production"
     ? { model: "gpt-6.1-sol", reasoningEffort: "high" as const }
@@ -25,7 +54,42 @@ export type ProviderModel = {
   providerName?: string;
   reasoningEfforts?: ReasoningEffort[];
   defaultReasoningEffort?: ReasoningEffort;
+  capabilities?: ModelCapabilities;
+  contextWindow?: number;
+  maxTokens?: number;
 };
+export type ModelCatalogConnection = {
+  id: string;
+  name: string;
+  preset: ProviderPreset;
+  protocol: ProviderProtocol;
+  models: ProviderModel[];
+  defaultModel: string;
+  defaultReasoningEffort?: ReasoningEffort;
+};
+export type ModelCatalog = {
+  connections: ModelCatalogConnection[];
+  activeConnectionId: string | null;
+};
+export type AgentRunEvent =
+  | { type: "run_started"; operation: string }
+  | { type: "turn_started"; turn: number }
+  | { type: "text_delta"; text: string }
+  | { type: "message_completed"; message: unknown }
+  | {
+      type: "tool_started";
+      toolCallId: string;
+      toolName: string;
+      args: unknown;
+    }
+  | {
+      type: "tool_finished";
+      toolCallId: string;
+      toolName: string;
+      isError: boolean;
+      durationMs?: number;
+      result: unknown;
+    };
 export type ProviderHealth = { ok: boolean; message: string; code?: string };
 export const endpointSchema = z
   .url({ protocol: /^https?$/ })
@@ -39,6 +103,16 @@ export const providerSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(80),
   kind: z.enum(["openai", "codex", "opencode"]).default("openai"),
+  /** API preset. Existing records default to a custom OpenAI-compatible endpoint. */
+  preset: providerPresetSchema.default("custom"),
+  /** Wire protocol for custom OpenAI-compatible endpoints. */
+  protocol: providerProtocolSchema.default("openai-responses"),
+  /** Declared capabilities for endpoints that do not publish model metadata. */
+  capabilities: modelCapabilitiesSchema.default({
+    tools: true,
+    images: false,
+    reasoning: false,
+  }),
   enabled: z.boolean().default(true),
   codexHome: z
     .string()
@@ -60,7 +134,7 @@ export const providerSchema = z.object({
   reasoningEffort: reasoningEffortSchema.optional(),
 });
 export type Provider = z.infer<typeof providerSchema>;
-export const credentialStorageSchema = z.enum(["keyring", "session", "file"]);
+export const credentialStorageSchema = z.enum(["keyring", "file"]);
 export type CredentialStorage = z.infer<typeof credentialStorageSchema>;
 export const providerInputSchema = providerSchema
   .extend({
@@ -82,7 +156,9 @@ export const providerInputSchema = providerSchema
     "Choose either key replacement or removal.",
   )
   .superRefine((value, context) => {
-    if (value.kind === "openai" && !value.endpoint)
+    const builtInApiEndpoint =
+      value.preset === "openrouter" || value.preset === "opencode-go";
+    if (value.kind === "openai" && !value.endpoint && !builtInApiEndpoint)
       context.addIssue({
         code: "custom",
         path: ["endpoint"],
@@ -93,6 +169,21 @@ export const providerInputSchema = providerSchema
         code: "custom",
         path: ["apiKey"],
         message: "Use the CLI provider's sign-in flow.",
+      });
+    if (
+      value.kind === "openai" &&
+      value.preset !== "custom" &&
+      value.preset !== "omniroute" &&
+      value.preset !== "openai" &&
+      value.protocol !== "openai-responses" &&
+      value.protocol !== "openai-completions" &&
+      value.protocol !== "anthropic-messages" &&
+      value.protocol !== "google-generative-ai"
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["protocol"],
+        message: "Choose a supported API protocol.",
       });
   });
 export type ProviderInput = z.input<typeof providerInputSchema>;

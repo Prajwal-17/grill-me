@@ -67,6 +67,21 @@ Package-level checks are available with `bun run lint` and
 - Update the relevant docs and `CHANGELOG.md` when behavior changes. If a native
   packaging or platform check was not run, say so instead of claiming success.
 
+## Git and pull requests
+
+- Use Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`) with an imperative,
+  concise subject. Add a short body only when the change needs context.
+- Keep pull request descriptions short and factual: list what changed and why.
+  Do not dump logs, generated output, or unrelated implementation detail.
+- Include screenshots or other reviewable artifacts in the pull request when the
+  change has visible UI or another artifact worth inspecting.
+- Never name a branch with a `t3/` prefix, including a name suggested by T3 Code.
+  Use a descriptive branch such as `feat/<topic>`, `fix/<topic>`, `chore/<topic>`,
+  or `docs/<topic>`.
+- If a branch is accidentally named with `t3/`, rename it before opening a pull
+  request. If it was already pushed, push the corrected branch, open the pull
+  request from it, and close the superseded pull request.
+
 ## Architecture and security rules
 
 - Electron owns process lifecycle. `apps/desktop/src/main.ts` compiles the
@@ -87,11 +102,11 @@ Package-level checks are available with `bun run lint` and
   and clean shutdown intact.
 - Never expose secrets in the renderer, URLs, logs, process arguments, SQLite, or
   request payloads. API keys go through `SecretStore` (macOS Keychain, Linux
-  Secret Service, an explicit owner-only plaintext file at
-  `<data root>/secrets.json` with `0600` permissions, or the explicit
-  session-only store); update tokens use Electron `safeStorage`. Plaintext
-  credential storage must stay user-selectable or the fallback used when the OS
-  credential store is unavailable, and the file must never be world-readable.
+  Secret Service, or an explicit owner-only plaintext file at
+  `<data root>/secrets.json` with `0600` permissions); update tokens use Electron
+  `safeStorage`. Plaintext credential storage must stay user-selectable or the
+  fallback used when the OS credential store is unavailable, and the file must
+  never be world-readable.
 - SQLite is the only database runtime. Keep `schema.sqlite.ts`,
   `drizzle-sqlite/0000_desktop.sql`, and the `PRAGMA user_version` migration in
   `db.sqlite.ts` in sync. Follow the compatibility rules below; existing practice

@@ -7,22 +7,6 @@ export interface SecretStore {
   remove(id: string): Promise<void>;
   status(): Promise<{ available: boolean; message: string }>;
 }
-export function sessionSecretStore(): SecretStore {
-  const secrets = new Map<string, string>();
-  return {
-    get: async (id) => secrets.get(id),
-    set: async (id, value) => {
-      secrets.set(id, value);
-    },
-    remove: async (id) => {
-      secrets.delete(id);
-    },
-    status: async () => ({
-      available: true,
-      message: "Keys are held in memory until the backend closes.",
-    }),
-  };
-}
 export function fileSecretStore(dataRoot: string): SecretStore {
   const path = join(dataRoot, "secrets.json");
   let secrets: Record<string, string> | undefined;
@@ -105,7 +89,7 @@ export function fileSecretStore(dataRoot: string): SecretStore {
           return {
             available: false,
             message:
-              "The local credential file is unreadable. Fix or remove it, or choose session-only storage.",
+              "The local credential file is unreadable. Fix or remove it so keys can be saved.",
           };
         }
       }),
@@ -169,7 +153,7 @@ export function nativeSecretStore(
       } catch {
         return {
           available: false,
-          message: `The ${process.platform === "darwin" ? "macOS Keychain" : "Linux keyring"} is locked or unavailable. Unlock it to save keys, or choose plaintext file or session-only storage.`,
+          message: `The ${process.platform === "darwin" ? "macOS Keychain" : "Linux keyring"} is locked or unavailable. Unlock it to save keys, or choose the owner-only plaintext file.`,
         };
       }
     },

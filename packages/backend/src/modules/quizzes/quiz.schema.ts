@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { modelSelectionSchema } from "@repo/contracts";
 import { buildDifficultySchema } from "../challenges/challenge.schema";
 
 export const questionCountSchema = z.union([
@@ -11,6 +12,7 @@ export const generateQuizRequestSchema = z.object({
   requestId: z.string().uuid(),
   questionCount: questionCountSchema,
   coverage: quizCoverageSchema.default("mixed"),
+  selection: modelSelectionSchema.optional(),
 });
 
 export const generateStandaloneQuizRequestSchema = z
@@ -21,6 +23,7 @@ export const generateStandaloneQuizRequestSchema = z
     // Continue accepting requests from the original topic-only client.
     topic: z.string().trim().min(1).max(200).optional(),
     difficulty: buildDifficultySchema.default("medium"),
+    selection: modelSelectionSchema.optional(),
   })
   .refine((input) => input.prompt !== undefined || input.topic !== undefined, {
     message: "Enter a topic or describe the quiz you want.",
@@ -33,6 +36,7 @@ export const generateStandaloneQuizRequestSchema = z
 
 export const enhanceQuizPromptRequestSchema = z.object({
   prompt: z.string().trim().min(1).max(4000),
+  selection: modelSelectionSchema.optional(),
 });
 
 export const enhancedQuizPromptSchema = z.object({

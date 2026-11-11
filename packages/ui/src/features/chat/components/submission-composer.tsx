@@ -39,6 +39,7 @@ import {
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
 import { cn } from "@/shared/lib/cn";
+import { ModelPicker } from "@/shared/components/ai/model-picker";
 
 type UploadedFile = { id: string; filename: string };
 
@@ -468,7 +469,8 @@ export function SubmissionComposer({
             </button>
           )}
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex shrink-0 items-center gap-2">
+          <ModelPicker disabled={!active || busy || running} />
           {running && (
             <Button size="sm" variant="ghost" onClick={onViewReview}>
               View review

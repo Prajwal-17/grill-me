@@ -1,4 +1,3 @@
-import { withModelSnapshot } from "../../local/model";
 import { and, asc, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { db, lockRows } from "../../shared/database/db";
 import { generationJobs } from "../../shared/database/schema";
@@ -174,7 +173,7 @@ export function createGenerationService(dependencies: {
         );
       };
       const result = await Promise.race([
-        withModelSnapshot(execute),
+        execute(),
         new Promise<never>((_, reject) => {
           controller.signal.addEventListener(
             "abort",
