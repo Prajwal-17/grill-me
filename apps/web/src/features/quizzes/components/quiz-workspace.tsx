@@ -14,7 +14,9 @@ import {
   RotateCcw,
   Sparkles,
   Trash2,
+  WandSparkles,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -26,7 +28,19 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { Button } from "@/shared/components/ui/button";
-import { Textarea } from "@/shared/components/ui/textarea";
+import { Input } from "@/shared/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/shared/components/ui/dialog";
+import { ModelPicker } from "@/shared/components/ai/model-picker";
+import { PromptSurface } from "@/shared/components/ai/prompt-surface";
+import { PromptTextarea } from "@/shared/components/ai/prompt-textarea";
+import { useComposerModel } from "@/shared/components/ai/use-composer-model";
+import { DIFFICULTIES } from "@/features/chat/components/creation-options";
+import { cn } from "@/shared/lib/cn";
 import {
   Tooltip,
   TooltipContent,
@@ -63,6 +77,8 @@ import {
 import { QuizAttempt } from "./quiz-attempt";
 import { QuizTable } from "./quiz-table";
 
+const QUESTION_COUNTS = [3, 5, 10, 15] as const;
+
 function QuizSelect({
   label,
   value,
@@ -70,6 +86,7 @@ function QuizSelect({
   options,
   disabled,
   displayValue,
+  triggerClassName,
 }: {
   label: string;
   value: string;
@@ -77,13 +94,17 @@ function QuizSelect({
   options: { value: string; label: string }[];
   disabled?: boolean;
   displayValue?: string;
+  triggerClassName?: string;
 }) {
   return (
     <Select value={value} onValueChange={onChange} disabled={disabled}>
       <SelectTrigger
         aria-label={label}
         size="sm"
-        className="h-8 w-[150px] max-w-[42vw] border-line bg-surface shadow-none"
+        className={cn(
+          "h-8 w-[150px] max-w-[42vw] border-line bg-surface shadow-none",
+          triggerClassName,
+        )}
       >
         <SelectValue>{displayValue}</SelectValue>
       </SelectTrigger>
@@ -95,6 +116,68 @@ function QuizSelect({
         ))}
       </SelectContent>
     </Select>
+  );
+}
+
+type QuizChoice<T extends string> = {
+  value: T;
+  label: string;
+  ariaLabel?: string;
+  icon?: LucideIcon;
+  accent?: "grill";
+};
+
+function QuizChoiceGroup<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: T;
+  options: readonly QuizChoice<T>[];
+  onChange: (value: T) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-ui font-medium">{label}</p>
+      <div
+        role="group"
+        aria-label={label}
+        className={cn(
+          "grid gap-1 rounded-lg border border-line bg-canvas p-1",
+          options.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3",
+        )}
+      >
+        {options.map((option) => {
+          const active = option.value === value;
+          const Icon = option.icon;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={active}
+              aria-label={option.ariaLabel ?? option.label}
+              disabled={disabled}
+              data-grill-option={
+                active && option.accent === "grill" ? true : undefined
+              }
+              onClick={() => onChange(option.value)}
+              className={cn(
+                "pressable inline-flex min-h-8 min-w-0 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-center text-ui leading-tight font-medium text-muted transition-colors hover:bg-elevated/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-40",
+                active &&
+                  "border-line bg-elevated text-foreground shadow-sm hover:bg-elevated hover:text-foreground",
+              )}
+            >
+              {Icon && <Icon size={14} aria-hidden="true" />}
+              <span className="min-w-0">{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -137,17 +220,23 @@ export function QuizWorkspace({
   const [attemptId, setAttemptId] = useState("");
   const [allQuizzesOpen, setAllQuizzesOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const createRef = useRef<HTMLElement>(null);
+  const composer = useComposerModel();
   const generateRef = useRef<HTMLButtonElement>(null);
+  const promptInputRef = useRef<HTMLTextAreaElement>(null);
+  const setupHeadingRef = useRef<HTMLHeadingElement>(null);
   const startButtonRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
-    if (dialogOpen)
-      createRef.current
-        ?.querySelector<HTMLElement>("textarea, [role=combobox]")
-        ?.focus();
-  }, [dialogOpen]);
+    if (!dialogOpen) return;
+    const frame = requestAnimationFrame(() => {
+      if (challengeId === null) promptInputRef.current?.focus();
+      else setupHeadingRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [dialogOpen, challengeId]);
   const [deleteTarget, setDeleteTarget] = useState<QuizSummary | null>(null);
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
+  const [customQuestionCount, setCustomQuestionCount] = useState(false);
+  const customQuestionInputRef = useRef<HTMLInputElement>(null);
   const [coverage, setCoverage] = useState<QuizCoverage>("mixed");
   const [prompt, setPrompt] = useState("");
   const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
@@ -244,8 +333,13 @@ export function QuizWorkspace({
       const previous = requestRef.current;
       const settings =
         challengeId === null
-          ? { questionCount, prompt: prompt.trim(), difficulty }
-          : { questionCount, coverage };
+          ? {
+              questionCount,
+              prompt: prompt.trim(),
+              difficulty,
+              selection: composer.selection,
+            }
+          : { questionCount, coverage, selection: composer.selection };
       const signature = JSON.stringify(settings);
       const request =
         previous?.settings === signature
@@ -295,7 +389,8 @@ export function QuizWorkspace({
     },
   });
   const promptEnhancement = useMutation({
-    mutationFn: () => enhanceQuizPrompt(profileId, prompt.trim()),
+    mutationFn: () =>
+      enhanceQuizPrompt(profileId, prompt.trim(), composer.selection),
     onSuccess: (result) => {
       setPrompt(result.prompt);
     },
@@ -371,6 +466,12 @@ export function QuizWorkspace({
       setChanging(false);
     }
   }
+  const dialogBusy = generation.isPending || promptEnhancement.isPending;
+  function closeDialog() {
+    if (dialogBusy) return;
+    setDialogOpen(false);
+    requestAnimationFrame(() => generateRef.current?.focus());
+  }
   const busy =
     changing ||
     generation.isPending ||
@@ -395,6 +496,7 @@ export function QuizWorkspace({
           aria-label="Generate quiz"
           onClick={() => {
             generation.reset();
+            promptEnhancement.reset();
             setDialogOpen(true);
           }}
         >
@@ -423,10 +525,7 @@ export function QuizWorkspace({
           : "flex h-full min-h-0 flex-col gap-5 overflow-hidden"
       }`}
     >
-      <div
-        className="flex min-h-0 flex-1 flex-col gap-4"
-        style={dialogOpen ? { display: "none" } : undefined}
-      >
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         {!showLibrary && !detail.data && (
           <div className="flex flex-wrap items-center justify-between gap-2">
             {selectedQuizId && (
@@ -800,205 +899,271 @@ export function QuizWorkspace({
           )
         )}
       </div>
-      {dialogOpen && (
-        <section
-          ref={createRef}
-          aria-labelledby="quiz-create-title"
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (open) setDialogOpen(true);
+          else closeDialog();
+        }}
+      >
+        <DialogContent
+          showCloseButton={false}
+          className="flex max-h-[min(88vh,760px)] flex-col gap-0 overflow-hidden rounded-xl bg-popover p-0 sm:max-w-[600px]"
         >
-          <div className="mx-auto w-full max-w-[720px]">
-            <div className="mb-4 flex items-center justify-between gap-3 border-b border-line pb-3">
-              <h2
-                id="quiz-create-title"
-                className="text-section font-semibold tracking-[-0.02em]"
-              >
+          <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-3.5">
+            <div className="min-w-0">
+              <DialogTitle className="text-section font-semibold tracking-[-0.02em]">
                 Generate quiz
-              </h2>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={generation.isPending || promptEnhancement.isPending}
-                onClick={() => {
-                  setDialogOpen(false);
-                  requestAnimationFrame(() => generateRef.current?.focus());
-                }}
-              >
-                <X size={14} />
-                Cancel
-              </Button>
+              </DialogTitle>
+              <DialogDescription className="mt-0.5 text-supporting text-muted">
+                {challengeId === null ? "Standalone quiz" : "Challenge quiz"}
+              </DialogDescription>
             </div>
-            <form
-              className="space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!generation.isPending && !promptEnhancement.isPending)
-                  generation.mutate();
-              }}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="-mr-2 shrink-0"
+              disabled={dialogBusy}
+              onClick={closeDialog}
             >
-              {challengeId === null && (
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="quiz-prompt"
-                    className="block text-ui font-medium"
-                  >
-                    Quiz prompt
-                  </label>
-                  <div className="relative">
-                    <Textarea
-                      id="quiz-prompt"
-                      value={prompt}
-                      onChange={(event) => {
-                        setPrompt(event.target.value);
-                        promptEnhancement.reset();
-                      }}
-                      className="min-h-24 max-h-44 overflow-y-auto pr-12 pb-10 leading-6"
-                      placeholder="A topic or skill you want to practice…"
-                      required
-                      minLength={1}
-                      maxLength={4000}
-                      disabled={
-                        generation.isPending || promptEnhancement.isPending
-                      }
-                    />
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span
-                          className="absolute right-2 bottom-2 inline-flex"
-                          tabIndex={
-                            generation.isPending ||
-                            promptEnhancement.isPending ||
-                            prompt.trim().length === 0
-                              ? 0
-                              : undefined
-                          }
-                        >
-                          <Button
-                            type="button"
-                            size="icon-sm"
-                            variant="ghost"
-                            className="rounded-md bg-surface text-muted hover:bg-elevated hover:text-foreground"
-                            disabled={
-                              generation.isPending ||
-                              promptEnhancement.isPending ||
-                              prompt.trim().length === 0
-                            }
-                            aria-label={
-                              promptEnhancement.isPending
-                                ? "Enhancing prompt with AI"
-                                : "Enhance prompt with AI"
-                            }
-                            onClick={() => promptEnhancement.mutate()}
-                          >
-                            {promptEnhancement.isPending ? (
-                              <LoaderCircle
-                                size={14}
-                                aria-hidden="true"
-                                className="animate-spin motion-reduce:animate-none"
-                              />
-                            ) : (
-                              <Sparkles size={14} aria-hidden="true" />
-                            )}
-                          </Button>
+              <X size={14} />
+              Cancel
+            </Button>
+          </div>
+          <form
+            className="flex min-h-0 flex-1 flex-col"
+            aria-busy={dialogBusy || undefined}
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!dialogBusy) generation.mutate();
+            }}
+          >
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+              <div className="space-y-4">
+                {challengeId === null ? (
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="quiz-prompt"
+                      className="block text-ui font-medium"
+                    >
+                      Quiz prompt
+                    </label>
+                    <PromptSurface className="focus-within:ring-2 focus-within:ring-ring/20">
+                      <PromptTextarea
+                        ref={promptInputRef}
+                        id="quiz-prompt"
+                        value={prompt}
+                        onChange={(event) => {
+                          setPrompt(event.target.value);
+                          promptEnhancement.reset();
+                          generation.reset();
+                        }}
+                        placeholder="A topic or skill you want to practice…"
+                        minHeight={120}
+                        required
+                        maxLength={4000}
+                        disabled={dialogBusy}
+                        aria-invalid={Boolean(promptEnhancement.error)}
+                        aria-describedby={
+                          promptEnhancement.error
+                            ? "quiz-prompt-error"
+                            : undefined
+                        }
+                      />
+                      <div className="flex items-center justify-between gap-2 px-2 pb-1.5 pt-0.5">
+                        <span className="px-2 text-metadata text-muted">
+                          {prompt.length > 3600 ? `${prompt.length}/4000` : ""}
                         </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" sideOffset={6}>
-                        {promptEnhancement.isPending
-                          ? "Enhancing prompt…"
-                          : prompt.trim().length === 0
-                            ? "Enter a prompt to enable AI enhancement"
-                            : generation.isPending
-                              ? "Wait for the request to be saved"
-                              : "Enhance prompt with AI"}
-                      </TooltipContent>
-                    </Tooltip>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          disabled={dialogBusy || prompt.trim().length === 0}
+                          aria-label={
+                            promptEnhancement.isPending
+                              ? "Enhancing prompt with AI"
+                              : "Enhance prompt with AI"
+                          }
+                          onClick={() => promptEnhancement.mutate()}
+                        >
+                          {promptEnhancement.isPending ? (
+                            <LoaderCircle
+                              size={14}
+                              aria-hidden="true"
+                              className="animate-spin motion-reduce:animate-none"
+                            />
+                          ) : (
+                            <WandSparkles size={14} aria-hidden="true" />
+                          )}
+                          {promptEnhancement.isPending
+                            ? "Enhancing…"
+                            : "Enhance"}
+                        </Button>
+                      </div>
+                    </PromptSurface>
+                    {promptEnhancement.error && (
+                      <p
+                        id="quiz-prompt-error"
+                        role="alert"
+                        className="text-metadata text-destructive"
+                      >
+                        {promptEnhancement.error.message} Try again or edit the
+                        prompt yourself.
+                      </p>
+                    )}
                   </div>
-                  {promptEnhancement.isError && (
-                    <p role="alert" className="text-metadata text-destructive">
-                      {promptEnhancement.error.message} Try again or edit the
-                      prompt yourself.
-                    </p>
-                  )}
-                </div>
-              )}
-              {generation.error && (
-                <p role="alert" className="text-metadata text-destructive">
-                  {generation.error.message}
-                </p>
-              )}
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div className="flex flex-wrap gap-3">
+                ) : (
+                  <h3 ref={setupHeadingRef} tabIndex={-1} className="sr-only">
+                    Quiz setup
+                  </h3>
+                )}
+                {generation.error && (
+                  <p role="alert" className="text-metadata text-destructive">
+                    {generation.error.message}
+                  </p>
+                )}
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
                   <div className="space-y-1.5">
                     <p className="text-ui font-medium">Questions</p>
                     <QuizSelect
                       label="Question count"
-                      value={String(questionCount)}
-                      disabled={
-                        generation.isPending || promptEnhancement.isPending
+                      value={
+                        customQuestionCount ? "custom" : String(questionCount)
                       }
-                      onChange={(value) =>
-                        setQuestionCount(Number(value) as QuestionCount)
-                      }
-                      options={[5, 10, 15].map((count) => ({
-                        value: String(count),
-                        label: String(count),
-                      }))}
+                      disabled={dialogBusy}
+                      triggerClassName="h-10 w-[150px]"
+                      onChange={(value) => {
+                        if (value === "custom") {
+                          setCustomQuestionCount(true);
+                          requestAnimationFrame(() =>
+                            customQuestionInputRef.current?.focus(),
+                          );
+                          return;
+                        }
+                        setCustomQuestionCount(false);
+                        setQuestionCount(Number(value));
+                      }}
+                      options={[
+                        ...QUESTION_COUNTS.map((count) => ({
+                          value: String(count),
+                          label: String(count),
+                        })),
+                        { value: "custom", label: "Custom" },
+                      ]}
                     />
+                    {customQuestionCount && (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          ref={customQuestionInputRef}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          aria-label="Custom question count"
+                          aria-describedby="quiz-custom-count-hint"
+                          value={questionCount > 0 ? String(questionCount) : ""}
+                          onChange={(event) => {
+                            const digits = event.target.value.replace(
+                              /\D/g,
+                              "",
+                            );
+                            setQuestionCount(
+                              digits ? Math.min(30, Number(digits)) : 0,
+                            );
+                          }}
+                          onBlur={() => {
+                            if (questionCount < 1) setQuestionCount(10);
+                          }}
+                          className="h-8 w-20 bg-surface text-ui"
+                        />
+                        <span
+                          id="quiz-custom-count-hint"
+                          className="text-metadata text-muted"
+                        >
+                          1–30
+                        </span>
+                      </div>
+                    )}
                   </div>
                   {challengeId === null ? (
-                    <div className="space-y-1.5">
-                      <p className="text-ui font-medium">Difficulty</p>
-                      <QuizSelect
-                        label="Quiz difficulty"
-                        value={difficulty}
-                        disabled={
-                          generation.isPending || promptEnhancement.isPending
-                        }
-                        onChange={(value) =>
-                          setDifficulty(value as QuizDifficulty)
-                        }
-                        options={[
-                          { value: "easy", label: "Easy" },
-                          { value: "medium", label: "Medium" },
-                          { value: "hard", label: "Hard" },
-                          { value: "grill", label: "Grill" },
-                        ]}
-                      />
-                    </div>
+                    <QuizChoiceGroup
+                      label="Difficulty"
+                      value={difficulty}
+                      disabled={dialogBusy}
+                      onChange={(value) =>
+                        setDifficulty(value as QuizDifficulty)
+                      }
+                      options={DIFFICULTIES.map(({ id, ...option }) => ({
+                        value: id,
+                        ...option,
+                      }))}
+                    />
                   ) : (
-                    <div className="space-y-1.5">
-                      <p className="text-ui font-medium">Coverage</p>
-                      <QuizSelect
-                        label="Quiz coverage"
-                        value={coverage}
-                        disabled={
-                          generation.isPending || promptEnhancement.isPending
-                        }
-                        onChange={(value) => setCoverage(value as QuizCoverage)}
-                        options={Object.entries(COVERAGE_LABELS).map(
-                          ([value, label]) => ({ value, label }),
-                        )}
-                      />
-                    </div>
+                    <QuizChoiceGroup
+                      label="Coverage"
+                      value={coverage}
+                      disabled={dialogBusy}
+                      onChange={(value) => setCoverage(value as QuizCoverage)}
+                      options={(
+                        Object.keys(COVERAGE_LABELS) as QuizCoverage[]
+                      ).map((value) => ({
+                        value,
+                        label:
+                          value === "related"
+                            ? "Related"
+                            : COVERAGE_LABELS[value],
+                        ariaLabel: COVERAGE_LABELS[value],
+                      }))}
+                    />
                   )}
                 </div>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  className="ml-auto w-full sm:w-auto"
-                  disabled={
-                    generation.isPending ||
-                    promptEnhancement.isPending ||
-                    (challengeId === null && prompt.trim().length === 0)
-                  }
-                >
-                  {generation.isPending ? "Queueing…" : "Generate quiz"}
-                </Button>
+                {composer.connections.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <p className="text-ui font-medium">Model</p>
+                    <ModelPicker
+                      disabled={dialogBusy}
+                      className="min-w-0 flex-wrap sm:ml-auto"
+                    />
+                  </div>
+                )}
               </div>
-            </form>
-          </div>
-        </section>
-      )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3">
+              <span className="text-metadata text-muted">
+                {questionCount > 0
+                  ? `${questionCount} questions`
+                  : "Set a count"}{" "}
+                ·{" "}
+                {challengeId === null
+                  ? (DIFFICULTIES.find((item) => item.id === difficulty)
+                      ?.label ?? difficulty)
+                  : COVERAGE_LABELS[coverage]}
+              </span>
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full sm:w-auto"
+                disabled={
+                  dialogBusy ||
+                  questionCount < 1 ||
+                  (challengeId === null && prompt.trim().length === 0)
+                }
+              >
+                {generation.isPending ? (
+                  <LoaderCircle
+                    size={14}
+                    aria-hidden="true"
+                    className="animate-spin motion-reduce:animate-none"
+                  />
+                ) : (
+                  <Sparkles size={14} aria-hidden="true" />
+                )}
+                {generation.isPending ? "Queueing…" : "Generate quiz"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       <AlertDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => {

@@ -444,7 +444,7 @@ export function createQuizService(
             quiz.title ??
               (quiz.challengeId === null ? quiz.topic : challengeTitle(quiz)),
           ),
-          questionCount: quiz.questionCount as 5 | 10 | 15,
+          questionCount: quiz.questionCount,
           difficulty: quiz.difficulty,
           coverage: quiz.coverage,
           questions: quiz.questions

@@ -263,7 +263,7 @@ describe("challenge quizzes", () => {
       (
         await request(state.app, state.path + "/generate", state.owner.id, {
           requestId: crypto.randomUUID(),
-          questionCount: 7,
+          questionCount: 31,
         })
       ).status,
     ).toBe(400);
@@ -644,6 +644,18 @@ describe("standalone quizzes", () => {
     expect(state.model.quizInputs.at(-1)!.previousQuestions).toEqual([]);
   });
 
+  test("accepts three-question and thirty-question quizzes", async () => {
+    const state = await setup();
+    for (const questionCount of [3, 30]) {
+      const quiz = await state.make({
+        ...state.input,
+        questionCount,
+        requestId: crypto.randomUUID(),
+      });
+      expect(quiz.questions).toHaveLength(questionCount);
+    }
+  });
+
   test("accepts one-word topics and detailed multiline quiz prompts without truncating their context", async () => {
     const state = await setup();
     const detailed =
@@ -944,7 +956,7 @@ describe("standalone quizzes", () => {
       { topic: "   " },
       { topic: "a".repeat(201) },
       { difficulty: "expert" },
-      { questionCount: 7 },
+      { questionCount: 31 },
       { topic: null },
     ]) {
       expect(

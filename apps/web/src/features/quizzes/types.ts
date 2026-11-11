@@ -1,5 +1,5 @@
 import type { ModelSelection } from "@repo/backend/shared/contracts";
-export type QuestionCount = 5 | 10 | 15;
+export type QuestionCount = number;
 export type QuizCoverage = "challenge" | "related" | "mixed";
 export type QuizDifficulty = "easy" | "medium" | "hard" | "grill";
 export type QuizAnswers = Record<string, number>;
