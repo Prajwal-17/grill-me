@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## desktop-v0.1.13 - 11 Nov 2026
+
 ### Added
 
 - Add 3-question quizzes and a custom quiz length, capped at 30 questions.
