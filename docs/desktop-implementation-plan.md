@@ -21,7 +21,7 @@
 
 - [x] Extract `packages/backend` containing services, models, database adapters, storage, jobs and HTTP handlers.
 - [x] Export a side-effect-free application/runtime factory; importing the package must not open a database or start listeners/workers.
-- [x] Keep `apps/backend` as the independently runnable CLI/legacy deployment host.
+- [x] Keep `apps/backend` as the independently runnable CLI/legacy deployment host. (Later removed; tests now live in `packages/backend/test`.)
 - [x] Extract `packages/ui` containing the React routes, features, components, styles, assets and stores. (Later restored to `apps/web`.)
 - [x] Keep `apps/web` as the independently runnable Vite host, and make Electron render the same package.
 - [x] Introduce `packages/contracts` for validated settings and transport messages and `packages/client` for the WebSocket connection. (Later folded into `packages/backend/src/shared` and `apps/web`.)

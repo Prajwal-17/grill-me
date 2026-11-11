@@ -4,8 +4,8 @@ import {
   previewResume,
   validateResumeText,
   RESUME_MAX_BYTES,
-} from "../../../packages/backend/src/modules/profiles/resume";
-import { validateResumeExtraction } from "../../../packages/backend/src/modules/profiles/resume.schema";
+} from "@repo/backend/modules/profiles/resume";
+import { validateResumeExtraction } from "@repo/backend/modules/profiles/resume.schema";
 import {
   applyResumeDraft,
   EMPTY_GUIDED,
@@ -13,7 +13,7 @@ import {
   optionLabels,
   STACK,
 } from "@repo/backend/shared/preferences";
-import type { ModelGateway } from "../../../packages/backend/src/modules/ai/model-gateway";
+import type { ModelGateway } from "@repo/backend/modules/ai/model-gateway";
 
 const fixture = (name: string) =>
   Bun.file(new URL(`./fixtures/${name}`, import.meta.url));

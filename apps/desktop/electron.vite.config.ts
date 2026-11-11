@@ -28,6 +28,8 @@ export default defineConfig(({ mode }) => {
     },
     renderer: {
       cacheDir: resolve(import.meta.dirname, "node_modules/.vite-electron"),
+      // The Vite app in apps/web is the renderer. electron-vite compiles it
+      // into out/renderer so Electron displays the same app in every build.
       root: webRoot,
       envDir: webRoot,
       plugins: [

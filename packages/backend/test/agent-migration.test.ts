@@ -10,14 +10,11 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { createSqliteDatabase } from "../../../packages/backend/src/shared/database/db.sqlite";
-import { backupBeforeMigration } from "../../../packages/backend/src/local/backup";
+import { createSqliteDatabase } from "@repo/backend/shared/database/db.sqlite";
+import { backupBeforeMigration } from "@repo/backend/local/backup";
 
 const schema = await readFile(
-  new URL(
-    "../../../packages/backend/drizzle-sqlite/0000_desktop.sql",
-    import.meta.url,
-  ),
+  new URL("../drizzle-sqlite/0000_desktop.sql", import.meta.url),
   "utf8",
 );
 

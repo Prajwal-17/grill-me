@@ -24,8 +24,8 @@ Bun backend is a private local component, not a separately hosted service.
   renderer. See [`apps/web/AGENTS.md`](apps/web/AGENTS.md) for frontend rules.
 - `apps/desktop` — Electron main/preload processes, window behavior, private
   updates, build scripts, and packaging config.
-- `apps/backend/test` — backend, local-server, contracts, resume, and project
-  integration tests. There is no separate backend application host.
+- `packages/backend/test` — backend, local-server, contracts, resume, and
+  project integration tests. There is no separate backend application host.
 - `packages/backend` — Hono app, domain modules, local RPC server, provider
   adapters, SQLite schema/migrations, storage, AI prompts, and the shared
   transport contracts and preference options under `src/shared`.

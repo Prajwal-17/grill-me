@@ -12,6 +12,8 @@ import { fileURLToPath } from "node:url";
 export const APP_NAME = "grill-me";
 export const LEGACY_DATABASE_PATH = "./.data/grill-me.sqlite";
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
+// Kept for existing installations that stored data beside the former
+// standalone backend host. Do not point new code at this location.
 const LEGACY_DATA_ROOT = resolve(
   MODULE_DIR,
   "../../../../../apps/backend/.data",

@@ -11,8 +11,8 @@ import {
 } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { browseFolders } from "../../../packages/backend/src/modules/projects/browse";
-import { projectRoot } from "../../../packages/backend/src/modules/projects/snapshot";
+import { browseFolders } from "@repo/backend/modules/projects/browse";
+import { projectRoot } from "@repo/backend/modules/projects/snapshot";
 
 describe("local project folders", () => {
   let root = "";

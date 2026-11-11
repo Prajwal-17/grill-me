@@ -38,7 +38,7 @@ yarn-error.log*
 *.pem
 
 # Local Grill-Me data
-apps/backend/.data/
+.data/
 
 # Local runtime and review artifacts
 .data/

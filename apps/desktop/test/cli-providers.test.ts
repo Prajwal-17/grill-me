@@ -15,7 +15,7 @@ import {
 } from "@repo/backend/shared/contracts";
 import { createCliProviders } from "../../../packages/backend/src/local/providers";
 import { createSettingsService } from "../../../packages/backend/src/local/settings";
-import { memorySecretStore } from "../../backend/test/fixtures/memory-secret-store";
+import { memorySecretStore } from "../../../packages/backend/test/fixtures/memory-secret-store";
 import { executablePath } from "@repo/backend/local/executable-path";
 import {
   executable,

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { desktopIdentity } from "../src/identity";
 import { backendEnvironment } from "../src/config";
 import { createSettingsService } from "@repo/backend/local/settings";
-import { memorySecretStore } from "../../backend/test/fixtures/memory-secret-store";
+import { memorySecretStore } from "../../../packages/backend/test/fixtures/memory-secret-store";
 
 test("macOS bundle names match Electron Builder executable names in both editions", async () => {
   const base = Bun.YAML.parse(

@@ -4,23 +4,23 @@ import type {
   LearnerContext,
   ModelGateway,
   QuizModelInput,
-} from "../../../packages/backend/src/modules/ai/model-gateway";
+} from "@repo/backend/modules/ai/model-gateway";
 import type {
   Challenge,
   GeneratedBuildContent,
   ChallengePreparation,
   BuildGenerationResult,
-} from "../../../packages/backend/src/modules/challenges/challenge.schema";
+} from "@repo/backend/modules/challenges/challenge.schema";
 import type {
   ChatMessage,
   MessageAttachment,
-} from "../../../packages/backend/src/modules/messages/message.schema";
-import { AppError } from "../../../packages/backend/src/shared/errors/app-error";
+} from "@repo/backend/modules/messages/message.schema";
+import { AppError } from "@repo/backend/shared/errors/app-error";
 import OpenAI from "openai";
-import type { LogRow } from "../../../packages/backend/src/modules/logs/log.model";
-import { generationPrompt } from "../../../packages/backend/src/modules/ai/prompts";
-import type { GeneratedQuiz } from "../../../packages/backend/src/modules/quizzes/quiz.schema";
-import type { QuizService } from "../../../packages/backend/src/modules/quizzes/quiz.service";
+import type { LogRow } from "@repo/backend/modules/logs/log.model";
+import { generationPrompt } from "@repo/backend/modules/ai/prompts/index";
+import type { GeneratedQuiz } from "@repo/backend/modules/quizzes/quiz.schema";
+import type { QuizService } from "@repo/backend/modules/quizzes/quiz.service";
 import { fixtureSql } from "./fixture-sql";
 
 const testRoot = "/tmp/grill-me-tests-" + crypto.randomUUID();
@@ -31,9 +31,8 @@ afterAll(async () => {
   await rm(testRoot, { recursive: true, force: true });
 });
 
-const { createApp } = await import("../../../packages/backend/src/app");
-const { migrateDatabase } =
-  await import("../../../packages/backend/src/shared/database/db");
+const { createApp } = await import("@repo/backend/app");
+const { migrateDatabase } = await import("@repo/backend/shared/database/db");
 await migrateDatabase();
 for (const table of [
   "verification_runs",
@@ -49,10 +48,9 @@ for (const table of [
 ])
   await fixtureSql(`DELETE FROM ${table}`);
 const { createOpenAIModel } = await import("./fixtures/legacy-openai-model");
-const { logModel } =
-  await import("../../../packages/backend/src/modules/logs/log.model");
+const { logModel } = await import("@repo/backend/modules/logs/log.model");
 const { startAiLog } =
-  await import("../../../packages/backend/src/modules/logs/ai-log-recorder");
+  await import("@repo/backend/modules/logs/ai-log-recorder");
 
 const generated: GeneratedBuildContent = {
   title: "Group words by first letter",
@@ -2375,7 +2373,7 @@ describe("structured practice reviews", () => {
   });
   async function finished(
     service: ReturnType<
-      typeof import("../../../packages/backend/src/modules/reviews/review.service").createReviewService
+      typeof import("@repo/backend/modules/reviews/review.service").createReviewService
     >,
     id: string,
     owner: string,
@@ -2506,7 +2504,7 @@ describe("structured practice reviews", () => {
   test("requires exactly the original criteria, keeps missing scores null, and rejects false acceptance", async () => {
     const { challenge } = await fixture();
     const { validateReview } =
-      await import("../../../packages/backend/src/modules/reviews/review.schema");
+      await import("@repo/backend/modules/reviews/review.schema");
     const base = result(challenge);
     expect(validateReview(base, challenge, await inspection()).score).toBe(9);
     expect(
@@ -2574,7 +2572,7 @@ describe("structured practice reviews", () => {
       (await json<{ data: { codexModel: string } }>(reloaded)).data.codexModel,
     ).toBe("gpt-5.6-terra");
     const { createReviewService } =
-      await import("../../../packages/backend/src/modules/reviews/review.service");
+      await import("@repo/backend/modules/reviews/review.service");
     let selected: string | undefined;
     const service = createReviewService(
       model,
@@ -2640,8 +2638,7 @@ createInterface({input: process.stdin}).on("line", line => {
     const previous = process.env.CODEX_BIN;
     process.env.CODEX_BIN = binary;
     try {
-      const { codexJudge } =
-        await import("../../../packages/backend/src/modules/judges/codex");
+      const { codexJudge } = await import("@repo/backend/modules/judges/codex");
       let logId = "";
       await codexJudge(
         {
@@ -2712,7 +2709,7 @@ createInterface({input: process.stdin}).on("line", line => {
   test("persists accepted reviews without marking the challenge complete", async () => {
     const { model, app, owner, challenge } = await fixture();
     const { createReviewService } =
-      await import("../../../packages/backend/src/modules/reviews/review.service");
+      await import("@repo/backend/modules/reviews/review.service");
     const service = createReviewService(
       {
         ...model,
@@ -2769,7 +2766,7 @@ createInterface({input: process.stdin}).on("line", line => {
     test(`${route} reviews correct missing findings within the original job`, async () => {
       const { model, owner, challenge } = await fixture();
       const { createReviewService } =
-        await import("../../../packages/backend/src/modules/reviews/review.service");
+        await import("@repo/backend/modules/reviews/review.service");
       let calls = 0;
       const invalid = {
         ...result(challenge),
@@ -2782,7 +2779,7 @@ createInterface({input: process.stdin}).on("line", line => {
         nextStep: "Address the required cases.",
       };
       const judge = async (
-        input: import("../../../packages/backend/src/modules/ai/model-gateway").JudgeInput,
+        input: import("@repo/backend/modules/ai/model-gateway").JudgeInput,
       ) => {
         calls++;
         if (calls === 1) return invalid;
@@ -2832,7 +2829,7 @@ createInterface({input: process.stdin}).on("line", line => {
   test("failed reviews retain the submission and can retry without duplicating attempts", async () => {
     const { model, owner, challenge } = await fixture();
     const { createReviewService } =
-      await import("../../../packages/backend/src/modules/reviews/review.service");
+      await import("@repo/backend/modules/reviews/review.service");
     const gateway = Object.assign(model, {
       judge: async () => {
         throw new Error("Provider unavailable");
@@ -2858,7 +2855,7 @@ createInterface({input: process.stdin}).on("line", line => {
   test("stale acceptance cannot finish a newer submission", async () => {
     const { model, app, owner, challenge } = await fixture();
     const { createReviewService } =
-      await import("../../../packages/backend/src/modules/reviews/review.service");
+      await import("@repo/backend/modules/reviews/review.service");
     let release!: () => void;
     const waiting = new Promise<void>((resolve) => {
       release = resolve;
@@ -2901,7 +2898,7 @@ createInterface({input: process.stdin}).on("line", line => {
     const { tmpdir } = await import("node:os");
     const { join } = await import("node:path");
     const { captureSubmission } =
-      await import("../../../packages/backend/src/modules/projects/snapshot");
+      await import("@repo/backend/modules/projects/snapshot");
     const source = await mkdtemp(join(tmpdir(), "grill-snapshot-test-"));
     let snapshot = "";
     try {
@@ -2938,7 +2935,7 @@ createInterface({input: process.stdin}).on("line", line => {
   });
   test("chunk uploads have no file-size or count cap and are isolated by profile", async () => {
     const { beginUpload, appendUpload, uploadInfo } =
-      await import("../../../packages/backend/src/modules/projects/uploads");
+      await import("@repo/backend/modules/projects/uploads");
     const owner = crypto.randomUUID();
     const other = crypto.randomUUID();
     const upload = await beginUpload(owner, "large.py");
@@ -2962,7 +2959,7 @@ createInterface({input: process.stdin}).on("line", line => {
   });
   test("routing uses context capacity without rejecting large projects", async () => {
     const { routeJudge } =
-      await import("../../../packages/backend/src/modules/reviews/review.service");
+      await import("@repo/backend/modules/reviews/review.service");
     expect(
       routeJudge({
         scope: "focused",
@@ -3171,7 +3168,7 @@ describe("developer profile and frozen context", () => {
     await request(app, "/challenges/prepare", owner.id, input);
     const challenge = await createChallenge(app, owner.id, input);
     const { requestPromptContext } =
-      await import("../../../packages/backend/src/modules/ai/prompts/core");
+      await import("@repo/backend/modules/ai/prompts/core");
     const preparation = JSON.parse(
       requestPromptContext(model.prepareInputs[0]!),
     );
@@ -3809,7 +3806,7 @@ describe("browser CORS configuration", () => {
 
 describe("background generations", () => {
   type Job =
-    import("../../../packages/backend/src/modules/generations/generation.service").PublicGenerationJob;
+    import("@repo/backend/modules/generations/generation.service").PublicGenerationJob;
   async function setup() {
     const model = new FakeModel();
     const app = createApp({ llm: model });
@@ -4347,7 +4344,7 @@ describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
     });
     test("in-flight discussions reject concurrent sends and restart recovery preserves partial text", async () => {
       const { messageModel } =
-        await import("../../../packages/backend/src/modules/messages/message.model");
+        await import("@repo/backend/modules/messages/message.model");
       const app = createApp({ llm: new FakeModel() });
       const owner = await startProfile(
         app,

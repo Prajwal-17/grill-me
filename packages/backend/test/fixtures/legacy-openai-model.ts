@@ -147,7 +147,7 @@ export function createOpenAIModel(
         "MODEL_NOT_CONFIGURED",
         process.env.GRILL_ME_DESKTOP === "1"
           ? "Add and select an AI provider in Application → Settings."
-          : "Add LLM_API_KEY to apps/backend/.env before generating a build.",
+          : "Configure an AI provider before generating a build.",
         503,
         false,
       );
