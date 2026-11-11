@@ -8,12 +8,7 @@ import {
   chmodSync,
 } from "node:fs";
 import { resolve, join, sep, extname } from "node:path";
-import type { ServerWebSocket } from "bun";
-import {
-  clientFrameSchema,
-  type ServerFrame,
-  type ConnectionBootstrap,
-} from "@repo/backend/shared/contracts";
+import { type ConnectionBootstrap } from "@repo/backend/shared/contracts";
 import { createBackend } from "../index";
 import { onDatabaseChange } from "./changes";
 import { createSettingsService } from "./settings";
@@ -21,12 +16,8 @@ import { settingsRoutes } from "./settings-routes";
 import { configuredModel } from "./model";
 import type { SecretStore } from "./secrets";
 import { backupBeforeMigration } from "./backup";
+import { createSocketHub, socketHandler } from "./socket";
 
-type SocketData = {
-  pending: Map<string, AbortController>;
-  subscribed: boolean;
-  seen: Set<string>;
-};
 export type LocalServerOptions = {
   dataRoot: string;
   token: string;
@@ -156,26 +147,17 @@ export async function startLocalServer(options: LocalServerOptions) {
       ? resolve(options.rendererRoot)
       : null;
     const tickets = new Map<string, number>();
-    const clients = new Set<ServerWebSocket<SocketData>>();
-    let revision = 0;
     const allowed = new Set(options.origins);
     const trusted = (request: Request) => {
       const origin = request.headers.get("Origin");
       return !origin || allowed.has(origin);
     };
-    const send = (socket: ServerWebSocket<SocketData>, frame: ServerFrame) => {
-      if (socket.getBufferedAmount() > 1024 * 1024) {
-        socket.close(1013, "Client too slow");
-        return;
-      }
-      socket.send(JSON.stringify(frame));
-    };
-    const notify = onDatabaseChange((tables) => {
-      revision++;
-      for (const socket of clients)
-        if (socket.data.subscribed)
-          send(socket, { type: "changed", revision, tables });
+    const sockets = createSocketHub({
+      app,
+      origins: options.origins,
+      tickets,
     });
+    const unsubscribe = onDatabaseChange(sockets.notify);
     const nonce = crypto.randomUUID();
     const server = Bun.serve({
       hostname: "127.0.0.1",
@@ -188,34 +170,8 @@ export async function startLocalServer(options: LocalServerOptions) {
           return new Response("Forbidden host", { status: 403 });
         if (!trusted(request))
           return new Response("Forbidden origin", { status: 403 });
-        if (url.pathname === "/ws") {
-          if (!request.headers.get("Origin") || clients.size >= 16)
-            return new Response("Forbidden", { status: 403 });
-          const protocols = (
-            request.headers.get("Sec-WebSocket-Protocol") ?? ""
-          )
-            .split(",")
-            .map((v) => v.trim());
-          const ticket = protocols
-            .find((v) => v.startsWith("ticket."))
-            ?.slice(7);
-          const expiry = ticket ? tickets.get(ticket) : undefined;
-          if (ticket) tickets.delete(ticket);
-          if (
-            !protocols.includes("grill-me-v1") ||
-            !expiry ||
-            expiry < Date.now()
-          )
-            return new Response("Unauthorized", { status: 401 });
-          if (
-            server.upgrade(request, {
-              headers: { "Sec-WebSocket-Protocol": "grill-me-v1" },
-              data: { pending: new Map(), subscribed: false, seen: new Set() },
-            })
-          )
-            return;
-          return new Response("Upgrade required", { status: 426 });
-        }
+        if (url.pathname === "/ws")
+          return sockets.routes.fetch(request, server);
         if (request.headers.get("Authorization") !== `Bearer ${options.token}`)
           return new Response("Unauthorized", { status: 401 });
         if (url.pathname === "/_local/bootstrap" && request.method === "POST") {
@@ -280,161 +236,15 @@ export async function startLocalServer(options: LocalServerOptions) {
           headers,
         });
       },
-      websocket: {
-        data: {} as SocketData,
-        maxPayloadLength: 1024 * 1024,
-        backpressureLimit: 1024 * 1024,
-        closeOnBackpressureLimit: true,
-        idleTimeout: 60,
-        open(socket) {
-          clients.add(socket);
-        },
-        close(socket) {
-          clients.delete(socket);
-          for (const c of socket.data.pending.values()) c.abort();
-          socket.data.pending.clear();
-        },
-        async message(socket, raw) {
-          let frame;
-          try {
-            frame = clientFrameSchema.parse(JSON.parse(String(raw)));
-          } catch {
-            socket.close(1008, "Invalid request");
-            return;
-          }
-          if (frame.type === "ping") {
-            send(socket, { type: "pong" });
-            return;
-          }
-          if (frame.type === "subscribe") {
-            socket.data.subscribed = true;
-            send(socket, { type: "changed", revision });
-            return;
-          }
-          if (frame.type === "cancel") {
-            socket.data.pending.get(frame.id)?.abort();
-            return;
-          }
-          if (
-            socket.data.pending.size >= 32 ||
-            socket.data.seen.has(frame.id)
-          ) {
-            send(socket, {
-              type: "error",
-              id: frame.id,
-              error: {
-                code: "REQUEST_REJECTED",
-                message: "Duplicate request or too many pending requests.",
-                retryable: false,
-              },
-            });
-            return;
-          }
-          // Keep a bounded history; reconnects never cause client-side mutation replay.
-          if (socket.data.seen.size >= 1024) {
-            socket.close(1008, "Reconnect to continue");
-            return;
-          }
-          socket.data.seen.add(frame.id);
-          const controller = new AbortController();
-          socket.data.pending.set(frame.id, controller);
-          try {
-            const call = frame.call;
-            const headers = new Headers({ "Content-Type": "application/json" });
-            if (call.profileId) headers.set("X-Profile-Id", call.profileId);
-            if (call.stream) headers.set("Accept", "application/x-ndjson");
-            const request = new Request(
-              new URL(call.path, "http://local.internal"),
-              {
-                method: call.method,
-                headers,
-                body:
-                  call.body === undefined
-                    ? undefined
-                    : JSON.stringify(call.body),
-                signal: controller.signal,
-              },
-            );
-            const response = await app.fetch(request);
-            if (
-              call.stream &&
-              response.ok &&
-              response.headers.get("Content-Type")?.includes("ndjson")
-            ) {
-              const reader = response.body!.getReader();
-              const decoder = new TextDecoder();
-              let buffer = "";
-              while (!controller.signal.aborted) {
-                const { value, done } = await reader.read();
-                buffer += decoder.decode(value, { stream: !done });
-                let index;
-                while ((index = buffer.indexOf("\n")) >= 0) {
-                  const line = buffer.slice(0, index);
-                  buffer = buffer.slice(index + 1);
-                  if (!line.trim()) continue;
-                  const event = JSON.parse(line);
-                  if (event.type === "delta")
-                    send(socket, {
-                      type: "delta",
-                      id: frame.id,
-                      delta: event.delta,
-                    });
-                  else if (event.type === "done")
-                    send(socket, {
-                      type: "result",
-                      id: frame.id,
-                      data: event.data,
-                    });
-                  else if (event.type === "error")
-                    send(socket, {
-                      type: "error",
-                      id: frame.id,
-                      error: event.error,
-                    });
-                }
-                if (done) break;
-              }
-              if (controller.signal.aborted) await reader.cancel();
-            } else {
-              const body = (await response.json()) as {
-                data?: unknown;
-                error?: { code: string; message: string; retryable: boolean };
-              };
-              if (body.error)
-                send(socket, {
-                  type: "error",
-                  id: frame.id,
-                  error: body.error,
-                });
-              else if (!response.ok) throw new Error("Request failed");
-              else
-                send(socket, { type: "result", id: frame.id, data: body.data });
-            }
-          } catch {
-            if (!controller.signal.aborted)
-              send(socket, {
-                type: "error",
-                id: frame.id,
-                error: {
-                  code: "REQUEST_FAILED",
-                  message:
-                    "The local request failed. Check settings and try again.",
-                  retryable: false,
-                },
-              });
-          } finally {
-            socket.data.pending.delete(frame.id);
-          }
-        },
-      },
+      websocket: socketHandler,
     });
     backend.start();
     return {
       port: server.port!,
       settings: config,
       stop: async () => {
-        notify();
-        for (const socket of clients) socket.close(1001, "Backend closing");
+        unsubscribe();
+        sockets.close();
         await server.stop(true);
         await backend.stop();
         config.close();
