@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## desktop-v0.1.12 - 11 Nov 2026
+
 ### Changed
 
 - Restore the React app to `apps/web`, move backend tests beside
