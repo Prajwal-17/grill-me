@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Added
+
+- Run every challenge, quiz, hint, discussion, review, prompt enhancement, verification, and resume action through an embedded Pi agent loop with native messages and validated completion tools
+- Add OpenCode Go and OpenRouter API connections alongside OmniRoute, OpenAI, and custom OpenAI-compatible endpoints
+- Choose an API connection, exact model, and supported reasoning effort in challenge, quiz, discussion, submission, and review composers; the choice stays fixed for the whole operation
+- Add optional Brave web search and bounded public-page retrieval for generation and discussion, with local and private network access blocked
+- Inspect explicitly submitted review snapshots through manifest-limited read and search tools that never execute code or reach the host filesystem
+- Record bounded agent run diagnostics and recover interrupted runs after restart without replaying tool calls or writes
+- Create verified owner-only backups of both SQLite databases before the additive schema upgrade
+
+### Changed
+
+- Preserve Codex and OpenCode CLI adapters, settings, credentials, and fixtures while disconnecting them from startup, connection checks, AI execution, and sign-in
+- Show saved CLI records as inactive and hide them from active provider and model pickers
+- Keep challenge and quiz generation explicit and stop enriching AI requests with previous challenges or learning evidence
+- Keep practice tables, IDs, timestamps, indexes, profiles, and stored message formats readable through schema version 3
+
+### Removed
+
+- Remove production use of the JSON-in-text structured prompt path and automatic CLI provider fallback
+
 ## desktop-v0.1.11 - 09 Nov 2026
 
 ### Added

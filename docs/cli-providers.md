@@ -1,105 +1,62 @@
-# AI providers
+# AI providers and retained CLI integrations
 
-Settings → Providers offers **Codex**, **OpenCode**, and **OmniRoute**. Each has
-an on/off switch. Turn on one or more, then choose **Use for AI requests**. Only
-the selected provider handles new challenges, quizzes, hints, discussions, and
-reviews. Turning off the selected provider clears that selection; it never
-silently switches to another provider. Turning a provider off does not sign out
-or delete its credentials. All-off is supported, and existing practice remains
-accessible.
+Production AI execution now runs through the embedded Pi agent runtime. See
+[`pi-runtime.md`](pi-runtime.md) for the architecture, API connections, model
+and reasoning selections, tools, persistence, and recovery.
 
-## Codex: use your existing CLI account
+Settings → Providers manages API connections only:
 
-Grill Me runs your installed `codex app-server` and reads its account and model
-catalog. Like T3 Code's existing-CLI/direct-home mode, it preserves the host HOME
-and uses the configured CODEX_HOME, inherited CODEX_HOME, or `~/.codex` by default.
-An existing CLI login is available immediately: no separate Grill Me sign-in is
-required. Status shows the account, ChatGPT plan, CLI version, and available
-models. Refresh rechecks the connection.
+- OpenRouter
+- OpenCode Go
+- OmniRoute or another OpenAI-compatible endpoint
+- OpenAI
 
-If Codex is signed out, run `codex login` and refresh, or use **Sign in to Codex**.
-That sign-in uses the selected Codex home and therefore the same account as the
-CLI using that home. Turning Codex off stops Grill Me's owned connection without
-logging out of the CLI. Grill Me never copies or rewrites authentication files.
+Each connection has an on/off switch. Turn on one or more, then choose **Use for
+AI requests**, or pick an exact connection/model in a composer. Only the chosen
+API connection handles new challenges, quizzes, hints, discussions, and reviews.
+Turning off the selected connection clears that selection; it never silently
+switches to another provider. All-off is supported, and existing practice
+remains accessible.
 
-Advanced settings expose the executable path and CODEX_HOME. Leave them empty
-for automatic discovery. Custom home paths accept an absolute path or `~/path`.
-If you previously signed into Grill Me's isolated home, those files are retained
-under `<app data>/providers/<provider-id>/config`; you can select that directory
-explicitly. New connections use the normal CLI home.
+## Retained Codex and OpenCode CLI adapters
 
-Grill Me does not install or update Codex. Model and supported reasoning choices
-come from the CLI catalog. An unavailable model or reasoning selection is
-reported before a turn starts. Local review workspaces and temporary files stay
-in Grill Me's data directory. Turns are saved to the Codex thread history in the
-configured CODEX_HOME, use read-only snapshot tools, and disable shell execution,
-editing, hooks, web search, and configured app/MCP integrations for the review.
-Submitted code is never executed.
+The Codex and OpenCode adapter implementations, their fixtures, isolated homes,
+histories, credentials, and saved settings are preserved. They are inactive in
+production:
 
-## OpenCode: use your installed CLI and connected accounts
+- No CLI process starts at application startup or shutdown.
+- Settings connection checks do not probe a CLI.
+- The gateway never selects a CLI transport.
+- The Connect and Sign-in actions are removed from the provider interface.
+- Existing CLI route shapes remain recognized and return
+  `INTEGRATION_INACTIVE` without starting a process.
+- Saved CLI records stay readable but are hidden from active provider and model
+  pickers. Their credentials and home directories are not deleted or rewritten.
 
-Grill Me runs your installed `opencode serve` process on loopback. Each provider
-gets an isolated OpenCode home under Grill Me's data directory, so its accounts
-and sessions stay separate from a different CLI installation. Leave the
-executable path empty to find `opencode` on your PATH, or choose an exact binary
-in Advanced. Automatic discovery also checks `~/.opencode/bin` on Linux and
-macOS.
-
-OpenCode can expose models from many upstream accounts, such as Anthropic,
-OpenAI, Google, DeepSeek, and OpenCode's own catalog. Grill Me lists those
-models grouped by their upstream provider, with search and a provider label on
-each row, similar to T3 Code's model picker. Choose **Provider default** to use
-the first available model, or pick an exact model for challenges, quizzes,
-hints, discussions, and reviews.
-
-Connect an account from the OpenCode provider panel. Choose the upstream
-account and sign-in method OpenCode reports; API-key methods ask for the key,
-and browser methods open the authorization page and finish in Grill Me when a
-code is required. Grill Me does not save OpenCode credentials in its settings
-database; OpenCode stores them in the provider's isolated home. Turning OpenCode
-off stops Grill Me's owned server process without logging out of the CLI.
-
-OpenCode turns are saved in the provider's isolated data directory. Grill Me
-keeps each session after the request completes or is cancelled, so OpenCode also
-retains the conversation and any tool calls it made. Review sessions allow only
-read/glob/grep during code review and deny shell execution, editing, web access,
-and other tools. Submitted code is never executed.
+This keeps the adapter work available for a later explicit integration while
+ensuring the production AI path cannot use host CLI accounts.
 
 ## Conversation storage
 
 Grill Me saves every user message, partial reply, and completed reply in its
-local SQLite database. CLI providers also keep the same request in their own
-history: Codex threads stay in the configured CODEX_HOME, and OpenCode sessions
-stay in the provider's isolated data directory together with any tool calls made
-during the request. Nothing is deleted after a successful, failed, or cancelled
-turn. OpenAI-compatible endpoints receive requests without an explicit no-store
-flag, so any server-side retention they offer is available as well.
-
-## OmniRoute
-
-Enter the OpenAI-compatible base endpoint (usually including `/v1`) and an API
-key if required. Available models come from `/models`; Advanced → Custom model
-ID accepts an OmniRoute combo name or another exact model ID. Without a key,
-requests omit the Authorization header. Keys use the system credential store, an
-owner-only plaintext file (`secrets.json`, mode `0600`) when the credential store
-is unavailable or selected, or explicit session-only storage. The plaintext file
-is not encrypted and can be read by any process running as your user.
+local SQLite database. API providers receive only the current operation's
+context. Previous challenges, learning evidence, unrelated conversations, and
+automatic history enrichment are not added to AI requests. Explicitly selected
+generation options and the current discussion transcript are preserved.
 
 ## Models and errors
 
-New configurations default to `gpt-6.1-sol` with high reasoning in production and
-`gpt-6-luna` with medium reasoning in development. New OpenCode configurations
-default to **Provider default**. Saved choices are preserved. Changes apply to
-subsequent requests. API requests send `reasoning.effort`; Provider default omits
-an explicit effort. The gateway must support that choice.
+Each API connection saves a default model and optional reasoning effort. A
+composer selection applies to the next run and remains fixed for all of its tool
+turns. Unsupported reasoning values are reported instead of being silently
+downgraded. A saved legacy CLI selection produces an actionable “select an API
+provider” state without changing the stored selection or blocking access to
+saved practice.
 
-Connection problems appear beside the relevant provider with recovery actions.
-Outside Settings, the shared connection notice links back to Providers. Missing
-executables, sign-in failures, unavailable models, unsupported settings, quota,
-authentication, timeouts, and offline endpoints have specific errors. Refresh and
-re-enabling never replay a failed request. Saved discussions retain partial text
-and explicit retry actions.
+Connection problems appear beside the relevant API connection. Missing keys,
+unavailable models, unsupported reasoning, quota, authentication, timeouts,
+offline endpoints, and missing tool support have specific errors. Partial
+discussion text is retained and explicit retry creates a new run.
 
 Run `bun run test:isolated` for temporary-data tests with fake providers. Tests
-never access the user's real Codex or OpenCode account or make paid inference
-requests.
+never access a real Codex/OpenCode account or make paid inference requests.

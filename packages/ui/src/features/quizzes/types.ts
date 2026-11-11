@@ -1,3 +1,4 @@
+import type { ModelSelection } from "@repo/contracts";
 export type QuestionCount = 5 | 10 | 15;
 export type QuizCoverage = "challenge" | "related" | "mixed";
 export type QuizDifficulty = "easy" | "medium" | "hard" | "grill";
@@ -50,12 +51,14 @@ export type GenerateQuizRequest = {
   requestId: string;
   questionCount: QuestionCount;
   coverage: QuizCoverage;
+  selection?: ModelSelection;
 };
 export type GenerateStandaloneQuizRequest = {
   requestId: string;
   questionCount: QuestionCount;
   prompt: string;
   difficulty: QuizDifficulty;
+  selection?: ModelSelection;
 };
 export const COVERAGE_LABELS: Record<QuizCoverage, string> = {
   challenge: "Challenge",

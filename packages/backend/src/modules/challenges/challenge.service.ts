@@ -1,9 +1,9 @@
-import { recentLearningEvidence } from "../reviews/learning-evidence";
 import {
   requestPromptContext,
   PROMPT_VERSION,
   CALIBRATION_VERSION,
 } from "../ai/prompts/core";
+import type { ModelSelection } from "@repo/contracts";
 import { AppError } from "../../shared/errors/app-error";
 import type { BuildModelInput, ModelGateway } from "../ai/model-gateway";
 import type { MessageModel } from "../messages/message.model";
@@ -71,26 +71,22 @@ export function createChallengeService(dependencies: {
 
   async function learnerContext(profileId: string) {
     const preferences = await profiles.getPreferences(profileId);
+    // Practice history never enriches a new AI request. Existing history screens
+    // and stored rows remain unchanged.
     return {
       profileId,
       preferences,
-      recentEvidence: preferences.includeRecentChallenges
-        ? await recentLearningEvidence(profileId)
-        : [],
-      recentChallenges: (preferences.includeRecentChallenges
-        ? await challenges.findRecent(profileId, 10)
-        : []
-      ).map((row) => ({
-        title: row.title,
-        scope: row.scope,
-        contextualDifficulty: row.contextualDifficulty,
-        summary: row.problemStatement.slice(0, 500),
-      })),
+      recentEvidence: [],
+      recentChallenges: [],
     };
   }
 
   return {
-    async enhancePrompt(profileId: string, prompt: string) {
+    async enhancePrompt(
+      profileId: string,
+      prompt: string,
+      selection?: ModelSelection,
+    ) {
       await profiles.assertExists(profileId);
       if (!llm.enhanceBuildPrompt)
         throw new AppError(
@@ -99,7 +95,7 @@ export function createChallengeService(dependencies: {
           503,
         );
       const output = enhanceBuildPromptSchema.safeParse(
-        await llm.enhanceBuildPrompt({ profileId, prompt }),
+        await llm.enhanceBuildPrompt({ profileId, prompt, selection }),
       );
       if (!output.success)
         throw new AppError(
@@ -145,6 +141,7 @@ export function createChallengeService(dependencies: {
         prompt: string;
         scope: BuildScope;
         difficulty: BuildDifficulty;
+        selection?: ModelSelection;
       },
       profileId: string,
       signal?: AbortSignal,

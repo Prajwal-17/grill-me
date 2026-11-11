@@ -215,8 +215,22 @@ test("SQLite v1 upgrades retain existing conversations and initialize completed 
     const upgraded = createSqliteDatabase(path);
     await upgraded.migrateDatabase();
     expect(upgraded.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 2,
+      user_version: 3,
     });
+    expect(
+      upgraded.sqlite
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_runs','agent_run_events') ORDER BY name",
+        )
+        .all(),
+    ).toEqual([{ name: "agent_run_events" }, { name: "agent_runs" }]);
+    expect(
+      (
+        upgraded.sqlite.query("PRAGMA table_info(review_jobs)").all() as {
+          name: string;
+        }[]
+      ).some((column) => column.name === "model_selection"),
+    ).toBe(true);
     expect(
       upgraded.sqlite
         .query("SELECT content,status FROM messages WHERE id='legacy-message'")

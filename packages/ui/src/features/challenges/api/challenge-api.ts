@@ -3,6 +3,7 @@ import type {
   Challenge,
   ChallengePreparation,
   GenerateBuildRequest,
+  ModelSelection,
 } from "@/shared/types/api";
 
 export const challengeKeys = {
@@ -45,10 +46,20 @@ export function setChallengeArchived(
   );
 }
 
-export function enhanceBuildPrompt(profileId: string, prompt: string) {
+export function enhanceBuildPrompt(
+  profileId: string,
+  prompt: string,
+  selection?: ModelSelection,
+) {
   return apiRequest<{ prompt: string }>(
     "/challenges/enhance-prompt",
-    { method: "POST", body: JSON.stringify({ prompt }) },
+    {
+      method: "POST",
+      body: JSON.stringify({
+        prompt,
+        ...(selection ? { selection } : {}),
+      }),
+    },
     profileId,
   );
 }

@@ -9,7 +9,7 @@ import {
   challengeParamsSchema,
   generateChallengeRequestSchema,
   prepareChallengeRequestSchema,
-  enhanceBuildPromptSchema,
+  enhanceBuildPromptRequestSchema,
 } from "./challenge.schema";
 
 function profileId(c: Context) {
@@ -32,11 +32,15 @@ export function createChallengeController(service: ChallengeService) {
   return {
     enhancePrompt: async (c: Context) => {
       const input = parseInput(
-        enhanceBuildPromptSchema,
+        enhanceBuildPromptRequestSchema,
         await readJson(c.req.raw),
       );
       return c.json({
-        data: await service.enhancePrompt(profileId(c), input.prompt),
+        data: await service.enhancePrompt(
+          profileId(c),
+          input.prompt,
+          input.selection,
+        ),
       });
     },
     active: async (c: Context) =>

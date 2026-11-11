@@ -10,6 +10,10 @@ import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
 import { enqueueGeneration } from "@/features/generations/api/generation-api";
 import { useSaveGenerationJob } from "@/features/generations/hooks/use-generation-jobs";
 import { useAppStore } from "@/shared/stores/app-store";
+import {
+  useComposerModel,
+  ModelPicker,
+} from "@/shared/components/ai/model-picker";
 import { useToast } from "@/shared/components/ui/toast";
 import { enhanceQuizPrompt } from "../api/quiz-api";
 import type {
@@ -25,6 +29,7 @@ const COUNTS = [5, 10, 15].map((count) => ({
 }));
 
 export function QuizComposer({ profileId }: { profileId: string }) {
+  const composer = useComposerModel();
   const [prompt, setPrompt] = useState("");
   const [difficulty, setDifficulty] = useState<QuizDifficulty>("medium");
   const [questionCount, setQuestionCount] = useState<QuestionCount>(10);
@@ -38,7 +43,12 @@ export function QuizComposer({ profileId }: { profileId: string }) {
   const { show } = useToast();
   const generation = useMutation({
     mutationFn: () => {
-      const settings = { prompt: prompt.trim(), difficulty, questionCount };
+      const settings = {
+        prompt: prompt.trim(),
+        difficulty,
+        questionCount,
+        selection: composer.selection,
+      };
       const signature = JSON.stringify(settings);
       if (request.current?.signature !== signature)
         request.current = {
@@ -65,7 +75,8 @@ export function QuizComposer({ profileId }: { profileId: string }) {
     },
   });
   const enhance = useMutation({
-    mutationFn: () => enhanceQuizPrompt(profileId, prompt.trim()),
+    mutationFn: () =>
+      enhanceQuizPrompt(profileId, prompt.trim(), composer.selection),
     onSuccess: (result) => {
       setOriginal(prompt);
       setPrompt(result.prompt);
@@ -139,6 +150,7 @@ export function QuizComposer({ profileId }: { profileId: string }) {
                 disabled={busy}
                 onChange={setDifficulty}
               />
+              <ModelPicker disabled={busy} />
             </div>
             <div className="ml-auto flex items-center gap-2">
               <Button

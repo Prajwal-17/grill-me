@@ -25,6 +25,7 @@ import {
 } from "@/shared/components/ui/tabs";
 import { QuizComposer } from "@/features/quizzes/components/quiz-composer";
 import { BookOpen, ListChecks } from "lucide-react";
+import { ModelPicker } from "@/shared/components/ai/model-picker";
 const SCOPES = [
   {
     id: "focused",
@@ -213,6 +214,7 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
                     reset();
                   }}
                 />
+                <ModelPicker disabled={busy} />
               </div>
               <div className="ml-auto flex shrink-0 items-center gap-2">
                 <Button

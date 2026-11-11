@@ -3,6 +3,7 @@ import { browseFolders } from "../projects/browse";
 import { beginUpload, appendUpload } from "../projects/uploads";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
+import { modelSelectionSchema } from "@repo/contracts";
 import type { createReviewService } from "./review.service";
 import { submissionRequestSchema } from "./review.service";
 import { parseInput, readJson } from "../../shared/http/validation";
@@ -125,11 +126,17 @@ export function createReviewRoutes(
   );
   routes.post("/reviews/:id/retry", async (c) => {
     const owner = await profile(c);
-    const { followup } = parseInput(
-      z.object({ followup: z.string().nullable().default(null) }),
+    const { followup, selection } = parseInput(
+      z.object({
+        followup: z.string().nullable().default(null),
+        selection: modelSelectionSchema.optional(),
+      }),
       await readJson(c.req.raw),
     );
-    return c.json({ data: await service.retry(id(c), owner, followup) }, 202);
+    return c.json(
+      { data: await service.retry(id(c), owner, followup, selection) },
+      202,
+    );
   });
   routes.post("/reviews/:id/cancel", async (c) =>
     c.json({ data: await service.cancel(id(c), await profile(c)) }),

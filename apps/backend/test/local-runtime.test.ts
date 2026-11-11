@@ -537,30 +537,75 @@ test("configured provider endpoint, key and model drive local AI calls without l
       authorization = request.headers.get("Authorization") ?? "";
       const body = (await request.json()) as { model: string };
       requestedModel = body.model;
-      return Response.json({
-        id: "fixture-response",
-        status: "completed",
-        model: "configured-fixture-model",
-        output: [
-          {
-            type: "message",
-            role: "assistant",
-            content: [
-              {
-                type: "output_text",
-                text: JSON.stringify({
-                  displayName: null,
-                  background: [],
-                  languages: [],
-                  technologies: [],
-                  projects: [],
-                }),
-                annotations: [],
-              },
-            ],
-          },
-        ],
+      const args = JSON.stringify({
+        displayName: null,
+        background: [],
+        languages: [],
+        technologies: [],
+        projects: [],
       });
+      const events = [
+        {
+          type: "response.created",
+          response: {
+            id: "fixture-response",
+            status: "in_progress",
+            output: [],
+          },
+        },
+        {
+          type: "response.output_item.added",
+          output_index: 0,
+          item: {
+            type: "function_call",
+            id: "fc_fixture",
+            call_id: "call_fixture",
+            name: "complete_resume",
+            arguments: "",
+            status: "in_progress",
+          },
+        },
+        {
+          type: "response.function_call_arguments.delta",
+          output_index: 0,
+          item_id: "fc_fixture",
+          delta: args,
+        },
+        {
+          type: "response.output_item.done",
+          output_index: 0,
+          item: {
+            type: "function_call",
+            id: "fc_fixture",
+            call_id: "call_fixture",
+            name: "complete_resume",
+            arguments: args,
+            status: "completed",
+          },
+        },
+        {
+          type: "response.completed",
+          response: {
+            id: "fixture-response",
+            status: "completed",
+            output: [],
+            usage: {
+              input_tokens: 10,
+              output_tokens: 5,
+              total_tokens: 15,
+            },
+          },
+        },
+      ];
+      return new Response(
+        events
+          .map(
+            (event) =>
+              `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+          )
+          .join(""),
+        { headers: { "Content-Type": "text/event-stream" } },
+      );
     },
   });
   const ws = await socket();

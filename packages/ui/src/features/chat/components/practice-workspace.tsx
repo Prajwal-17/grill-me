@@ -58,6 +58,7 @@ import { QuizWorkspace } from "@/features/quizzes/components/quiz-workspace";
 
 import { ChallengeReference } from "./challenge-reference";
 import { useWideWorkspace } from "../hooks/use-wide-workspace";
+import { useComposerModel } from "@/shared/components/ai/model-picker";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
 
 type Draft = {
@@ -94,6 +95,7 @@ export function PracticeWorkspace({
   backTo?: { label: string; href: string };
 }) {
   const queries = useQueryClient();
+  const composer = useComposerModel();
   const key = profile.id + ":" + challenge.id;
   const draft = useDrafts((s) => s.drafts[key] ?? emptyDraft);
   const updateDraft = useDrafts((s) => s.update);
@@ -255,6 +257,7 @@ export function PracticeWorkspace({
         projectId: draft.projectId || null,
         subdirectory: "",
         baseRevision: "",
+        ...(composer.selection ? { selection: composer.selection } : {}),
       });
     },
     onSuccess: async () => {
@@ -292,7 +295,12 @@ export function PracticeWorkspace({
     }) =>
       cancel
         ? cancelReview(profile.id, review.id)
-        : retryReview(profile.id, review.id, response ?? null),
+        : retryReview(
+            profile.id,
+            review.id,
+            response ?? null,
+            composer.selection,
+          ),
     onSuccess: refresh,
   });
   const hint = useMutation({

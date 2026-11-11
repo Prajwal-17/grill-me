@@ -17,10 +17,13 @@ This opens the complete Electron application, including its private local backen
 and React UI. There are no separate web/backend launch modes and no Docker setup.
 React changes hot reload; restart after backend changes.
 
-Use your installed Codex or OpenCode CLI, or an OmniRoute endpoint, in
-**Settings → Providers**. Turn a provider on, then choose which one handles AI
-requests. Grill Me does not install Codex or OpenCode. See
-[CLI connections and conversation recovery](docs/cli-providers.md).
+Add an API connection in **Settings → Providers**: OpenRouter, OpenCode Go,
+OmniRoute, OpenAI, or a custom OpenAI-compatible endpoint. Turn a connection on,
+then choose which one handles AI requests or pick an exact model and reasoning
+effort in a composer. AI runs through an embedded agent loop inside the local
+backend; installed Codex and OpenCode CLI integrations are preserved but
+inactive. See [AI providers and retained CLI integrations](docs/cli-providers.md)
+and [Embedded Pi agent runtime](docs/pi-runtime.md).
 
 ## Development and production
 
@@ -38,8 +41,9 @@ sessions, browser storage, keyring entries or plaintext credential files, upload
 and logs are separate. Both editions use their own local SQLite database; no
 external database is required. Existing dev data stays in the same folder. Data
 is never copied between editions automatically.
-Codex reuses the host CLI account by default; choose a custom CODEX_HOME in
-Advanced provider settings when you need a separate account.
+API credentials stay in the edition-scoped credential store or owner-only
+plaintext file. Preserved CLI records and homes are not used for production AI
+execution.
 
 ## Build and release
 

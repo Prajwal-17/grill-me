@@ -9,8 +9,15 @@ import {
   runtimeSettingsSchema,
   defaultProviderSettings,
   credentialStorageSchema,
+  searchSettingsInputSchema,
   type CredentialStorage,
+  type ModelCatalog,
+  type ModelSelection,
+  type Provider,
+  type ProviderHealth,
+  type ProviderModel,
   type ProviderInput,
+  type SearchSettingsInput,
   type LocalSettings,
   type RuntimeSettings,
   type SettingsApi,
@@ -30,6 +37,11 @@ const recordSchema = providerSchema.extend({
   storage: credentialStorageSchema,
   credential: z.string().uuid().optional(),
 });
+const searchDocumentSchema = z.object({
+  enabled: z.boolean().default(false),
+  credential: z.string().uuid().optional(),
+  storage: credentialStorageSchema.default("keyring"),
+});
 const documentSchema = z.object({
   version: z.literal(1),
   providers: z.array(recordSchema),
@@ -37,8 +49,14 @@ const documentSchema = z.object({
   disconnectedProviders: z.array(z.string().uuid()).default([]),
   runtime: runtimeSettingsSchema,
   migrated: z.boolean().default(false),
+  search: searchDocumentSchema.default({ enabled: false, storage: "keyring" }),
 });
 type Document = z.infer<typeof documentSchema>;
+type AgentIntegration = {
+  test(provider: Provider & { apiKey?: string }): Promise<ProviderHealth>;
+  models(provider: Provider & { apiKey?: string }): Promise<ProviderModel[]>;
+  catalog(): Promise<ModelCatalog>;
+};
 export function createSettingsService(
   root: string,
   options: {
@@ -47,9 +65,11 @@ export function createSettingsService(
     file?: SecretStore;
     modulePath?: string;
     cli?: CliProviders;
+    agent?: AgentIntegration;
     channel?: "development" | "production";
   } = {},
 ) {
+  let agent = options.agent;
   const db = new Database(join(root, "settings.sqlite"), {
     create: true,
     strict: true,
@@ -77,6 +97,7 @@ export function createSettingsService(
         disconnectedProviders: [],
         runtime: runtimeSettingsSchema.parse({}),
         migrated: false,
+        search: { enabled: false, storage: "keyring" },
       };
   for (const id of document.disconnectedProviders) options.cli?.disconnect(id);
   let sessionImported = false;
@@ -132,6 +153,16 @@ export function createSettingsService(
       );
     }
   };
+  async function searchConfigured() {
+    if (!document.search.credential) return false;
+    try {
+      return Boolean(
+        await store(document.search.storage).get(document.search.credential),
+      );
+    } catch {
+      return false;
+    }
+  }
   const get: SettingsApi["get"] = async () => {
     const status = await keyring.status();
     const providers = await Promise.all(
@@ -160,6 +191,11 @@ export function createSettingsService(
         message: old
           ? "Existing backend.env settings can be imported. A plaintext key is removed only after verified persistent storage."
           : null,
+      },
+      search: {
+        enabled: document.search.enabled,
+        configured: await searchConfigured(),
+        storage: document.search.storage,
       },
     } satisfies LocalSettings;
   };
@@ -295,8 +331,8 @@ export function createSettingsService(
             "Turn this provider on before selecting it.",
             409,
           );
-        if (selected && selected.kind !== "openai")
-          await options.cli?.connect(selected);
+        if (selected && selected.kind !== "openai" && options.cli)
+          await options.cli.connect(selected);
         persist({
           ...document,
           activeProviderId: id,
@@ -312,11 +348,80 @@ export function createSettingsService(
         applyRuntime();
         return get();
       }),
+    saveSearch: (input: SearchSettingsInput) =>
+      exclusive(async () => {
+        const parsed = searchSettingsInputSchema.parse(input);
+        const previous = document.search;
+        let credential = previous.credential;
+        let mode = previous.storage;
+        if (parsed.apiKey) {
+          mode = parsed.storage;
+          credential = await protect(mode, parsed.apiKey);
+        } else if (parsed.removeKey) {
+          credential = undefined;
+          mode = parsed.storage;
+        } else if (
+          document.search.credential &&
+          document.search.storage !== parsed.storage
+        ) {
+          let value: string | undefined;
+          try {
+            value = await store(document.search.storage).get(
+              document.search.credential,
+            );
+          } catch {
+            throw new AppError(
+              document.search.storage === "file"
+                ? "CREDENTIAL_FILE_UNAVAILABLE"
+                : "KEYRING_UNAVAILABLE",
+              "The web search key could not be read. Enter it again to change its storage.",
+              503,
+              true,
+            );
+          }
+          if (!value)
+            throw new AppError(
+              "KEY_UNAVAILABLE",
+              "Enter the web search key again to change its storage.",
+              400,
+            );
+          mode = parsed.storage;
+          credential = await protect(mode, value);
+        }
+        try {
+          persist({
+            ...document,
+            search: {
+              enabled: parsed.enabled,
+              credential,
+              storage: mode,
+            },
+          });
+        } catch (error) {
+          if (credential && credential !== previous.credential)
+            await store(mode)
+              .remove(credential)
+              .catch(() => {});
+          throw error;
+        }
+        if (previous.credential && previous.credential !== credential)
+          await store(previous.storage)
+            .remove(previous.credential)
+            .catch(() => {});
+        return get();
+      }),
     testProvider: async (id) => {
       try {
         const value = await snapshot(id);
         if (value.kind !== "openai") {
-          const status = await options.cli!.status(value);
+          if (!options.cli)
+            return {
+              ok: false,
+              code: "INTEGRATION_INACTIVE",
+              message:
+                "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+            };
+          const status = await options.cli.status(value);
           if (!status.connected)
             return { ok: false, message: status.message, code: status.code };
           const model =
@@ -344,6 +449,7 @@ export function createSettingsService(
             };
           return { ok: true, message: status.message };
         }
+        if (agent) return agent.test(value);
         await apiModels(value);
         return {
           ok: true,
@@ -408,7 +514,7 @@ export function createSettingsService(
     if (!provider)
       throw new AppError(
         "MODEL_NOT_CONFIGURED",
-        "Turn on Codex, OpenCode, or OmniRoute in Settings → Providers, then select one for AI requests.",
+        "Add or select an API provider in Settings → Providers before making AI requests.",
         503,
       );
     if (
@@ -448,6 +554,27 @@ export function createSettingsService(
     return { ...provider, apiKey };
   }
   applyRuntime();
+  async function apiConnections() {
+    const records = document.providers.filter(
+      (provider) =>
+        provider.kind === "openai" &&
+        provider.enabled &&
+        !document.disconnectedProviders.includes(provider.id),
+    );
+    return Promise.all(
+      records.map(async (provider) => {
+        let apiKey: string | undefined;
+        if (provider.credential) {
+          try {
+            apiKey = await store(provider.storage).get(provider.credential);
+          } catch {
+            apiKey = undefined;
+          }
+        }
+        return { ...provider, apiKey };
+      }),
+    );
+  }
   async function provider(id: string) {
     const value = document.providers.find((p) => p.id === id);
     if (!value)
@@ -498,8 +625,15 @@ export function createSettingsService(
       }),
     models: async (id: string) => {
       const value = await snapshot(id);
-      if (value.kind === "openai") return apiModels(value);
-      const status = await options.cli!.status(value);
+      if (value.kind === "openai")
+        return agent ? agent.models(value) : apiModels(value);
+      if (!options.cli)
+        throw new AppError(
+          "INTEGRATION_INACTIVE",
+          "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+          503,
+        );
+      const status = await options.cli.status(value);
       if (!status.connected)
         throw new AppError(
           status.code ?? "PROVIDER_DISCONNECTED",
@@ -514,6 +648,12 @@ export function createSettingsService(
     connectProvider: (id: string) =>
       exclusive(async () => {
         const value = await provider(id);
+        if (!options.cli)
+          throw new AppError(
+            "INTEGRATION_INACTIVE",
+            "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+            503,
+          );
         if (!value.enabled)
           throw new AppError(
             "PROVIDER_DISABLED",
@@ -532,6 +672,12 @@ export function createSettingsService(
     disconnectProvider: (id: string) =>
       exclusive(async () => {
         await provider(id);
+        if (!options.cli)
+          throw new AppError(
+            "INTEGRATION_INACTIVE",
+            "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+            503,
+          );
         persist({
           ...document,
           activeProviderId:
@@ -543,6 +689,72 @@ export function createSettingsService(
         options.cli!.disconnect(id);
         return get();
       }),
+    apiConnections,
+    async resolveSelection(selection?: ModelSelection) {
+      const value = selection
+        ? await snapshot(selection.providerId)
+        : await snapshot();
+      if (value.kind !== "openai")
+        throw new AppError(
+          "API_PROVIDER_REQUIRED",
+          "Select an API provider in Settings → Providers. CLI integrations are inactive.",
+          503,
+        );
+      return {
+        ...value,
+        model: selection?.model ?? value.model,
+        reasoningEffort: selection
+          ? (selection.reasoningEffort ?? undefined)
+          : value.reasoningEffort,
+      };
+    },
+    async searchKey() {
+      if (!document.search.enabled || !document.search.credential)
+        return undefined;
+      try {
+        return (
+          (await store(document.search.storage).get(
+            document.search.credential,
+          )) ?? undefined
+        );
+      } catch {
+        return undefined;
+      }
+    },
+    async catalog(): Promise<ModelCatalog> {
+      if (agent) return agent.catalog();
+      const connections = await apiConnections();
+      return {
+        activeConnectionId: connections.some(
+          (connection) => connection.id === document.activeProviderId,
+        )
+          ? document.activeProviderId
+          : null,
+        connections: await Promise.all(
+          connections.map(async (connection) => {
+            const models = [
+              {
+                id: connection.model,
+                name: connection.model,
+                capabilities: connection.capabilities,
+              },
+            ];
+            return {
+              id: connection.id,
+              name: connection.name,
+              preset: connection.preset,
+              protocol: connection.protocol,
+              models,
+              defaultModel: connection.model,
+              defaultReasoningEffort: connection.reasoningEffort,
+            };
+          }),
+        ),
+      };
+    },
+    setAgent(value: AgentIntegration | undefined) {
+      agent = value;
+    },
     close: () => db.close(),
   };
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { modelSelectionSchema } from "@repo/contracts";
 import { requestsImplementation } from "./clarification-policy";
 
 export const buildScopeSchema = z.enum(["focused", "feature", "system"]);
@@ -122,12 +123,17 @@ const buildRequestSchema = z.object({
   prompt: z.string().trim().min(3).max(4_000),
   scope: buildScopeSchema,
   difficulty: buildDifficultySchema,
+  selection: modelSelectionSchema.optional(),
 });
 
 export const prepareChallengeRequestSchema = buildRequestSchema;
 
 export const enhanceBuildPromptSchema = z.object({
   prompt: z.string().trim().min(1).max(4_000),
+});
+
+export const enhanceBuildPromptRequestSchema = enhanceBuildPromptSchema.extend({
+  selection: modelSelectionSchema.optional(),
 });
 
 export const clarificationContextSchema = z.object({

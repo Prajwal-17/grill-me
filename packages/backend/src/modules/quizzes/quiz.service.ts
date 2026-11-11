@@ -149,7 +149,11 @@ export function createQuizService(
           "This model does not support prompt enhancement.",
           503,
         );
-      return llm.enhanceQuizPrompt({ profileId, prompt: request.prompt });
+      return llm.enhanceQuizPrompt({
+        profileId,
+        prompt: request.prompt,
+        selection: request.selection,
+      });
     },
 
     async list(

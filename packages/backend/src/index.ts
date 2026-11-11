@@ -26,16 +26,21 @@ export async function createBackend(options: {
   await migrateDatabase();
   const [
     { createApp },
-    { createOpenAIModel },
     { logModel },
     { createReviewService },
+    { agentRunStore },
   ] = await Promise.all([
     import("./app"),
-    import("./modules/ai/openai.model"),
     import("./modules/logs/log.model"),
     import("./modules/reviews/review.service"),
+    import("./modules/ai/agent/store"),
   ]);
-  const llm = options.llm ?? createOpenAIModel();
+  if (!options.llm)
+    throw new Error(
+      "createBackend requires an embedded model gateway. Configure an API provider before starting the backend.",
+    );
+  const llm = options.llm;
+  await agentRunStore.markInterrupted();
   await logModel.markInterrupted();
   await (
     await import("./modules/messages/message.model")

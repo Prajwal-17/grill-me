@@ -1,4 +1,5 @@
 import { apiRequest } from "@/shared/lib/api-client";
+import type { ModelSelection } from "@repo/contracts";
 import type {
   GenerateQuizRequest,
   GenerateStandaloneQuizRequest,
@@ -82,10 +83,20 @@ export function restoreQuiz(
     profileId,
   );
 }
-export function enhanceQuizPrompt(profileId: string, prompt: string) {
+export function enhanceQuizPrompt(
+  profileId: string,
+  prompt: string,
+  selection?: ModelSelection,
+) {
   return apiRequest<{ prompt: string }>(
     "/quizzes/enhance-prompt",
-    { method: "POST", body: JSON.stringify({ prompt }) },
+    {
+      method: "POST",
+      body: JSON.stringify({
+        prompt,
+        ...(selection ? { selection } : {}),
+      }),
+    },
     profileId,
   );
 }

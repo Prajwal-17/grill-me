@@ -6,7 +6,10 @@ import { parseInput, readJson } from "../../shared/http/validation";
 import { challengeParamsSchema } from "../challenges/challenge.schema";
 import { profileIdSchema } from "../profiles/profile.schema";
 import type { MessageService } from "./message.service";
-import { createMessageRequestSchema } from "./message.schema";
+import {
+  createMessageRequestSchema,
+  retryMessageRequestSchema,
+} from "./message.schema";
 
 function profileId(c: Context) {
   const value = c.req.header("X-Profile-Id");
@@ -31,6 +34,10 @@ export function createMessageController(service: MessageService) {
 
     retry: async (c: Context) => {
       await service.assertAccess(challengeId(c), profileId(c));
+      const input = parseInput(
+        retryMessageRequestSchema,
+        await readJson(c.req.raw),
+      );
       return streamNdjson(c, (onDelta, signal) =>
         service.retry(
           challengeId(c),
@@ -38,6 +45,7 @@ export function createMessageController(service: MessageService) {
           parseInput(z.string().uuid(), c.req.param("messageId")),
           onDelta,
           signal,
+          input.selection,
         ),
       );
     },

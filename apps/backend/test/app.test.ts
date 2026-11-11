@@ -1142,7 +1142,7 @@ describe("build quality pipeline", () => {
     });
   });
 
-  test("saves the generated challenge and sends recent work only when enabled", async () => {
+  test("saves the generated challenge without history enrichment", async () => {
     const model = new FakeModel();
     const app = createApp({ llm: model });
     const profile = await startProfile(
@@ -1223,9 +1223,12 @@ describe("build quality pipeline", () => {
       includeRecentChallenges: true,
     });
     await createChallenge(app, profile.id, { prompt: "A different request" });
+    expect(model.generationInputs.at(-1)?.learner.recentChallenges).toEqual([]);
+    expect(model.generationInputs.at(-1)?.learner.recentEvidence).toEqual([]);
+    const active = await request(app, "/challenges/active", profile.id);
     expect(
-      model.generationInputs.at(-1)?.learner.recentChallenges[0]?.title,
-    ).toBe(generated.title);
+      (await json<{ data: Challenge[] }>(active)).data.length,
+    ).toBeGreaterThan(0);
   });
 
   test("assigns stable challenge numbers per profile", async () => {

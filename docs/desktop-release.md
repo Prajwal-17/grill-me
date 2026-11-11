@@ -3,9 +3,9 @@
 `bun dev` starts the complete Electron application, local Bun backend, and React
 renderer on Linux or macOS. Install Node (see `.node-version`) and Bun 1.4.1, then
 run `bun install --frozen-lockfile`. There are no separate backend/web commands.
-Installed packages include Bun, SQLite, the renderer, resume parser worker, and
-the matching native credential binding. Codex remains an optional installed
-executable.
+Installed packages include Bun, SQLite, the renderer, resume parser worker, the
+embedded Pi agent runtime, and the matching native credential binding. Installed
+Codex and OpenCode CLIs are not required for AI execution.
 
 ## Editions and data
 
@@ -26,8 +26,8 @@ On Linux it is under `$XDG_CONFIG_HOME/<data directory name>/`, defaulting to
 `~/.config/`. Each directory owns its SQLite database, settings, uploads, review
 snapshots, logs, API credentials, and Electron session data. Both editions
 can be installed and run side by side. Neither reads or migrates the other
-edition's data. Provider selection is edition-specific;
-Codex deliberately reuses the host CLI login unless a custom home is configured.
+edition's data. API connection selection and credentials are edition-specific.
+Preserved CLI records and homes are not used for production AI execution.
 Back up data with the edition closed. Uninstalling retains data.
 
 API keys use macOS Keychain or Linux Secret Service through `@napi-rs/keyring`.
@@ -45,8 +45,8 @@ inherited PATH priority and adds both Homebrew prefixes, `~/.local/bin`,
 `~/.bun/bin`, `~/.opencode/bin`, npm-global, Volta, pnpm, Cargo, and installed
 nvm/fnm versions on Linux and macOS. Explicit executable paths in Settings take
 precedence. Custom installations can be selected there. Provider settings and API
-credentials remain edition-scoped; Codex account ownership follows the selected
-CODEX_HOME.
+credentials remain edition-scoped. Preserved Codex and OpenCode CLI records are
+readable but inactive, and their homes are never started by the app.
 
 macOS uses the native title bar, traffic lights, application/Edit/Window menus,
 and Command shortcuts (copy/paste/undo/select all, zoom, reload, settings, sidebar).

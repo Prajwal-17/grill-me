@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { enhanceBuildPrompt } from "@/features/challenges/api/challenge-api";
 import { useBuildStore } from "@/features/chat/stores/chat-store";
 import { useAppStore } from "@/shared/stores/app-store";
+import { useComposerModel } from "@/shared/components/ai/model-picker";
 import { useToast } from "@/shared/components/ui/toast";
 import type { Profile } from "@/shared/types/api";
 import {
@@ -22,6 +23,7 @@ import type {
 
 export function useCreateBuild(profile: Profile) {
   const store = useBuildStore();
+  const composer = useComposerModel();
   const resetBuild = store.resetBuild;
   const [params, setParams] = useSearchParams();
   const generationId = params.get("generation") ?? "";
@@ -98,6 +100,7 @@ export function useCreateBuild(profile: Profile) {
       store.setPrompt(source.prompt);
       store.setScope(source.scope);
       store.setDifficulty(source.difficulty);
+      if (source.selection) composer.setSelection(source.selection);
       clearSelection();
       setChoice("");
       setCustom("");
@@ -107,7 +110,8 @@ export function useCreateBuild(profile: Profile) {
     },
   });
   const enhance = useMutation({
-    mutationFn: (original: string) => enhanceBuildPrompt(profile.id, original),
+    mutationFn: (original: string) =>
+      enhanceBuildPrompt(profile.id, original, composer.selection),
     onSuccess: (result, original) => {
       if (!mounted.current || useBuildStore.getState().prompt !== original)
         return;
@@ -144,6 +148,7 @@ export function useCreateBuild(profile: Profile) {
       difficulty: store.difficulty,
       clarificationContext: null,
       clarificationHistory: [],
+      ...(composer.selection ? { selection: composer.selection } : {}),
     };
     const signature = JSON.stringify(input);
     const request: GenerationRequest =
@@ -197,5 +202,6 @@ export function useCreateBuild(profile: Profile) {
     skipClarification: () => {
       if (!busy) retry.mutate();
     },
+    selection: composer.selection,
   };
 }

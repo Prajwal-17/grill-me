@@ -204,7 +204,12 @@ export async function captureSubmission(input: {
           `Duplicate submission filename: ${attachment.filename}`,
           400,
         );
-      await writeFile(join(dest, attachment.filename), attachment.text);
+      await writeFile(
+        join(dest, attachment.filename),
+        attachment.data && attachment.mimeType
+          ? Buffer.from(attachment.data, "base64")
+          : attachment.text,
+      );
       await add(attachment.filename);
     }
     for (const upload of input.uploads ?? []) {
@@ -259,6 +264,41 @@ export async function readSnapshot(path: string, manifest: Manifest) {
       filename: file.path,
       text: await readFile(join(path, file.path), "utf8"),
     })),
+  );
+}
+
+const imageTypes: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+/** Read supported image files from a saved snapshot for native image content. */
+export async function readSnapshotImages(
+  path: string,
+  manifest: Manifest,
+  maxBytes = 2 * 1024 * 1024,
+  maxImages = 4,
+): Promise<
+  { filename: string; text: string; mimeType: string; data: string }[]
+> {
+  return Promise.all(
+    manifest
+      .filter((file) => {
+        const extension = file.path.split(".").pop()?.toLowerCase() ?? "";
+        return Boolean(imageTypes[extension]) && file.bytes <= maxBytes;
+      })
+      .slice(0, maxImages)
+      .map((file) =>
+        readFile(join(path, file.path)).then((bytes) => ({
+          filename: file.path,
+          text: "",
+          mimeType: imageTypes[file.path.split(".").pop()!.toLowerCase()]!,
+          data: bytes.toString("base64"),
+        })),
+      ),
   );
 }
 

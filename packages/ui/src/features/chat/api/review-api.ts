@@ -6,6 +6,7 @@ import type {
   Challenge,
   TopicProgress,
   SubmissionFile,
+  ModelSelection,
 } from "@/shared/types/api";
 const post = (data: unknown) => ({
   method: "POST",
@@ -58,6 +59,7 @@ export const submitAttempt = (
     projectId: string | null;
     subdirectory: string;
     baseRevision: string;
+    selection?: ModelSelection;
   },
 ) =>
   apiRequest<{ submission: PracticeSubmission; review: ReviewJob }>(
@@ -69,7 +71,13 @@ export const retryReview = (
   profile: string,
   id: string,
   followup: string | null = null,
-) => apiRequest<ReviewJob>(`/reviews/${id}/retry`, post({ followup }), profile);
+  selection?: ModelSelection,
+) =>
+  apiRequest<ReviewJob>(
+    `/reviews/${id}/retry`,
+    post({ followup, ...(selection ? { selection } : {}) }),
+    profile,
+  );
 export const cancelReview = (profile: string, id: string) =>
   apiRequest<ReviewJob>(`/reviews/${id}/cancel`, post({}), profile);
 export const setChallengeStatus = (
