@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Remove word-count targets from challenge scope policies so generated briefs are shaped by the task and selected scope instead of an arbitrary length.
+
 ## desktop-v0.1.13 - 11 Nov 2026
 
 ### Added

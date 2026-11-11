@@ -1870,7 +1870,7 @@ describe("bounded challenge generation", () => {
       "Easy systems use one service",
     );
   });
-  test("a valid response above the suggested word budget is saved without regeneration", async () => {
+  test("a valid long response is saved without regeneration", async () => {
     const model = new FakeModel();
     model.final = {
       ...generated,

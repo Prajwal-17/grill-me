@@ -576,3 +576,39 @@ test("preparation checks missing requirements without inheriting assignment-writ
   );
   expect(prompt.instructions).toContain("needs no clarification");
 });
+
+test("generation prompt includes only the selected scope and difficulty policy", async () => {
+  const { generationPrompt } =
+    await import("@repo/backend/modules/ai/prompts/generate-build");
+  const profileId = crypto.randomUUID();
+  const learner = {
+    profileId,
+    preferences: profilePreferencesSchema.parse({
+      profileId,
+      updatedAt: "2026-01-01T00:00:00Z",
+    }),
+    recentChallenges: [],
+  };
+  const scopes = ["focused", "feature", "system"] as const;
+  const difficulties = ["easy", "medium", "hard", "grill"] as const;
+
+  for (const scope of scopes) {
+    for (const difficulty of difficulties) {
+      const { instructions } = generationPrompt({
+        prompt: "I want a challenge for promises",
+        scope,
+        difficulty,
+        clarificationContext: null,
+        learner,
+      });
+      expect(instructions).toContain(`${scope.toUpperCase()}:`);
+      expect(instructions).toContain(`${difficulty.toUpperCase()}:`);
+      for (const other of scopes.filter((value) => value !== scope))
+        expect(instructions).not.toContain(`${other.toUpperCase()}:`);
+      for (const other of difficulties.filter((value) => value !== difficulty))
+        expect(instructions).not.toContain(`${other.toUpperCase()}:`);
+      expect(instructions).not.toMatch(/Target \d+[–-]\d+ words/);
+      expect(instructions).not.toContain("brief budget");
+    }
+  }
+});
