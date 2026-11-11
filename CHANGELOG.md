@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Add 3-question quizzes and a custom quiz length, capped at 30 questions.
+
+### Changed
+
+- Generate quizzes in a focused single-screen dialog that keeps the quiz
+  collection visible, and choose the model and reasoning effort before
+  generating.
+
 ## desktop-v0.1.12 - 11 Nov 2026
 
 ### Changed

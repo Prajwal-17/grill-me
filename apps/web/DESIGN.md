@@ -422,10 +422,14 @@ rather than installing a second component vocabulary. Configuration reference:
   `CollectionToolbar` and `CollectionSummary` supply recurring framing. Domain
   collections retain suitable responsive layouts. Search/filter empty states
   offer reset; actual empty states expose the relevant creation action.
-- **Quizzes:** generation appears inline. Opening creation keeps an active
-  attempt mounted and registered for autosave. Collection state persists in the
-  existing per-profile namespace and in URL parameters; unrelated URL state is
-  preserved. Resume, retake, recovery, deletion/restore, and scoring are unchanged.
+- **Quizzes:** generation opens in one compact dialog over the collection. The
+  prompt, question count, difficulty or coverage, and model/reasoning selection
+  share one screen; challenge quizzes omit the prompt. Question count presets
+  include 3, 5, 10, and 15, and a custom count is capped at 30. Cancel stays in
+  the dialog header, and the active attempt stays mounted and registered for
+  autosave behind the dialog. Collection state persists in the existing
+  per-profile namespace and in URL parameters; unrelated URL state is preserved.
+  Resume, retake, recovery, deletion/restore, and scoring are unchanged.
 - **Discussion recovery:** Questions & follow-ups stays in the task's reading
   column, separated by quiet dividers. Stop response replaces Send message while
   streaming. Failed, cancelled, and interrupted replies retain saved partial text

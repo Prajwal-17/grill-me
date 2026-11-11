@@ -2,11 +2,7 @@ import { z } from "zod";
 import { modelSelectionSchema } from "@repo/backend/shared/contracts";
 import { buildDifficultySchema } from "../challenges/challenge.schema";
 
-export const questionCountSchema = z.union([
-  z.literal(5),
-  z.literal(10),
-  z.literal(15),
-]);
+export const questionCountSchema = z.number().int().min(1).max(30);
 export const quizCoverageSchema = z.enum(["challenge", "related", "mixed"]);
 export const generateQuizRequestSchema = z.object({
   requestId: z.string().uuid(),
@@ -88,7 +84,7 @@ export const saveQuizAnswersSchema = z.object({
   answers: z
     .record(z.string().uuid(), z.number().int().min(0).max(3))
     .refine(
-      (answers) => Object.keys(answers).length <= 15,
+      (answers) => Object.keys(answers).length <= 30,
       "Too many answers.",
     ),
 });

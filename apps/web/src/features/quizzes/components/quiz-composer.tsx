@@ -20,7 +20,7 @@ import type {
   QuizDifficulty,
 } from "../types";
 
-const COUNTS = [5, 10, 15].map((count) => ({
+const COUNTS = [3, 5, 10, 15].map((count) => ({
   id: String(count),
   label: `${count} questions`,
   icon: ListChecks,
