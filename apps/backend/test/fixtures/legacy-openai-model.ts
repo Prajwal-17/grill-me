@@ -60,7 +60,7 @@ import {
 
 import type { TextTransport } from "@repo/backend/local/providers/common";
 import { providerError } from "@repo/backend/local/providers/common";
-import type { ReasoningEffort } from "@repo/contracts";
+import type { ReasoningEffort } from "@repo/backend/shared/contracts";
 
 type StructuredPrompt = {
   instructions: string;

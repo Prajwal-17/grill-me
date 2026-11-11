@@ -12,7 +12,7 @@ import {
   normalizeTechnologies,
   optionLabels,
   STACK,
-} from "@repo/preferences";
+} from "@repo/backend/shared/preferences";
 import type { ModelGateway } from "../../../packages/backend/src/modules/ai/model-gateway";
 
 const fixture = (name: string) =>

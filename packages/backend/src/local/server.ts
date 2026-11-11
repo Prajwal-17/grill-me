@@ -13,7 +13,7 @@ import {
   clientFrameSchema,
   type ServerFrame,
   type ConnectionBootstrap,
-} from "@repo/contracts";
+} from "@repo/backend/shared/contracts";
 import { createBackend } from "../index";
 import { onDatabaseChange } from "./changes";
 import { createSettingsService } from "./settings";

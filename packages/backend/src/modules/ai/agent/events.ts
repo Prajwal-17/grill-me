@@ -1,5 +1,5 @@
 import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
-import type { AgentRunEvent } from "@repo/contracts";
+import type { AgentRunEvent } from "@repo/backend/shared/contracts";
 
 const SECRET_KEY =
   /^(authorization|proxy-authorization|x-api-key|api[-_]?key|access[-_]?token|refresh[-_]?token|password|secret|cookie|set-cookie|token)$/i;

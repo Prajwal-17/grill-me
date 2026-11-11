@@ -1,5 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import type { Provider, ProviderConnection } from "@repo/contracts";
+import type {
+  Provider,
+  ProviderConnection,
+} from "@repo/backend/shared/contracts";
 import { OpenCode2 } from "./opencode2";
 import { AppError } from "../../shared/errors/app-error";
 import {

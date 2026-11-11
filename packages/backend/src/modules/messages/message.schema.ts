@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { modelSelectionSchema } from "@repo/contracts";
+import { modelSelectionSchema } from "@repo/backend/shared/contracts";
 
 const sourceExtensions = new Set([
   "asm",

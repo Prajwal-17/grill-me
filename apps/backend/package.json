@@ -10,8 +10,6 @@
   "dependencies": {
     "@earendil-works/pi-ai": "1.5.2",
     "@repo/backend": "workspace:*",
-    "@repo/contracts": "workspace:*",
-    "@repo/preferences": "*",
     "drizzle-orm": "^0.44.0",
     "hono": "^4.0.0",
     "mammoth": "^1.13.0",

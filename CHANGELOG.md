@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed
+
+- Restore the React app to `apps/web` and simplify the workspace so frontend
+  code, the RPC client, contracts, and preference options no longer live in
+  separate packages; desktop behavior and stored data are unchanged.
+
 ## desktop-v0.1.11 - 09 Nov 2026
 
 ### Added

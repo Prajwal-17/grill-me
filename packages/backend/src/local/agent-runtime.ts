@@ -1,4 +1,4 @@
-import type { ModelCatalog } from "@repo/contracts";
+import type { ModelCatalog } from "@repo/backend/shared/contracts";
 import type { SettingsService } from "./settings";
 import type { AgentRuntime } from "../modules/ai/agent/types";
 import {

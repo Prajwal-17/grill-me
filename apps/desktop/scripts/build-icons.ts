@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dir, "..");
-const svg = await readFile(resolve(root, "renderer/public/icon.svg"));
+const svg = await readFile(resolve(root, "../web/public/icon.svg"));
 const output = resolve(root, "resources/icons");
 await mkdir(output, { recursive: true });
 

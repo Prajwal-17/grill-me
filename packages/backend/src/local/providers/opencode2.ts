@@ -1,4 +1,4 @@
-import type { ProviderConnection } from "@repo/contracts";
+import type { ProviderConnection } from "@repo/backend/shared/contracts";
 import { AppError } from "../../shared/errors/app-error";
 import { providerError, TextQueue, type GenerationInput } from "./common";
 type RequestOptions = {

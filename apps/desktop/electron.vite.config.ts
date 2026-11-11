@@ -5,12 +5,13 @@ import { desktopIdentity, type DesktopChannel } from "./src/identity";
 
 export default defineConfig(({ mode }) => {
   const identity = desktopIdentity(mode as DesktopChannel);
+  const webRoot = resolve(import.meta.dirname, "../web");
   return {
     main: {
       define: { __DESKTOP_CHANNEL__: JSON.stringify(identity.channel) },
       build: {
         externalizeDeps: {
-          exclude: ["@repo/backend", "@repo/contracts", "zod"],
+          exclude: ["@repo/backend", "zod"],
         },
         rollupOptions: {
           input: { index: resolve(import.meta.dirname, "src/main.ts") },
@@ -27,8 +28,8 @@ export default defineConfig(({ mode }) => {
     },
     renderer: {
       cacheDir: resolve(import.meta.dirname, "node_modules/.vite-electron"),
-      root: resolve(import.meta.dirname, "renderer"),
-      envDir: resolve(import.meta.dirname, "env"),
+      root: webRoot,
+      envDir: webRoot,
       plugins: [
         react(),
         {
@@ -48,7 +49,7 @@ export default defineConfig(({ mode }) => {
         },
       ],
       resolve: {
-        alias: { "@": resolve(import.meta.dirname, "../../packages/ui/src") },
+        alias: { "@": resolve(webRoot, "src") },
       },
       define: {
         "import.meta.env.VITE_LOCAL_TRANSPORT": "true",
@@ -79,7 +80,7 @@ export default defineConfig(({ mode }) => {
       build: {
         outDir: resolve(import.meta.dirname, "out/renderer"),
         rollupOptions: {
-          input: resolve(import.meta.dirname, "renderer/index.html"),
+          input: resolve(webRoot, "index.html"),
         },
       },
     },

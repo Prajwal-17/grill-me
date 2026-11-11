@@ -16,7 +16,10 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { backendEnvironment } from "./config";
 import { windowSettingsStore } from "./window-settings";
-import { windowSettingsSchema, type DesktopState } from "@repo/contracts";
+import {
+  windowSettingsSchema,
+  type DesktopState,
+} from "@repo/backend/shared/contracts";
 import { desktopIdentity, type DesktopChannel } from "./identity";
 import { registerUpdater } from "./updater/electron";
 

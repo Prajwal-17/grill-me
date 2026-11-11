@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { mkdir, chmod } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import type { Provider, ReasoningEffort } from "@repo/contracts";
+import type { Provider, ReasoningEffort } from "@repo/backend/shared/contracts";
 import { AppError } from "../../shared/errors/app-error";
 export type GenerationInput = {
   instructions: string;

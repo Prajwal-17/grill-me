@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { modelSelectionSchema } from "@repo/contracts";
+import { modelSelectionSchema } from "@repo/backend/shared/contracts";
 import { requestsImplementation } from "./clarification-policy";
 
 export const buildScopeSchema = z.enum(["focused", "feature", "system"]);

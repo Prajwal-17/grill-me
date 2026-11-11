@@ -1,4 +1,4 @@
-import type { ModelSelection } from "@repo/contracts";
+import type { ModelSelection } from "@repo/backend/shared/contracts";
 import type { ModelGateway } from "../ai/model-gateway";
 import type { ChallengeModel } from "../challenges/challenge.model";
 import {

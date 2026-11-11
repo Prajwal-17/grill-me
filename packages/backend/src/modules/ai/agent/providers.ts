@@ -21,7 +21,7 @@ import type {
   ProviderPreset,
   ProviderProtocol,
   ReasoningEffort,
-} from "@repo/contracts";
+} from "@repo/backend/shared/contracts";
 import { AppError } from "../../../shared/errors/app-error";
 
 export type AgentConnection = Provider & { apiKey?: string };

@@ -476,7 +476,7 @@ test("valid reviews finish without a correction request", async () => {
 });
 
 test("project matching respects short custom technologies and distinguishes C from C#", async () => {
-  const { EMPTY_GUIDED } = await import("@repo/preferences");
+  const { EMPTY_GUIDED } = await import("@repo/backend/shared/preferences");
   const { projectDeveloperContext } =
     await import("../../../packages/backend/src/modules/profiles/developer-context");
   const preferences = {

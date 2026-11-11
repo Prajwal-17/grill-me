@@ -10,7 +10,7 @@ import {
 } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { defaultProviderSettings } from "../../../packages/contracts/src";
+import { defaultProviderSettings } from "@repo/backend/shared/contracts";
 import { createSettingsService } from "@repo/backend/local/settings";
 import { fileSecretStore, type SecretStore } from "@repo/backend/local/secrets";
 import { memorySecretStore } from "./fixtures/memory-secret-store";

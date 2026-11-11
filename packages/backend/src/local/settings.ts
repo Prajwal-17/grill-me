@@ -19,7 +19,7 @@ import {
   type LocalSettings,
   type RuntimeSettings,
   type SettingsApi,
-} from "@repo/contracts";
+} from "@repo/backend/shared/contracts";
 import { AppError } from "../shared/errors/app-error";
 import { changed } from "./changes";
 import type { CliProviders } from "./providers";

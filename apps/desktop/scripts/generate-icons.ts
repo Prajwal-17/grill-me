@@ -1,7 +1,7 @@
 import { Resvg } from "@resvg/resvg-js";
 import { readFile, writeFile } from "node:fs/promises";
 const svg = await readFile(
-  new URL("../renderer/public/icon.svg", import.meta.url),
+  new URL("../../web/public/icon.svg", import.meta.url),
 );
 // ICNS supports PNG payloads. No iconutil, sips, or other macOS tools needed.
 const chunks = [

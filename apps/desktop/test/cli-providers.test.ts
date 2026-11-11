@@ -9,7 +9,10 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { providerInputSchema, providerSchema } from "@repo/contracts";
+import {
+  providerInputSchema,
+  providerSchema,
+} from "@repo/backend/shared/contracts";
 import { createCliProviders } from "../../../packages/backend/src/local/providers";
 import { createSettingsService } from "../../../packages/backend/src/local/settings";
 import { memorySecretStore } from "../../backend/test/fixtures/memory-secret-store";

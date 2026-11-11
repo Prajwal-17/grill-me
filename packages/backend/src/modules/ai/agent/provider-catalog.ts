@@ -1,4 +1,7 @@
-import type { ProviderHealth, ProviderModel } from "@repo/contracts";
+import type {
+  ProviderHealth,
+  ProviderModel,
+} from "@repo/backend/shared/contracts";
 import { AppError } from "../../../shared/errors/app-error";
 import { apiModels } from "../../../local/providers/api";
 import {

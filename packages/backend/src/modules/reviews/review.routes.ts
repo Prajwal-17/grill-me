@@ -3,7 +3,7 @@ import { browseFolders } from "../projects/browse";
 import { beginUpload, appendUpload } from "../projects/uploads";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { modelSelectionSchema } from "@repo/contracts";
+import { modelSelectionSchema } from "@repo/backend/shared/contracts";
 import type { createReviewService } from "./review.service";
 import { submissionRequestSchema } from "./review.service";
 import { parseInput, readJson } from "../../shared/http/validation";

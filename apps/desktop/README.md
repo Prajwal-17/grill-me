@@ -1,8 +1,8 @@
 # Grill Me desktop
 
 Run the complete app from the repository root with `bun dev`. Electron owns its
-Bun/SQLite backend process and the React renderer in `renderer/`. Backend and UI
-logic remain shared workspace packages, with no separate launch commands.
+Bun/SQLite backend process and builds the React app in `apps/web` as its renderer.
+Backend code stays in `packages/backend`, with no separate launch commands.
 
 Settings → Providers offers Codex and OmniRoute, each with an on/off switch and
 a separate selector for AI requests. Codex reuses the installed CLI login and
@@ -33,7 +33,7 @@ See [builds and releases](../../docs/desktop-release.md) for exact package comma
 CI workflows, versioning, installation, and storage. See
 [CLI providers](../../docs/cli-providers.md) for authentication and history.
 
-Linux launcher and window icons are generated from `renderer/public/icon.svg`.
+Linux launcher and window icons are generated from `apps/web/public/icon.svg`.
 `bun run --cwd apps/desktop icons` exports static PNGs at native icon sizes to
 `resources/icons`. Development and package builds regenerate these assets;
 both editions use the same complete logo.

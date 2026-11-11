@@ -9,7 +9,7 @@ import {
   optionIds,
   normalizeTechnologies,
   mergeProjects,
-} from "@repo/preferences";
+} from "@repo/backend/shared/preferences";
 export const profileIdSchema = z.string().uuid();
 export const startProfileRequestSchema = z.object({
   email: z.string().trim().toLowerCase().max(254).pipe(z.email()),

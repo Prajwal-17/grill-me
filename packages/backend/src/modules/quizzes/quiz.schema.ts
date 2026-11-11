@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { modelSelectionSchema } from "@repo/contracts";
+import { modelSelectionSchema } from "@repo/backend/shared/contracts";
 import { buildDifficultySchema } from "../challenges/challenge.schema";
 
 export const questionCountSchema = z.union([

@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { mkdir, open, rm } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { join } from "node:path";
-import type { DesktopUpdateState } from "@repo/contracts";
-import { updateCredentialsSchema } from "@repo/contracts";
+import type { DesktopUpdateState } from "@repo/backend/shared/contracts";
+import { updateCredentialsSchema } from "@repo/backend/shared/contracts";
 import type { CredentialStore, UpdateCredentials } from "./credentials";
 import {
   GitHubUpdates,
