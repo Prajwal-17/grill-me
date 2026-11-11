@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { enqueueGeneration } from "@/features/generations/api/generation-api";
 import { useSaveGenerationJob } from "@/features/generations/hooks/use-generation-jobs";
-import { GenerationProgress } from "@/features/generations/components/generation-activity";
 import { useToast } from "@/shared/components/ui/toast";
 import { useAppStore } from "@/shared/stores/app-store";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -268,6 +267,8 @@ export function QuizWorkspace({
       saveJob(job);
       requestRef.current = null;
       if (useAppStore.getState().profile?.id !== profileId) return;
+      setPrompt("");
+      promptEnhancement.reset();
       showToast({
         message: "Quiz queued",
         description: "You can keep working while it generates.",
@@ -422,13 +423,6 @@ export function QuizWorkspace({
           : "flex h-full min-h-0 flex-col gap-5 overflow-hidden"
       }`}
     >
-      {!dialogOpen && (
-        <GenerationProgress
-          profileId={profileId}
-          kind="quiz"
-          challengeId={challengeId}
-        />
-      )}
       <div
         className="flex min-h-0 flex-1 flex-col gap-4"
         style={dialogOpen ? { display: "none" } : undefined}

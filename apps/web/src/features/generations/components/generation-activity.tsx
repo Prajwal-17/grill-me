@@ -254,37 +254,3 @@ export function GenerationActivity() {
     </Popover>
   );
 }
-export function GenerationProgress({
-  profileId,
-  kind,
-  challengeId = null,
-  excludeId,
-}: {
-  profileId: string;
-  kind: "challenge" | "quiz";
-  challengeId?: string | null;
-  excludeId?: string;
-}) {
-  const jobs = useGenerationJobs(profileId);
-  const pending =
-    jobs.data?.filter(
-      (job) =>
-        job.id !== excludeId &&
-        (isGenerating(job) || job.status === "needs_input") &&
-        (kind === "challenge"
-          ? job.kind === "challenge"
-          : job.kind !== "challenge" && job.challengeId === challengeId),
-    ) ?? [];
-  if (!pending.length) return null;
-  return (
-    <section
-      aria-label="Generation progress"
-      aria-live="polite"
-      className="shrink-0 divide-y divide-line rounded-lg border border-line bg-surface"
-    >
-      {pending.map((job) => (
-        <GenerationJobRow key={job.id} job={job} />
-      ))}
-    </section>
-  );
-}

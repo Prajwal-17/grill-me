@@ -8,6 +8,14 @@
   `packages/backend`, and simplify the workspace so frontend code, the RPC
   client, contracts, and preference options no longer live in separate packages;
   desktop behavior and stored data are unchanged.
+- Show quiz generation progress and cancellation in the notification popover
+  only, so the quizzes page no longer repeats a "Generating quiz" card above the
+  list.
+
+### Fixed
+
+- Clear the quiz prompt after a quiz is queued so the next Generate quiz panel
+  starts with an empty prompt.
 
 ## desktop-v0.1.11 - 09 Nov 2026
 
