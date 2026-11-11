@@ -12,11 +12,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { defaultProviderSettings } from "../../../packages/contracts/src";
 import { createSettingsService } from "@repo/backend/local/settings";
-import {
-  fileSecretStore,
-  sessionSecretStore,
-  type SecretStore,
-} from "@repo/backend/local/secrets";
+import { fileSecretStore, type SecretStore } from "@repo/backend/local/secrets";
+import { memorySecretStore } from "./fixtures/memory-secret-store";
 const NativeWebSocket = WebSocket as unknown as {
   new (url: string, options: Bun.WebSocketOptions): WebSocket;
 };
@@ -46,7 +43,7 @@ test("new-provider defaults follow the edition and saved model/reasoning choices
     reasoningEffort: "medium",
   });
   const root = await temp();
-  const vault = sessionSecretStore();
+  const vault = memorySecretStore();
   let settings = createSettingsService(root, {
     keyring: vault,
     channel: "production",
@@ -81,7 +78,7 @@ test("new-provider defaults follow the edition and saved model/reasoning choices
 test("API connection checks discover models and report auth, limits, configuration, malformed catalogs, and offline failures without exposing upstream errors", async () => {
   const root = await temp();
   const settings = createSettingsService(root, {
-    keyring: sessionSecretStore(),
+    keyring: memorySecretStore(),
   });
   let status = 200;
   let malformed = false;
@@ -154,7 +151,7 @@ test("backend package imports without opening a database or listeners", async ()
 });
 test("provider metadata survives restart while keys stay out of SQLite and responses", async () => {
   const root = await temp();
-  const vault = sessionSecretStore();
+  const vault = memorySecretStore();
   const p = provider();
   let settings = createSettingsService(root, { keyring: vault });
   try {
@@ -177,7 +174,7 @@ test("provider metadata survives restart while keys stay out of SQLite and respo
 });
 test("failed key replacement preserves previous settings and credentials", async () => {
   const root = await temp();
-  const backing = sessionSecretStore();
+  const backing = memorySecretStore();
   let fail = false;
   const vault: SecretStore = {
     ...backing,
@@ -203,17 +200,28 @@ test("failed key replacement preserves previous settings and credentials", async
     settings.close();
   }
 });
-test("session-only keys disappear after restart and are never silently persisted", async () => {
+test("legacy session-only provider records load as keyring records without stale credentials", async () => {
   const root = await temp();
-  const p = { ...provider(), storage: "session" as const };
-  let settings = createSettingsService(root, { keyring: sessionSecretStore() });
+  let settings = createSettingsService(root, { keyring: memorySecretStore() });
+  await settings.saveProvider(provider());
+  settings.close();
+  const db = new Database(join(root, "settings.sqlite"));
+  const row = db.query("SELECT document FROM settings WHERE id=1").get() as {
+    document: string;
+  };
+  const document = JSON.parse(row.document);
+  document.providers[0].storage = "session";
+  db.query("UPDATE settings SET document=? WHERE id=1").run(
+    JSON.stringify(document),
+  );
+  db.close();
+  settings = createSettingsService(root, { keyring: memorySecretStore() });
   try {
-    await settings.saveProvider(p);
-    expect((await settings.snapshot()).apiKey).toBe(p.apiKey);
-    settings.close();
-    settings = createSettingsService(root, { keyring: sessionSecretStore() });
-    expect((await settings.get()).providers[0]?.hasKey).toBe(false);
-    await expect(settings.snapshot()).rejects.toThrow("again");
+    expect((await settings.get()).providers[0]).toMatchObject({
+      storage: "keyring",
+      hasKey: false,
+    });
+    expect((await settings.snapshot()).apiKey).toBeUndefined();
   } finally {
     settings.close();
   }
@@ -236,7 +244,7 @@ test("plaintext credential files use owner-only permissions and persist", async 
 test("file-backed API keys survive restart and stay out of settings SQLite", async () => {
   const root = await temp();
   const p = { ...provider(), storage: "file" as const };
-  let settings = createSettingsService(root, { keyring: sessionSecretStore() });
+  let settings = createSettingsService(root, { keyring: memorySecretStore() });
   try {
     await settings.saveProvider(p);
     expect((await settings.get()).providers[0]).toMatchObject({
@@ -245,7 +253,7 @@ test("file-backed API keys survive restart and stay out of settings SQLite", asy
     });
     expect(JSON.stringify(await settings.get())).not.toContain(p.apiKey);
     settings.close();
-    settings = createSettingsService(root, { keyring: sessionSecretStore() });
+    settings = createSettingsService(root, { keyring: memorySecretStore() });
     expect((await settings.snapshot()).apiKey).toBe(p.apiKey);
     expect((await settings.get()).providers[0]?.hasKey).toBe(true);
     expect(await readFile(join(root, "secrets.json"), "utf8")).toContain(
@@ -266,7 +274,7 @@ test("legacy keys migrate to the plaintext file and are removed after verificati
     mode: 0o600,
   });
   const settings = createSettingsService(root, {
-    keyring: sessionSecretStore(),
+    keyring: memorySecretStore(),
   });
   try {
     await settings.migrateLegacy("file");
@@ -280,7 +288,7 @@ test("legacy keys migrate to the plaintext file and are removed after verificati
 });
 test("legacy projects-root settings are ignored without losing providers or review limits", async () => {
   const root = await temp();
-  const vault = sessionSecretStore();
+  const vault = memorySecretStore();
   const savedProvider = provider();
   let settings = createSettingsService(root, { keyring: vault });
   try {
@@ -320,7 +328,7 @@ test("legacy keys are removed only after verified persistent vault storage", asy
     mode: 0o600,
   });
   let fail = true;
-  const backing = sessionSecretStore();
+  const backing = memorySecretStore();
   const settings = createSettingsService(root, {
     keyring: {
       ...backing,
@@ -537,30 +545,75 @@ test("configured provider endpoint, key and model drive local AI calls without l
       authorization = request.headers.get("Authorization") ?? "";
       const body = (await request.json()) as { model: string };
       requestedModel = body.model;
-      return Response.json({
-        id: "fixture-response",
-        status: "completed",
-        model: "configured-fixture-model",
-        output: [
-          {
-            type: "message",
-            role: "assistant",
-            content: [
-              {
-                type: "output_text",
-                text: JSON.stringify({
-                  displayName: null,
-                  background: [],
-                  languages: [],
-                  technologies: [],
-                  projects: [],
-                }),
-                annotations: [],
-              },
-            ],
-          },
-        ],
+      const args = JSON.stringify({
+        displayName: null,
+        background: [],
+        languages: [],
+        technologies: [],
+        projects: [],
       });
+      const events = [
+        {
+          type: "response.created",
+          response: {
+            id: "fixture-response",
+            status: "in_progress",
+            output: [],
+          },
+        },
+        {
+          type: "response.output_item.added",
+          output_index: 0,
+          item: {
+            type: "function_call",
+            id: "fc_fixture",
+            call_id: "call_fixture",
+            name: "complete_resume",
+            arguments: "",
+            status: "in_progress",
+          },
+        },
+        {
+          type: "response.function_call_arguments.delta",
+          output_index: 0,
+          item_id: "fc_fixture",
+          delta: args,
+        },
+        {
+          type: "response.output_item.done",
+          output_index: 0,
+          item: {
+            type: "function_call",
+            id: "fc_fixture",
+            call_id: "call_fixture",
+            name: "complete_resume",
+            arguments: args,
+            status: "completed",
+          },
+        },
+        {
+          type: "response.completed",
+          response: {
+            id: "fixture-response",
+            status: "completed",
+            output: [],
+            usage: {
+              input_tokens: 10,
+              output_tokens: 5,
+              total_tokens: 15,
+            },
+          },
+        },
+      ];
+      return new Response(
+        events
+          .map(
+            (event) =>
+              `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
+          )
+          .join(""),
+        { headers: { "Content-Type": "text/event-stream" } },
+      );
     },
   });
   const ws = await socket();
@@ -593,7 +646,7 @@ test("configured provider endpoint, key and model drive local AI calls without l
       endpoint: `http://127.0.0.1:${provider.port}/v1`,
       model: "configured-fixture-model",
       apiKey: secret,
-      storage: "session",
+      storage: "keyring",
     });
     expect(saved.type).toBe("result");
     expect(JSON.stringify(saved)).not.toContain(secret);

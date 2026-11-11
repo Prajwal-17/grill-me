@@ -62,6 +62,14 @@ const acceptedExtensions = new Set([
   "zig",
 ]);
 
+const imageTypes: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
 const extensionless = new Set([
   "dockerfile",
   "gemfile",
@@ -81,13 +89,17 @@ export function isAcceptedAttachmentName(filename: string) {
   )
     return true;
   const extension = normalized.split(".").pop();
-  return Boolean(extension && acceptedExtensions.has(extension));
+  return Boolean(
+    extension && (acceptedExtensions.has(extension) || extension in imageTypes),
+  );
 }
 
 export function attachmentBytes(attachments: MessageAttachment[]) {
   return attachments.reduce(
     (total, attachment) =>
-      total + new TextEncoder().encode(attachment.text).byteLength,
+      total +
+      new TextEncoder().encode(attachment.text).byteLength +
+      (attachment.data ? Math.ceil((attachment.data.length * 3) / 4) : 0),
     0,
   );
 }
@@ -100,6 +112,23 @@ export async function readAttachments(
   for (const file of files) {
     if (!isAcceptedAttachmentName(file.name)) {
       throw new Error(`${file.name} is not a source-code or plain-text file.`);
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const mimeType = imageTypes[extension];
+    if (mimeType) {
+      if (file.size > 5 * 1024 * 1024)
+        throw new Error(`${file.name} is larger than the 5 MiB image limit.`);
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = "";
+      for (let index = 0; index < bytes.length; index += 0x8000)
+        binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+      next.push({
+        filename: file.name,
+        text: "",
+        mimeType,
+        data: btoa(binary),
+      });
+      continue;
     }
     const fileText = await file.text();
     if (fileText.includes("\0")) {

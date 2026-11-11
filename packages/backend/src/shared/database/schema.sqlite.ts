@@ -439,6 +439,11 @@ export const reviewJobs = sqliteTable("review_jobs", {
     .notNull()
     .references(() => submissions.id, { onDelete: "cascade" }),
   judge: text("judge", { enum: ["omniroute", "codex"] }).notNull(),
+  modelSelection: jsonb("model_selection").$type<{
+    providerId: string;
+    model: string;
+    reasoningEffort?: string | null;
+  }>(),
   routingReason: text("routing_reason").notNull(),
   status: text("status", {
     enum: ["queued", "running", "completed", "failed", "cancelled"],
@@ -487,4 +492,77 @@ export const aiLogEvents = sqliteTable(
     payload: jsonb("payload").$type<unknown>().notNull(),
   },
   (table) => [index("ai_log_events_log_idx").on(table.logId, table.id)],
+);
+
+// Application-owned runtime diagnostics. These tables never store credentials
+// or provider request headers, and they are independent of practice records.
+export const agentRuns = sqliteTable(
+  "agent_runs",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    operation: text("operation").notNull(),
+    challengeId: text("challenge_id").references(() => challenges.id, {
+      onDelete: "set null",
+    }),
+    resourceKind: text("resource_kind"),
+    resourceId: text("resource_id"),
+    providerId: text("provider_id").notNull(),
+    providerName: text("provider_name").notNull(),
+    providerPreset: text("provider_preset").notNull(),
+    model: text("model").notNull(),
+    reasoningEffort: text("reasoning_effort"),
+    status: text("status", {
+      enum: ["running", "completed", "failed", "cancelled", "interrupted"],
+    })
+      .notNull()
+      .default("running"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    turnCount: integer("turn_count").notNull().default(0),
+    toolCallCount: integer("tool_call_count").notNull().default(0),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    totalTokens: integer("total_tokens"),
+    startedAt: timestamp("started_at", { mode: "date" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+    completedAt: timestamp("completed_at", { mode: "date" }),
+  },
+  (table) => [
+    index("agent_runs_profile_started_idx").on(
+      table.profileId,
+      table.startedAt,
+      table.id,
+    ),
+    index("agent_runs_status_started_idx").on(table.status, table.startedAt),
+    check(
+      "agent_runs_status_check",
+      sql`${table.status} in ('running','completed','failed','cancelled','interrupted')`,
+    ),
+  ],
+);
+
+export const agentRunEvents = sqliteTable(
+  "agent_run_events",
+  {
+    id: serial("id").primaryKey(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: "cascade" }),
+    sequence: integer("sequence").notNull(),
+    type: text("type").notNull(),
+    payload: jsonb("payload").$type<unknown>().notNull(),
+    createdAt: timestamp("created_at", { mode: "date" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("agent_run_events_run_sequence_unique").on(
+      table.runId,
+      table.sequence,
+    ),
+  ],
 );

@@ -1,4 +1,20 @@
+import { env } from "@/shared/config/env";
 import { cn } from "@/shared/lib/cn";
+
+export function DevelopmentBadge({ className }: { className?: string }) {
+  if (env.appEnv !== "development") return null;
+  return (
+    <span
+      aria-label="Development build"
+      className={cn(
+        "inline-flex shrink-0 items-center rounded border border-line-strong px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-warning",
+        className,
+      )}
+    >
+      dev
+    </span>
+  );
+}
 
 export function BrandMark({ className }: { className?: string }) {
   return (
@@ -45,6 +61,7 @@ export function BrandLockup({
       >
         Grill Me
       </span>
+      <DevelopmentBadge />
     </span>
   );
 }

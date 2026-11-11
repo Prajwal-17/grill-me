@@ -48,8 +48,7 @@ for (const table of [
   "profiles",
 ])
   await fixtureSql(`DELETE FROM ${table}`);
-const { createOpenAIModel } =
-  await import("../../../packages/backend/src/modules/ai/openai.model");
+const { createOpenAIModel } = await import("./fixtures/legacy-openai-model");
 const { logModel } =
   await import("../../../packages/backend/src/modules/logs/log.model");
 const { startAiLog } =
@@ -1142,7 +1141,7 @@ describe("build quality pipeline", () => {
     });
   });
 
-  test("saves the generated challenge and sends recent work only when enabled", async () => {
+  test("saves the generated challenge without history enrichment", async () => {
     const model = new FakeModel();
     const app = createApp({ llm: model });
     const profile = await startProfile(
@@ -1223,9 +1222,12 @@ describe("build quality pipeline", () => {
       includeRecentChallenges: true,
     });
     await createChallenge(app, profile.id, { prompt: "A different request" });
+    expect(model.generationInputs.at(-1)?.learner.recentChallenges).toEqual([]);
+    expect(model.generationInputs.at(-1)?.learner.recentEvidence).toEqual([]);
+    const active = await request(app, "/challenges/active", profile.id);
     expect(
-      model.generationInputs.at(-1)?.learner.recentChallenges[0]?.title,
-    ).toBe(generated.title);
+      (await json<{ data: Challenge[] }>(active)).data.length,
+    ).toBeGreaterThan(0);
   });
 
   test("assigns stable challenge numbers per profile", async () => {
@@ -3280,8 +3282,7 @@ describe("band calibration and essential clarification", () => {
     expect(challenge.contextualDifficulty).toBe("easy");
     expect(challenge.contractVersion).toBe(2);
     expect(challenge.calibrationVersion).toBe("difficulty-bands-v1");
-    const { buildJsonSchema } =
-      await import("../../../packages/backend/src/modules/ai/prompts/output-contract");
+    const { buildJsonSchema } = await import("./fixtures/output-contract");
     expect(JSON.stringify(buildJsonSchema("system"))).not.toContain(
       "estimatedDifficultyScore",
     );

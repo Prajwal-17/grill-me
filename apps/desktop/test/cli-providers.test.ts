@@ -12,7 +12,7 @@ import { join, resolve } from "node:path";
 import { providerInputSchema, providerSchema } from "@repo/contracts";
 import { createCliProviders } from "../../../packages/backend/src/local/providers";
 import { createSettingsService } from "../../../packages/backend/src/local/settings";
-import { sessionSecretStore } from "../../../packages/backend/src/local/secrets";
+import { memorySecretStore } from "../../backend/test/fixtures/memory-secret-store";
 import { executablePath } from "@repo/backend/local/executable-path";
 import {
   executable,
@@ -82,7 +82,7 @@ test("provider on/off state is independent from selection and persists without a
   const cli = createCliProviders(root);
   let settings = createSettingsService(root, {
     cli,
-    keyring: sessionSecretStore(),
+    keyring: memorySecretStore(),
   });
   try {
     const omni = {
@@ -130,7 +130,7 @@ test("provider on/off state is independent from selection and persists without a
     settings.close();
     settings = createSettingsService(root, {
       cli,
-      keyring: sessionSecretStore(),
+      keyring: memorySecretStore(),
     });
     expect(
       (await settings.get()).providers.find((p) => p.id === codex.id)?.enabled,
@@ -285,43 +285,12 @@ test("provider contracts migrate existing API entries and reject CLI secrets or 
   ).toBe(false);
 });
 
-test("the configured local model forwards snapshot files and workspace arguments for API and CLI reviews", async () => {
-  const root = await mkdtemp(join(tmpdir(), "grill-model-routing-"));
-  try {
-    const child = Bun.spawn(
-      [
-        process.execPath,
-        "--no-env-file",
-        resolve(import.meta.dir, "fixtures/configured-model.ts"),
-      ],
-      {
-        env: {
-          ...process.env,
-          GRILL_ME_HOME: root,
-          GRILL_ME_SQLITE_PATH: join(root, "test.sqlite"),
-        },
-        stdout: "pipe",
-        stderr: "pipe",
-      },
-    );
-    const [code, output, error] = await Promise.all([
-      child.exited,
-      new Response(child.stdout).text(),
-      new Response(child.stderr).text(),
-    ]);
-    expect({ code, error: code ? error : "" }).toEqual({ code: 0, error: "" });
-    expect(output).toContain("Snapshot routing passed");
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
 test("disconnect survives a backend restart until explicit Connect or Use provider", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-cli-disconnect-"));
   let manager = createCliProviders(root);
   let settings = createSettingsService(root, {
     cli: manager,
-    keyring: sessionSecretStore(),
+    keyring: memorySecretStore(),
   });
   try {
     const binary = join(root, "codex");
@@ -354,7 +323,7 @@ test("disconnect survives a backend restart until explicit Connect or Use provid
     manager = createCliProviders(root);
     settings = createSettingsService(root, {
       cli: manager,
-      keyring: sessionSecretStore(),
+      keyring: memorySecretStore(),
     });
     const saved = await settings.provider(p.id);
     expect((await manager.status(saved)).code).toBe("PROVIDER_DISCONNECTED");

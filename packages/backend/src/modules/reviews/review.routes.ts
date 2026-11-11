@@ -3,22 +3,32 @@ import { browseFolders } from "../projects/browse";
 import { beginUpload, appendUpload } from "../projects/uploads";
 import { Hono, type Context } from "hono";
 import { z } from "zod";
+import { modelSelectionSchema } from "@repo/contracts";
 import type { createReviewService } from "./review.service";
 import { submissionRequestSchema } from "./review.service";
 import { parseInput, readJson } from "../../shared/http/validation";
 import { profileIdSchema } from "../profiles/profile.schema";
 import type { ProfileService } from "../profiles/profile.service";
-import { codexStatus, codexModels } from "../judges/codex";
-import { omnirouteStatus } from "../ai/openai.model";
 import { AppError } from "../../shared/errors/app-error";
+
+const unavailableStatus = async () => ({
+  configured: false,
+  online: false,
+  message: "Select an API provider in Settings → Providers.",
+});
+
 export function createReviewRoutes(
   service: ReturnType<typeof createReviewService>,
   profiles: ProfileService,
-  providerStatus = omnirouteStatus,
-  providerModels?: () => Promise<{
+  providerStatus: () => Promise<{
+    configured: boolean;
+    online: boolean;
+    message: string;
+  }> = unavailableStatus,
+  providerModels: () => Promise<{
     models: { id: string; label: string }[];
     defaultModel: string;
-  }>,
+  }> = async () => ({ models: [], defaultModel: "auto" }),
 ) {
   const routes = new Hono();
   const profile = async (c: Context) => {
@@ -73,24 +83,20 @@ export function createReviewRoutes(
   });
   routes.get("/judges/models", async (c) => {
     await profile(c);
-    return c.json({
-      data: await (providerModels ? providerModels() : codexModels()),
-    });
+    return c.json({ data: await providerModels() });
   });
   routes.get("/judges/status", async (c) => {
     await profile(c);
     const omniroute = await providerStatus();
     return c.json({
       data: {
-        codex: providerModels
-          ? {
-              installed: omniroute.configured,
-              authenticated: omniroute.online,
-              version: null,
-              message: omniroute.message,
-            }
-          : await codexStatus(),
-        providerManaged: Boolean(providerModels),
+        codex: {
+          installed: omniroute.configured,
+          authenticated: omniroute.online,
+          version: null,
+          message: omniroute.message,
+        },
+        providerManaged: true,
         verificationAvailable: verificationAvailable(),
         omniroute,
         omnirouteConfigured: omniroute.configured,
@@ -125,11 +131,17 @@ export function createReviewRoutes(
   );
   routes.post("/reviews/:id/retry", async (c) => {
     const owner = await profile(c);
-    const { followup } = parseInput(
-      z.object({ followup: z.string().nullable().default(null) }),
+    const { followup, selection } = parseInput(
+      z.object({
+        followup: z.string().nullable().default(null),
+        selection: modelSelectionSchema.optional(),
+      }),
       await readJson(c.req.raw),
     );
-    return c.json({ data: await service.retry(id(c), owner, followup) }, 202);
+    return c.json(
+      { data: await service.retry(id(c), owner, followup, selection) },
+      202,
+    );
   });
   routes.post("/reviews/:id/cancel", async (c) =>
     c.json({ data: await service.cancel(id(c), await profile(c)) }),

@@ -1,4 +1,6 @@
+import type { ModelSelection } from "@repo/contracts";
 import type { GuidedPreferences } from "@repo/preferences";
+export type { ModelSelection };
 export type Profile = {
   id: string;
   email: string;
@@ -59,6 +61,8 @@ export type MessageMode = "generate" | "clarify" | "review" | "hint";
 export type MessageAttachment = {
   filename: string;
   text: string;
+  mimeType?: string;
+  data?: string;
 };
 
 export type ChatMessage = {
@@ -100,6 +104,7 @@ export type GenerateBuildRequest = {
   difficulty: BuildDifficulty;
   clarificationContext: ClarificationContext | null;
   clarificationHistory?: ClarificationContext[];
+  selection?: ModelSelection;
 };
 
 export type ScoreDimension = { score: number | null; evidence: string };

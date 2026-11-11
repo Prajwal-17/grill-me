@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { desktopIdentity } from "../src/identity";
 import { backendEnvironment } from "../src/config";
 import { createSettingsService } from "@repo/backend/local/settings";
-import { sessionSecretStore } from "@repo/backend/local/secrets";
+import { memorySecretStore } from "../../backend/test/fixtures/memory-secret-store";
 
 test("macOS bundle names match Electron Builder executable names in both editions", async () => {
   const base = Bun.YAML.parse(
@@ -70,7 +70,7 @@ test("development and production have separate persistent identities and setting
       expect(env.GRILL_DESKTOP_CHANNEL).toBe(identity.channel);
       expect(env.GRILL_ME_SQLITE_PATH).toBe(join(dataRoot, "grill-me.sqlite"));
       const service = createSettingsService(dataRoot, {
-        keyring: sessionSecretStore(),
+        keyring: memorySecretStore(),
       });
       services.push(service);
       await service.saveProvider({
@@ -78,7 +78,7 @@ test("development and production have separate persistent identities and setting
         name: identity.productName,
         endpoint: "http://127.0.0.1:1/v1",
         model: "fixture",
-        storage: "session",
+        storage: "keyring",
       });
     }
     expect((await services[0]!.get()).providers.map((p) => p.name)).toEqual([

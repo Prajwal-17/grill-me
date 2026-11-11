@@ -3,7 +3,7 @@ import type { LocalSettings } from "@repo/contracts";
 import { apiRequest } from "@/shared/lib/api-client";
 import { providerHealthKey } from "./provider-health";
 export const settingsKey = ["local-settings"];
-export function useSettingsMutation(onSuccess?: () => void) {
+export function useSettingsMutation(onSuccess?: (data: LocalSettings) => void) {
   const queries = useQueryClient();
   return useMutation({
     mutationFn: (input: { path: string; method?: string; body?: unknown }) =>
@@ -18,7 +18,10 @@ export function useSettingsMutation(onSuccess?: () => void) {
       void queries.invalidateQueries({ queryKey: providerHealthKey });
       void queries.invalidateQueries({ queryKey: ["provider-models"] });
       void queries.invalidateQueries({ queryKey: ["provider-status"] });
-      onSuccess?.();
+      void queries.invalidateQueries({
+        queryKey: ["settings", "model-catalog"],
+      });
+      onSuccess?.(data);
     },
   });
 }

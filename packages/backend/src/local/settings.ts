@@ -10,6 +10,11 @@ import {
   defaultProviderSettings,
   credentialStorageSchema,
   type CredentialStorage,
+  type ModelCatalog,
+  type ModelSelection,
+  type Provider,
+  type ProviderHealth,
+  type ProviderModel,
   type ProviderInput,
   type LocalSettings,
   type RuntimeSettings,
@@ -23,33 +28,59 @@ import { providerError } from "./providers/common";
 import {
   fileSecretStore,
   nativeSecretStore,
-  sessionSecretStore,
   type SecretStore,
 } from "./secrets";
-const recordSchema = providerSchema.extend({
-  storage: credentialStorageSchema,
+
+// Older builds allowed session-only keys. Read those records so an upgrade does
+// not fail, then normalize them to the keyring without the stale credential.
+const storedRecordSchema = providerSchema.extend({
+  storage: z.enum(["keyring", "session", "file"]),
   credential: z.string().uuid().optional(),
 });
 const documentSchema = z.object({
   version: z.literal(1),
-  providers: z.array(recordSchema),
+  providers: z.array(storedRecordSchema),
   activeProviderId: z.string().uuid().nullable(),
   disconnectedProviders: z.array(z.string().uuid()).default([]),
   runtime: runtimeSettingsSchema,
   migrated: z.boolean().default(false),
 });
-type Document = z.infer<typeof documentSchema>;
+type StoredDocument = z.infer<typeof documentSchema>;
+type ProviderRecord = Omit<StoredDocument["providers"][number], "storage"> & {
+  storage: CredentialStorage;
+};
+type Document = Omit<StoredDocument, "providers"> & {
+  providers: ProviderRecord[];
+};
+
+function normalizeDocument(value: StoredDocument): Document {
+  return {
+    ...value,
+    providers: value.providers.map(({ credential, storage, ...provider }) =>
+      storage === "session"
+        ? { ...provider, storage: "keyring" }
+        : { ...provider, storage, credential },
+    ),
+  };
+}
+type AgentIntegration = {
+  test(provider: Provider & { apiKey?: string }): Promise<ProviderHealth>;
+  models(provider: Provider & { apiKey?: string }): Promise<ProviderModel[]>;
+  catalog(): Promise<ModelCatalog>;
+};
 export function createSettingsService(
   root: string,
   options: {
     keyring?: SecretStore;
-    session?: SecretStore;
     file?: SecretStore;
     modulePath?: string;
+    /** Retained adapter seam for legacy CLI tests; production never supplies it. */
     cli?: CliProviders;
+    agent?: AgentIntegration;
     channel?: "development" | "production";
   } = {},
 ) {
+  let agent = options.agent;
   const db = new Database(join(root, "settings.sqlite"), {
     create: true,
     strict: true,
@@ -60,7 +91,6 @@ export function createSettingsService(
   void chmod(join(root, "settings.sqlite"), 0o600);
   const keyring =
     options.keyring ?? nativeSecretStore(root, options.modulePath);
-  const session = options.session ?? sessionSecretStore();
   const file = options.file ?? fileSecretStore(root);
   const providerDefaults = defaultProviderSettings(
     options.channel ?? process.env.GRILL_DESKTOP_CHANNEL ?? "development",
@@ -69,7 +99,7 @@ export function createSettingsService(
     document: string;
   } | null;
   let document: Document = saved
-    ? documentSchema.parse(JSON.parse(saved.document))
+    ? normalizeDocument(documentSchema.parse(JSON.parse(saved.document)))
     : {
         version: 1,
         providers: [],
@@ -79,7 +109,6 @@ export function createSettingsService(
         migrated: false,
       };
   for (const id of document.disconnectedProviders) options.cli?.disconnect(id);
-  let sessionImported = false;
   let tail: Promise<unknown> = Promise.resolve();
   function exclusive<T>(work: () => Promise<T>) {
     const pending = tail.then(work);
@@ -87,7 +116,7 @@ export function createSettingsService(
     return pending;
   }
   const store = (mode: CredentialStorage) =>
-    mode === "keyring" ? keyring : mode === "session" ? session : file;
+    mode === "keyring" ? keyring : file;
   const persist = (next: Document) => {
     db.query(
       "INSERT INTO settings(id,document) VALUES(1,?) ON CONFLICT(id) DO UPDATE SET document=excluded.document",
@@ -124,9 +153,7 @@ export function createSettingsService(
         );
       throw new AppError(
         "KEYRING_UNAVAILABLE",
-        mode === "session"
-          ? "The key could not be kept for this session. Try again."
-          : "The key could not be saved. Unlock your system credential store or choose plaintext file or session-only storage.",
+        "The key could not be saved. Unlock your system credential store or choose the owner-only plaintext file.",
         503,
         true,
       );
@@ -156,7 +183,7 @@ export function createSettingsService(
       runtime: document.runtime,
       keyring: status,
       migration: {
-        pending: Boolean(old) && !sessionImported,
+        pending: Boolean(old),
         message: old
           ? "Existing backend.env settings can be imported. A plaintext key is removed only after verified persistent storage."
           : null,
@@ -196,9 +223,7 @@ export function createSettingsService(
               : "KEYRING_UNAVAILABLE",
             previous.storage === "file"
               ? "The local credential file could not be read. Check the data folder permissions before changing key storage."
-              : previous.storage === "session"
-                ? "This session-only key is unavailable. Enter the API key again to change its storage."
-                : "Unlock your keyring before changing key storage.",
+              : "Unlock your keyring before changing key storage.",
             503,
             true,
           );
@@ -295,8 +320,8 @@ export function createSettingsService(
             "Turn this provider on before selecting it.",
             409,
           );
-        if (selected && selected.kind !== "openai")
-          await options.cli?.connect(selected);
+        if (selected && selected.kind !== "openai" && options.cli)
+          await options.cli.connect(selected);
         persist({
           ...document,
           activeProviderId: id,
@@ -316,7 +341,14 @@ export function createSettingsService(
       try {
         const value = await snapshot(id);
         if (value.kind !== "openai") {
-          const status = await options.cli!.status(value);
+          if (!options.cli)
+            return {
+              ok: false,
+              code: "INTEGRATION_INACTIVE",
+              message:
+                "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+            };
+          const status = await options.cli.status(value);
           if (!status.connected)
             return { ok: false, message: status.message, code: status.code };
           const model =
@@ -344,6 +376,7 @@ export function createSettingsService(
             };
           return { ok: true, message: status.message };
         }
+        if (agent) return agent.test(value);
         await apiModels(value);
         return {
           ok: true,
@@ -358,7 +391,6 @@ export function createSettingsService(
     migrateLegacy: async (mode) => {
       const old = await legacy();
       if (!old || document.migrated) return get();
-      // Session-only imports leave the original file intact so keys survive restart.
       await saveProvider({
         id: crypto.randomUUID(),
         name: "Imported provider",
@@ -373,21 +405,18 @@ export function createSettingsService(
         contextTokens: Number(old.DIRECT_REVIEW_CONTEXT_TOKENS ?? 12000),
         judgeTimeoutMs: Number(old.JUDGE_TIMEOUT_MS ?? 900000),
       });
-      if (mode !== "session") {
-        const text = await readFile(legacyPath, "utf8");
-        await writeFile(
-          legacyPath,
-          text.replace(
-            /^\s*(?:export\s+)?LLM_API_KEY\s*=.*$/gm,
-            mode === "file"
-              ? "# LLM_API_KEY migrated to the owner-only plaintext credential file"
-              : "# LLM_API_KEY migrated to the system credential store",
-          ),
-          { mode: 0o600 },
-        );
-        persist({ ...document, migrated: true });
-      }
-      if (mode === "session") sessionImported = true;
+      const text = await readFile(legacyPath, "utf8");
+      await writeFile(
+        legacyPath,
+        text.replace(
+          /^\s*(?:export\s+)?LLM_API_KEY\s*=.*$/gm,
+          mode === "file"
+            ? "# LLM_API_KEY migrated to the owner-only plaintext credential file"
+            : "# LLM_API_KEY migrated to the system credential store",
+        ),
+        { mode: 0o600 },
+      );
+      persist({ ...document, migrated: true });
       return get();
     },
   };
@@ -408,7 +437,7 @@ export function createSettingsService(
     if (!provider)
       throw new AppError(
         "MODEL_NOT_CONFIGURED",
-        "Turn on Codex, OpenCode, or OmniRoute in Settings → Providers, then select one for AI requests.",
+        "Add or select an API provider in Settings → Providers before making AI requests.",
         503,
       );
     if (
@@ -431,9 +460,7 @@ export function createSettingsService(
             : "KEYRING_UNAVAILABLE",
           provider.storage === "file"
             ? "The local credential file could not be read. Check the data folder permissions, then enter this provider's API key again in Settings."
-            : provider.storage === "session"
-              ? "This session-only API key is no longer available. Enter this provider's API key again in Settings."
-              : "Unlock your system credential store to use this provider.",
+            : "Unlock your system credential store to use this provider.",
           503,
           true,
         );
@@ -448,6 +475,27 @@ export function createSettingsService(
     return { ...provider, apiKey };
   }
   applyRuntime();
+  async function apiConnections() {
+    const records = document.providers.filter(
+      (provider) =>
+        provider.kind === "openai" &&
+        provider.enabled &&
+        !document.disconnectedProviders.includes(provider.id),
+    );
+    return Promise.all(
+      records.map(async (provider) => {
+        let apiKey: string | undefined;
+        if (provider.credential) {
+          try {
+            apiKey = await store(provider.storage).get(provider.credential);
+          } catch {
+            apiKey = undefined;
+          }
+        }
+        return { ...provider, apiKey };
+      }),
+    );
+  }
   async function provider(id: string) {
     const value = document.providers.find((p) => p.id === id);
     if (!value)
@@ -498,8 +546,15 @@ export function createSettingsService(
       }),
     models: async (id: string) => {
       const value = await snapshot(id);
-      if (value.kind === "openai") return apiModels(value);
-      const status = await options.cli!.status(value);
+      if (value.kind === "openai")
+        return agent ? agent.models(value) : apiModels(value);
+      if (!options.cli)
+        throw new AppError(
+          "INTEGRATION_INACTIVE",
+          "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+          503,
+        );
+      const status = await options.cli.status(value);
       if (!status.connected)
         throw new AppError(
           status.code ?? "PROVIDER_DISCONNECTED",
@@ -514,6 +569,12 @@ export function createSettingsService(
     connectProvider: (id: string) =>
       exclusive(async () => {
         const value = await provider(id);
+        if (!options.cli)
+          throw new AppError(
+            "INTEGRATION_INACTIVE",
+            "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+            503,
+          );
         if (!value.enabled)
           throw new AppError(
             "PROVIDER_DISABLED",
@@ -532,6 +593,12 @@ export function createSettingsService(
     disconnectProvider: (id: string) =>
       exclusive(async () => {
         await provider(id);
+        if (!options.cli)
+          throw new AppError(
+            "INTEGRATION_INACTIVE",
+            "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+            503,
+          );
         persist({
           ...document,
           activeProviderId:
@@ -543,6 +610,59 @@ export function createSettingsService(
         options.cli!.disconnect(id);
         return get();
       }),
+    apiConnections,
+    async resolveSelection(selection?: ModelSelection) {
+      const value = selection
+        ? await snapshot(selection.providerId)
+        : await snapshot();
+      if (value.kind !== "openai")
+        throw new AppError(
+          "API_PROVIDER_REQUIRED",
+          "Select an API provider in Settings → Providers. CLI integrations are inactive.",
+          503,
+        );
+      return {
+        ...value,
+        model: selection?.model ?? value.model,
+        reasoningEffort: selection
+          ? (selection.reasoningEffort ?? undefined)
+          : value.reasoningEffort,
+      };
+    },
+    async catalog(): Promise<ModelCatalog> {
+      if (agent) return agent.catalog();
+      const connections = await apiConnections();
+      return {
+        activeConnectionId: connections.some(
+          (connection) => connection.id === document.activeProviderId,
+        )
+          ? document.activeProviderId
+          : null,
+        connections: await Promise.all(
+          connections.map(async (connection) => {
+            const models = [
+              {
+                id: connection.model,
+                name: connection.model,
+                capabilities: connection.capabilities,
+              },
+            ];
+            return {
+              id: connection.id,
+              name: connection.name,
+              preset: connection.preset,
+              protocol: connection.protocol,
+              models,
+              defaultModel: connection.model,
+              defaultReasoningEffort: connection.reasoningEffort,
+            };
+          }),
+        ),
+      };
+    },
+    setAgent(value: AgentIntegration | undefined) {
+      agent = value;
+    },
     close: () => db.close(),
   };
 }

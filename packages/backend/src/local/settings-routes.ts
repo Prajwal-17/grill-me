@@ -5,14 +5,25 @@ import {
   runtimeSettingsSchema,
   credentialStorageSchema,
 } from "@repo/contracts";
+import { AppError } from "../shared/errors/app-error";
 import { parseInput, readJson } from "../shared/http/validation";
 import type { SettingsService } from "./settings";
-import type { CliProviders } from "./providers";
-export function settingsRoutes(service: SettingsService, cli: CliProviders) {
+
+const inactive = () =>
+  new AppError(
+    "INTEGRATION_INACTIVE",
+    "CLI integrations are inactive. Select an API provider in Settings → Providers.",
+    503,
+  );
+
+export function settingsRoutes(service: SettingsService) {
   const routes = new Hono();
   routes.get("/", async (c) => c.json({ data: await service.get() }));
   routes.get("/provider-status", async (c) =>
     c.json({ data: await service.health() }),
+  );
+  routes.get("/catalog", async (c) =>
+    c.json({ data: await service.catalog() }),
   );
   routes.post("/providers/:id/enabled", async (c) => {
     const { enabled } = parseInput(
@@ -33,31 +44,34 @@ export function settingsRoutes(service: SettingsService, cli: CliProviders) {
       ),
     }),
   );
-  routes.get("/providers/:id/connection", async (c) =>
-    c.json({
-      data: await cli.status(
-        await service.provider(
-          parseInput(z.string().uuid(), c.req.param("id")),
-        ),
-      ),
-    }),
-  );
+  routes.get("/providers/:id/connection", async (c) => {
+    const id = parseInput(z.string().uuid(), c.req.param("id"));
+    const provider = await service.snapshot(id);
+    if (provider.kind !== "openai") throw inactive();
+    const models = await service.models(id);
+    const health = await service.testProvider(id);
+    return c.json({
+      data: {
+        installed: true,
+        connected: health.ok,
+        authenticated: health.ok,
+        version: null,
+        binaryPath: null,
+        message: health.message,
+        ...(health.code ? { code: health.code } : {}),
+        models,
+      },
+    });
+  });
   routes.post("/providers/:id/login", async (c) => {
-    const provider = await service.provider(
-      parseInput(z.string().uuid(), c.req.param("id")),
+    const id = parseInput(z.string().uuid(), c.req.param("id"));
+    const provider = await service.snapshot(id);
+    if (provider.kind !== "openai") throw inactive();
+    throw new AppError(
+      "PROVIDER_LOGIN_UNSUPPORTED",
+      "API connections use a saved key. Replace it in Settings → Providers.",
+      400,
     );
-    const input = parseInput(
-      z.object({
-        providerId: z.string().max(160).optional(),
-        methodIndex: z.number().int().min(0).max(50).optional(),
-        key: z.string().max(8192).optional(),
-        code: z.string().max(4096).optional(),
-        complete: z.boolean().optional(),
-      }),
-      await readJson(c.req.raw),
-    );
-    await service.connectProvider(provider.id);
-    return c.json({ data: await cli.signIn(provider, input) });
   });
   routes.post("/providers/:id/connect", async (c) =>
     c.json({

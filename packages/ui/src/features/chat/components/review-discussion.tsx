@@ -6,6 +6,8 @@ import { Textarea } from "@/shared/components/ui/textarea";
 import { challengeKeys } from "@/features/challenges/api/challenge-api";
 import { getMessages, retryMessage, sendMessage } from "../api/message-api";
 import { ChatMessage } from "./chat-message";
+import { ModelPicker } from "@/shared/components/ai/model-picker";
+import { useComposerModel } from "@/shared/components/ai/use-composer-model";
 export function ReviewDiscussion({
   profileId,
   challengeId,
@@ -16,6 +18,7 @@ export function ReviewDiscussion({
   active: boolean;
 }) {
   const queries = useQueryClient();
+  const composer = useComposerModel();
   const [draft, setDraft] = useState("");
   const [reply, setReply] = useState("");
   const controller = useRef<AbortController | null>(null);
@@ -46,6 +49,7 @@ export function ReviewDiscussion({
             retryId,
             onDelta,
             controller.current.signal,
+            composer.selection,
           )
         : sendMessage(
             profileId,
@@ -55,6 +59,7 @@ export function ReviewDiscussion({
             [],
             onDelta,
             controller.current.signal,
+            composer.selection,
           );
     },
     onSuccess: () => setDraft(""),
@@ -155,7 +160,8 @@ export function ReviewDiscussion({
             disabled={inFlight}
             placeholder="Ask about this challenge or a review…"
           />
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ModelPicker disabled={inFlight} />
             {send.isPending ? (
               <Button type="button" onClick={() => controller.current?.abort()}>
                 <Square size={13} />

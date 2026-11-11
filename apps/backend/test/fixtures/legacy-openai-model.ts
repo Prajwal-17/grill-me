@@ -1,51 +1,65 @@
+// Test-only compatibility model for AI log and transport fixtures. Production
+// executes through the embedded Pi gateway instead.
+
 import {
   reviewResultSchema,
   reviewJsonSchema,
   verificationPlanSchema,
-} from "../reviews/review.schema";
-import { judgePrompt, verificationPrompt } from "./prompts/judge";
+} from "@repo/backend/modules/reviews/review.schema";
+import {
+  judgePrompt,
+  verificationPrompt,
+} from "@repo/backend/modules/ai/prompts/judge";
 import { z as zod } from "zod";
 import OpenAI from "openai";
 import type { Reasoning } from "openai/resources/shared";
 import type { z } from "zod";
-import { AppError } from "../../shared/errors/app-error";
+import { AppError } from "@repo/backend/shared/errors/app-error";
 import {
   challengePreparationSchema,
   buildGenerationResultSchema,
   enhanceBuildPromptSchema,
-} from "../challenges/challenge.schema";
-import type { ModelGateway } from "./model-gateway";
-import { normalizePreparationOutput } from "./preparation-output";
-import { normalizeGenerationOutput } from "./generation-output";
-import { modelUnavailable, parseJson } from "./model.utils";
+} from "@repo/backend/modules/challenges/challenge.schema";
+import type { ModelGateway } from "@repo/backend/modules/ai/model-gateway";
+import { normalizePreparationOutput } from "@repo/backend/modules/ai/preparation-output";
+import { normalizeGenerationOutput } from "@repo/backend/modules/ai/generation-output";
+import {
+  modelUnavailable,
+  parseJson,
+} from "@repo/backend/modules/ai/model.utils";
 import {
   resumeExtractionSchema,
   validateResumeExtraction,
-} from "../profiles/resume.schema";
-import { startAiLog, type LogContext } from "../logs/ai-log-recorder";
+} from "@repo/backend/modules/profiles/resume.schema";
+import {
+  startAiLog,
+  type LogContext,
+} from "@repo/backend/modules/logs/ai-log-recorder";
 import {
   enhancedQuizPromptSchema,
   generatedQuizSchema,
   generatedQuizTitleSchema,
   validateQuiz,
-} from "../quizzes/quiz.schema";
-import { quizPrompt } from "./prompts/generate-quiz";
-import { quizTitlePrompt } from "./prompts/generate-quiz-title";
-import { enhanceQuizPromptPrompt } from "./prompts/enhance-quiz-prompt";
-import { enhancementPrompt } from "./prompts/enhance-prompt";
+} from "@repo/backend/modules/quizzes/quiz.schema";
+import { quizPrompt } from "@repo/backend/modules/ai/prompts/generate-quiz";
+import { quizTitlePrompt } from "@repo/backend/modules/ai/prompts/generate-quiz-title";
+import { enhanceQuizPromptPrompt } from "@repo/backend/modules/ai/prompts/enhance-quiz-prompt";
+import { enhancementPrompt } from "@repo/backend/modules/ai/prompts/enhance-prompt";
 import {
-  buildJsonSchema,
   clarificationPrompt,
   generationPrompt,
   hintPrompt,
-  preparationJsonSchema,
   preparationPrompt,
   reviewPrompt,
+} from "@repo/backend/modules/ai/prompts/index";
+import {
+  buildJsonSchema,
+  preparationJsonSchema,
   structuredOutputInstruction,
-} from "./prompts";
+} from "./output-contract";
 
-import type { TextTransport } from "../../local/providers/common";
-import { providerError } from "../../local/providers/common";
+import type { TextTransport } from "@repo/backend/local/providers/common";
+import { providerError } from "@repo/backend/local/providers/common";
 import type { ReasoningEffort } from "@repo/contracts";
 
 type StructuredPrompt = {
@@ -100,47 +114,6 @@ function streamEventText(value: unknown) {
     return typeof delta.text === "string" ? delta.text : "";
   }
   return "";
-}
-
-export async function omnirouteStatus() {
-  const apiKey = process.env.LLM_API_KEY;
-  const baseURL = process.env.LLM_BASE_URL ?? "http://localhost:20128/v1";
-  if (!apiKey)
-    return {
-      configured: false,
-      online: false,
-      message: "Add LLM_API_KEY to apps/backend/.env.",
-    };
-
-  try {
-    const response = await fetch(baseURL.replace(/\/+$/, "") + "/models", {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(2500),
-    });
-    if (response.status === 401 || response.status === 403)
-      return {
-        configured: true,
-        online: false,
-        message: "OmniRoute rejected LLM_API_KEY.",
-      };
-    if (!response.ok)
-      return {
-        configured: true,
-        online: false,
-        message: `OmniRoute returned HTTP ${response.status}.`,
-      };
-    return {
-      configured: true,
-      online: true,
-      message: "Ready for direct reviews",
-    };
-  } catch {
-    return {
-      configured: true,
-      online: false,
-      message: "OmniRoute is offline or unreachable.",
-    };
-  }
 }
 
 export function createOpenAIModel(

@@ -1,9 +1,9 @@
-import { withModelSnapshot } from "../../local/model";
 import { guidedPreferencesSchema } from "../profiles/profile.schema";
 import { rm } from "node:fs/promises";
 import { uploadInfo } from "../projects/uploads";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
+import { modelSelectionSchema, type ModelSelection } from "@repo/contracts";
 import { db } from "../../shared/database/db";
 import {
   challenges,
@@ -22,6 +22,7 @@ import {
   projectRoot,
   readSnapshot,
   readSnapshotFile,
+  readSnapshotImages,
 } from "../projects/snapshot";
 import type { VerificationEvidence } from "./review.schema";
 import { validatedReview } from "./validated-review";
@@ -37,6 +38,7 @@ export const submissionRequestSchema = z.object({
   projectId: z.string().uuid().nullable().default(null),
   subdirectory: z.string().default(""),
   baseRevision: z.string().default(""),
+  selection: modelSelectionSchema.optional(),
 });
 export type SubmissionRequest = z.infer<typeof submissionRequestSchema>;
 export type ReviewJob = typeof reviewJobs.$inferSelect;
@@ -106,7 +108,7 @@ export function createReviewService(
   ) => db.update(reviewJobs).set(values).where(eq(reviewJobs.id, id));
   async function run(id: string) {
     try {
-      await withModelSnapshot(() => runSnapshot(id));
+      await runSnapshot(id);
     } catch (error) {
       await update(id, {
         status: "failed",
@@ -161,6 +163,7 @@ export function createReviewService(
           .where(eq(profilePreferences.profileId, challenge.profileId))
       )[0];
       const input: JudgeInput = {
+        selection: (row.modelSelection as ModelSelection | null) ?? undefined,
         codexModel: guidedPreferencesSchema.parse(
           savedPreferences?.guidedPreferences ?? {},
         ).codexModel,
@@ -173,8 +176,9 @@ export function createReviewService(
               )!.path +
               ". Read it using the snapshot tools; no text has been discarded."
             : attempt.content,
-        attachments:
-          row.judge === "omniroute"
+        attachments: llm.reviewWorkspace
+          ? await readSnapshotImages(attempt.snapshotPath, attempt.manifest)
+          : row.judge === "omniroute"
             ? await readSnapshot(attempt.snapshotPath, attempt.manifest)
             : [],
         assistance: attempt.assistance,
@@ -247,6 +251,9 @@ export function createReviewService(
           .where(eq(reviewJobs.id, id));
       });
     } catch (error) {
+      // A cancellation that arrives around commit must not replace a review
+      // that already completed. Return the committed result instead.
+      if ((await job(id))?.status === "completed") return;
       await update(id, {
         status: controller.signal.aborted ? "cancelled" : "failed",
         progress: controller.signal.aborted
@@ -263,6 +270,7 @@ export function createReviewService(
     attempt: SavedSubmission,
     routing: { judge: "codex" | "omniroute"; reason: string },
     followup: string | null = null,
+    selection?: ModelSelection,
   ) {
     const id = crypto.randomUUID();
     const saved = (
@@ -277,6 +285,7 @@ export function createReviewService(
           progress: "Queued for review",
           promptVersion: PROMPT_VERSION,
           followup,
+          modelSelection: selection ?? null,
         })
         .returning()
     )[0]!;
@@ -427,9 +436,17 @@ export function createReviewService(
         bytes: snapshot.manifest.reduce((n, f) => n + f.bytes, 0),
         contentBytes: Buffer.byteLength(input.content),
       });
-      return { submission: attempt, review: await enqueue(attempt, route) };
+      return {
+        submission: attempt,
+        review: await enqueue(attempt, route, null, input.selection),
+      };
     },
-    async retry(id: string, profileId: string, followup: string | null) {
+    async retry(
+      id: string,
+      profileId: string,
+      followup: string | null,
+      selection?: ModelSelection,
+    ) {
       const { row, attempt } = await ownedJob(id, profileId);
       const challenge = await owned(attempt.challengeId, profileId);
       if (
@@ -453,6 +470,7 @@ export function createReviewService(
         attempt,
         { judge: row.judge, reason: row.routingReason },
         followup,
+        selection,
       );
     },
     async cancel(id: string, profileId: string) {

@@ -16,6 +16,7 @@ import type {
   ChatMessage,
   MessageAttachment,
 } from "../messages/message.schema";
+import type { ModelSelection } from "@repo/contracts";
 import type { ProfilePreferences } from "../profiles/profile.schema";
 import type {
   GeneratedQuiz,
@@ -25,6 +26,7 @@ import type {
 
 export type QuizModelInput = {
   signal?: AbortSignal;
+  selection?: ModelSelection;
   questionCount: QuestionCount;
   previousQuestions: string[];
 } & (
@@ -42,6 +44,7 @@ export type QuizModelInput = {
 export type QuizTitleModelInput = {
   profileId: string;
   challengeId: string | null;
+  selection?: ModelSelection;
   source: string;
   currentTitle: string;
   questionCount: QuestionCount;
@@ -70,6 +73,7 @@ export type LearnerContext = {
 
 export type BuildModelInput = {
   signal?: AbortSignal;
+  selection?: ModelSelection;
   timeBudgetMinutes?: number | null;
   familiarity?: "new" | "practiced" | "comfortable" | null;
   emphasis?: string | null;
@@ -90,6 +94,7 @@ export type BuildModelInput = {
 export type JudgeInput = {
   workspace?: string;
   codexModel?: string;
+  selection?: ModelSelection;
   challenge: Challenge;
   content: string;
   attachments: MessageAttachment[];
@@ -109,17 +114,20 @@ export interface ModelGateway {
   enhanceBuildPrompt?(input: {
     profileId: string;
     prompt: string;
+    selection?: ModelSelection;
   }): Promise<{ prompt: string }>;
   extractResume?(input: {
     profileId: string;
     text: string;
     signal?: AbortSignal;
+    selection?: ModelSelection;
   }): Promise<unknown>;
   generateQuiz?(input: QuizModelInput): Promise<GeneratedQuiz>;
   generateQuizTitle?(input: QuizTitleModelInput): Promise<string>;
   enhanceQuizPrompt?(input: {
     profileId: string;
     prompt: string;
+    selection?: ModelSelection;
   }): Promise<{ prompt: string }>;
   judge?(input: JudgeInput): Promise<ReviewResult>;
   planVerification?(input: JudgeInput): Promise<VerificationPlan>;
@@ -130,6 +138,7 @@ export interface ModelGateway {
   generateBuild(input: BuildModelInput): Promise<BuildGenerationResult>;
   respond(input: {
     signal?: AbortSignal;
+    selection?: ModelSelection;
     challenge: Challenge;
     messages: ChatMessage[];
     content: string;
@@ -139,6 +148,7 @@ export interface ModelGateway {
   }): AsyncIterable<string>;
   generateHint(input: {
     helpKind?: "hint" | "approach";
+    selection?: ModelSelection;
     challenge: Challenge;
     messages: ChatMessage[];
     learner: LearnerContext;
