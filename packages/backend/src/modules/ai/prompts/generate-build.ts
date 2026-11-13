@@ -1,6 +1,11 @@
 import type { BuildModelInput } from "../model-gateway";
 import { ESSENTIAL_CLARIFICATION_POLICY } from "../../challenges/clarification-policy";
-import { CORE_INSTRUCTIONS, requestPromptContext, type Prompt } from "./core";
+import {
+  CORE_INSTRUCTIONS,
+  RESEARCH_TOOL_POLICY,
+  requestPromptContext,
+  type Prompt,
+} from "./core";
 import { difficultyPolicy } from "./difficulty-policies";
 import { scopePolicy } from "./scope-policies";
 
@@ -17,6 +22,7 @@ export function generationPrompt(input: BuildModelInput): Prompt {
   return {
     instructions: [
       CORE_INSTRUCTIONS,
+      RESEARCH_TOOL_POLICY,
       scopePolicy(input.scope),
       difficultyPolicy(input.difficulty),
       ESSENTIAL_CLARIFICATION_POLICY,

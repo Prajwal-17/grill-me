@@ -62,6 +62,7 @@ export function reviewTask(
       validate: (value) => reviewResultSchema.parse(value),
     },
     allowSnapshot: snapshot,
+    allowResearch: false,
   };
 }
 
@@ -93,5 +94,6 @@ export function verificationTask(input: JudgeInput): StructuredTask<unknown> {
       validate: (value) => verificationPlanSchema.parse(value),
     },
     allowSnapshot: true,
+    allowResearch: false,
   };
 }

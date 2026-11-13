@@ -36,6 +36,7 @@ export function preparationTask(
         challengePreparationSchema.parse(normalizePreparationOutput(value)),
     },
     allowSnapshot: false,
+    allowResearch: true,
   };
 }
 
@@ -77,5 +78,6 @@ export function generationTask(
         ),
     },
     allowSnapshot: false,
+    allowResearch: true,
   };
 }

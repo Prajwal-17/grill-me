@@ -70,6 +70,39 @@ test("the embedded Pi runtime completes a real multi-turn tool cycle and a valid
   expect(faux.state.callCount).toBe(2);
 });
 
+test("structured generation runs can write and read their temporary research workspace", async () => {
+  const { faux, resolved } = resolvedModel();
+  faux.setResponses([
+    fauxAssistantMessage(
+      [fauxToolCall("write_file", { path: "notes.txt", content: "captured" })],
+      { stopReason: "toolUse" },
+    ),
+    fauxAssistantMessage([fauxToolCall("read_file", { path: "notes.txt" })], {
+      stopReason: "toolUse",
+    }),
+    fauxAssistantMessage(
+      [fauxToolCall("complete_thing", { value: "verified" })],
+      { stopReason: "toolUse" },
+    ),
+  ]);
+  const result = await runStructured({
+    resolved,
+    instructions: "Use the research tools and complete the task.",
+    context: "<context>Fixture</context>",
+    userText: "Use the supplied link.",
+    completion: completeThing,
+    allowSnapshot: false,
+    allowResearch: true,
+  });
+  expect(result.value).toEqual({ value: "verified" });
+  expect(result.toolCallCount).toBe(3);
+  const readResult = result.messages.find(
+    (message) =>
+      message.role === "toolResult" && message.toolName === "read_file",
+  );
+  expect(JSON.stringify(readResult)).toContain("captured");
+});
+
 test("structured runs reject duplicate completion values and plain prose", async () => {
   const { faux, resolved } = resolvedModel();
   faux.setResponses([

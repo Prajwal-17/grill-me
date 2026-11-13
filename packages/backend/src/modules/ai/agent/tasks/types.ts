@@ -26,6 +26,7 @@ export type StructuredTask<T> = {
   userText: string;
   completion: CompletionSpec<T>;
   allowSnapshot: boolean;
+  allowResearch: boolean;
 };
 
 export type TextTask = {

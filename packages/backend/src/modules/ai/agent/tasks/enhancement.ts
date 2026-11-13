@@ -36,5 +36,6 @@ export function enhancementTask(input: {
         ).parse(value),
     },
     allowSnapshot: false,
+    allowResearch: false,
   };
 }
