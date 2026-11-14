@@ -345,8 +345,7 @@ export async function validateProjectScaffoldReport(
   if (
     !report.files.some(
       (file) =>
-        file.role === "documentation" &&
-        file.path !== frozenSpecificationPath,
+        file.role === "documentation" && file.path !== frozenSpecificationPath,
     )
   )
     throw invalid(

@@ -37,8 +37,7 @@ uploads, review snapshots, logs, provider state, updates, and API credentials.
 Both editions can be installed and run side by side. Neither reads nor migrates
 the other edition's data. Provider selection is edition-specific; Codex
 deliberately reuses the host CLI login unless a custom home is configured. Back
-up data with the edition closed. Uninstalling retains data. See
-[desktop data and first-run setup](desktop-storage.md).
+up data with the edition closed. Uninstalling retains data.
 
 API keys use macOS Keychain or Linux Secret Service through `@napi-rs/keyring`.
 The existing Linux service prefix plus SHA-256 data-root hash is unchanged.

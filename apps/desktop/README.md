@@ -31,8 +31,7 @@ snapshots, logs, keyring namespace, and Electron session. A custom app data root
 moves practice data but not the launcher's setup record, window preferences, or
 Electron session. Local reviews inspect submitted snapshots without executing
 code. Conversation retries are explicit; app startup marks partial unfinished
-responses interrupted. See
-[desktop data and first-run setup](../../docs/desktop-storage.md).
+responses interrupted.
 
 Build channels are compiled into the main process and renderer, checked against
 package metadata, and passed explicitly to the backend. A production binary

@@ -35,8 +35,7 @@ into the selected folder. The choice is remembered; setup is not repeated.
 
 Existing installations keep their current data directory and are not asked to
 move anything. If a saved location is unavailable, setup reopens instead of
-silently starting an empty database. See
-[desktop data and first-run setup](docs/desktop-storage.md).
+silently starting an empty database.
 
 ## Generation context
 
@@ -54,8 +53,7 @@ Each challenge gets a local workspace folder for code, notes, artifacts, and
 subfolders. Grill Me seeds it once with the challenge brief and available starter
 code, never replaces existing files, and offers **Open folder** and detected
 editor actions for Zed, VS Code, Cursor, and other common editors. Choose the
-workspace root in **Settings → Advanced → Challenge workspace**. See
-[challenge workspaces](docs/challenge-workspaces.md).
+workspace root in **Settings → Advanced → Challenge workspace**.
 
 ## Development and production
 
