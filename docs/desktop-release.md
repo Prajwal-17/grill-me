@@ -15,20 +15,30 @@ executable.
 | Product                   | Grill Me Dev                   | Grill Me                     |
 | macOS bundle              | grill-me-dev.app               | grill-me.app                 |
 | Linux package             | `grill-me-dev`                 | `grill-me`                   |
-| Data directory name       | `grill-me-desktop-dev`         | `grill-me-desktop`           |
+| Config directory name     | `grill-me-desktop-dev`         | `grill-me-desktop`           |
+| Default app data root     | the config directory           | the config directory         |
+| Custom app data folder    | `Grill Me Dev`                 | `Grill Me`                   |
+| Custom workspace folder   | `Grill Me Dev Workspaces`      | `Grill Me Workspaces`        |
 | Electron session          | `persist:grill-me-desktop-dev` | `persist:grill-me-desktop`   |
 | Renderer storage          | `grill-me.app.development`     | `grill-me.app.production`    |
 | Credential service prefix | `grill-me-dev.`                | `grill-me.`                  |
 | Installer output          | `apps/desktop/release/dev/`    | `apps/desktop/release/prod/` |
 
-On macOS, data is under `~/Library/Application Support/<data directory name>/`.
-On Linux it is under `$XDG_CONFIG_HOME/<data directory name>/`, defaulting to
-`~/.config/`. Each directory owns its SQLite database, settings, uploads, review
-snapshots, logs, API credentials, and Electron session data. Both editions
-can be installed and run side by side. Neither reads or migrates the other
-edition's data. Provider selection is edition-specific;
-Codex deliberately reuses the host CLI login unless a custom home is configured.
-Back up data with the edition closed. Uninstalling retains data.
+On macOS, the config directory is under
+`~/Library/Application Support/<config directory name>/`; on Linux it is under
+`$XDG_CONFIG_HOME/<config directory name>/`, defaulting to `~/.config/`. The
+default app data root is that same directory, preserving existing installations.
+A fresh install can choose a parent folder instead; Grill Me creates the
+edition-specific child folder and stores the choice in
+`<config directory>/desktop-setup.json`. The config directory always keeps the
+setup record, window preferences, and Electron session so the launcher can find
+its data. The selected app data root owns the SQLite database, settings,
+uploads, review snapshots, logs, provider state, updates, and API credentials.
+Both editions can be installed and run side by side. Neither reads nor migrates
+the other edition's data. Provider selection is edition-specific; Codex
+deliberately reuses the host CLI login unless a custom home is configured. Back
+up data with the edition closed. Uninstalling retains data. See
+[desktop data and first-run setup](desktop-storage.md).
 
 API keys use macOS Keychain or Linux Secret Service through `@napi-rs/keyring`.
 The existing Linux service prefix plus SHA-256 data-root hash is unchanged.

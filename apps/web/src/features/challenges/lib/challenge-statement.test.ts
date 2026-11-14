@@ -32,6 +32,7 @@ const challenge: Challenge = {
     "Empty input returns an empty object.",
   ],
   hint: null,
+  workspacePath: null,
   status: "active",
   archivedAt: null,
   createdAt: "2026-01-01T00:00:00Z",

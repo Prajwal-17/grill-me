@@ -26,6 +26,8 @@ export type LocalServerOptions = {
   rendererRoot?: string;
   keyring?: SecretStore;
   keyringModule?: string;
+  /** Default for new challenge folders when no workspace setting exists. */
+  workspaceDefaultRoot?: string;
 };
 function ownDirectory(root: string) {
   mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -98,11 +100,13 @@ export async function startLocalServer(options: LocalServerOptions) {
     settings = createSettingsService(root, {
       keyring: options.keyring,
       modulePath: options.keyringModule,
+      workspaceDefault: options.workspaceDefaultRoot,
     });
     const config = settings;
     runtime = await createBackend({
       database: { dialect: "sqlite", path: join(root, "grill-me.sqlite") },
       llm: configuredModel(settings),
+      workspaceRoot: () => config.workspaceRoot(),
       providerStatus: async () => {
         try {
           const provider = await config.snapshot();

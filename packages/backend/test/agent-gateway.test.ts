@@ -46,6 +46,7 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     starterCode: null,
     completionCriteria: ["Groups words by first letter."],
     hint: null,
+    workspacePath: null,
     status: "active" as const,
     createdAt: new Date().toISOString(),
     completedAt: null,

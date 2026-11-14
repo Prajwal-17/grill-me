@@ -111,6 +111,7 @@ test("desktop configuration cannot inherit production storage paths", async () =
       token: "test-token",
       port: 0,
       rendererRoot: "/renderer",
+      workspaceDefaultRoot: join(root, "chosen-workspaces"),
       settings: {
         GRILL_ME_HOME: "/production",
         CODEX_MODEL: "fixture",
@@ -130,6 +131,7 @@ test("desktop configuration cannot inherit production storage paths", async () =
       NODE_ENV: "development",
       GRILL_ME_HOME: root,
       GRILL_ME_SQLITE_PATH: join(root, "grill-me.sqlite"),
+      GRILL_ME_WORKSPACE_DEFAULT: join(root, "chosen-workspaces"),
       CODEX_MODEL: "fixture",
     });
     expect(env.PATH.split(":")[0]).toBe("/usr/bin");
@@ -215,7 +217,7 @@ test("SQLite v1 upgrades retain existing conversations and initialize completed 
     const upgraded = createSqliteDatabase(path);
     await upgraded.migrateDatabase();
     expect(upgraded.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 3,
+      user_version: 4,
     });
     expect(
       upgraded.sqlite
@@ -242,6 +244,13 @@ test("SQLite v1 upgrades retain existing conversations and initialize completed 
     expect(columns.find((c) => c.name === "status")?.dflt_value).toBe(
       "'completed'",
     );
+    expect(
+      (
+        upgraded.sqlite.query("PRAGMA table_info(challenges)").all() as {
+          name: string;
+        }[]
+      ).some((column) => column.name === "workspace_path"),
+    ).toBe(true);
     await upgraded.migrateDatabase();
     upgraded.close();
   } finally {

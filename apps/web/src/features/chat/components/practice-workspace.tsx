@@ -25,6 +25,10 @@ import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
 import { Markdown } from "@/shared/components/markdown";
 import { ChallengeCard } from "@/features/challenges/components/challenge-card";
+import {
+  ChallengeWorkspaceMenu,
+  ChallengeWorkspaceSection,
+} from "@/features/challenges/components/challenge-workspace";
 import { CopyButton } from "@/shared/components/ui/copy-button";
 import { statementMarkdown } from "@/features/challenges/lib/challenge-statement";
 import {
@@ -474,6 +478,10 @@ export function PracticeWorkspace({
                   </Button>
                 )}
 
+                <ChallengeWorkspaceMenu
+                  profileId={profile.id}
+                  challenge={challenge}
+                />
                 {selectedAttempt && (
                   <Button
                     ref={filesToggle}
@@ -521,6 +529,10 @@ export function PracticeWorkspace({
                         label="Copy challenge"
                       />
                     }
+                  />
+                  <ChallengeWorkspaceSection
+                    profileId={profile.id}
+                    challenge={challenge}
                   />
                   {active && (
                     <div className="flex gap-2">

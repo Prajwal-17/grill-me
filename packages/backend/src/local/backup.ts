@@ -60,11 +60,11 @@ export async function backupBeforeMigration(
       { cause: error instanceof Error ? error.message : String(error) },
     );
   }
-  if (practiceVersion >= 3) return null;
+  if (practiceVersion >= 4) return null;
   const directory = join(
     root,
     "backups",
-    `${new Date().toISOString().replace(/[:.]/g, "-")}-pre-v3`,
+    `${new Date().toISOString().replace(/[:.]/g, "-")}-pre-v4`,
   );
   try {
     await mkdir(directory, { recursive: true, mode: 0o700 });

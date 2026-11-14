@@ -224,6 +224,16 @@ export const challengeModel = {
     );
   },
 
+  setWorkspacePath(id: string, workspacePath: string) {
+    return first(
+      db
+        .update(challenges)
+        .set({ workspacePath })
+        .where(eq(challenges.id, id))
+        .returning(),
+    );
+  },
+
   saveHint(id: string, hint: string, helpKind: "hint" | "approach" = "hint") {
     const now = new Date();
 

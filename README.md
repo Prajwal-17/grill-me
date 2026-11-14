@@ -24,6 +24,20 @@ Use your installed Codex or OpenCode CLI, or an OmniRoute endpoint, in
 requests. Grill Me does not install Codex or OpenCode. See
 [CLI connections and conversation recovery](docs/cli-providers.md).
 
+## First launch and storage
+
+A fresh installation opens a setup window before the database or backend starts.
+Choose a parent folder for app data and challenge workspaces, use the clearly
+labelled defaults, or skip with the defaults. A chosen parent gets a named child
+folder (`Grill Me` / `Grill Me Dev` for app data and `Grill Me Workspaces` /
+`Grill Me Dev Workspaces` for workspaces), so files are never dumped directly
+into the selected folder. The choice is remembered; setup is not repeated.
+
+Existing installations keep their current data directory and are not asked to
+move anything. If a saved location is unavailable, setup reopens instead of
+silently starting an empty database. See
+[desktop data and first-run setup](docs/desktop-storage.md).
+
 ## Generation context
 
 Challenge and quiz requests can include pasted text, public `http` or `https`
@@ -34,22 +48,36 @@ The workspace is created for one run, scrubbed of credentials, and deleted when
 generation finishes; built-in URL fetching only allows public `http` or `https`
 sources.
 
+## Challenge workspaces
+
+Each challenge gets a local workspace folder for code, notes, artifacts, and
+subfolders. Grill Me seeds it once with the challenge brief and available starter
+code, never replaces existing files, and offers **Open folder** and detected
+editor actions for Zed, VS Code, Cursor, and other common editors. Choose the
+workspace root in **Settings → Advanced → Challenge workspace**. See
+[challenge workspaces](docs/challenge-workspaces.md).
+
 ## Development and production
 
 |                             | Development                       | Production                    |
 | --------------------------- | --------------------------------- | ----------------------------- |
 | Application                 | Grill Me Dev                      | Grill Me                      |
 | Debian package / executable | `grill-me-dev`                    | `grill-me`                    |
-| Data directory              | `~/.config/grill-me-desktop-dev/` | `~/.config/grill-me-desktop/` |
+| Config directory            | `~/.config/grill-me-desktop-dev/` | `~/.config/grill-me-desktop/` |
+| Default app data root       | the config directory              | the config directory          |
+| Custom app data folder      | `Grill Me Dev`                    | `Grill Me`                    |
 | Build output                | `apps/desktop/release/dev/`       | `apps/desktop/release/prod/`  |
 
 The table shows Linux paths; the config root follows `XDG_CONFIG_HOME`. macOS
 uses `~/Library/Application Support/` with the same edition directory names. Both editions can be installed
 and running simultaneously. SQLite, settings, window preferences, zoom, Electron
 sessions, browser storage, keyring entries or plaintext credential files, uploads, snapshots,
-and logs are separate. Both editions use their own local SQLite database; no
-external database is required. Existing dev data stays in the same folder. Data
-is never copied between editions automatically.
+challenge workspaces, and logs are separate. A custom app data root contains the
+edition's practice data but the launcher config directory keeps the setup record,
+window preferences, and Electron session. Both editions use their own local SQLite database; no
+external database is required. Existing data stays in its current folder unless
+the user explicitly chooses another root during setup. Data is never copied
+between editions automatically.
 Codex reuses the host CLI account by default; choose a custom CODEX_HOME in
 Advanced provider settings when you need a separate account.
 

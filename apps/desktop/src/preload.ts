@@ -28,6 +28,11 @@ const bridge: DesktopBridge = {
   openDataFolder: () => ipcRenderer.invoke("desktop:data-folder"),
   selectProjectsFolder: (currentPath) =>
     ipcRenderer.invoke("desktop:select-projects-folder", currentPath),
+  selectWorkspaceFolder: (currentPath) =>
+    ipcRenderer.invoke("desktop:select-workspace-folder", currentPath),
+  getWorkspaceEditors: () => ipcRenderer.invoke("desktop:workspace-editors"),
+  openWorkspaceInEditor: (input) =>
+    ipcRenderer.invoke("desktop:open-workspace", input),
   onWindowState: (listener) => {
     const receive = (_event: unknown, value: Parameters<typeof listener>[0]) =>
       listener(value);

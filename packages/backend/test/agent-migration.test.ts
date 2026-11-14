@@ -60,6 +60,62 @@ function populate(path: string) {
   }
 }
 
+function populateV3(path: string) {
+  populate(path);
+  const db = new Database(path);
+  try {
+    db.exec(`
+      ALTER TABLE review_jobs ADD COLUMN model_selection TEXT;
+      CREATE TABLE agent_runs (
+        id text PRIMARY KEY NOT NULL,
+        profile_id text NOT NULL,
+        operation text NOT NULL,
+        challenge_id text,
+        resource_kind text,
+        resource_id text,
+        provider_id text NOT NULL,
+        provider_name text NOT NULL,
+        provider_preset text NOT NULL,
+        model text NOT NULL,
+        reasoning_effort text,
+        status text DEFAULT 'running' NOT NULL,
+        error_code text,
+        error_message text,
+        turn_count integer DEFAULT 0 NOT NULL,
+        tool_call_count integer DEFAULT 0 NOT NULL,
+        input_tokens integer,
+        output_tokens integer,
+        total_tokens integer,
+        started_at integer NOT NULL,
+        completed_at integer,
+        FOREIGN KEY (profile_id) REFERENCES profiles(id) ON UPDATE no action ON DELETE cascade,
+        FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON UPDATE no action ON DELETE set null,
+        CONSTRAINT agent_runs_status_check CHECK(status in ('running','completed','failed','cancelled','interrupted'))
+      );
+      CREATE INDEX agent_runs_profile_started_idx ON agent_runs (profile_id, started_at, id);
+      CREATE INDEX agent_runs_status_started_idx ON agent_runs (status, started_at);
+      CREATE TABLE agent_run_events (
+        id integer PRIMARY KEY NOT NULL,
+        run_id text NOT NULL,
+        sequence integer NOT NULL,
+        type text NOT NULL,
+        payload text NOT NULL,
+        created_at integer NOT NULL,
+        FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON UPDATE no action ON DELETE cascade
+      );
+      CREATE UNIQUE INDEX agent_run_events_run_sequence_unique ON agent_run_events (run_id, sequence);
+      UPDATE review_jobs SET model_selection='{"providerId":"fixture","model":"fixture-model"}' WHERE id='review-a';
+      INSERT INTO agent_runs(id,profile_id,operation,challenge_id,resource_kind,resource_id,provider_id,provider_name,provider_preset,model,reasoning_effort,status,error_code,error_message,turn_count,tool_call_count,input_tokens,output_tokens,total_tokens,started_at,completed_at)
+        VALUES ('run-a','owner-a','review','challenge-a','submission','submission-a','provider-a','Fixture Provider','fixture','fixture-model','medium','completed',NULL,NULL,2,3,10,20,30,1000,1001);
+      INSERT INTO agent_run_events(id,run_id,sequence,type,payload,created_at)
+        VALUES (1,'run-a',1,'status','{"status":"running"}',1000),(2,'run-a',2,'completed','{}',1001);
+      PRAGMA user_version = 3;
+    `);
+  } finally {
+    db.close();
+  }
+}
+
 function indexNames(path: string) {
   const db = new Database(path, { readonly: true });
   try {
@@ -75,35 +131,25 @@ function indexNames(path: string) {
   }
 }
 
-function withoutModelSelection(value: Record<string, unknown[]>) {
+function withoutNewColumns(value: Record<string, unknown[]>) {
   for (const review of value.review_jobs as {
     model_selection?: string | null;
   }[]) {
     expect(review.model_selection).toBeNull();
     delete review.model_selection;
   }
+  for (const challenge of value.challenges as {
+    workspace_path?: string | null;
+  }[]) {
+    expect(challenge.workspace_path).toBeNull();
+    delete challenge.workspace_path;
+  }
   return value;
 }
 
-function snapshot(path: string) {
+function rows(path: string, tables: string[]) {
   const db = new Database(path, { readonly: true });
   try {
-    const tables = [
-      "profiles",
-      "profile_preferences",
-      "challenges",
-      "messages",
-      "quizzes",
-      "quiz_attempts",
-      "projects",
-      "submissions",
-      "review_jobs",
-      "verification_runs",
-      "ai_logs",
-      "ai_log_events",
-      "generation_counters",
-      "generation_jobs",
-    ];
     return Object.fromEntries(
       tables.map((table) => [
         table,
@@ -115,7 +161,57 @@ function snapshot(path: string) {
   }
 }
 
-test("v2 practice databases upgrade to v3 without changing existing rows, relationships, or indexes", async () => {
+function snapshot(path: string) {
+  return rows(path, [
+    "profiles",
+    "profile_preferences",
+    "challenges",
+    "messages",
+    "quizzes",
+    "quiz_attempts",
+    "projects",
+    "submissions",
+    "review_jobs",
+    "verification_runs",
+    "ai_logs",
+    "ai_log_events",
+    "generation_counters",
+    "generation_jobs",
+  ]);
+}
+
+function snapshotWithAgentRuns(path: string) {
+  return rows(path, [
+    "profiles",
+    "profile_preferences",
+    "challenges",
+    "messages",
+    "quizzes",
+    "quiz_attempts",
+    "projects",
+    "submissions",
+    "review_jobs",
+    "verification_runs",
+    "ai_logs",
+    "ai_log_events",
+    "generation_counters",
+    "generation_jobs",
+    "agent_runs",
+    "agent_run_events",
+  ]);
+}
+
+function withoutWorkspacePath(value: Record<string, unknown[]>) {
+  for (const challenge of value.challenges as {
+    workspace_path?: string | null;
+  }[]) {
+    expect(challenge.workspace_path).toBeNull();
+    delete challenge.workspace_path;
+  }
+  return value;
+}
+
+test("v2 practice databases upgrade to v4 while preserving existing rows, relationships, and indexes", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v2-upgrade-"));
   const path = join(root, "grill-me.sqlite");
   try {
@@ -125,20 +221,28 @@ test("v2 practice databases upgrade to v3 without changing existing rows, relati
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 3,
+      user_version: 4,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
       integrity_check: "ok",
     });
+    expect(indexNames(path)).toEqual(expect.arrayContaining(indexesBefore));
     const after = snapshot(path);
-    expect(withoutModelSelection(after)).toEqual(before);
+    expect(withoutNewColumns(after)).toEqual(before);
     expect(
       (
         database.sqlite.query("PRAGMA table_info(review_jobs)").all() as {
           name: string;
         }[]
       ).some((column) => column.name === "model_selection"),
+    ).toBe(true);
+    expect(
+      (
+        database.sqlite.query("PRAGMA table_info(challenges)").all() as {
+          name: string;
+        }[]
+      ).some((column) => column.name === "workspace_path"),
     ).toBe(true);
     expect(
       database.sqlite
@@ -148,7 +252,46 @@ test("v2 practice databases upgrade to v3 without changing existing rows, relati
         .all(),
     ).toEqual([{ name: "agent_run_events" }, { name: "agent_runs" }]);
     await database.migrateDatabase();
-    expect(withoutModelSelection(snapshot(path))).toEqual(before);
+    expect(withoutNewColumns(snapshot(path))).toEqual(before);
+    database.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("v3 practice databases upgrade to v4 while preserving agent history and model selections", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-v3-upgrade-"));
+  const path = join(root, "grill-me.sqlite");
+  try {
+    populateV3(path);
+    const before = snapshotWithAgentRuns(path);
+    const indexesBefore = indexNames(path);
+    const database = createSqliteDatabase(path);
+    await database.migrateDatabase();
+    expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
+      user_version: 4,
+    });
+    expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
+      integrity_check: "ok",
+    });
+    expect(indexNames(path)).toEqual(expect.arrayContaining(indexesBefore));
+    const after = snapshotWithAgentRuns(path);
+    expect(withoutWorkspacePath(after)).toEqual(before);
+    expect(
+      (
+        database.sqlite
+          .query("SELECT model_selection FROM review_jobs WHERE id='review-a'")
+          .get() as { model_selection: string }
+      ).model_selection,
+    ).toContain("fixture-model");
+    expect(
+      database.sqlite
+        .query("SELECT count(*) AS count FROM agent_run_events")
+        .get(),
+    ).toEqual({ count: 2 });
+    await database.migrateDatabase();
+    expect(withoutWorkspacePath(snapshotWithAgentRuns(path))).toEqual(before);
     database.close();
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -183,14 +326,14 @@ test("a failed v3 migration rolls back without changing v2 data", async () => {
   }
 });
 
-test("fresh databases execute the full schema chain and reach version 3", async () => {
-  const root = await mkdtemp(join(tmpdir(), "grill-fresh-v3-"));
+test("fresh databases execute the full schema chain and reach version 4", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-fresh-v4-"));
   const path = join(root, "fresh.sqlite");
   try {
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 3,
+      user_version: 4,
     });
     expect(
       database.sqlite
@@ -266,6 +409,62 @@ test("startup backups are verified, owner-only, and contain the pre-upgrade rows
     } finally {
       backup.close();
     }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("v3 databases are backed up before the workspace column migration", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-v3-backup-"));
+  const practice = join(root, "grill-me.sqlite");
+  try {
+    populateV3(practice);
+    const directory = await backupBeforeMigration(root, [practice]);
+    expect(directory).not.toBeNull();
+    expect(directory).toContain("pre-v4");
+    const backup = new Database(join(directory!, "grill-me.sqlite"), {
+      readonly: true,
+    });
+    try {
+      expect(
+        (backup.query("PRAGMA user_version").get() as { user_version: number })
+          .user_version,
+      ).toBe(3);
+      expect(
+        backup.query("SELECT count(*) AS count FROM agent_runs").get(),
+      ).toEqual({ count: 1 });
+      expect(
+        (
+          backup
+            .query(
+              "SELECT model_selection FROM review_jobs WHERE id='review-a'",
+            )
+            .get() as { model_selection: string }
+        ).model_selection,
+      ).toContain("fixture-model");
+      expect(
+        (
+          backup.query("PRAGMA table_info(challenges)").all() as {
+            name: string;
+          }[]
+        ).some((column) => column.name === "workspace_path"),
+      ).toBe(false);
+    } finally {
+      backup.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("v4 databases do not create another startup backup", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-v4-no-backup-"));
+  const practice = join(root, "grill-me.sqlite");
+  try {
+    const database = createSqliteDatabase(practice);
+    await database.migrateDatabase();
+    database.close();
+    await expect(backupBeforeMigration(root, [practice])).resolves.toBeNull();
   } finally {
     await rm(root, { recursive: true, force: true });
   }

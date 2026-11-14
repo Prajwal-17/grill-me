@@ -17,6 +17,11 @@ import type {
   MessageAttachment,
 } from "@repo/backend/modules/messages/message.schema";
 import { AppError } from "@repo/backend/shared/errors/app-error";
+import type { ChallengeWorkspace } from "@repo/backend/shared/contracts";
+import { challengeWorkspacePath } from "@repo/backend/modules/challenges/workspace";
+import { captureSubmission } from "@repo/backend/modules/projects/snapshot";
+import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import OpenAI from "openai";
 import type { LogRow } from "@repo/backend/modules/logs/log.model";
 import { generationPrompt } from "@repo/backend/modules/ai/prompts/index";
@@ -27,6 +32,7 @@ import { fixtureSql } from "./fixture-sql";
 const testRoot = "/tmp/grill-me-tests-" + crypto.randomUUID();
 process.env.SNAPSHOT_ROOT = testRoot + "/snapshots";
 process.env.UPLOAD_ROOT = testRoot + "/uploads";
+process.env.WORKSPACES_ROOT = testRoot + "/workspaces";
 afterAll(async () => {
   const { rm } = await import("node:fs/promises");
   await rm(testRoot, { recursive: true, force: true });
@@ -1131,6 +1137,305 @@ describe("profile preferences", () => {
       (await json<{ data: { aboutMe: string | null } }>(secondPreferences))
         .data,
     ).toMatchObject({ aboutMe: null });
+  });
+});
+
+describe("challenge workspaces", () => {
+  test("creates a scoped workspace on generation and never replaces user files", async () => {
+    const model = new FakeModel();
+    model.final = {
+      ...generated,
+      topic: "TypeScript",
+      starterCode: "export function group() {}",
+    };
+    const app = createApp({ llm: model });
+    const profile = await startProfile(
+      app,
+      `workspace-${crypto.randomUUID()}@test.dev`,
+    );
+    const build = await createChallenge(app, profile.id);
+    expect(build.workspacePath).toContain(
+      `/profiles/${profile.id}/0001-group-words-by-first-letter-`,
+    );
+    const workspacePath = build.workspacePath!;
+
+    const response = await request(
+      app,
+      `/challenges/${build.id}/workspace`,
+      profile.id,
+    );
+    expect(response.status).toBe(200);
+    const workspace = (await json<{ data: ChallengeWorkspace }>(response)).data;
+    expect(workspace.path).toBe(workspacePath);
+    expect(workspace.initialized).toBe(false);
+    expect(workspace.starterFile).toBe("starter.ts");
+    expect(await readFile(join(workspace.path, "starter.ts"), "utf8")).toBe(
+      "export function group() {}",
+    );
+
+    await writeFile(join(workspace.path, "README.md"), "My notes\n");
+    await writeFile(join(workspace.path, "starter.ts"), "My implementation\n");
+    const again = await request(
+      app,
+      `/challenges/${build.id}/workspace`,
+      profile.id,
+    );
+    const preserved = (await json<{ data: ChallengeWorkspace }>(again)).data;
+    expect(preserved.initialized).toBe(false);
+    expect(await readFile(join(workspace.path, "README.md"), "utf8")).toBe(
+      "My notes\n",
+    );
+    expect(await readFile(join(workspace.path, "starter.ts"), "utf8")).toBe(
+      "My implementation\n",
+    );
+
+    const other = await startProfile(
+      app,
+      `workspace-other-${crypto.randomUUID()}@test.dev`,
+    );
+    const forbidden = await request(
+      app,
+      `/challenges/${build.id}/workspace`,
+      other.id,
+    );
+    expect(forbidden.status).toBe(404);
+  });
+
+  test("creates and persists a workspace for a challenge without a recorded path", async () => {
+    const root = join(testRoot, `lazy-root-${crypto.randomUUID()}`);
+    const model = new FakeModel();
+    model.final = {
+      ...generated,
+      starterCode: "export function group() {}",
+    };
+    const app = createApp({ llm: model, workspaceRoot: () => root });
+    const profile = await startProfile(
+      app,
+      `workspace-lazy-${crypto.randomUUID()}@test.dev`,
+    );
+    const build = await createChallenge(app, profile.id);
+    const path = challengeWorkspacePath(root, build);
+    await rm(build.workspacePath!, { recursive: true, force: true });
+    await mkdir(path, { recursive: true });
+    await writeFile(join(path, "starter.ts"), "my own starter\n");
+    await fixtureSql("UPDATE challenges SET workspace_path=NULL WHERE id=$1", [
+      build.id,
+    ]);
+
+    const response = await request(
+      app,
+      `/challenges/${build.id}/workspace`,
+      profile.id,
+    );
+    expect(response.status).toBe(200);
+    const workspace = (await json<{ data: ChallengeWorkspace }>(response)).data;
+    expect(workspace).toMatchObject({
+      path,
+      initialized: true,
+      starterFile: "starter.ts",
+    });
+    expect(await readFile(join(path, "starter.ts"), "utf8")).toBe(
+      "my own starter\n",
+    );
+    const detail = await json<{ data: Challenge }>(
+      await request(app, `/challenges/${build.id}`, profile.id),
+    );
+    expect(detail.data.workspacePath).toBe(path);
+
+    const restarted = createApp({ llm: model, workspaceRoot: () => root });
+    const again = await json<{ data: ChallengeWorkspace }>(
+      await request(restarted, `/challenges/${build.id}/workspace`, profile.id),
+    );
+    expect(again.data).toMatchObject({ path, initialized: false });
+  });
+
+  test("keeps a challenge usable when workspace creation fails and recovers later", async () => {
+    const blocked = join(testRoot, `blocked-root-${crypto.randomUUID()}`);
+    await writeFile(blocked, "not a folder");
+    let root = blocked;
+    const app = createApp({ llm: new FakeModel(), workspaceRoot: () => root });
+    const profile = await startProfile(
+      app,
+      `workspace-failure-${crypto.randomUUID()}@test.dev`,
+    );
+    const build = await createChallenge(app, profile.id);
+    expect(build.workspacePath).toBeNull();
+
+    const failed = await request(
+      app,
+      `/challenges/${build.id}/workspace`,
+      profile.id,
+    );
+    expect(failed.status).toBe(503);
+    expect(await json<{ error: { code: string } }>(failed)).toMatchObject({
+      error: { code: "WORKSPACE_ROOT_UNAVAILABLE" },
+    });
+    expect(
+      (
+        await json<{ data: Challenge }>(
+          await request(app, `/challenges/${build.id}`, profile.id),
+        )
+      ).data.id,
+    ).toBe(build.id);
+
+    root = join(testRoot, `recovered-root-${crypto.randomUUID()}`);
+    const recovered = await json<{ data: ChallengeWorkspace }>(
+      await request(app, `/challenges/${build.id}/workspace`, profile.id),
+    );
+    expect(recovered.data.path).toBe(challengeWorkspacePath(root, build));
+    expect(
+      (
+        await json<{ data: Challenge }>(
+          await request(app, `/challenges/${build.id}`, profile.id),
+        )
+      ).data.workspacePath,
+    ).toBe(recovered.data.path);
+  });
+
+  test("coalesces concurrent workspace preparation", async () => {
+    const root = join(testRoot, `concurrent-root-${crypto.randomUUID()}`);
+    const app = createApp({
+      llm: new FakeModel(),
+      workspaceRoot: () => root,
+    });
+    const profile = await startProfile(
+      app,
+      `workspace-concurrent-${crypto.randomUUID()}@test.dev`,
+    );
+    const build = await createChallenge(app, profile.id);
+    const path = challengeWorkspacePath(root, build);
+    await rm(build.workspacePath!, { recursive: true, force: true });
+    await fixtureSql("UPDATE challenges SET workspace_path=NULL WHERE id=$1", [
+      build.id,
+    ]);
+
+    const [first, second] = await Promise.all([
+      request(app, `/challenges/${build.id}/workspace`, profile.id),
+      request(app, `/challenges/${build.id}/workspace`, profile.id),
+    ]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect((await json<{ data: ChallengeWorkspace }>(first)).data.path).toBe(
+      path,
+    );
+    expect((await json<{ data: ChallengeWorkspace }>(second)).data.path).toBe(
+      path,
+    );
+    const later = await json<{ data: ChallengeWorkspace }>(
+      await request(app, `/challenges/${build.id}/workspace`, profile.id),
+    );
+    expect(later.data.initialized).toBe(false);
+  });
+
+  test("relinks a copied workspace root after the old root disappears", async () => {
+    const firstRoot = join(testRoot, `copy-first-${crypto.randomUUID()}`);
+    const secondRoot = join(testRoot, `copy-second-${crypto.randomUUID()}`);
+    let root = firstRoot;
+    const app = createApp({ llm: new FakeModel(), workspaceRoot: () => root });
+    const profile = await startProfile(
+      app,
+      `workspace-copy-${crypto.randomUUID()}@test.dev`,
+    );
+    const build = await createChallenge(app, profile.id);
+    await writeFile(join(build.workspacePath!, "answer.ts"), "my answer\n");
+
+    await cp(firstRoot, secondRoot, { recursive: true });
+    await rm(firstRoot, { recursive: true, force: true });
+    root = secondRoot;
+    const response = await json<{ data: ChallengeWorkspace }>(
+      await request(app, `/challenges/${build.id}/workspace`, profile.id),
+    );
+    expect(response.data.path).toBe(challengeWorkspacePath(secondRoot, build));
+    expect(await readFile(join(response.data.path, "answer.ts"), "utf8")).toBe(
+      "my answer\n",
+    );
+    const detail = await json<{ data: Challenge }>(
+      await request(app, `/challenges/${build.id}`, profile.id),
+    );
+    expect(detail.data.workspacePath).toBe(response.data.path);
+  });
+
+  test("explicit relinking keeps files in the recorded folder", async () => {
+    const firstRoot = join(testRoot, `relink-first-${crypto.randomUUID()}`);
+    const secondRoot = join(testRoot, `relink-second-${crypto.randomUUID()}`);
+    let root = firstRoot;
+    const app = createApp({ llm: new FakeModel(), workspaceRoot: () => root });
+    const profile = await startProfile(
+      app,
+      `workspace-relink-${crypto.randomUUID()}@test.dev`,
+    );
+    const build = await createChallenge(app, profile.id);
+    const recorded = build.workspacePath!;
+    await writeFile(join(recorded, "notes.txt"), "keep me\n");
+
+    root = secondRoot;
+    const response = await request(
+      app,
+      `/challenges/${build.id}/workspace/relink`,
+      profile.id,
+      {},
+    );
+    expect(response.status).toBe(200);
+    const workspace = (await json<{ data: ChallengeWorkspace }>(response)).data;
+    expect(workspace.path).toBe(challengeWorkspacePath(secondRoot, build));
+    expect(await readFile(join(recorded, "notes.txt"), "utf8")).toBe(
+      "keep me\n",
+    );
+    const detail = await json<{ data: Challenge }>(
+      await request(app, `/challenges/${build.id}`, profile.id),
+    );
+    expect(detail.data.workspacePath).toBe(workspace.path);
+  });
+
+  test("reports the recorded folder when it is not a directory", async () => {
+    const root = join(testRoot, `recorded-root-${crypto.randomUUID()}`);
+    const app = createApp({ llm: new FakeModel(), workspaceRoot: () => root });
+    const profile = await startProfile(
+      app,
+      `workspace-recorded-${crypto.randomUUID()}@test.dev`,
+    );
+    const build = await createChallenge(app, profile.id);
+    const recorded = build.workspacePath!;
+    await rm(recorded, { recursive: true, force: true });
+    await writeFile(recorded, "not a folder");
+
+    const response = await request(
+      app,
+      `/challenges/${build.id}/workspace`,
+      profile.id,
+    );
+    expect(response.status).toBe(503);
+    expect(
+      await json<{
+        error: { code: string; details: { path: string } };
+      }>(response),
+    ).toMatchObject({
+      error: {
+        code: "WORKSPACE_UNAVAILABLE",
+        details: { path: recorded },
+      },
+    });
+  });
+
+  test("excludes the workspace marker from project snapshots", async () => {
+    const project = join(testRoot, `snapshot-project-${crypto.randomUUID()}`);
+    await mkdir(join(project, ".grill-me"), { recursive: true });
+    await writeFile(
+      join(project, ".grill-me/workspace.json"),
+      JSON.stringify({ version: 1 }),
+    );
+    await writeFile(join(project, "answer.ts"), "export const answer = 1;\n");
+    const snapshot = await captureSubmission({
+      id: `snapshot-${crypto.randomUUID()}`,
+      root: project,
+      content: "",
+      attachments: [],
+    });
+    try {
+      expect(snapshot.manifest.map((file) => file.path)).toEqual(["answer.ts"]);
+    } finally {
+      await rm(snapshot.snapshotPath, { recursive: true, force: true });
+    }
   });
 });
 

@@ -56,7 +56,7 @@ another account, or unavailable, the owner can use a restricted token instead.
 
 Tokens stay in Electron's main process after entry. Persisted tokens are encrypted
 with Electron safeStorage backed by macOS Keychain or a secure Linux credential
-store, inside the production data directory's owner-readable
+store, inside the production app data root's owner-readable
 `update-credentials.json`. If that store is unavailable or Linux selects
 `basic_text`, the token stays in memory only and must be entered again after
 restart. Updates never silently fall back to plaintext storage. OS keychain
@@ -75,7 +75,7 @@ versions, incomplete releases, and unsupported architectures are not installed.
 
 After download, finish any AI request, then choose **Install and restart** and
 confirm. No update installs automatically. Your database and settings remain in
-the existing production data directory.
+the existing production app data root.
 
 - **Linux x64:** the app uses `/usr/bin/pkexec /usr/bin/dpkg --install` and waits for
   administrator approval. If policy denies installation or pkexec is absent,
@@ -91,10 +91,11 @@ the existing production data directory.
   These releases remain ad-hoc signed, without Apple notarization; the updater
   does not bypass Gatekeeper.
 
-Downloaded installers are in `<production data directory>/updates/`. On Linux
-this defaults to `~/.config/grill-me-desktop/updates/`; on macOS it is
-`~/Library/Application Support/grill-me-desktop/updates/`. A macOS helper failure
-is logged to `update-install.log` in that data directory. Installation errors keep
+Downloaded installers are in `<production app data root>/updates/`. When the
+default root is used, this is `~/.config/grill-me-desktop/updates/` on Linux or
+`~/Library/Application Support/grill-me-desktop/updates/` on macOS. A custom
+first-run app data root keeps its own `updates/` folder. A macOS helper failure
+is logged to `update-install.log` in that data root. Installation errors keep
 the app open when possible and explain how to retry or install manually. A new
 app launch rechecks GitHub; a download interrupted by quitting must be started
 again. Development editions do not authenticate or install production updates.

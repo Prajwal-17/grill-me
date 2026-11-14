@@ -25,14 +25,16 @@ import {
   requireChallenge,
   toChallenge,
 } from "./challenge.utils";
+import type { ChallengeWorkspaceService } from "./workspace";
 
 export function createChallengeService(dependencies: {
   challenges: ChallengeModel;
   messages: MessageModel;
   profiles: ProfileService;
   llm: ModelGateway;
+  workspaces: ChallengeWorkspaceService;
 }) {
-  const { challenges, messages, profiles, llm } = dependencies;
+  const { challenges, messages, profiles, llm, workspaces } = dependencies;
   // Remember valid essential questions so a client cannot skip one after preparation.
   // Bounded to avoid retaining abandoned requests indefinitely in this local server.
   const pendingQuestions = new Map<
@@ -247,24 +249,47 @@ export function createChallengeService(dependencies: {
           difficulty: input.difficulty,
           contextualDifficulty: challenge.estimatedDifficultyBand,
         });
-        const created = toChallenge(
-          await challenges.create(
-            profileId,
-            finalBuild,
-            input.prompt,
-            {
-              ...JSON.parse(requestPromptContext(modelInput)),
-              promptVersion: PROMPT_VERSION,
-              calibrationVersion: CALIBRATION_VERSION,
-              requestedModel: process.env.LLM_MODEL ?? "auto",
-            },
-            generation,
-          ),
+        const row = await challenges.create(
+          profileId,
+          finalBuild,
+          input.prompt,
+          {
+            ...JSON.parse(requestPromptContext(modelInput)),
+            promptVersion: PROMPT_VERSION,
+            calibrationVersion: CALIBRATION_VERSION,
+            requestedModel: process.env.LLM_MODEL ?? "auto",
+          },
+          generation,
         );
         pendingQuestions.delete(key);
-        return created;
+        try {
+          const workspace = await workspaces.ensure(row);
+          const updated = await challenges.setWorkspacePath(
+            row.id,
+            workspace.path,
+          );
+          return toChallenge(
+            updated ?? { ...row, workspacePath: workspace.path },
+          );
+        } catch (error) {
+          // The challenge remains usable without its optional folder. Opening
+          // the workspace later retries initialization and reports the reason.
+          console.error(
+            "Challenge workspace could not be initialized:",
+            error instanceof Error ? error.message : error,
+          );
+          return toChallenge(row);
+        }
       }
       throw new Error("Unreachable generation state");
+    },
+
+    async workspace(id: string, profileId: string, relink = false) {
+      const row = await owned(id, profileId);
+      const workspace = await workspaces.ensure(row, { relink });
+      if (row.workspacePath !== workspace.path)
+        await challenges.setWorkspacePath(row.id, workspace.path);
+      return workspace;
     },
 
     async complete(id: string, profileId: string) {

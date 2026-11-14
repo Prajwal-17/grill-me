@@ -13,6 +13,7 @@ import {
   SettingsRow,
 } from "./settings-layout";
 import { useSettingsMutation } from "./use-settings-mutation";
+import { WorkspaceSettingsPanel } from "./workspace-settings";
 export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
   const [draft, setDraft] = useState<RuntimeSettings | null>(null);
   const save = useSettingsMutation(() => setDraft(null));
@@ -104,6 +105,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           </Button>
         </div>
       </form>
+      <WorkspaceSettingsPanel data={data} />
     </>
   );
 }

@@ -2,7 +2,7 @@
 
 Grill Me is a personal, local-first practice companion for developers. It supports coding challenges, implementation reviews, standalone and challenge quizzes, and revisiting prior practice. These workflows deserve equal care.
 
-Users describe what they want to learn, choose scope and difficulty, build in their own editor, and submit code or connect a local project. Reviews provide evidence and actionable feedback. Users decide when to mark a challenge completed; acceptance, difficulty, and quiz scores remain separate concepts. Quiz answers save automatically and attempts can be resumed or retaken.
+A fresh installation asks where app data and challenge workspaces live before the backend starts, with defaults that preserve existing installations and named child folders for custom parents. Users describe what they want to learn, choose scope and difficulty, build in their own editor, and submit code or connect a local project. Each challenge keeps a local workspace folder for code, notes, and artifacts, with starter material seeded once and detected editors one action away. Reviews provide evidence and actionable feedback. Users decide when to mark a challenge completed; acceptance, difficulty, and quiz scores remain separate concepts. Quiz answers save automatically and attempts can be resumed or retaken.
 
 The interface should be comfortable for sustained practice: readable task text, compact navigation, clear controls, and accessible keyboard operation. It supports light and dark themes and narrow touch screens. This is a personal workspace, without a team or project-management layer. Local profile selection is not authentication.
 

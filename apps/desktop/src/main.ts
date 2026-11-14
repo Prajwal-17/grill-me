@@ -13,14 +13,31 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createInterface } from "node:readline";
 import { dirname, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { realpath } from "node:fs/promises";
 import { backendEnvironment } from "./config";
 import { windowSettingsStore } from "./window-settings";
 import {
+  setupFolderChoiceSchema,
   windowSettingsSchema,
+  workspaceLaunchSchema,
+  type DesktopSetupState,
   type DesktopState,
 } from "@repo/backend/shared/contracts";
 import { desktopIdentity, type DesktopChannel } from "./identity";
+import {
+  completeFirstRun,
+  resolveStartup,
+  type SetupRequired,
+  type SetupSelection,
+  type StartupOptions,
+} from "./setup";
+import {
+  availableWorkspaceEditors,
+  launchWorkspaceEditor,
+  resolveWorkspaceLaunch,
+} from "./workspace-editors";
 import { registerUpdater } from "./updater/electron";
 
 declare const __DESKTOP_CHANNEL__: DesktopChannel;
@@ -53,6 +70,8 @@ let backend: ChildProcess | undefined;
 let quitting = false;
 let shutdownComplete = false;
 let window: BrowserWindow | undefined;
+let setupWindow: BrowserWindow | undefined;
+let activeDataRoot = app.getPath("userData");
 function stopBackend(): Promise<void> {
   const child = backend;
   backend = undefined;
@@ -88,16 +107,18 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 app.on("activate", () => {
-  if (window?.isMinimized()) window.restore();
-  window?.show();
-  window?.focus();
+  const target = window ?? setupWindow;
+  if (target?.isMinimized()) target.restore();
+  target?.show();
+  target?.focus();
 });
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on("second-instance", () => {
-    if (window?.isMinimized()) window.restore();
-    window?.show();
-    window?.focus();
+    const target = window ?? setupWindow;
+    if (target?.isMinimized()) target.restore();
+    target?.show();
+    target?.focus();
   });
   void app
     .whenReady()
@@ -105,16 +126,270 @@ else {
     .catch((error) => {
       dialog.showErrorBox(
         "Grill Me could not start",
-        `${error instanceof Error ? error.message : String(error)}\n\nDesktop data: ${app.getPath("userData")}`,
+        `${error instanceof Error ? error.message : String(error)}\n\nDesktop data: ${activeDataRoot}`,
       );
       app.quit();
     });
 }
 
 async function start() {
-  const dataRoot = app.getPath("userData");
+  const startup: StartupOptions = {
+    configRoot: app.getPath("userData"),
+    channel: identity.channel,
+    dataFolderName: identity.dataFolderName,
+    workspaceFolderName: identity.workspaceFolderName,
+  };
+  const resolved = await resolveStartup(startup);
+  let selection: SetupSelection | null;
+  if (resolved.kind === "ready")
+    selection = {
+      dataRoot: resolved.dataRoot,
+      workspaceRoot: resolved.workspaceRoot,
+    };
+  else selection = await runSetup(resolved, startup);
+  if (!selection) {
+    app.quit();
+    return;
+  }
+  activeDataRoot = selection.dataRoot;
+  await startApplication(selection, startup);
+}
+
+function setupIconUrl() {
+  return pathToFileURL(
+    app.isPackaged
+      ? join(process.resourcesPath, "icon.png")
+      : join(
+          resolve(import.meta.dirname, "../.."),
+          "resources/icons/512x512.png",
+        ),
+  ).href;
+}
+
+function setupState(required: SetupRequired): DesktopSetupState {
+  return {
+    productName: identity.productName,
+    channel: identity.channel,
+    platform: process.platform === "darwin" ? "darwin" : "linux",
+    iconUrl: setupIconUrl(),
+    dataFolderName: identity.dataFolderName,
+    workspaceFolderName: identity.workspaceFolderName,
+    defaultDataRoot: required.defaults.dataRoot,
+    defaultWorkspaceRoot: required.defaults.workspaceRoot,
+    error: required.error,
+    saved: required.saved,
+  };
+}
+
+function runSetup(
+  required: SetupRequired,
+  startup: StartupOptions,
+): Promise<SetupSelection | null> {
+  const desktopRoot = resolve(import.meta.dirname, "../..");
+  const setupPath = app.isPackaged
+    ? join(process.resourcesPath, "onboarding/index.html")
+    : join(desktopRoot, "resources/onboarding/index.html");
+  const win = new BrowserWindow({
+    title: `${identity.productName} setup`,
+    width: 840,
+    height: 800,
+    minWidth: 620,
+    minHeight: 560,
+    backgroundColor: "#171717",
+    show: false,
+    frame: true,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: join(import.meta.dirname, "../preload/onboarding.cjs"),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      spellcheck: false,
+    },
+  });
+  setupWindow = win;
+  win.setMenu(null);
+  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  win.webContents.on("will-navigate", (event) => event.preventDefault());
+  const setupSession = win.webContents.session;
+  setupSession.setPermissionRequestHandler((_contents, _permission, callback) =>
+    callback(false),
+  );
+  setupSession.setPermissionCheckHandler(() => false);
+
+  const state = setupState(required);
+  return new Promise((resolveSetup) => {
+    let settled = false;
+    let completing = false;
+    const channels = [
+      "desktop:setup-state",
+      "desktop:setup-choose-folder",
+      "desktop:setup-complete",
+      "desktop:setup-retry",
+      "desktop:setup-cancel",
+    ];
+    const removeHandlers = () => {
+      for (const channel of channels) ipcMain.removeHandler(channel);
+    };
+    const settle = (value: SetupSelection | null, close: boolean) => {
+      if (settled) return;
+      settled = true;
+      removeHandlers();
+      if (close) {
+        if (!win.isDestroyed()) win.destroy();
+        if (setupWindow === win) setupWindow = undefined;
+      }
+      resolveSetup(value);
+    };
+    const trusted = (event: IpcMainInvokeEvent) => {
+      if (
+        event.sender !== win.webContents ||
+        event.senderFrame !== event.sender.mainFrame
+      )
+        throw new Error("Untrusted setup request.");
+      const url = new URL(event.senderFrame.url);
+      if (
+        url.protocol !== "file:" ||
+        resolve(fileURLToPath(url)) !== resolve(setupPath)
+      )
+        throw new Error("Untrusted setup origin.");
+    };
+
+    ipcMain.handle("desktop:setup-state", (event) => {
+      trusted(event);
+      return state;
+    });
+    ipcMain.handle(
+      "desktop:setup-choose-folder",
+      async (event, target: unknown, currentParent: unknown) => {
+        trusted(event);
+        if (target !== "data" && target !== "workspace")
+          throw new Error("Invalid setup folder target.");
+        if (
+          currentParent !== undefined &&
+          currentParent !== null &&
+          (typeof currentParent !== "string" ||
+            currentParent.length > 4096 ||
+            currentParent.includes("\0"))
+        )
+          throw new Error("Invalid setup folder path.");
+        const defaultPath =
+          typeof currentParent === "string" && isAbsolute(currentParent)
+            ? currentParent
+            : target === "data"
+              ? state.defaultDataRoot
+              : state.defaultWorkspaceRoot;
+        try {
+          const result = await dialog.showOpenDialog(win, {
+            title:
+              target === "data"
+                ? "Choose where to keep Grill Me data"
+                : "Choose where to keep challenge workspaces",
+            buttonLabel: "Select folder",
+            properties: ["openDirectory", "createDirectory"],
+            defaultPath,
+          });
+          const selected = result.canceled
+            ? null
+            : (result.filePaths[0] ?? null);
+          return selected
+            ? await realpath(selected).catch(() => selected)
+            : null;
+        } catch {
+          throw new Error(
+            "Could not open the folder picker. Try again or use the default location.",
+          );
+        }
+      },
+    );
+    ipcMain.handle("desktop:setup-complete", async (event, input: unknown) => {
+      trusted(event);
+      if (completing)
+        return {
+          ok: false as const,
+          message: "Setup is already finishing.",
+        };
+      const parsed = setupFolderChoiceSchema.safeParse(input);
+      if (!parsed.success)
+        return {
+          ok: false as const,
+          message: "Choose valid folder locations.",
+        };
+      completing = true;
+      try {
+        const selection = await completeFirstRun({
+          ...startup,
+          choice: parsed.data,
+        });
+        settle(selection, false);
+        return { ok: true as const };
+      } catch (error) {
+        return {
+          ok: false as const,
+          message:
+            error instanceof Error && error.message
+              ? error.message
+              : "The selected locations could not be used. Choose another folder.",
+        };
+      } finally {
+        completing = false;
+      }
+    });
+    ipcMain.handle("desktop:setup-retry", async (event) => {
+      trusted(event);
+      try {
+        const resolved = await resolveStartup(startup);
+        if (resolved.kind !== "ready")
+          return {
+            ok: false as const,
+            message:
+              resolved.error ??
+              "The saved app data folder is still unavailable.",
+          };
+        settle(
+          {
+            dataRoot: resolved.dataRoot,
+            workspaceRoot: resolved.workspaceRoot,
+          },
+          false,
+        );
+        return { ok: true as const };
+      } catch {
+        return {
+          ok: false as const,
+          message: "The saved app data folder is still unavailable.",
+        };
+      }
+    });
+    ipcMain.handle("desktop:setup-cancel", (event) => {
+      trusted(event);
+      settle(null, true);
+    });
+
+    win.on("closed", () => {
+      if (setupWindow === win) setupWindow = undefined;
+      if (!settled) settle(null, false);
+    });
+    win.once("ready-to-show", () => win.show());
+    void win.loadFile(setupPath).catch((error) => {
+      console.error("Setup window failed to load.", error);
+      dialog.showErrorBox(
+        "Grill Me setup could not open",
+        "The setup window could not be loaded. Reinstall the application and try again.",
+      );
+      settle(null, true);
+    });
+  });
+}
+
+async function startApplication(
+  selection: SetupSelection,
+  startup: StartupOptions,
+) {
+  const dataRoot = selection.dataRoot;
   mkdirSync(dataRoot, { recursive: true, mode: 0o700 });
-  const preferences = windowSettingsStore(dataRoot);
+  const preferences = windowSettingsStore(startup.configRoot);
   const devUrl = !app.isPackaged
     ? process.env.ELECTRON_RENDERER_URL
     : undefined;
@@ -167,6 +442,7 @@ async function start() {
         : resolve(import.meta.dirname, "../renderer"),
       webOrigin: devUrl ? new URL(devUrl).origin : "grill-me://app",
       keyringModule,
+      workspaceDefaultRoot: selection.workspaceRoot,
       workerPath: devUrl
         ? undefined
         : join(dirname(executable), "resume.worker.js"),
@@ -452,8 +728,55 @@ async function start() {
       }
     },
   );
+  ipcMain.handle(
+    "desktop:select-workspace-folder",
+    async (event, currentPath: unknown) => {
+      trusted(event);
+      if (
+        currentPath !== undefined &&
+        (typeof currentPath !== "string" ||
+          currentPath.length > 4096 ||
+          currentPath.includes("\0"))
+      )
+        throw new Error("Invalid workspace folder path.");
+      if (!window || window.isDestroyed())
+        throw new Error("The application window is unavailable.");
+      try {
+        const result = await dialog.showOpenDialog(window, {
+          title: "Choose challenge workspace folder",
+          buttonLabel: "Select folder",
+          properties: ["openDirectory", "createDirectory"],
+          ...(typeof currentPath === "string" && isAbsolute(currentPath)
+            ? { defaultPath: currentPath }
+            : {}),
+        });
+        return result.canceled ? null : (result.filePaths[0] ?? null);
+      } catch {
+        throw new Error(
+          "Could not open the folder picker. Try again or enter the path manually.",
+        );
+      }
+    },
+  );
+  ipcMain.handle("desktop:workspace-editors", (event) => {
+    trusted(event);
+    return availableWorkspaceEditors();
+  });
+  ipcMain.handle("desktop:open-workspace", async (event, input: unknown) => {
+    trusted(event);
+    const launch = resolveWorkspaceLaunch(workspaceLaunchSchema.parse(input));
+    if (launch.useShellOpen) {
+      const error = await shell.openPath(launch.path);
+      if (error) throw new Error("Could not open the workspace folder.");
+      return;
+    }
+    await launchWorkspaceEditor(launch);
+  });
   window.once("ready-to-show", () => {
     if (preferences.get().startup === "maximized") window?.maximize();
+    const setup = setupWindow;
+    setupWindow = undefined;
+    if (setup && !setup.isDestroyed()) setup.destroy();
     window?.show();
   });
   child.on("exit", () => {

@@ -5,6 +5,7 @@ import { createChallengeController } from "./modules/challenges/challenge.contro
 import { challengeModel } from "./modules/challenges/challenge.model";
 import { createChallengeRoutes } from "./modules/challenges/challenge.routes";
 import { createChallengeService } from "./modules/challenges/challenge.service";
+import { createChallengeWorkspaceService } from "./modules/challenges/workspace";
 import { createLogRoutes } from "./modules/logs/log.routes";
 import { createMessageController } from "./modules/messages/message.controller";
 import { messageModel } from "./modules/messages/message.model";
@@ -27,6 +28,7 @@ import { createGenerationRoutes } from "./modules/generations/generation.routes"
 
 type AppDependencies = {
   llm: ModelGateway;
+  workspaceRoot?: () => string;
   webOrigin?: string;
   providerStatus?: () => Promise<{
     configured: boolean;
@@ -41,6 +43,7 @@ type AppDependencies = {
 
 export function createApp({
   llm,
+  workspaceRoot,
   providerStatus,
   providerModels,
   webOrigin = "http://localhost:17018,http://127.0.0.1:17018",
@@ -71,6 +74,7 @@ export function createApp({
     messages: messageModel,
     profiles: profileService,
     llm,
+    workspaces: createChallengeWorkspaceService(workspaceRoot),
   });
   const messageService = createMessageService({
     challenges: challengeModel,

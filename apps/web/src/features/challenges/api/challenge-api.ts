@@ -2,6 +2,7 @@ import { apiRequest } from "@/shared/lib/api-client";
 import type {
   Challenge,
   ChallengePreparation,
+  ChallengeWorkspace,
   GenerateBuildRequest,
   ModelSelection,
 } from "@/shared/types/api";
@@ -16,6 +17,8 @@ export const challengeKeys = {
   detail: (profileId?: string, challengeId?: string) =>
     ["challenges", "detail", profileId, challengeId] as const,
   messages: (challengeId?: string) => ["messages", challengeId] as const,
+  workspace: (profileId?: string, challengeId?: string) =>
+    ["challenges", "workspace", profileId, challengeId] as const,
 };
 
 export function getActiveChallenges(profileId: string) {
@@ -24,6 +27,25 @@ export function getActiveChallenges(profileId: string) {
 
 export function getChallenge(profileId: string, challengeId: string) {
   return apiRequest<Challenge>(`/challenges/${challengeId}`, {}, profileId);
+}
+
+export function getChallengeWorkspace(profileId: string, challengeId: string) {
+  return apiRequest<ChallengeWorkspace>(
+    `/challenges/${challengeId}/workspace`,
+    {},
+    profileId,
+  );
+}
+
+export function relinkChallengeWorkspace(
+  profileId: string,
+  challengeId: string,
+) {
+  return apiRequest<ChallengeWorkspace>(
+    `/challenges/${challengeId}/workspace/relink`,
+    { method: "POST" },
+    profileId,
+  );
 }
 
 export function getSavedChallenges(profileId: string) {

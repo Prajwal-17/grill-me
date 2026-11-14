@@ -392,6 +392,24 @@ rather than installing a second component vocabulary. Configuration reference:
   styles, and retained limits. `SearchField` composes the input with search and
   clear affordances. `PreferenceRow` aligns labels and controls without arbitrary
   left margins. Custom multi-select and model choices retain their existing behavior.
+- **First-run setup:** a dedicated setup window appears before the app shell
+  when a fresh installation has no data. It uses the same canvas, surface,
+  line, focus, and action tokens in a compact two-card form: app data and
+  challenge workspaces. Each card shows the final path, a labelled default, a
+  native Choose folder action, and Use default. A custom parent displays the
+  named child folder that will be created. Skip and use defaults completes
+  without forcing a choice; cancel or close starts nothing. Saved-location
+  failures stay inline with an explicit retry, long paths wrap, and the footer
+  owns Quit, Skip, and Continue. The setup window uses a native frame so a fresh
+  install always has standard window controls.
+- **Challenge workspaces:** Overview shows one compact workspace panel with the
+  absolute folder path, copy action, seeded starter filename, and explicit
+  open-folder and detected-editor buttons. The task toolbar repeats those actions
+  in a compact menu. Settings → Advanced owns the workspace root with a native
+  Browse action and a visible default path. Long paths wrap, buttons wrap below
+  the path on narrow screens, unavailable folders and failed launches stay
+  inline with retry, and the web-only renderer shows the path without inventing
+  native actions.
 - **Project folders:** the Connect folder dialog supports manual paths and file
   URLs, in-app navigation, and a labelled Browse action for the native desktop
   folder chooser. Native selection fills the path and loads its folder listing

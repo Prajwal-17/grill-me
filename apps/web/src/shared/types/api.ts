@@ -1,6 +1,9 @@
-import type { ModelSelection } from "@repo/backend/shared/contracts";
+import type {
+  ChallengeWorkspace,
+  ModelSelection,
+} from "@repo/backend/shared/contracts";
 import type { GuidedPreferences } from "@repo/backend/shared/preferences";
-export type { ModelSelection };
+export type { ChallengeWorkspace, ModelSelection };
 export type Profile = {
   id: string;
   email: string;
@@ -50,6 +53,7 @@ export type Challenge = {
   starterCode: string | null;
   completionCriteria: string[];
   hint: string | null;
+  workspacePath: string | null;
   status: ChallengeStatus;
   archivedAt: string | null;
   createdAt: string;

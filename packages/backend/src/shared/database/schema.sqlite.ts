@@ -119,6 +119,7 @@ export const challenges = sqliteTable(
       .$type<string[]>()
       .notNull(),
     hint: text("hint"),
+    workspacePath: text("workspace_path"),
     status: text("status", {
       enum: ["active", "paused", "saved", "stopped", "completed"],
     })

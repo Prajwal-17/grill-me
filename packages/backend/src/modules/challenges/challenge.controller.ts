@@ -68,6 +68,16 @@ export function createChallengeController(service: ChallengeService) {
     getById: async (c: Context) =>
       c.json({ data: await service.getById(challengeId(c), profileId(c)) }),
 
+    workspace: async (c: Context) =>
+      c.json({
+        data: await service.workspace(challengeId(c), profileId(c)),
+      }),
+
+    relinkWorkspace: async (c: Context) =>
+      c.json({
+        data: await service.workspace(challengeId(c), profileId(c), true),
+      }),
+
     prepare: async (c: Context) => {
       const input = parseInput(
         prepareChallengeRequestSchema,

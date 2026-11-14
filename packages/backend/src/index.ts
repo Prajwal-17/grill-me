@@ -11,6 +11,7 @@ export type { DatabaseOptions, ModelGateway };
 export async function createBackend(options: {
   database: DatabaseOptions;
   llm?: ModelGateway;
+  workspaceRoot?: () => string;
   webOrigin?: string;
   providerStatus?: () => Promise<{
     configured: boolean;
@@ -48,6 +49,7 @@ export async function createBackend(options: {
   await createReviewService(llm).recover();
   const app = createApp({
     llm,
+    workspaceRoot: options.workspaceRoot,
     webOrigin: options.webOrigin,
     providerStatus: options.providerStatus,
     providerModels: options.providerModels,

@@ -226,14 +226,56 @@ export const runtimeSettingsSchema = z.object({
   judgeTimeoutMs: z.number().int().min(1000).max(3600000).default(900000),
 });
 export type RuntimeSettings = z.infer<typeof runtimeSettingsSchema>;
+export const workspacePreferenceSchema = z.object({
+  root: z.string().trim().max(4096).default(""),
+});
+export type WorkspacePreference = z.infer<typeof workspacePreferenceSchema>;
+/** Legal POSIX absolute folder paths, including backslashes in file names. */
+export function isSelectableWorkspacePath(value: string) {
+  return value.startsWith("/") && value !== "/" && !/[\0\r\n]/.test(value);
+}
 export type LocalSettings = {
   providerDefaults: ReturnType<typeof defaultProviderSettings>;
   providers: SavedProvider[];
   activeProviderId: string | null;
   runtime: RuntimeSettings;
+  workspace: { root: string; defaultRoot: string };
   keyring: { available: boolean; message: string };
   migration: { pending: boolean; message: string | null };
 };
+export const challengeWorkspaceSchema = z.object({
+  path: z.string().min(1).max(4096),
+  initialized: z.boolean(),
+  starterFile: z.string().min(1).max(255).nullable(),
+});
+export type ChallengeWorkspace = z.infer<typeof challengeWorkspaceSchema>;
+export const workspaceEditorSchema = z.enum([
+  "vscode",
+  "cursor",
+  "zed",
+  "vscode-insiders",
+  "vscodium",
+  "idea",
+  "webstorm",
+  "pycharm",
+  "file-manager",
+]);
+export type WorkspaceEditor = z.infer<typeof workspaceEditorSchema>;
+export type WorkspaceEditorOption = { id: WorkspaceEditor; label: string };
+export const workspaceLaunchSchema = z
+  .object({
+    path: z
+      .string()
+      .trim()
+      .min(1)
+      .max(4096)
+      .refine(isSelectableWorkspacePath, "Use an absolute folder path."),
+    editor: workspaceEditorSchema,
+    challengeId: z.string().uuid(),
+    profileId: z.string().uuid(),
+  })
+  .strict();
+export type WorkspaceLaunch = z.infer<typeof workspaceLaunchSchema>;
 export const windowSettingsSchema = z.object({
   startup: z.enum(["maximized", "windowed"]).default("maximized"),
   zoom: z.number().min(0.5).max(2).default(1),
@@ -273,6 +315,37 @@ export const updateCredentialsSchema = z.object({
     .refine((v) => !/\s/.test(v), "Enter a single-line GitHub token.")
     .optional(),
 });
+export const setupFolderChoiceSchema = z
+  .object({
+    dataParent: z.string().max(4096).nullable(),
+    workspaceParent: z.string().max(4096).nullable(),
+  })
+  .strict();
+export type SetupFolderChoice = z.infer<typeof setupFolderChoiceSchema>;
+export type DesktopSetupState = {
+  productName: string;
+  channel: "development" | "production";
+  platform: "linux" | "darwin";
+  iconUrl: string;
+  dataFolderName: string;
+  workspaceFolderName: string;
+  defaultDataRoot: string;
+  defaultWorkspaceRoot: string;
+  error: string | null;
+  saved: { dataRoot: string; workspaceRoot: string } | null;
+};
+export type DesktopSetupResult = { ok: true } | { ok: false; message: string };
+/** The preload bridge used only by the sandboxed first-run setup window. */
+export interface DesktopSetupBridge {
+  getState(): Promise<DesktopSetupState>;
+  chooseFolder(
+    target: "data" | "workspace",
+    currentParent?: string,
+  ): Promise<string | null>;
+  complete(choice: SetupFolderChoice): Promise<DesktopSetupResult>;
+  retry(): Promise<DesktopSetupResult>;
+  cancel(): Promise<void>;
+}
 export interface DesktopBridge {
   platform: "linux" | "darwin";
   getAppVersion(): Promise<string>;
@@ -298,6 +371,9 @@ export interface DesktopBridge {
   toggleFullscreen(): Promise<DesktopState>;
   openDataFolder(): Promise<void>;
   selectProjectsFolder(currentPath?: string): Promise<string | null>;
+  selectWorkspaceFolder(currentPath?: string): Promise<string | null>;
+  getWorkspaceEditors(): Promise<WorkspaceEditorOption[]>;
+  openWorkspaceInEditor(input: WorkspaceLaunch): Promise<void>;
 }
 export const apiCallSchema = z.object({
   path: z
@@ -367,6 +443,7 @@ export interface SettingsApi {
   removeProvider(id: string): Promise<LocalSettings>;
   activateProvider(id: string | null): Promise<LocalSettings>;
   saveRuntime(input: RuntimeSettings): Promise<LocalSettings>;
+  saveWorkspace(input: WorkspacePreference): Promise<LocalSettings>;
   testProvider(id: string): Promise<ProviderHealth>;
   migrateLegacy(storage: CredentialStorage): Promise<LocalSettings>;
 }

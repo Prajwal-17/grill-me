@@ -4,6 +4,18 @@
 
 ### Added
 
+- Ask where Grill Me keeps app data and challenge workspaces during first-run
+  setup, with labelled defaults, native folder selection, and a skip action.
+  Custom parents get edition-specific child folders, the choice is remembered,
+  and existing installations keep their current data without being moved.
+- Give every challenge a local workspace folder for code, notes, artifacts, and
+  subfolders. New challenges seed a brief and available starter code once,
+  existing files are never replaced, older challenges get a folder when opened,
+  and a missing copied or restored workspace root is relinked to the current
+  root without moving user files.
+- Open a challenge workspace in the file manager or an installed editor such as
+  Zed, VS Code, Cursor, and common JetBrains IDEs from the Overview and task
+  toolbar, with a user-selectable workspace root in Settings → Advanced.
 - Let challenge and quiz generation inspect pasted context with a temporary
   research workspace: public links and image URLs can be fetched and viewed,
   files can be read and written, and shell commands can process downloaded

@@ -106,9 +106,9 @@ export function createSqliteDatabase(path: string) {
     const version = (
       sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    if (version > 3)
+    if (version > 4)
       throw new Error("This database needs a newer desktop application.");
-    if (version === 3) return;
+    if (version === 4) return;
     sqlite
       .transaction(() => {
         if (version === 0) {
@@ -166,7 +166,9 @@ CREATE TABLE agent_run_events (
   FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON UPDATE no action ON DELETE cascade
 );
 CREATE UNIQUE INDEX agent_run_events_run_sequence_unique ON agent_run_events (run_id, sequence);`);
-        sqlite.exec("PRAGMA user_version = 3;");
+        if (version < 4)
+          sqlite.exec("ALTER TABLE challenges ADD COLUMN workspace_path TEXT;");
+        sqlite.exec("PRAGMA user_version = 4;");
       })
       .immediate();
     const violations = sqlite.query("PRAGMA foreign_key_check").all();

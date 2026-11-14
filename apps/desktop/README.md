@@ -18,11 +18,21 @@ window controls. Source mode may use the existing development-only Chromium
 sandbox fallback on restricted Linux hosts. Packaged applications do not enable
 that fallback.
 
-Development uses `grill-me-desktop-dev`, production `grill-me-desktop`, under the
-Linux config directory, or `~/Library/Application Support/` on macOS. Each owns its SQLite database, private provider state,
-Electron session, settings, uploads, snapshots, logs, and keyring namespace. Local
-reviews inspect submitted snapshots without executing code. Conversation retries
-are explicit; app startup marks partial unfinished responses interrupted.
+After a fresh installation, a setup window asks for app data and challenge
+workspace locations before the database or backend starts. Defaults keep
+`grill-me-desktop-dev` / `grill-me-desktop` under the Linux config directory, or
+`~/Library/Application Support/` on macOS. A custom parent gets a named child
+folder (`Grill Me Dev` / `Grill Me` for app data and the corresponding
+`... Workspaces` folder). Existing installations keep their current data and skip
+setup. The setup record is `desktop-setup.json` in the edition config directory.
+
+Each edition owns its SQLite database, private provider state, settings, uploads,
+snapshots, logs, keyring namespace, and Electron session. A custom app data root
+moves practice data but not the launcher's setup record, window preferences, or
+Electron session. Local reviews inspect submitted snapshots without executing
+code. Conversation retries are explicit; app startup marks partial unfinished
+responses interrupted. See
+[desktop data and first-run setup](../../docs/desktop-storage.md).
 
 Build channels are compiled into the main process and renderer, checked against
 package metadata, and passed explicitly to the backend. A production binary
