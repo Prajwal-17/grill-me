@@ -21,6 +21,14 @@ Propose explicit setup, run, and check commands with a working directory relativ
 
 Before calling complete_project_scaffold, inspect the files you wrote and make the report match them exactly: report only journaled project files, every TODO line, all checks with one result each, and honest problems.`;
 
-export function projectScaffoldInstructions() {
-  return [CORE_INSTRUCTIONS, PROJECT_TOOL_POLICY, SCAFFOLD_POLICY].join("\n\n");
+const RESUME_POLICY = `# Resuming an existing project
+This run continues an existing practice project in the same folder. First list, read, and search the files already present. Do not recreate or replace existing files. Continue the surrounding wiring from the existing journal and prior attempt context while leaving the exercise's core logic as explicit TODO work. Use edit_project_file only for files that still match Grill Me's recorded hash; user-edited and untracked files must never be overwritten. The continuation context lists journaled files that were missing from disk. Recreate only those explicitly listed files when the frozen specification needs them, and never touch unjournaled files. Preserve CHALLENGE.md exactly. After continuing, report every journaled project file, not only the files changed in this run.`;
+
+export function projectScaffoldInstructions(resume = false) {
+  return [
+    CORE_INSTRUCTIONS,
+    PROJECT_TOOL_POLICY,
+    SCAFFOLD_POLICY,
+    ...(resume ? [RESUME_POLICY] : []),
+  ].join("\n\n");
 }

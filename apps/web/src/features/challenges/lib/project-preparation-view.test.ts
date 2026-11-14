@@ -115,6 +115,7 @@ function preparation(
     attempt: 1,
     projectDirectory: "project",
     projectPath: "/practice/challenge/project",
+    mode: "start",
     status: "ready",
     specification: null,
     report: report(),
@@ -126,6 +127,17 @@ function preparation(
     startedAt: at,
     completedAt: at,
     updatedAt: at,
+    recovery: {
+      canRetry: false,
+      canResume: false,
+      canFresh: false,
+      settling: false,
+      resumeStatus: "not_applicable",
+      resumeMessage: null,
+      conflictPath: null,
+      missingFiles: [],
+      missingFileCount: 0,
+    },
     previousAttempt: null,
     ...overrides,
   };
@@ -423,7 +435,7 @@ test("maps exact command fields and bounded output", () => {
   assert.match(view.summary ?? "", /needs approval/);
 });
 
-test("stops at a changed project file without claiming a resume", () => {
+test("offers explicit recovery actions without claiming an unsafe resume", () => {
   const view = projectPreparationView(
     preparation({
       status: "failed",
@@ -440,6 +452,18 @@ test("stops at a changed project file without claiming a resume", () => {
         retryable: true,
         details: { path: "src/index.ts" },
       },
+      recovery: {
+        canRetry: true,
+        canResume: false,
+        canFresh: true,
+        settling: false,
+        resumeStatus: "file_modified",
+        resumeMessage:
+          "A tracked project file changed on disk. Resume did not start.",
+        conflictPath: "src/index.ts",
+        missingFiles: [],
+        missingFileCount: 0,
+      },
     }),
   );
   assert.equal(view.statusLabel, "Preparation failed");
@@ -447,29 +471,146 @@ test("stops at a changed project file without claiming a resume", () => {
   assert.equal(view.recovery?.title, "Stopped to preserve your edits");
   assert.equal(view.recovery?.tone, "warning");
   assert.equal(view.recovery?.conflictPath, "src/index.ts");
-  assert.equal(view.recovery?.canStart, true);
-  assert.equal(view.recovery?.startLabel, "Start new attempt");
-  assert.match(view.recovery?.description ?? "", /new project folder/);
-  assert.doesNotMatch(view.recovery?.description ?? "", /resume/i);
-  assert.equal(view.createsNewAttempt, true);
+  assert.match(view.recovery?.description ?? "", /Resume is disabled/);
+  assert.match(view.recovery?.resumeMessage ?? "", /Resume did not start/);
+  assert.deepEqual(
+    view.recovery?.actions.map((action) => [
+      action.action,
+      action.enabled,
+      action.primary,
+    ]),
+    [
+      ["resume", false, false],
+      ["retry", true, true],
+      ["fresh", true, false],
+    ],
+  );
+  assert.match(
+    view.recovery?.actions[0]?.description ?? "",
+    /never overwritten/,
+  );
+  assert.match(
+    view.recovery?.actions[2]?.description ?? "",
+    /without reading this folder's journal/,
+  );
+  assert.equal(view.canStart, false);
 });
 
-test("describes interrupted and cancelled attempts as new folders, not resumes", () => {
-  for (const status of ["interrupted", "cancelled"] as const) {
-    const view = projectPreparationView(
-      preparation({
-        status,
-        report: null,
-        error: null,
-        activity: [activity(status)],
-      }),
-    );
-    assert.equal(view.recovery?.canStart, true);
-    assert.equal(view.recovery?.needsReview, true);
-    assert.match(view.recovery?.description ?? "", /Files from attempt 1/);
-    assert.match(view.recovery?.description ?? "", /new project folder/);
-    assert.doesNotMatch(view.recovery?.description ?? "", /resume/i);
-  }
+test("offers resume for an interrupted attempt with valid journal metadata", () => {
+  const view = projectPreparationView(
+    preparation({
+      status: "interrupted",
+      report: null,
+      error: {
+        code: "PROJECT_PREPARATION_INTERRUPTED",
+        message: "The app stopped before project preparation finished.",
+        retryable: true,
+      },
+      recovery: {
+        canRetry: true,
+        canResume: true,
+        canFresh: true,
+        settling: false,
+        resumeStatus: "available",
+        resumeMessage: null,
+        conflictPath: null,
+        missingFiles: ["src/wiring.ts"],
+        missingFileCount: 1,
+      },
+    }),
+  );
+  assert.equal(view.recovery?.title, "Preparation interrupted");
+  assert.equal(view.recovery?.missingFileCount, 1);
+  assert.deepEqual(view.recovery?.missingFiles, ["src/wiring.ts"]);
+  assert.deepEqual(
+    view.recovery?.actions.map((action) => [
+      action.action,
+      action.enabled,
+      action.primary,
+    ]),
+    [
+      ["resume", true, true],
+      ["retry", true, false],
+      ["fresh", true, false],
+    ],
+  );
+  assert.match(
+    view.recovery?.description ?? "",
+    /Resume continues this folder/,
+  );
+});
+
+test("keeps retry and fresh disabled while a previous run is settling", () => {
+  const view = projectPreparationView(
+    preparation({
+      status: "cancelled",
+      report: null,
+      recovery: {
+        canRetry: false,
+        canResume: false,
+        canFresh: false,
+        settling: true,
+        resumeStatus: "settling",
+        resumeMessage: null,
+        conflictPath: null,
+        missingFiles: [],
+        missingFileCount: 0,
+      },
+    }),
+  );
+  assert.equal(view.recovery?.settling, true);
+  assert.equal(
+    view.recovery?.actions.every((action) => !action.enabled),
+    true,
+  );
+});
+
+test("labels resumed attempts and their same-folder history honestly", () => {
+  const view = projectPreparationView(
+    preparation({
+      status: "running",
+      mode: "resume",
+      report: null,
+      completedAt: null,
+      previousAttempt: {
+        attempt: 1,
+        status: "interrupted",
+        projectDirectory: "project",
+        summary: null,
+      },
+    }),
+  );
+  assert.equal(view.mode, "resume");
+  assert.equal(view.modeLabel, "Resumed");
+  assert.equal(
+    view.previousAttempt,
+    "Resumed attempt 1 in the same folder (project).",
+  );
+});
+
+test("describes terminal attempts without a completed inventory truthfully", () => {
+  const view = projectPreparationView(
+    preparation({
+      status: "interrupted",
+      report: null,
+      recovery: {
+        canRetry: true,
+        canResume: true,
+        canFresh: true,
+        settling: false,
+        resumeStatus: "available",
+        resumeMessage: null,
+        conflictPath: null,
+        missingFiles: [],
+        missingFileCount: 0,
+      },
+    }),
+  );
+  assert.equal(
+    view.filesSummary,
+    "No completed inventory; partial files preserved",
+  );
+  assert.deepEqual(view.checkGroups, []);
 });
 
 test("keeps the latest terminal activity bounded to one row", () => {

@@ -266,7 +266,17 @@ function withoutWorkspacePath(value: Record<string, unknown[]>) {
   return value;
 }
 
-test("v2 practice databases upgrade to v6 while preserving existing rows, relationships, and indexes", async () => {
+function withoutPreparationMode(value: Record<string, unknown[]>) {
+  for (const preparation of (value.project_preparations ?? []) as {
+    mode?: string;
+  }[]) {
+    expect(preparation.mode).toBe("start");
+    delete preparation.mode;
+  }
+  return value;
+}
+
+test("v2 practice databases upgrade to v7 while preserving existing rows, relationships, and indexes", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v2-upgrade-"));
   const path = join(root, "grill-me.sqlite");
   try {
@@ -276,7 +286,7 @@ test("v2 practice databases upgrade to v6 while preserving existing rows, relati
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 6,
+      user_version: 7,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
@@ -314,7 +324,7 @@ test("v2 practice databases upgrade to v6 while preserving existing rows, relati
   }
 });
 
-test("v3 practice databases upgrade to v6 while preserving agent history and model selections", async () => {
+test("v3 practice databases upgrade to v7 while preserving agent history and model selections", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v3-upgrade-"));
   const path = join(root, "grill-me.sqlite");
   try {
@@ -324,7 +334,7 @@ test("v3 practice databases upgrade to v6 while preserving agent history and mod
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 6,
+      user_version: 7,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
@@ -363,7 +373,7 @@ test("populated v4 databases add project preparation state without changing prac
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 6,
+      user_version: 7,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(indexNames(path)).toEqual(expect.arrayContaining(indexesBefore));
@@ -398,7 +408,7 @@ test("populated v4 databases add project preparation state without changing prac
   }
 });
 
-test("populated v5 databases add command authorization state without changing preparation history", async () => {
+test("populated v5 databases add command authorization and preparation mode state without changing preparation history", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v5-to-v6-"));
   const path = join(root, "grill-me.sqlite");
   try {
@@ -409,7 +419,7 @@ test("populated v5 databases add command authorization state without changing pr
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 6,
+      user_version: 7,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
@@ -417,7 +427,9 @@ test("populated v5 databases add command authorization state without changing pr
     });
     expect(indexNames(path)).toEqual(expect.arrayContaining(indexesBefore));
     expect(snapshotWithAgentRuns(path)).toEqual(before);
-    expect(rows(path, ["project_preparations"])).toEqual(preparationsBefore);
+    expect(
+      withoutPreparationMode(rows(path, ["project_preparations"])),
+    ).toEqual(preparationsBefore);
     expect(
       database.sqlite
         .query(
@@ -445,7 +457,9 @@ test("populated v5 databases add command authorization state without changing pr
       { name: "project_command_requests_running_unique" },
     ]);
     await database.migrateDatabase();
-    expect(rows(path, ["project_preparations"])).toEqual(preparationsBefore);
+    expect(
+      withoutPreparationMode(rows(path, ["project_preparations"])),
+    ).toEqual(preparationsBefore);
     database.close();
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -480,14 +494,14 @@ test("a failed v3 migration rolls back without changing v2 data", async () => {
   }
 });
 
-test("fresh databases execute the full schema chain and reach version 6", async () => {
+test("fresh databases execute the full schema chain and reach version 7", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-fresh-v6-"));
   const path = join(root, "fresh.sqlite");
   try {
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 6,
+      user_version: 7,
     });
     expect(
       database.sqlite

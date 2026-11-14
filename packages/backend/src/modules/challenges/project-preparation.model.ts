@@ -5,6 +5,7 @@ import type {
   ProjectFrozenSpecification,
   ProjectPreparationActivity,
   ProjectPreparationError,
+  ProjectPreparationMode,
   ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
 
@@ -79,6 +80,7 @@ export const projectPreparationModel = {
     projectDirectory: string;
     projectPath: string;
     specification: ProjectFrozenSpecification;
+    mode: ProjectPreparationMode;
     requestedModel: string | null;
     at: Date;
   }) {
@@ -244,7 +246,7 @@ export const projectPreparationModel = {
         error: {
           code: "PROJECT_PREPARATION_INTERRUPTED",
           message:
-            "The app stopped before project preparation finished. Partial files are preserved; start another attempt when ready.",
+            "The app stopped before project preparation finished. Partial files are preserved; resume this folder or start another attempt when ready.",
           retryable: true,
         },
         completedAt: at,

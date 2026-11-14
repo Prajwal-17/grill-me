@@ -150,7 +150,9 @@ function fsCode(error: unknown) {
 }
 
 function specificationConflict(message: string) {
-  return new AppError("PROJECT_SCAFFOLD_SPEC_CONFLICT", message, 409, false);
+  return new AppError("PROJECT_SCAFFOLD_SPEC_CONFLICT", message, 409, false, {
+    path: frozenSpecificationPath,
+  });
 }
 
 /**

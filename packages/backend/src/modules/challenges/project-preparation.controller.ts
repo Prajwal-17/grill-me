@@ -11,6 +11,8 @@ const startProjectPreparationSchema = z.object({
   selection: modelSelectionSchema.optional(),
 });
 
+const recoveryAttemptSchema = z.strictObject({});
+
 const commandParamsSchema = challengeParamsSchema.extend({
   commandId: z.string().uuid(),
 });
@@ -71,6 +73,30 @@ export function createProjectPreparationController(
             selection: input.selection,
           }),
         },
+        202,
+      );
+    },
+
+    retry: async (c: Context) => {
+      parseInput(recoveryAttemptSchema, await optionalJson(c.req.raw));
+      return c.json(
+        { data: await service.retry(profileId(c), challengeId(c)) },
+        202,
+      );
+    },
+
+    resume: async (c: Context) => {
+      parseInput(recoveryAttemptSchema, await optionalJson(c.req.raw));
+      return c.json(
+        { data: await service.resume(profileId(c), challengeId(c)) },
+        202,
+      );
+    },
+
+    fresh: async (c: Context) => {
+      parseInput(recoveryAttemptSchema, await optionalJson(c.req.raw));
+      return c.json(
+        { data: await service.fresh(profileId(c), challengeId(c)) },
         202,
       );
     },

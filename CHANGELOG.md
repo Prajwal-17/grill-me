@@ -34,6 +34,13 @@
   run, commands stop with cancellation, and a restart never replays them.
   Reported check results must match real stored command outcomes, while a failed
   check no longer prevents prepared files from being ready.
+- Recover interrupted project preparation with explicit resume, retry, and fresh
+  actions. Resume inspects the existing folder and generated-file journal and
+  continues it with a new fenced run without overwriting user edits; retry reuses
+  the saved frozen specification in a new folder; fresh starts a new folder even
+  when the previous journal is corrupt. Recovery preserves every earlier attempt
+  and file, recreates only explicitly journaled missing files, and never carries
+  stale command approvals into the new run.
 
 ### Removed
 

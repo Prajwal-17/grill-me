@@ -4,6 +4,7 @@ import type {
   ProjectFrozenSpecification,
   ProjectPreparationActivity,
   ProjectPreparationError,
+  ProjectPreparationMode,
   ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
 import type {
@@ -166,6 +167,10 @@ export const projectPreparations = sqliteTable(
     specification: jsonb("specification")
       .$type<ProjectFrozenSpecification>()
       .notNull(),
+    mode: text("mode", { enum: ["start", "retry", "resume", "fresh"] })
+      .$type<ProjectPreparationMode>()
+      .notNull()
+      .default("start"),
     status: text("status", {
       enum: [
         "not_started",
@@ -208,6 +213,10 @@ export const projectPreparations = sqliteTable(
       table.updatedAt,
     ),
     check("project_preparations_attempt_positive", sql`${table.attempt} > 0`),
+    check(
+      "project_preparations_mode_check",
+      sql`${table.mode} in ('start', 'retry', 'resume', 'fresh')`,
+    ),
     check(
       "project_preparations_status_check",
       sql`${table.status} in ('not_started', 'running', 'ready', 'failed', 'cancelled', 'interrupted')`,

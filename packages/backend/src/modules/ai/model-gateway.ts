@@ -111,6 +111,14 @@ export type ProjectScaffoldPreviousAttempt = {
   error: { code: string; message: string } | null;
 };
 
+export type ProjectScaffoldContinuation = {
+  /** The new run continues the same existing project folder. */
+  resumedFromAttempt: number;
+  /** Journaled files that were absent when resume started. */
+  missingFiles: string[];
+  missingFileCount: number;
+};
+
 export type ProjectScaffoldModelInput = {
   profileId: string;
   challengeId: string;
@@ -121,6 +129,8 @@ export type ProjectScaffoldModelInput = {
   /** Attempt layout, including the project tools root and journal location. */
   layout: ProjectLayout;
   previousAttempt: ProjectScaffoldPreviousAttempt | null;
+  /** Present only when this run continues the same existing project folder. */
+  continuation?: ProjectScaffoldContinuation | null;
   /** Best-effort progress reporting persisted by the preparation service. */
   onActivity?: (activity: ProjectToolActivity) => void | Promise<void>;
   /**

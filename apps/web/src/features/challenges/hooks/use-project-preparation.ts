@@ -11,6 +11,9 @@ import {
   challengeKeys,
   getProjectPreparation,
   rejectProjectCommand,
+  resumeProjectPreparation,
+  retryProjectPreparation,
+  startFreshProjectPreparation,
   startProjectPreparation,
 } from "@/features/challenges/api/challenge-api";
 
@@ -44,6 +47,18 @@ export function useProjectPreparation(
   });
   const cancel = useMutation({
     mutationFn: () => cancelProjectPreparation(profileId, challengeId),
+    onSuccess: apply,
+  });
+  const retry = useMutation({
+    mutationFn: () => retryProjectPreparation(profileId, challengeId),
+    onSuccess: apply,
+  });
+  const resume = useMutation({
+    mutationFn: () => resumeProjectPreparation(profileId, challengeId),
+    onSuccess: apply,
+  });
+  const fresh = useMutation({
+    mutationFn: () => startFreshProjectPreparation(profileId, challengeId),
     onSuccess: apply,
   });
   const refreshAfterError = () => {
@@ -95,6 +110,9 @@ export function useProjectPreparation(
     preparation,
     start,
     cancel,
+    retry,
+    resume,
+    fresh,
     approve,
     reject,
     authorize,

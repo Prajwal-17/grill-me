@@ -336,6 +336,45 @@ export const projectPreparationStatusSchema = z.enum([
 export type ProjectPreparationStatus = z.infer<
   typeof projectPreparationStatusSchema
 >;
+export const projectPreparationModeSchema = z.enum([
+  "start",
+  "retry",
+  "resume",
+  "fresh",
+]);
+export type ProjectPreparationMode = z.infer<
+  typeof projectPreparationModeSchema
+>;
+export const projectResumeStatusSchema = z.enum([
+  "available",
+  "not_applicable",
+  "attempts_exhausted",
+  "settling",
+  "project_missing",
+  "journal_missing",
+  "journal_invalid",
+  "journal_unavailable",
+  "file_modified",
+  "unavailable",
+]);
+export type ProjectResumeStatus = z.infer<typeof projectResumeStatusSchema>;
+export const projectPreparationRecoverySchema = z.object({
+  canRetry: z.boolean(),
+  canResume: z.boolean(),
+  canFresh: z.boolean(),
+  /** A previous run is still stopping; new writers stay disabled. */
+  settling: z.boolean(),
+  resumeStatus: projectResumeStatusSchema,
+  resumeMessage: z.string().max(1_000).nullable(),
+  /** First tracked file that conflicts with the generated-file journal. */
+  conflictPath: z.string().max(512).nullable(),
+  /** Explicitly journaled files missing from disk; a resumed run may recreate them. */
+  missingFiles: z.array(z.string().max(512)).max(20),
+  missingFileCount: z.number().int().nonnegative(),
+});
+export type ProjectPreparationRecovery = z.infer<
+  typeof projectPreparationRecoverySchema
+>;
 export const projectPreparationActivityTypeSchema = z.enum([
   "listed",
   "read",
@@ -490,6 +529,7 @@ export const projectPreparationSchema = z.object({
   attempt: z.number().int().positive().nullable(),
   projectDirectory: z.string().min(1).max(64).nullable(),
   projectPath: z.string().min(1).max(4_096).nullable(),
+  mode: projectPreparationModeSchema.nullable(),
   status: projectPreparationStatusSchema,
   specification: projectFrozenSpecificationSchema.nullable(),
   report: projectScaffoldReportSchema.nullable(),
@@ -501,6 +541,7 @@ export const projectPreparationSchema = z.object({
   startedAt: z.string().datetime().nullable(),
   completedAt: z.string().datetime().nullable(),
   updatedAt: z.string().datetime().nullable(),
+  recovery: projectPreparationRecoverySchema,
   previousAttempt: z
     .object({
       attempt: z.number().int().positive(),

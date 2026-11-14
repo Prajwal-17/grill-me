@@ -11,7 +11,7 @@ export function projectScaffoldTask(
 ): StructuredTask<unknown> {
   return {
     operation: "project_scaffolding",
-    instructions: projectScaffoldInstructions(),
+    instructions: projectScaffoldInstructions(Boolean(input.continuation)),
     context: [
       contextBlock("frozen_specification", input.specification, {
         untrusted: false,
@@ -37,6 +37,20 @@ export function projectScaffoldTask(
         },
         { untrusted: false },
       ),
+      ...(input.continuation
+        ? [
+            contextBlock(
+              "resume_continuation",
+              {
+                note: "This run continues the same project folder. Inspect the existing journaled files before editing, and report every journaled file when complete.",
+                resumedFromAttempt: input.continuation.resumedFromAttempt,
+                missingJournaledFiles: input.continuation.missingFiles,
+                missingJournaledFileCount: input.continuation.missingFileCount,
+              },
+              { untrusted: false },
+            ),
+          ]
+        : []),
       ...(input.previousAttempt
         ? [
             contextBlock("previous_attempt", input.previousAttempt, {

@@ -265,13 +265,32 @@ function ProjectActions({
 
 function RecoveryAlert({
   view,
-  start,
+  resume,
+  retry,
+  fresh,
 }: {
   view: ProjectPreparationView;
-  start: ReturnType<typeof useProjectPreparation>["start"];
+  resume: ReturnType<typeof useProjectPreparation>["resume"];
+  retry: ReturnType<typeof useProjectPreparation>["retry"];
+  fresh: ReturnType<typeof useProjectPreparation>["fresh"];
 }) {
   const recovery = view.recovery;
   if (!recovery) return null;
+  const busy = resume.isPending || retry.isPending || fresh.isPending;
+  const busyAction = resume.isPending
+    ? "resume"
+    : retry.isPending
+      ? "retry"
+      : fresh.isPending
+        ? "fresh"
+        : null;
+  const actionError = resume.error ?? retry.error ?? fresh.error;
+  const run = (action: "resume" | "retry" | "fresh") => {
+    if (action === "resume") resume.mutate();
+    else if (action === "retry") retry.mutate();
+    else fresh.mutate();
+  };
+  const buttonLabel = { resume: "Resume", retry: "Retry", fresh: "Start" };
   return (
     <div
       role={view.status === "failed" ? "alert" : undefined}
@@ -302,6 +321,28 @@ function RecoveryAlert({
               Changed file: {recovery.conflictPath}
             </p>
           )}
+          {recovery.resumeMessage && (
+            <p className="mt-1 break-words text-metadata text-warning">
+              {recovery.resumeMessage}
+            </p>
+          )}
+          {recovery.missingFileCount > 0 && (
+            <p className="mt-1 break-words text-metadata text-muted">
+              {recovery.missingFileCount === 1
+                ? "1 journaled file is missing from disk"
+                : `${recovery.missingFileCount} journaled files are missing from disk`}
+              {recovery.missingFiles.length
+                ? `: ${recovery.missingFiles.slice(0, 5).join(", ")}`
+                : ""}
+              . A resumed run may recreate them.
+            </p>
+          )}
+          {recovery.settling && (
+            <p className="mt-1 text-metadata text-warning">
+              The previous run is still stopping. Recovery actions unlock when
+              it settles.
+            </p>
+          )}
           {!!view.problems.length && (
             <ul className="mt-1 list-disc space-y-0.5 pl-4 text-metadata text-muted">
               {view.problems.map((problem) => (
@@ -313,24 +354,47 @@ function RecoveryAlert({
           )}
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        {recovery.canStart && (
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={start.isPending}
-            onClick={() => start.mutate(undefined)}
+      <div className="mt-2 divide-y divide-line border-t border-line">
+        {recovery.actions.map((action) => (
+          <div
+            key={action.action}
+            className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5 py-2"
           >
-            {start.isPending && (
-              <LoaderCircle
-                size={14}
-                className="animate-spin motion-reduce:animate-none"
-              />
-            )}
-            {start.isPending ? "Starting…" : recovery.startLabel}
-          </Button>
-        )}
+            <div className="min-w-0 flex-1">
+              <p className="text-metadata font-medium text-foreground">
+                {action.label}
+              </p>
+              <p className="break-words text-metadata text-muted">
+                {action.description}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant={action.primary ? "primary" : "secondary"}
+              disabled={!action.enabled || busy}
+              onClick={() => run(action.action)}
+            >
+              {busyAction === action.action ? (
+                <LoaderCircle
+                  size={14}
+                  className="animate-spin motion-reduce:animate-none"
+                />
+              ) : null}
+              {busyAction === action.action
+                ? "Starting…"
+                : buttonLabel[action.action]}
+            </Button>
+          </div>
+        ))}
       </div>
+      {actionError && (
+        <p
+          role="alert"
+          className="mt-2 break-words text-metadata text-destructive"
+        >
+          {actionError.message}
+        </p>
+      )}
     </div>
   );
 }
@@ -606,6 +670,9 @@ export function ProjectPreparationRegion({
     preparation,
     start,
     cancel,
+    retry,
+    resume,
+    fresh,
     approve,
     reject,
     authorize,
@@ -643,6 +710,9 @@ export function ProjectPreparationRegion({
           {view?.attempt !== null && view?.attempt !== undefined && (
             <span className="text-metadata text-muted">
               Attempt {view.attempt}
+              {view.modeLabel && view.mode !== "start"
+                ? ` · ${view.modeLabel}`
+                : ""}
             </span>
           )}
           {view && (
@@ -719,7 +789,12 @@ export function ProjectPreparationRegion({
               {view.previousAttempt}
             </p>
           )}
-          <RecoveryAlert view={view} start={start} />
+          <RecoveryAlert
+            view={view}
+            resume={resume}
+            retry={retry}
+            fresh={fresh}
+          />
           <dl className="mt-3 divide-y divide-line border-y border-line">
             <StatusRow label="Files prepared">
               {view.filesSummary}
@@ -738,7 +813,7 @@ export function ProjectPreparationRegion({
                   ? "Preparing…"
                   : view.status === "not_started"
                     ? "Not started"
-                    : "Not available"}
+                    : "No check results recorded"}
               </StatusRow>
             )}
           </dl>
@@ -803,12 +878,24 @@ export function ProjectPreparationRegion({
               )}
             </div>
           )}
-          {(start.error || cancel.error) && (
+          {(start.error ||
+            cancel.error ||
+            retry.error ||
+            resume.error ||
+            fresh.error) && (
             <p
               role="alert"
               className="mt-2 break-words text-supporting text-destructive"
             >
-              {(start.error ?? cancel.error)?.message}
+              {
+                (
+                  start.error ??
+                  cancel.error ??
+                  retry.error ??
+                  resume.error ??
+                  fresh.error
+                )?.message
+              }
             </p>
           )}
           <CommandSection

@@ -106,9 +106,9 @@ export function createSqliteDatabase(path: string) {
     const version = (
       sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    if (version > 6)
+    if (version > 7)
       throw new Error("This database needs a newer desktop application.");
-    if (version === 6) return;
+    if (version === 7) return;
     sqlite
       .transaction(() => {
         if (version === 0) {
@@ -249,7 +249,11 @@ CREATE TABLE project_command_authorizations (
   CONSTRAINT project_command_authorizations_attempt_positive CHECK(attempt > 0)
 );
 CREATE UNIQUE INDEX project_command_authorizations_preparation_unique ON project_command_authorizations (preparation_id);`);
-        sqlite.exec("PRAGMA user_version = 6;");
+        if (version < 7)
+          sqlite.exec(
+            `ALTER TABLE project_preparations ADD COLUMN mode text NOT NULL DEFAULT 'start' CHECK(mode IN ('start', 'retry', 'resume', 'fresh'));`,
+          );
+        sqlite.exec("PRAGMA user_version = 7;");
       })
       .immediate();
     const violations = sqlite.query("PRAGMA foreign_key_check").all();

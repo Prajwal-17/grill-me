@@ -7,6 +7,9 @@ export function createProjectPreparationRoutes(
   const routes = new Hono();
   routes.get("/:id/project-preparation", controller.get);
   routes.post("/:id/project-preparation/start", controller.start);
+  routes.post("/:id/project-preparation/retry", controller.retry);
+  routes.post("/:id/project-preparation/resume", controller.resume);
+  routes.post("/:id/project-preparation/fresh", controller.fresh);
   routes.post("/:id/project-preparation/cancel", controller.cancel);
   routes.post(
     "/:id/project-preparation/commands/:commandId/approve",

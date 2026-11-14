@@ -85,6 +85,39 @@ export function cancelProjectPreparation(
   );
 }
 
+export function retryProjectPreparation(
+  profileId: string,
+  challengeId: string,
+) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation/retry`,
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+
+export function resumeProjectPreparation(
+  profileId: string,
+  challengeId: string,
+) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation/resume`,
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+
+export function startFreshProjectPreparation(
+  profileId: string,
+  challengeId: string,
+) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation/fresh`,
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+
 export function approveProjectCommand(
   profileId: string,
   challengeId: string,

@@ -8,6 +8,7 @@ import type {
   ProjectCommandStatus,
   ProjectPreparation,
   ProjectPreparationActivity,
+  ProjectPreparationMode,
   ProjectPreparationStatus,
 } from "@repo/backend/shared/contracts";
 
@@ -72,20 +73,33 @@ export type ProjectActivityView = {
   label: string;
 };
 
+export type ProjectRecoveryActionView = {
+  action: "resume" | "retry" | "fresh";
+  label: string;
+  description: string;
+  enabled: boolean;
+  primary: boolean;
+};
+
 export type ProjectRecoveryView = {
   title: string;
   description: string;
   tone: "warning" | "danger";
-  canStart: boolean;
-  startLabel: string;
-  conflictPath: string | null;
   needsReview: boolean;
+  conflictPath: string | null;
+  resumeMessage: string | null;
+  missingFiles: string[];
+  missingFileCount: number;
+  settling: boolean;
+  actions: ProjectRecoveryActionView[];
 };
 
 export type ProjectPreparationView = {
   status: ProjectPreparationStatus;
   statusLabel: string;
   statusTone: ProjectTone;
+  mode: ProjectPreparationMode | null;
+  modeLabel: string | null;
   attempt: number | null;
   previousAttempt: string | null;
   summary: string | null;
@@ -133,6 +147,13 @@ const statusTones: Record<ProjectPreparationStatus, ProjectTone> = {
   interrupted: "warning",
 };
 
+const modeLabels: Record<ProjectPreparationMode, string> = {
+  start: "Started",
+  retry: "Retried",
+  resume: "Resumed",
+  fresh: "Fresh start",
+};
+
 function plural(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
@@ -161,7 +182,7 @@ function fileSummary(preparation: ProjectPreparation) {
     )}`;
   if (preparation.status === "running") return "Preparing…";
   if (preparation.status === "not_started") return "Not started";
-  return "Not available";
+  return "No completed inventory; partial files preserved";
 }
 
 function checkResultView(
@@ -492,59 +513,77 @@ function recoveryView(
   const status = preparation.status;
   if (status !== "failed" && status !== "cancelled" && status !== "interrupted")
     return null;
+  const recovery = preparation.recovery;
   const attempt = preparation.attempt
     ? ` Files from attempt ${preparation.attempt} are preserved.`
     : " Partial files are preserved.";
-  const fresh =
-    " Starting again creates a new project folder and leaves the previous one unchanged.";
   const code = preparation.error?.code;
   const conflictPath =
-    typeof preparation.error?.details?.path === "string"
+    recovery.conflictPath ??
+    (typeof preparation.error?.details?.path === "string"
       ? preparation.error.details.path
-      : null;
+      : null);
 
-  if (status === "interrupted")
-    return {
-      title: "Preparation interrupted",
-      description: `The app stopped before preparation finished.${attempt}${fresh}`,
-      tone: "warning",
-      canStart: true,
-      startLabel: "Start new attempt",
-      conflictPath: null,
-      needsReview: true,
-    };
-  if (status === "cancelled")
-    return {
-      title: "Preparation cancelled",
-      description: `Cancelled before the project was ready.${attempt}${fresh}`,
-      tone: "warning",
-      canStart: true,
-      startLabel: "Start new attempt",
-      conflictPath: null,
-      needsReview: true,
-    };
-  if (code === "PROJECT_FILE_MODIFIED")
-    return {
-      title: "Stopped to preserve your edits",
+  const title =
+    status === "interrupted"
+      ? "Preparation interrupted"
+      : status === "cancelled"
+        ? "Preparation cancelled"
+        : code === "PROJECT_FILE_MODIFIED"
+          ? "Stopped to preserve your edits"
+          : "Preparation stopped";
+  const description =
+    status === "interrupted"
+      ? `The app stopped before preparation finished.${attempt} Resume continues this folder, or start another folder without touching it.`
+      : status === "cancelled"
+        ? `Cancelled before the project was ready.${attempt} Resume continues this folder, or start another folder without touching it.`
+        : code === "PROJECT_FILE_MODIFIED"
+          ? `A generated file changed on disk, so Grill Me did not overwrite it.${attempt} Resume is disabled for this folder; retry or start fresh in a new folder.`
+          : `${preparation.error?.message ?? "Project preparation failed."}${attempt}`;
+
+  const actions: ProjectRecoveryActionView[] = [
+    {
+      action: "resume",
+      label: preparation.attempt
+        ? `Resume attempt ${preparation.attempt}`
+        : "Resume this project",
       description:
-        "A generated file changed while preparation was running. Grill Me did not overwrite it. Open the project folder to inspect your edits, then start a new attempt when ready." +
-        fresh,
-      tone: "warning",
-      canStart: true,
-      startLabel: "Start new attempt",
-      conflictPath,
-      needsReview: true,
-    };
+        "Keeps this folder and starts a new run that reads the existing journaled files. Changed tracked files are never overwritten.",
+      enabled: recovery.canResume,
+      primary: recovery.canResume,
+    },
+    {
+      action: "retry",
+      label: "Retry in a new folder",
+      description:
+        "Creates a new folder from the saved frozen specification and previous attempt notes. Your edits here are not copied.",
+      enabled: recovery.canRetry,
+      primary: !recovery.canResume && recovery.canRetry,
+    },
+    {
+      action: "fresh",
+      label: "Start fresh",
+      description:
+        "Creates a new folder from the saved frozen specification without reading this folder's journal. Your files here stay untouched.",
+      enabled: recovery.canFresh,
+      primary: false,
+    },
+  ];
+
   return {
-    title: "Preparation stopped",
-    description:
-      (preparation.error?.message ??
-        "Project preparation failed. Partial files are preserved.") + fresh,
-    tone: "danger",
-    canStart: true,
-    startLabel: "Start new attempt",
+    title,
+    description,
+    tone:
+      status === "failed" && code !== "PROJECT_FILE_MODIFIED"
+        ? "danger"
+        : "warning",
     conflictPath,
+    resumeMessage: recovery.resumeMessage,
+    missingFiles: recovery.missingFiles,
+    missingFileCount: recovery.missingFileCount,
+    settling: recovery.settling,
     needsReview: true,
+    actions,
   };
 }
 
@@ -552,6 +591,11 @@ function previousAttemptLabel(preparation: ProjectPreparation) {
   const previous = preparation.previousAttempt;
   if (!previous) return null;
   const outcome = previous.summary ?? statusLabels[previous.status];
+  if (
+    preparation.mode === "resume" &&
+    previous.projectDirectory === preparation.projectDirectory
+  )
+    return `Resumed attempt ${previous.attempt} in the same folder (${previous.projectDirectory}).`;
   return `Previous attempt ${previous.attempt}: ${outcome} (${previous.projectDirectory})`;
 }
 
@@ -576,11 +620,7 @@ export function projectPreparationView(
     (preparation.status === "failed" ||
       preparation.status === "cancelled" ||
       preparation.status === "interrupted");
-  const canStart =
-    preparation.status === "not_started" ||
-    preparation.status === "failed" ||
-    preparation.status === "cancelled" ||
-    preparation.status === "interrupted";
+  const canStart = preparation.status === "not_started";
   const report = preparation.report;
   const activities = activityViews(preparation.activity);
   const awaitingApproval =
@@ -592,6 +632,8 @@ export function projectPreparationView(
       ? "Waiting for approval"
       : statusLabels[preparation.status],
     statusTone: awaitingApproval ? "warning" : statusTones[preparation.status],
+    mode: preparation.mode,
+    modeLabel: preparation.mode ? modeLabels[preparation.mode] : null,
     attempt: preparation.attempt,
     previousAttempt: previousAttemptLabel(preparation),
     summary: awaitingApproval
@@ -628,16 +670,11 @@ export function projectPreparationView(
     running,
     canStart,
     canCancel: running,
-    startLabel:
-      preparation.status === "not_started"
-        ? "Prepare project files"
-        : "Start new attempt",
+    startLabel: "Prepare project files",
     startExplanation:
       preparation.status === "not_started"
         ? "Creates the starter project, frozen challenge file, TODOs, and checks."
-        : createsNewAttempt
-          ? "A new attempt uses a new project folder. Files from the previous attempt stay where they are."
-          : null,
+        : null,
     createsNewAttempt,
     recovery: recoveryView(preparation),
   };

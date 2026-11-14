@@ -34,6 +34,7 @@ async function runSqliteTests() {
         "./packages/backend/test/project-command-runner.test.ts",
         "./packages/backend/test/project-command-authorization.test.ts",
         "./packages/backend/test/project-preparation.test.ts",
+        "./packages/backend/test/project-preparation-recovery.test.ts",
         "./apps/desktop/test/sqlite.test.ts",
         "./apps/desktop/test/workspace-editors.test.ts",
         "./apps/desktop/test/setup.test.ts",
