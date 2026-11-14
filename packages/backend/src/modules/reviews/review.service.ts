@@ -528,53 +528,5 @@ export function createReviewService(
         )[0]!
       );
     },
-    async progress(profileId: string) {
-      const history = await db
-        .select()
-        .from(challenges)
-        .where(eq(challenges.profileId, profileId));
-      return (
-        await Promise.all(
-          history.map(async (challenge) => {
-            const attempt = (
-              await db
-                .select()
-                .from(submissions)
-                .where(eq(submissions.challengeId, challenge.id))
-                .orderBy(desc(submissions.sequence))
-            )[0];
-            if (!attempt) return [];
-            const review = (
-              await db
-                .select()
-                .from(reviewJobs)
-                .where(
-                  and(
-                    eq(reviewJobs.submissionId, attempt.id),
-                    eq(reviewJobs.status, "completed"),
-                  ),
-                )
-                .orderBy(desc(reviewJobs.createdAt))
-            )[0];
-            if (!review?.response) return [];
-            return [
-              {
-                challengeId: challenge.id,
-                number: challenge.number,
-                title: challenge.title,
-                topic: challenge.topic ?? "Unspecified",
-                scope: challenge.scope,
-                difficulty: challenge.difficulty,
-                score: review.score,
-                accepted: review.response.verdict === "accepted",
-                assistance: attempt.assistance,
-                createdAt: review.createdAt,
-                gaps: review.response.findings.map((f) => f.issue),
-              },
-            ];
-          }),
-        )
-      ).flat();
-    },
   };
 }

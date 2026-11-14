@@ -103,9 +103,6 @@ export function createReviewRoutes(
       },
     });
   });
-  routes.get("/progress", async (c) =>
-    c.json({ data: await service.progress(await profile(c)) }),
-  );
   routes.get("/challenges/:id/submissions", async (c) =>
     c.json({ data: await service.list(id(c), await profile(c)) }),
   );

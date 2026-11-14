@@ -43,11 +43,7 @@ export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
               className="border-b border-line last:border-b-0"
             >
               <Link
-                to={
-                  completed && !challenge.archivedAt
-                    ? "/history?id=" + challenge.id
-                    : "/chat?id=" + challenge.id
-                }
+                to={"/chat?id=" + challenge.id}
                 className={cn(
                   "group px-4 py-3 outline-offset-[-3px] transition-colors hover:bg-panel",
                   styles.row,

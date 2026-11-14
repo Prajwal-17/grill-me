@@ -41,13 +41,6 @@ export const router = createBrowserRouter([
         }),
       },
       {
-        path: "history",
-        lazy: async () => ({
-          Component: (await import("@/features/history/pages/history-page"))
-            .HistoryPage,
-        }),
-      },
-      {
         path: "preferences",
         lazy: async () => ({
           Component: (await import("@/features/profile/pages/preferences-page"))

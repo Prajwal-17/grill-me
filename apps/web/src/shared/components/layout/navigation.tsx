@@ -2,7 +2,6 @@ import { Link, useLocation } from "react-router";
 import {
   BookOpen,
   ListChecks,
-  History,
   ScrollText,
   House,
   Plus,
@@ -53,12 +52,6 @@ export function Navigation({
     },
   ];
   const utilityLinks = [
-    {
-      href: "/history",
-      label: "History",
-      icon: History,
-      active: pathname === "/history",
-    },
     {
       href: "/settings",
       label: "Settings",

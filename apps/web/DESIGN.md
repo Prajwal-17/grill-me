@@ -256,8 +256,8 @@ desktop toolbar. On mobile, the header uses a 52px reference minimum and keeps t
 navigation toggle, and notification bell in one row. Content regions own their
 scrolling. Page actions belong to their content, outside the draggable title bar.
 The sidebar holds 40px creation and labeled navigation rows for Home,
-Challenges, Quizzes, and Preferences. History, Settings, and Logs are anchored
-at the bottom of the navigation, above the account controls.
+Challenges, Quizzes, and Preferences. Settings and Logs are anchored at the
+bottom of the navigation, above the account controls.
 Settings and Preferences share an open category column beside the main sidebar.
 Settings lists Providers, Appearance, Advanced, and About; Preferences lists
 Profile, Practice, and Projects. Practice lists and filters stay in the main
@@ -279,8 +279,7 @@ Collections keep creation actions beside their tabs or filters; logs keep refres
 with their filters and detail links beside their metadata. Build lifecycle actions
 live beside the workspace tabs. Collections start with their controls, without a
 second title-and-divider row. Keep counts in tabs or the result summary.
-History uses a fixed-layout semantic table that gives the title the remaining
-width, while diagnostic tables scroll internally when their columns cannot fit.
+Diagnostic tables scroll internally when their columns cannot fit.
 
 Home contains only a centered 760px creation composer with Challenge and Quiz
 modes. Each mode retains its draft while switching. Challenge exposes scope and
@@ -385,7 +384,7 @@ rather than installing a second component vocabulary. Configuration reference:
   actions keep the inverted monochrome fill and remain in their page content.
 - **Navigation:** main links use 14px desktop labels, neutral active
   fills, muted resting text, and elevated hover fills with foreground text.
-  Mobile labels use 14px and the larger targets described in Layout. History, Settings,
+  Mobile labels use 14px and the larger targets described in Layout. Settings
   and Logs are footer navigation links; Preferences stays with the main workflows.
   Settings and Preferences use a separate, borderless category column. Account controls remain anchored below the scrolling navigation; Appearance stays in Settings. Current routes
   retain `aria-current`, including Challenges while viewing a build.

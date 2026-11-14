@@ -166,16 +166,3 @@ export type SubmissionFile = {
   tooLarge: boolean;
 };
 export type ConnectedProject = { id: string; name: string; root: string };
-export type TopicProgress = {
-  challengeId: string;
-  number: number;
-  title: string;
-  topic: string;
-  scope: BuildScope;
-  difficulty: BuildDifficulty;
-  score: number | null;
-  accepted: boolean;
-  assistance: { hints: number; guidance: boolean };
-  createdAt: string;
-  gaps: string[];
-};

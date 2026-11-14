@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 import { AppShell } from "@/shared/components/layout/app-shell";
@@ -295,22 +295,15 @@ export function ChallengesPage() {
                   </div>
                 )}
                 {!loading && !error && (
-                  <div className="flex items-center justify-between gap-3 text-metadata text-muted">
-                    <p role="status" aria-live="polite">
-                      {filtered.length}{" "}
-                      {filtered.length === 1 ? "challenge" : "challenges"}
-                      {hasFilters && ` of ${loading ? "–" : data.length}`}
-                    </p>
-                    {value === "completed" && (
-                      <Link
-                        to="/history"
-                        className="inline-flex items-center gap-1 hover:text-foreground"
-                      >
-                        View history
-                        <ArrowUpRight size={13} aria-hidden="true" />
-                      </Link>
-                    )}
-                  </div>
+                  <p
+                    role="status"
+                    aria-live="polite"
+                    className="text-metadata text-muted"
+                  >
+                    {filtered.length}{" "}
+                    {filtered.length === 1 ? "challenge" : "challenges"}
+                    {hasFilters && ` of ${loading ? "–" : data.length}`}
+                  </p>
                 )}
               </TabsContent>
             );

@@ -4,7 +4,6 @@ import type {
   ReviewJob,
   ConnectedProject,
   Challenge,
-  TopicProgress,
   SubmissionFile,
   ModelSelection,
 } from "@/shared/types/api";
@@ -86,8 +85,6 @@ export const setChallengeStatus = (
   status: "active" | "paused" | "saved" | "stopped",
 ) =>
   apiRequest<Challenge>(`/challenges/${id}/status`, post({ status }), profile);
-export const getProgress = (profile: string) =>
-  apiRequest<TopicProgress[]>("/progress", {}, profile);
 export async function uploadFile(
   profile: string,
   file: File,

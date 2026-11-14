@@ -9,6 +9,11 @@
   files can be read and written, and shell commands can process downloaded
   material before the result is written.
 
+### Removed
+
+- Remove the standalone History page and its practice-progress summary;
+  completed and stopped builds remain available from Challenges → Completed.
+
 ### Fixed
 
 - Keep model and reasoning lists scrollable in creation composers and the
