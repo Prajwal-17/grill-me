@@ -7,6 +7,7 @@ import {
   enhanceQuizPromptRequestSchema,
   generateQuizRequestSchema,
   generateStandaloneQuizRequestSchema,
+  regenerateQuizTitleRequestSchema,
   saveQuizAnswersSchema,
 } from "./quiz.schema";
 import type { QuizService } from "./quiz.service";
@@ -89,6 +90,8 @@ export function createQuizRoutes(service: QuizService, standalone = false) {
         challengeId(c),
         id(c, "quizId"),
         profileId(c),
+        parseInput(regenerateQuizTitleRequestSchema, await readJson(c.req.raw))
+          .selection,
       ),
     }),
   );

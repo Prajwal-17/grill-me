@@ -4,6 +4,7 @@ import type {
   LearnerContext,
   ModelGateway,
   QuizModelInput,
+  QuizTitleModelInput,
 } from "@repo/backend/modules/ai/model-gateway";
 import type {
   Challenge,
@@ -81,6 +82,7 @@ const readyResult = (
 
 class FakeModel implements ModelGateway {
   quizInputs: QuizModelInput[] = [];
+  quizTitleInputs: QuizTitleModelInput[] = [];
   quizOutput: GeneratedQuiz | null = null;
   async generateQuiz(input: QuizModelInput): Promise<GeneratedQuiz> {
     this.quizInputs.push(input);
@@ -101,6 +103,10 @@ class FakeModel implements ModelGateway {
         })),
       }
     );
+  }
+  async generateQuizTitle(input: QuizTitleModelInput) {
+    this.quizTitleInputs.push(input);
+    return "Regenerated quiz title";
   }
   preparation: ChallengePreparation = { question: null, options: [] };
   final = generated;
@@ -654,6 +660,27 @@ describe("standalone quizzes", () => {
       });
       expect(quiz.questions).toHaveLength(questionCount);
     }
+  });
+
+  test("regenerates a title with the selected model", async () => {
+    const state = await setup();
+    const quiz = await state.make();
+    const selection = {
+      providerId: crypto.randomUUID(),
+      model: "claude-test",
+      reasoningEffort: "low" as const,
+    };
+    const response = await request(
+      state.app,
+      `/quizzes/${quiz.id}/title/regenerate`,
+      state.owner.id,
+      { selection },
+    );
+    expect(response.status).toBe(200);
+    expect((await json<{ data: { title: string } }>(response)).data.title).toBe(
+      "Regenerated quiz title",
+    );
+    expect(state.model.quizTitleInputs.at(-1)?.selection).toEqual(selection);
   });
 
   test("accepts one-word topics and detailed multiline quiz prompts without truncating their context", async () => {

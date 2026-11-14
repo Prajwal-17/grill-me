@@ -317,7 +317,11 @@
     stroke-dashoffset: 0;
   }
 }
-[data-slot="tooltip-content"][data-state="instant-open"],
+[data-slot="tooltip-content"][data-state="instant-open"] {
+  animation: none;
+}
+/* Keep the animation name in place so switching input modality does not replay
+   an already visible popup. */
 :root[data-input="keyboard"]
   :is(
     .motion-popup,
@@ -327,7 +331,8 @@
     .feedback-check,
     .feedback-check path
   ) {
-  animation: none;
+  animation-duration: 0.01ms;
+  animation-delay: 0s;
 }
 :root[data-input="keyboard"]
   :is(

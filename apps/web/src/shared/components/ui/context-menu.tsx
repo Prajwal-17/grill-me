@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui";
 import { cn } from "@/shared/lib/cn";
+import { usePassThroughPortalScroll } from "@/shared/components/ui/use-portal-scroll";
 
 function ContextMenu({
   ...props
@@ -20,6 +21,7 @@ function ContextMenuContent({
   className,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Content>) {
+  usePassThroughPortalScroll();
   return (
     <ContextMenuPrimitive.Portal>
       <ContextMenuPrimitive.Content

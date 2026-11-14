@@ -1,6 +1,9 @@
 import { forwardRef, useState, type ComponentPropsWithoutRef } from "react";
 import { Check, ChevronUp, Cpu, Sparkles } from "lucide-react";
-import type { ModelSelection } from "@repo/backend/shared/contracts";
+import {
+  reasoningEffortSchema,
+  type ModelSelection,
+} from "@repo/backend/shared/contracts";
 import { cn } from "@/shared/lib/cn";
 import { useComposerModel } from "./use-composer-model";
 import {
@@ -95,10 +98,15 @@ export function ModelPicker({
   if (!state.connections.length) return null;
   const reasoningOptions = [
     { id: "default", label: "Provider default" },
-    ...state.reasoningEfforts.map((effort) => ({
-      id: effort,
-      label: effortLabels[effort] ?? effort,
-    })),
+    ...reasoningEffortSchema.options
+      .filter(
+        (effort) =>
+          effort === "none" || state.reasoningEfforts.includes(effort),
+      )
+      .map((effort) => ({
+        id: effort,
+        label: effortLabels[effort] ?? effort,
+      })),
   ];
   return (
     <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
@@ -116,14 +124,14 @@ export function ModelPicker({
           align="start"
           side="top"
           sideOffset={8}
-          className="w-[min(24rem,calc(100vw-32px))] p-0"
+          className="flex max-h-(--radix-popover-content-available-height) w-[min(24rem,calc(100vw-32px))] flex-col overflow-hidden p-0"
         >
-          <Command>
+          <Command className="min-h-0">
             <CommandInput
               placeholder="Search models…"
               aria-label="Search models"
             />
-            <CommandList className="max-h-72">
+            <CommandList className="min-h-0 flex-1 overscroll-contain">
               <CommandEmpty>No matching models.</CommandEmpty>
               {state.connections.map((connection) => (
                 <CommandGroup key={connection.id} heading={connection.name}>
@@ -169,56 +177,55 @@ export function ModelPicker({
           </Command>
         </PopoverContent>
       </Popover>
-      {state.model?.capabilities?.reasoning &&
-        state.reasoningEfforts.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Trigger
-                icon={Sparkles}
-                value={
-                  state.reasoning
-                    ? (effortLabels[state.reasoning] ?? state.reasoning)
-                    : "Provider default"
-                }
-                disabled={disabled}
-                ariaLabel="Reasoning effort"
-                openIndicator
-              />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="top"
-              align="start"
-              sideOffset={8}
-              collisionPadding={16}
-              className="w-[min(15rem,calc(100vw-32px))] p-1.5"
-            >
-              {reasoningOptions.map((option) => {
-                const active = (state.reasoning ?? "default") === option.id;
-                return (
-                  <DropdownMenuItem
-                    key={option.id}
-                    onSelect={() =>
-                      state.setSelection({
-                        providerId: state.selection!.providerId,
-                        model: state.selection!.model,
-                        reasoningEffort:
-                          option.id === "default"
-                            ? null
-                            : (option.id as ModelSelection["reasoningEffort"]),
-                      })
-                    }
-                    className="items-center gap-2.5"
-                  >
-                    <span className="grid size-4 shrink-0 place-items-center">
-                      {active && <Check size={14} aria-hidden="true" />}
-                    </span>
-                    <span>{option.label}</span>
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+      {state.model?.capabilities?.reasoning && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Trigger
+              icon={Sparkles}
+              value={
+                state.reasoning
+                  ? (effortLabels[state.reasoning] ?? state.reasoning)
+                  : "Provider default"
+              }
+              disabled={disabled}
+              ariaLabel="Reasoning effort"
+              openIndicator
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="top"
+            align="start"
+            sideOffset={8}
+            collisionPadding={16}
+            className="w-[min(15rem,calc(100vw-32px))] p-1.5"
+          >
+            {reasoningOptions.map((option) => {
+              const active = (state.reasoning ?? "default") === option.id;
+              return (
+                <DropdownMenuItem
+                  key={option.id}
+                  onSelect={() =>
+                    state.setSelection({
+                      providerId: state.selection!.providerId,
+                      model: state.selection!.model,
+                      reasoningEffort:
+                        option.id === "default"
+                          ? null
+                          : (option.id as ModelSelection["reasoningEffort"]),
+                    })
+                  }
+                  className="items-center gap-2.5"
+                >
+                  <span className="grid size-4 shrink-0 place-items-center">
+                    {active && <Check size={14} aria-hidden="true" />}
+                  </span>
+                  <span>{option.label}</span>
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }

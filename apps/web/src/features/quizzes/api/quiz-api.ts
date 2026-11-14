@@ -54,10 +54,14 @@ export function regenerateQuizTitle(
   profileId: string,
   challengeId: string | null,
   quizId: string,
+  selection?: ModelSelection,
 ) {
   return apiRequest<{ title: string }>(
     path(challengeId, quizId) + "/title/regenerate",
-    { method: "POST", body: "{}" },
+    {
+      method: "POST",
+      body: JSON.stringify(selection ? { selection } : {}),
+    },
     profileId,
   );
 }

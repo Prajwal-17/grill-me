@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/shared/lib/cn";
+import { usePassThroughPortalScroll } from "@/shared/components/ui/use-portal-scroll";
 import { CheckIcon, ChevronRightIcon, CircleIcon } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 
@@ -33,6 +34,7 @@ function DropdownMenuContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+  usePassThroughPortalScroll();
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content

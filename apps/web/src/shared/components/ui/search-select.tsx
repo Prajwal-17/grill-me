@@ -100,9 +100,9 @@ export function SearchSelect({
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="w-[min(92vw,26rem)] p-0"
+        className="flex max-h-(--radix-popover-content-available-height) w-[min(92vw,26rem)] flex-col overflow-hidden p-0"
       >
-        <Command>
+        <Command className="min-h-0">
           <CommandInput
             value={search}
             onValueChange={setSearch}
@@ -110,7 +110,7 @@ export function SearchSelect({
             aria-label={searchLabel}
             autoFocus
           />
-          <CommandList className="max-h-72">
+          <CommandList className="min-h-0 flex-1 overscroll-contain">
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
               {options.map((option) => {

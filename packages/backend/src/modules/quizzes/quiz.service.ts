@@ -1,4 +1,5 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import type { ModelSelection } from "@repo/backend/shared/contracts";
 import type { ModelGateway, QuizModelInput } from "../ai/model-gateway";
 import type { ProfileService } from "../profiles/profile.service";
 import { quizPrompt, QUIZ_PROMPT_VERSION } from "../ai/prompts/generate-quiz";
@@ -426,6 +427,7 @@ export function createQuizService(
       challengeId: string | null,
       quizId: string,
       profileId: string,
+      selection?: ModelSelection,
     ) {
       const quiz = await owned(challengeId, quizId, profileId);
       assertActiveQuiz(quiz);
@@ -439,6 +441,7 @@ export function createQuizService(
         await llm.generateQuizTitle({
           profileId,
           challengeId,
+          selection,
           source: titleSource(quiz),
           currentTitle: normalizeQuizTitle(
             quiz.title ??

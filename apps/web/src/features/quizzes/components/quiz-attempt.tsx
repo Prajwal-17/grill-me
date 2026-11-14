@@ -5,6 +5,7 @@ import { Markdown } from "@/shared/components/markdown";
 import { cn } from "@/shared/lib/cn";
 import { useQuizAnswers } from "../hooks/use-quiz-answers";
 import type { Quiz, QuizAttempt as Attempt } from "../types";
+import { QuizPrompt } from "./quiz-prompt";
 
 export function QuizAttempt({
   profileId,
@@ -75,7 +76,7 @@ export function QuizAttempt({
         if (
           !(target instanceof HTMLElement) ||
           target.closest(
-            'textarea, select, input:not([type="radio"]), [contenteditable="true"], [role="combobox"], [role="listbox"], [role="dialog"], a',
+            'summary, textarea, select, input:not([type="radio"]), [contenteditable="true"], [role="combobox"], [role="listbox"], [role="dialog"], a',
           )
         )
           return;
@@ -120,6 +121,7 @@ export function QuizAttempt({
           ? "Left and right arrows move between questions."
           : "Left and right arrows change questions. Up and down arrows select an answer. Answers save automatically."}
       </p>
+      {quiz.prompt && <QuizPrompt prompt={quiz.prompt} className="mb-4" />}
       <div className="mb-3 flex items-center justify-between gap-4 text-ui">
         <p
           className="font-medium group-focus-visible/attempt:underline group-focus-visible/attempt:underline-offset-4"

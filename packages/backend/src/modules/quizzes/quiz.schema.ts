@@ -35,6 +35,10 @@ export const enhanceQuizPromptRequestSchema = z.object({
   selection: modelSelectionSchema.optional(),
 });
 
+export const regenerateQuizTitleRequestSchema = z.object({
+  selection: modelSelectionSchema.optional(),
+});
+
 export const enhancedQuizPromptSchema = z.object({
   prompt: z.string().trim().min(1).max(4000),
 });

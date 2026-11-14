@@ -48,7 +48,8 @@ export function useComposerModel() {
           providerId: connection.id,
           model: model.id,
           reasoningEffort:
-            model.capabilities?.reasoning && reasoningEfforts.length
+            model.capabilities?.reasoning &&
+            (reasoningEfforts.length > 0 || reasoning === "none")
               ? (reasoning ?? null)
               : undefined,
         }

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/shared/lib/cn";
+import { usePassThroughPortalScroll } from "@/shared/components/ui/use-portal-scroll";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { Select as SelectPrimitive } from "radix-ui";
 
@@ -54,6 +55,7 @@ function SelectContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  usePassThroughPortalScroll();
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content

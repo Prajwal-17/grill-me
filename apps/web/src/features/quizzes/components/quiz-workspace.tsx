@@ -32,7 +32,6 @@ import { Input } from "@/shared/components/ui/input";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
 import { ModelPicker } from "@/shared/components/ai/model-picker";
@@ -75,6 +74,7 @@ import {
   type QuizSummary,
 } from "../types";
 import { QuizAttempt } from "./quiz-attempt";
+import { QuizPrompt } from "./quiz-prompt";
 import { QuizTable } from "./quiz-table";
 
 const QUESTION_COUNTS = [3, 5, 10, 15] as const;
@@ -374,7 +374,12 @@ export function QuizWorkspace({
   });
   const titleGeneration = useMutation({
     mutationFn: (targetQuizId: string) =>
-      regenerateQuizTitle(profileId, challengeId, targetQuizId),
+      regenerateQuizTitle(
+        profileId,
+        challengeId,
+        targetQuizId,
+        composer.selection,
+      ),
     onSuccess: ({ title }, targetQuizId) => {
       queries.setQueryData<QuizDetail>(
         quizKeys.detail(profileId, challengeId, targetQuizId),
@@ -892,6 +897,13 @@ export function QuizWorkspace({
                         {start.isPending ? "Starting…" : "Start quiz"}
                       </Button>
                     </div>
+                    {detail.data.quiz.prompt && (
+                      <QuizPrompt
+                        prompt={detail.data.quiz.prompt}
+                        className="mt-5"
+                        defaultOpen
+                      />
+                    )}
                   </section>
                 </div>
               )}
@@ -911,24 +923,19 @@ export function QuizWorkspace({
           className="flex max-h-[min(88vh,760px)] flex-col gap-0 overflow-hidden rounded-xl bg-popover p-0 sm:max-w-[600px]"
         >
           <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-3.5">
-            <div className="min-w-0">
-              <DialogTitle className="text-section font-semibold tracking-[-0.02em]">
-                Generate quiz
-              </DialogTitle>
-              <DialogDescription className="mt-0.5 text-supporting text-muted">
-                {challengeId === null ? "Standalone quiz" : "Challenge quiz"}
-              </DialogDescription>
-            </div>
+            <DialogTitle className="text-section font-semibold tracking-[-0.02em]">
+              Generate quiz
+            </DialogTitle>
             <Button
               type="button"
-              size="sm"
+              size="icon-sm"
               variant="ghost"
-              className="-mr-2 shrink-0"
+              className="-mr-2 shrink-0 text-muted"
               disabled={dialogBusy}
+              aria-label="Close generate quiz"
               onClick={closeDialog}
             >
-              <X size={14} />
-              Cancel
+              <X size={14} aria-hidden="true" />
             </Button>
           </div>
           <form

@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/shared/lib/cn";
+import { usePassThroughPortalScroll } from "@/shared/components/ui/use-portal-scroll";
 import { Popover as PopoverPrimitive } from "radix-ui";
 
 function Popover({
@@ -20,6 +21,7 @@ function PopoverContent({
   sideOffset = 4,
   ...props
 }: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+  usePassThroughPortalScroll();
   return (
     <PopoverPrimitive.Portal>
       <PopoverPrimitive.Content
@@ -27,7 +29,7 @@ function PopoverContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "motion-popup z-50 w-72 origin-(--radix-popover-content-transform-origin) rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden",
+          "motion-popup z-50 max-h-(--radix-popover-content-available-height) w-72 origin-(--radix-popover-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden",
           className,
         )}
         {...props}

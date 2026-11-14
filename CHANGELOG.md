@@ -9,6 +9,20 @@
   files can be read and written, and shell commands can process downloaded
   material before the result is written.
 
+### Fixed
+
+- Keep model and reasoning lists scrollable in creation composers and the
+  Generate quiz dialog, and always include a no-reasoning option next to the
+  model's supported efforts.
+- Stop the Generate quiz dialog and backdrop from replaying their entrance
+  animation when typing is followed by a click inside the dialog.
+- Remove the redundant quiz-type subtitle and the Cancel label from the Generate
+  quiz dialog and use an icon-only close button.
+- Show a standalone quiz's original prompt on its start screen and while
+  answering questions.
+- Regenerate quiz titles with the selected model instead of the provider default
+  so accounts are not denied access for a model they did not choose.
+
 ## desktop-v0.1.13 - 11 Nov 2026
 
 ### Added
