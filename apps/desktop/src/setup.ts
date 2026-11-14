@@ -11,7 +11,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { isAbsolute, join, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { z } from "zod";
 import type { DesktopChannel } from "./identity";
 
@@ -250,12 +250,30 @@ async function prepareDefaultDataRoot(configRoot: string) {
   }
 }
 
+function isCanonicalDirectChild(parent: string, child: string) {
+  return child !== parent && dirname(child) === parent;
+}
+
 async function prepareDefaultWorkspaceRoot(dataRoot: string) {
   try {
-    const target = defaultWorkspaceRoot(dataRoot);
+    const parent = await realpath(resolve(dataRoot));
+    const target = defaultWorkspaceRoot(parent);
+    let existing;
+    try {
+      existing = await lstat(target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    if (existing && (existing.isSymbolicLink() || !existing.isDirectory()))
+      throw new SetupError(
+        "The default workspace folder must be a real folder inside the app data folder.",
+      );
     await mkdir(target, { recursive: true, mode: 0o700 });
     const canonical = await realpath(target);
-    if (!isSelectableLocalRoot(canonical))
+    if (
+      !isSelectableLocalRoot(canonical) ||
+      !isCanonicalDirectChild(parent, canonical)
+    )
       throw new SetupError("The default workspace folder is unavailable.");
     return await readableDirectory(canonical);
   } catch (error) {
@@ -300,9 +318,22 @@ export async function createAppOwnedRoot(parent: string, name: string) {
   }
   const target = appOwnedFolder(selected, name);
   try {
+    let existing;
+    try {
+      existing = await lstat(target);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    if (existing && (existing.isSymbolicLink() || !existing.isDirectory()))
+      throw new SetupError(
+        `The "${name}" folder must be a real folder directly inside the selected parent, not a symbolic link or file.`,
+      );
     await mkdir(target, { recursive: true, mode: 0o700 });
     const canonical = await realpath(target);
-    if (!isSelectableLocalRoot(canonical))
+    if (
+      !isSelectableLocalRoot(canonical) ||
+      !isCanonicalDirectChild(selected, canonical)
+    )
       throw new SetupError("Choose a different parent folder for Grill Me.");
     return await readableDirectory(canonical);
   } catch (error) {

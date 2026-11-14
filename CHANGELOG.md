@@ -42,6 +42,15 @@
   and file, recreates only explicitly journaled missing files, and never carries
   stale command approvals into the new run.
 
+### Changed
+
+- Require prepared projects to include an explicit TODO in generated source,
+  stack-appropriate configuration and documentation, a generated test, a real
+  failing exercise test, and a migration when the frozen request or stack needs
+  persistent storage. A single source file no longer passes when the request
+  asks for a multi-file project, and manual or unconditional-failure exercise
+  checks are rejected.
+
 ### Removed
 
 - Remove the standalone History page and its practice-progress summary;
@@ -49,6 +58,11 @@
 
 ### Fixed
 
+- Refuse symbolic links for challenge workspace metadata and for app-owned data
+  and workspace child folders, so marker and setup writes stay inside the
+  selected real parent and never overwrite a linked target.
+- Keep proposed setup, check, and run commands visible after other commands have
+  run, so run instructions do not disappear once setup finishes.
 - Keep model and reasoning lists scrollable in creation composers and the
   Generate quiz dialog, and always include a no-reasoning option next to the
   model's supported efforts.

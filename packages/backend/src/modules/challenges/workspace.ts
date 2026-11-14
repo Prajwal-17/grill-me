@@ -452,13 +452,75 @@ async function resolveStoredWorkspace(
   return prepareDirectory(stored, stored);
 }
 
+function metadataInvalid(message: string) {
+  return invalidWorkspacePath(message);
+}
+
+async function existingMetadataDirectory(path: string) {
+  const root = await canonicalPath(path);
+  const directory = join(root, markerDirectory);
+  let info;
+  try {
+    info = await lstat(directory);
+  } catch (error) {
+    if (fsCode(error) === "ENOENT") return null;
+    throw metadataInvalid(
+      "The challenge workspace metadata cannot be inspected. Check its permissions.",
+    );
+  }
+  if (info.isSymbolicLink() || !info.isDirectory())
+    throw metadataInvalid(
+      "The challenge workspace metadata path must be a real folder, not a symbolic link or file.",
+    );
+  const canonical = await canonicalPath(directory);
+  if (!insideRoot(root, canonical))
+    throw metadataInvalid(
+      "The challenge workspace metadata must stay inside the workspace folder.",
+    );
+  return { root, directory: canonical };
+}
+
+async function ensureMetadataDirectory(path: string) {
+  const existing = await existingMetadataDirectory(path);
+  if (existing) return existing;
+  const root = await canonicalPath(path);
+  const directory = join(root, markerDirectory);
+  try {
+    await mkdir(directory, { mode: 0o700 });
+  } catch (error) {
+    if (fsCode(error) !== "EEXIST") throw error;
+  }
+  const info = await lstat(directory);
+  if (info.isSymbolicLink() || !info.isDirectory())
+    throw metadataInvalid(
+      "The challenge workspace metadata path must be a real folder, not a symbolic link or file.",
+    );
+  const canonical = await canonicalPath(directory);
+  if (!insideRoot(root, canonical))
+    throw metadataInvalid(
+      "The challenge workspace metadata must stay inside the workspace folder.",
+    );
+  return { root, directory: canonical };
+}
+
 async function readMarker(path: string, challenge: WorkspaceChallenge) {
   try {
-    const markerPath = join(path, markerDirectory, markerName);
-    const info = await stat(markerPath);
-    if (!info.isFile() || info.size > 16 * 1024) return null;
+    const metadata = await existingMetadataDirectory(path);
+    if (!metadata) return null;
+    const markerPath = join(metadata.directory, markerName);
+    const info = await lstat(markerPath);
+    if (info.isSymbolicLink() || !info.isFile())
+      throw metadataInvalid(
+        "The challenge workspace marker must be a regular file, not a symbolic link or folder.",
+      );
+    if (info.size > 16 * 1024) return null;
+    const canonical = await canonicalPath(markerPath);
+    if (!insideRoot(metadata.root, canonical))
+      throw metadataInvalid(
+        "The challenge workspace marker must stay inside the workspace folder.",
+      );
     const parsed = markerSchema.safeParse(
-      JSON.parse(await readFile(markerPath, "utf8")),
+      JSON.parse(await readFile(canonical, "utf8")),
     );
     if (
       parsed.success &&
@@ -466,17 +528,28 @@ async function readMarker(path: string, challenge: WorkspaceChallenge) {
       parsed.data.profileId === challenge.profileId
     )
       return parsed.data;
-  } catch {
-    /* Missing or unreadable marker; recreate it below. */
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    if (fsCode(error) === "ENOENT") return null;
+    /* Corrupt or unreadable marker; recreate it below. */
   }
   return null;
 }
 
 async function writeMarker(path: string, marker: WorkspaceMarker) {
-  const directory = join(path, markerDirectory);
-  await mkdir(directory, { recursive: true, mode: 0o700 });
-  const destination = join(directory, markerName);
-  const temporary = join(directory, `.${crypto.randomUUID()}.tmp`);
+  const metadata = await ensureMetadataDirectory(path);
+  const destination = join(metadata.directory, markerName);
+  let existing;
+  try {
+    existing = await lstat(destination);
+  } catch (error) {
+    if (fsCode(error) !== "ENOENT") throw error;
+  }
+  if (existing && (existing.isSymbolicLink() || !existing.isFile()))
+    throw metadataInvalid(
+      "The challenge workspace marker must be a regular file, not a symbolic link or folder.",
+    );
+  const temporary = join(metadata.directory, `.${crypto.randomUUID()}.tmp`);
   try {
     await writeFile(temporary, JSON.stringify(marker, null, 2) + "\n", {
       mode: 0o600,

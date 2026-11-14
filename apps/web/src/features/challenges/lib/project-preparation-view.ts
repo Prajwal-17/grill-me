@@ -158,6 +158,11 @@ function plural(count: number, singular: string) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
+function normalizedCwd(value: string) {
+  const trimmed = value.trim();
+  return trimmed === "" || trimmed === "." ? "." : trimmed;
+}
+
 function statusSummary(
   preparation: ProjectPreparation,
   reportSummary: string | null,
@@ -379,12 +384,27 @@ function plannedCommandViews(report: ProjectPreparation["report"]) {
   ];
 }
 
+function sameCommand(
+  actual: Pick<ProjectCommandView, "purpose" | "command" | "cwd" | "checkId">,
+  planned: Pick<ProjectCommandView, "purpose" | "command" | "cwd" | "checkId">,
+) {
+  return (
+    actual.purpose === planned.purpose &&
+    actual.command.trim() === planned.command.trim() &&
+    normalizedCwd(actual.cwd) === normalizedCwd(planned.cwd) &&
+    (actual.checkId === null ||
+      planned.checkId === null ||
+      actual.checkId === planned.checkId)
+  );
+}
+
 function commandViews(
   commands: ProjectCommand[],
   report: ProjectPreparation["report"],
 ) {
-  if (!commands.length) return plannedCommandViews(report);
-  return commands.map((command) => {
+  const planned = plannedCommandViews(report);
+  if (!commands.length) return planned;
+  const actual: ProjectCommandView[] = commands.map((command) => {
     let state = commandStatusView(command.status);
     const check =
       command.purpose === "check" && command.checkId
@@ -418,6 +438,12 @@ function commandViews(
       checkId: command.checkId,
     };
   });
+  return [
+    ...actual,
+    ...planned.filter(
+      (command) => !actual.some((executed) => sameCommand(executed, command)),
+    ),
+  ];
 }
 
 function activityLabel(activity: ProjectPreparationActivity) {

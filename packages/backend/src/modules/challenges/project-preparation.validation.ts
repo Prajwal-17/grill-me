@@ -7,6 +7,7 @@ import {
   type ProjectCheckProposal,
   type ProjectCommand,
   type ProjectCommandProposal,
+  type ProjectFileRole,
   type ProjectFrozenSpecification,
   type ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
@@ -71,6 +72,66 @@ function commandSignature(
   proposal: Pick<ProjectCommandProposal, "command" | "cwd">,
 ) {
   return `${proposal.command.trim()}\0${normalizedCwd(proposal.cwd)}`;
+}
+
+function specificationText(specification: ProjectFrozenSpecification) {
+  return [
+    specification.request,
+    specification.problemStatement,
+    specification.expectedOutcome,
+    specification.implementationBoundary ?? "",
+    ...specification.objectives,
+    ...specification.acceptanceCriteria,
+    ...specification.constraints,
+  ].join("\n");
+}
+
+function requestsMultipleFiles(specification: ProjectFrozenSpecification) {
+  const text = specificationText(specification);
+  return [
+    /\bmulti[- ]file\b/i,
+    /\bmultiple\b[^.\n]{0,80}\bfiles\b/i,
+    /\bseparate\b[^.\n]{0,120}\bfiles\b/i,
+    /\b(?:split|divided|organi[sz]ed)\b[^.\n]{0,80}\b(?:into|across|in)\b[^.\n]{0,40}\b(?:files|modules)\b/i,
+    /\b(?:several|multiple|distinct|individual)\s+(?:source|code|module|implementation)\s+files\b/i,
+    /\b(?:separate|multiple|several)\s+modules\b/i,
+    /\bmodular\b/i,
+  ].some((pattern) => pattern.test(text));
+}
+
+function requiresMigration(specification: ProjectFrozenSpecification) {
+  const text = specificationText(specification).replace(
+    /\b(?:no|not|never|without|avoid)\b[^.\n]{0,100}\b(?:migrations?|database|databases|sql|sqlite|postgres(?:ql)?|mysql|mariadb|mongo(?:db)?|dynamodb|persistent storage|data store)\b/gi,
+    "",
+  );
+  const stack = [
+    ...specification.stack.languages,
+    ...specification.stack.stack,
+    specification.stack.currentFocus ?? "",
+  ].join(" ");
+  const dataSignal =
+    /\b(?:migrations?|database|databases|sql|sqlite|postgres(?:ql)?|mysql|mariadb|mongo(?:db)?|dynamodb|prisma|drizzle|sequelize|typeorm|knex|persist(?:ence|ent|ed|ing)?|data store|storage (?:layer|boundary)|url shortener|short link|link shortener)\b/i;
+  return dataSignal.test(text) || dataSignal.test(stack);
+}
+
+function triviallyFailing(command: string) {
+  const value = command.trim().replace(/\s+/g, " ");
+  if (!value) return true;
+  if (/^(?:false|exit(?:\s+[1-9]\d*)?|!\s*true)$/i.test(value)) return true;
+  if (
+    /^(?:(?:sh|bash|zsh|dash|fish)\s+-c\s+)?(['"])(?:false|exit(?:\s+[1-9]\d*)?)\1$/i.test(
+      value,
+    )
+  )
+    return true;
+  if (
+    /(?:^|\s)(?:-e|--eval|-c|-r)(?:\s|=)/.test(value) &&
+    /(?:process\.exit\s*\(\s*[1-9]\d*\s*\)|Deno\.exit\s*\(\s*[1-9]\d*\s*\)|sys\.exit\s*\(\s*[1-9]\d*\s*\)|\bexit\s*\(\s*[1-9]\d*\s*\)|raise\s+SystemExit)/i.test(
+      value,
+    )
+  )
+    return true;
+  return /[;&|]\s*(?:false|exit\s+[1-9]\d*)\s*$/i.test(value);
 }
 
 function checkSignature(check: ProjectCheckProposal) {
@@ -231,8 +292,15 @@ export async function validateProjectScaffoldReport(
       throw invalid(`The completion report lists ${file.path} more than once.`);
     filePaths.add(file.path);
     const content = await trackedFile(file.path);
-    if (file.role === "source") sourceFiles.push({ path: file.path, content });
+    if (file.path !== frozenSpecificationPath && file.role === "source")
+      sourceFiles.push({ path: file.path, content });
   }
+  const rolePaths = (role: ProjectFileRole) =>
+    report.files
+      .filter(
+        (file) => file.path !== frozenSpecificationPath && file.role === role,
+      )
+      .map((file) => file.path);
   const unreported = Object.keys(journal.files).filter(
     (path) => path !== frozenSpecificationPath && !filePaths.has(path),
   );
@@ -262,6 +330,32 @@ export async function validateProjectScaffoldReport(
         "The only source file contains concatenated file boundaries. Split each file into a separate journaled project file.",
       );
   }
+  if (requestsMultipleFiles(specification) && sourceFiles.length < 2)
+    throw invalid(
+      "The frozen specification asks for a multi-file project. Create separate source files for the surrounding modules instead of one source file.",
+    );
+  if (!rolePaths("config").length)
+    throw invalid(
+      "The completion report needs stack-appropriate configuration generated as real files. Any ecosystem's configuration is acceptable; a package.json is not required.",
+    );
+  if (!rolePaths("test").length)
+    throw invalid(
+      "The completion report needs at least one generated test file for the exercise.",
+    );
+  if (
+    !report.files.some(
+      (file) =>
+        file.role === "documentation" &&
+        file.path !== frozenSpecificationPath,
+    )
+  )
+    throw invalid(
+      "The completion report needs generated documentation, such as a README, rubric, or milestones file, separate from the frozen CHALLENGE.md.",
+    );
+  if (requiresMigration(specification) && !rolePaths("migration").length)
+    throw invalid(
+      "The frozen specification or stack requires persistent storage, so the completion report needs a generated migration or schema file.",
+    );
 
   const todoKeys = new Set<string>();
   for (const todo of report.todos) {
@@ -280,6 +374,14 @@ export async function validateProjectScaffoldReport(
         `TODO location ${key} does not point at a line containing an explicit TODO marker.`,
       );
   }
+  if (!report.todos.length)
+    throw invalid(
+      "The completion report needs at least one explicit TODO location for the exercise's unfinished interface or core behavior.",
+    );
+  if (!report.todos.some((todo) => rolePaths("source").includes(todo.path)))
+    throw invalid(
+      "At least one reported TODO must point into a generated source file. Documentation or test TODOs alone do not leave the exercise unfinished.",
+    );
 
   const checkIds = new Set<string>();
   const checkCommands = new Set<string>();
@@ -306,23 +408,29 @@ export async function validateProjectScaffoldReport(
       throw invalid(
         `Check ${check.id} exercises unfinished TODO work, so its expected result must be "fail".`,
       );
+    if (check.intent === "todo_exercise") {
+      if (check.kind !== "test" || !check.command)
+        throw invalid(
+          `TODO exercise check ${check.id} needs a real test command. Manual checks cannot stand in for the failing exercise test.`,
+        );
+      if (triviallyFailing(check.command))
+        throw invalid(
+          `TODO exercise check ${check.id} runs an unconditional failure instead of a test. Use a generated test that exercises the unfinished work.`,
+        );
+    }
     if (check.intent === "verify" && check.expected !== "pass")
       throw invalid(
         `Check ${check.id} verifies the scaffold, so its expected result must be "pass".`,
       );
     await directoryCwd(check.cwd);
   }
-  if (report.todos.length && !todoChecks.length)
+  if (!todoChecks.length)
     throw invalid(
-      'The report lists TODO locations but no intentionally failing todo_exercise check. Add a test check with expected result "fail".',
+      'The report needs an intentionally failing todo_exercise test check with expected result "fail".',
     );
-  if (todoChecks.length && !report.todos.length)
+  if (!report.checks.some((check) => check.intent === "verify"))
     throw invalid(
-      "A todo_exercise check requires at least one explicit TODO location.",
-    );
-  if (report.todos.length && !report.files.some((file) => file.role === "test"))
-    throw invalid(
-      "TODO exercise work needs at least one generated test file that fails until the developer implements it.",
+      "The report needs at least one verify check for the scaffold's supporting wiring.",
     );
 
   const results = new Map<string, (typeof report.results)[number]>();
