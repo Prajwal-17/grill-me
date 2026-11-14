@@ -13,6 +13,7 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
 import { useChallengeWorkspace } from "@/features/challenges/hooks/use-challenge-workspace";
+import { ProjectPreparationRegion } from "./project-preparation";
 
 function editorOptions(
   options: { id: WorkspaceEditor; label: string }[] | undefined,
@@ -51,9 +52,13 @@ function WorkspaceLoading() {
 export function ChallengeWorkspaceSection({
   profileId,
   challenge,
+  focusProject,
+  onProjectFocus,
 }: {
   profileId: string;
   challenge: Challenge;
+  focusProject?: boolean;
+  onProjectFocus?: () => void;
 }) {
   const { workspace, editors, open, relink, desktop } = useChallengeWorkspace(
     profileId,
@@ -227,6 +232,16 @@ export function ChallengeWorkspaceSection({
           </Button>
         </div>
       )}
+      <ProjectPreparationRegion
+        profileId={profileId}
+        challengeId={challenge.id}
+        active={challenge.status === "active" && !challenge.archivedAt}
+        workspacePath={info.path}
+        editors={options}
+        editorsPending={editors.isPending}
+        focusOnMount={focusProject}
+        onFocusHandled={onProjectFocus}
+      />
     </section>
   );
 }

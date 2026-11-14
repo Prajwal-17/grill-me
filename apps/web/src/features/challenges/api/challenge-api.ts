@@ -5,6 +5,7 @@ import type {
   ChallengeWorkspace,
   GenerateBuildRequest,
   ModelSelection,
+  ProjectPreparation,
 } from "@/shared/types/api";
 
 export const challengeKeys = {
@@ -19,6 +20,8 @@ export const challengeKeys = {
   messages: (challengeId?: string) => ["messages", challengeId] as const,
   workspace: (profileId?: string, challengeId?: string) =>
     ["challenges", "workspace", profileId, challengeId] as const,
+  projectPreparation: (profileId?: string, challengeId?: string) =>
+    ["project-preparation", profileId, challengeId] as const,
 };
 
 export function getActiveChallenges(profileId: string) {
@@ -44,6 +47,76 @@ export function relinkChallengeWorkspace(
   return apiRequest<ChallengeWorkspace>(
     `/challenges/${challengeId}/workspace/relink`,
     { method: "POST" },
+    profileId,
+  );
+}
+
+export function getProjectPreparation(profileId: string, challengeId: string) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation`,
+    {},
+    profileId,
+  );
+}
+
+export function startProjectPreparation(
+  profileId: string,
+  challengeId: string,
+  selection?: ModelSelection,
+) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation/start`,
+    {
+      method: "POST",
+      body: JSON.stringify(selection ? { selection } : {}),
+    },
+    profileId,
+  );
+}
+
+export function cancelProjectPreparation(
+  profileId: string,
+  challengeId: string,
+) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation/cancel`,
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+
+export function approveProjectCommand(
+  profileId: string,
+  challengeId: string,
+  commandId: string,
+) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation/commands/${commandId}/approve`,
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+
+export function rejectProjectCommand(
+  profileId: string,
+  challengeId: string,
+  commandId: string,
+) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation/commands/${commandId}/reject`,
+    { method: "POST", body: "{}" },
+    profileId,
+  );
+}
+
+export function authorizeProjectAttemptCommands(
+  profileId: string,
+  challengeId: string,
+  authorization: { install: boolean; network: boolean },
+) {
+  return apiRequest<ProjectPreparation>(
+    `/challenges/${challengeId}/project-preparation/command-authorization`,
+    { method: "POST", body: JSON.stringify(authorization) },
     profileId,
   );
 }

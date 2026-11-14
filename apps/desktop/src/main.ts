@@ -21,7 +21,6 @@ import { windowSettingsStore } from "./window-settings";
 import {
   setupFolderChoiceSchema,
   windowSettingsSchema,
-  workspaceLaunchSchema,
   type DesktopSetupState,
   type DesktopState,
 } from "@repo/backend/shared/contracts";
@@ -764,7 +763,7 @@ async function startApplication(
   });
   ipcMain.handle("desktop:open-workspace", async (event, input: unknown) => {
     trusted(event);
-    const launch = resolveWorkspaceLaunch(workspaceLaunchSchema.parse(input));
+    const launch = resolveWorkspaceLaunch(input);
     if (launch.useShellOpen) {
       const error = await shell.openPath(launch.path);
       if (error) throw new Error("Could not open the workspace folder.");

@@ -5,6 +5,7 @@ import {
   mkdtemp,
   realpath,
   rm,
+  symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -69,6 +70,35 @@ async function challengeFolder(
     }),
   );
   return realpath(folder);
+}
+
+async function projectFolder(
+  workspace: string,
+  directory = "project",
+  journalDirectory = directory,
+) {
+  const folder = join(workspace, directory);
+  await mkdir(folder, { recursive: true });
+  await mkdir(join(workspace, ".grill-me", "projects"), { recursive: true });
+  await writeFile(
+    join(workspace, ".grill-me", "projects", `${directory}.json`),
+    JSON.stringify({
+      version: 1,
+      projectDirectory: journalDirectory,
+      createdAt: "2026-11-14T10:00:00.000Z",
+      updatedAt: "2026-11-14T10:00:00.000Z",
+      files: {},
+    }),
+  );
+  return realpath(folder);
+}
+
+function projectLaunch(
+  workspace: string,
+  projectDirectory: string,
+  editor: WorkspaceLaunch["editor"] = "file-manager",
+) {
+  return { ...launchInput(workspace, editor), projectDirectory };
 }
 
 describe("desktop workspace editors", () => {
@@ -142,6 +172,135 @@ describe("desktop workspace editors", () => {
       path: folder,
       useShellOpen: true,
     });
+  });
+
+  test("opens a recorded direct project child instead of the workspace root", async () => {
+    const bin = await tempRoot();
+    const command = await executable(bin, "code");
+    const folder = await challengeFolder();
+    const project = await projectFolder(folder);
+    const options = {
+      platform: "linux" as const,
+      env: { PATH: bin, HOME: bin },
+      pathDirectories: [],
+    };
+    expect(
+      resolveWorkspaceLaunch(
+        projectLaunch(folder, "project", "vscode"),
+        options,
+      ),
+    ).toEqual({
+      editor: "vscode",
+      path: project,
+      command,
+      args: [project],
+      useShellOpen: false,
+    });
+    expect(
+      resolveWorkspaceLaunch(projectLaunch(folder, "project"), options),
+    ).toEqual({
+      editor: "file-manager",
+      path: project,
+      useShellOpen: true,
+    });
+    const second = await projectFolder(folder, "project-2");
+    expect(
+      resolveWorkspaceLaunch(projectLaunch(folder, "project-2"), options),
+    ).toEqual({
+      editor: "file-manager",
+      path: second,
+      useShellOpen: true,
+    });
+  });
+
+  test("keeps the workspace root launch when no project child is named", async () => {
+    const bin = await tempRoot();
+    await executable(bin, "code");
+    const folder = await challengeFolder();
+    const launch = resolveWorkspaceLaunch(launchInput(folder, "file-manager"), {
+      platform: "linux",
+      env: { PATH: bin, HOME: bin },
+      pathDirectories: [],
+    });
+    expect(launch).toEqual({
+      editor: "file-manager",
+      path: folder,
+      useShellOpen: true,
+    });
+  });
+
+  test("rejects nested, missing, symlinked, or unrecorded project folders", async () => {
+    const bin = await tempRoot();
+    await executable(bin, "code");
+    const options = {
+      platform: "linux" as const,
+      env: { PATH: bin, HOME: bin },
+      pathDirectories: [],
+    };
+    const folder = await challengeFolder();
+    await projectFolder(folder);
+    for (const directory of [
+      "project/child",
+      "../outside",
+      "project-0",
+      "project-01",
+      "project-1",
+      "project-100",
+      "/project",
+      "",
+    ]) {
+      expect(() =>
+        resolveWorkspaceLaunch(projectLaunch(folder, directory), options),
+      ).toThrow(/practice project folder is unavailable/);
+    }
+
+    const missing = await challengeFolder();
+    await mkdir(join(missing, "project"), { recursive: true });
+    expect(() =>
+      resolveWorkspaceLaunch(projectLaunch(missing, "project"), options),
+    ).toThrow(/practice project folder is unavailable/);
+
+    const wrongJournal = await challengeFolder();
+    await projectFolder(wrongJournal, "project", "project-2");
+    expect(() =>
+      resolveWorkspaceLaunch(projectLaunch(wrongJournal, "project"), options),
+    ).toThrow(/practice project folder is unavailable/);
+
+    const linked = await challengeFolder();
+    const target = await tempRoot();
+    await mkdir(join(target, "project"), { recursive: true });
+    await mkdir(join(linked, ".grill-me", "projects"), { recursive: true });
+    await writeFile(
+      join(linked, ".grill-me", "projects", "project.json"),
+      JSON.stringify({
+        version: 1,
+        projectDirectory: "project",
+        createdAt: "2026-11-14T10:00:00.000Z",
+        updatedAt: "2026-11-14T10:00:00.000Z",
+        files: {},
+      }),
+    );
+    await symlink(join(target, "project"), join(linked, "project"));
+    expect(() =>
+      resolveWorkspaceLaunch(projectLaunch(linked, "project"), options),
+    ).toThrow(/practice project folder is unavailable/);
+
+    const file = await challengeFolder();
+    await mkdir(join(file, ".grill-me", "projects"), { recursive: true });
+    await writeFile(
+      join(file, ".grill-me", "projects", "project.json"),
+      JSON.stringify({
+        version: 1,
+        projectDirectory: "project",
+        createdAt: "2026-11-14T10:00:00.000Z",
+        updatedAt: "2026-11-14T10:00:00.000Z",
+        files: {},
+      }),
+    );
+    await writeFile(join(file, "project"), "not a folder");
+    expect(() =>
+      resolveWorkspaceLaunch(projectLaunch(file, "project"), options),
+    ).toThrow(/practice project folder is unavailable/);
   });
 
   test("does not hand application credentials to an editor process", () => {

@@ -1,9 +1,22 @@
 import type {
   ChallengeWorkspace,
   ModelSelection,
+  ProjectCheckProposal,
+  ProjectCheckResult,
+  ProjectCommandProposal,
+  ProjectPreparation,
+  ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
 import type { GuidedPreferences } from "@repo/backend/shared/preferences";
-export type { ChallengeWorkspace, ModelSelection };
+export type {
+  ChallengeWorkspace,
+  ModelSelection,
+  ProjectCheckProposal,
+  ProjectCheckResult,
+  ProjectCommandProposal,
+  ProjectPreparation,
+  ProjectScaffoldReport,
+};
 export type Profile = {
   id: string;
   email: string;

@@ -19,6 +19,7 @@ import {
   ScanLine,
   ListChecks,
   PanelRight,
+  CircleAlert,
 } from "lucide-react";
 import type { Challenge, Profile, ReviewJob } from "@/shared/types/api";
 import { AppShell } from "@/shared/components/layout/app-shell";
@@ -64,6 +65,8 @@ import { ChallengeReference } from "./challenge-reference";
 import { useWideWorkspace } from "../hooks/use-wide-workspace";
 import { useComposerModel } from "@/shared/components/ai/use-composer-model";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
+import { useProjectPreparation } from "@/features/challenges/hooks/use-project-preparation";
+import { projectPreparationView } from "@/features/challenges/lib/project-preparation-view";
 
 type Draft = {
   content: string;
@@ -106,6 +109,7 @@ export function PracticeWorkspace({
   const update = (patch: Partial<Draft>) => updateDraft(key, patch);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [focusProject, setFocusProject] = useState(false);
   const requestedTab = searchParams.get("tab");
   const tab =
     requestedTab === "submit" ||
@@ -121,6 +125,7 @@ export function PracticeWorkspace({
       value !== "quizzes"
     )
       return;
+    if (value !== "overview") setFocusProject(false);
     const url = new URL(window.location.href);
     if (url.searchParams.get("tab") === value) return;
     url.searchParams.set("tab", value);
@@ -355,6 +360,22 @@ export function PracticeWorkspace({
   const archived =
     Boolean(challenge.archivedAt) || challenge.status === "saved";
   const active = challenge.status === "active" && !archived;
+  const project = useProjectPreparation(profile.id, challenge.id, {
+    enabled: active,
+  });
+  const projectView = project.preparation.data
+    ? projectPreparationView(project.preparation.data)
+    : null;
+  const projectAttention =
+    tab !== "overview" &&
+    active &&
+    Boolean(
+      projectView?.recovery?.needsReview || projectView?.awaitingApproval,
+    );
+  const reviewProject = () => {
+    setTab("overview");
+    setFocusProject(true);
+  };
   const error =
     submit.error ??
     upload.error ??
@@ -378,6 +399,25 @@ export function PracticeWorkspace({
             >
               {error.message}
             </p>
+          )}
+          {projectAttention && projectView && (
+            <div
+              role="region"
+              aria-label="Practice project attention"
+              className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-panel px-5 py-2.5"
+            >
+              <CircleAlert
+                size={15}
+                aria-hidden="true"
+                className="shrink-0 text-warning"
+              />
+              <p className="min-w-0 flex-1 break-words text-supporting text-muted">
+                Practice project: {projectView.statusLabel}.
+              </p>
+              <Button size="sm" variant="secondary" onClick={reviewProject}>
+                Review project
+              </Button>
+            </div>
           )}
           <Tabs
             value={tab}
@@ -533,6 +573,8 @@ export function PracticeWorkspace({
                   <ChallengeWorkspaceSection
                     profileId={profile.id}
                     challenge={challenge}
+                    focusProject={focusProject}
+                    onProjectFocus={() => setFocusProject(false)}
                   />
                   {active && (
                     <div className="flex gap-2">

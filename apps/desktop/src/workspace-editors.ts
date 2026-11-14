@@ -12,6 +12,7 @@ import { homedir } from "node:os";
 import { delimiter, dirname, join, resolve, sep } from "node:path";
 import { z } from "zod";
 import {
+  projectDirectoryNameSchema,
   workspaceLaunchSchema,
   type WorkspaceEditor,
   type WorkspaceEditorOption,
@@ -85,6 +86,12 @@ const markerSchema = z.object({
   version: z.literal(1),
   challengeId: z.string().uuid(),
   profileId: z.string().uuid(),
+});
+
+const projectJournalSchema = z.object({
+  version: z.literal(1),
+  projectDirectory: z.string().min(1).max(64),
+  files: z.record(z.string(), z.unknown()),
 });
 
 export type WorkspaceLaunchTarget =
@@ -345,16 +352,70 @@ export function validateWorkspacePath(
   return directory;
 }
 
+function projectUnavailable() {
+  return new Error(
+    "This practice project folder is unavailable. Refresh the practice project and retry.",
+  );
+}
+
+/**
+ * Resolve a project child inside a validated challenge workspace. The renderer
+ * names a project folder; the parent path remains the workspace marker path.
+ * Only direct, real `project`/`project-N` children recorded in the app journal
+ * are accepted, so this stays narrower than a general filesystem launch.
+ */
+export function validateProjectPath(workspace: string, directory: string) {
+  try {
+    const projectDirectory = projectDirectoryNameSchema.parse(directory);
+    const projectPath = join(workspace, projectDirectory);
+    const info = lstatSync(projectPath);
+    if (info.isSymbolicLink() || !info.isDirectory())
+      throw projectUnavailable();
+    const canonical = canonicalPath(projectPath);
+    if (dirname(canonical) !== workspace) throw projectUnavailable();
+    const journalPath = join(
+      workspace,
+      ".grill-me",
+      "projects",
+      `${projectDirectory}.json`,
+    );
+    const journalInfo = lstatSync(journalPath);
+    if (
+      journalInfo.isSymbolicLink() ||
+      !journalInfo.isFile() ||
+      journalInfo.size > 1024 * 1024
+    )
+      throw projectUnavailable();
+    const journal = projectJournalSchema.safeParse(
+      JSON.parse(readFileSync(journalPath, "utf8")),
+    );
+    if (!journal.success || journal.data.projectDirectory !== projectDirectory)
+      throw projectUnavailable();
+    return canonical;
+  } catch {
+    throw projectUnavailable();
+  }
+}
+
 export function resolveWorkspaceLaunch(
-  input: WorkspaceLaunch,
+  input: unknown,
   options: EditorLookupOptions = {},
 ): WorkspaceLaunchTarget {
-  const parsed = workspaceLaunchSchema.parse(input);
-  const path = validateWorkspacePath(parsed.path, parsed);
-  if (parsed.editor === "file-manager")
+  const parsed = workspaceLaunchSchema.safeParse(input);
+  if (!parsed.success) {
+    if (input && typeof input === "object" && "projectDirectory" in input)
+      throw projectUnavailable();
+    throw parsed.error;
+  }
+  const launch = parsed.data;
+  const workspace = validateWorkspacePath(launch.path, launch);
+  const path = launch.projectDirectory
+    ? validateProjectPath(workspace, launch.projectDirectory)
+    : workspace;
+  if (launch.editor === "file-manager")
     return { editor: "file-manager", path, useShellOpen: true };
   const definition = workspaceEditorDefinitions.find(
-    (editor) => editor.id === parsed.editor,
+    (editor) => editor.id === launch.editor,
   );
   if (!definition) throw new Error("This editor is not supported.");
   const command = resolveEditorCommand(definition, options);

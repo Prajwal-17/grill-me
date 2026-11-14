@@ -87,6 +87,8 @@ export function GenerationMonitor() {
                 review_jobs: ["submissions", "challenges", "progress"],
                 verification_runs: ["submissions"],
                 projects: ["projects"],
+                project_preparations: ["project-preparation"],
+                project_command_requests: ["project-preparation"],
               };
               return tables.some((table) => affected[table]?.includes(key));
             },
