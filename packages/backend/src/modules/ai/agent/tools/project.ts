@@ -563,6 +563,7 @@ export function createProjectTools(
     target: string,
     content: string,
     expectedSha256: string,
+    relativePath: string,
   ) {
     const temporary = join(
       dirname(target),
@@ -576,6 +577,8 @@ export function createProjectTools(
           "PROJECT_FILE_MODIFIED",
           "That project file changed after it was read. Read it again before editing so user edits are preserved.",
           409,
+          false,
+          { path: relativePath },
         );
       await rename(temporary, target);
     } finally {
@@ -1153,6 +1156,8 @@ export function createProjectTools(
             "PROJECT_FILE_MODIFIED",
             "That project file changed after Grill Me wrote it. Read it and inspect the user's edits before continuing; they are never overwritten.",
             409,
+            false,
+            { path: relativePath },
           );
         if (isBinary(originalBuffer))
           throw new AppError(
@@ -1191,7 +1196,7 @@ export function createProjectTools(
           nextRecord,
         );
         try {
-          await atomicOverwrite(entry.path, next, currentHash);
+          await atomicOverwrite(entry.path, next, currentHash, relativePath);
         } catch (error) {
           await restoreJournal(previous);
           if (error instanceof AppError) throw error;

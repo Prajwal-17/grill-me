@@ -24,6 +24,7 @@ async function runSqliteTests() {
         "./packages/backend/test/contracts.test.ts",
         "./packages/backend/test/local-runtime.test.ts",
         "./apps/web/src/shared/lib/rpc-client.test.ts",
+        "./apps/web/src/features/challenges/lib/project-preparation-view.test.ts",
         "./apps/web/src/features/settings/release-history.test.ts",
         "./packages/backend/test/resume.test.ts",
         "./packages/backend/test/judge-tools.test.ts",

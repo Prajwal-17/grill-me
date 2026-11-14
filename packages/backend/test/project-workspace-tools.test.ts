@@ -492,7 +492,10 @@ describe("project filesystem tools", () => {
         },
         undefined,
       ),
-    ).rejects.toMatchObject({ code: "PROJECT_FILE_MODIFIED" });
+    ).rejects.toMatchObject({
+      code: "PROJECT_FILE_MODIFIED",
+      details: { path: "src/generated.ts" },
+    });
     expect(
       await readFile(join(layout.projectRoot, "src/generated.ts"), "utf8"),
     ).toBe("export const value = 2;\n");

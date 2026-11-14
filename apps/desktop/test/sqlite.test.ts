@@ -217,7 +217,7 @@ test("SQLite v1 upgrades retain existing conversations and initialize completed 
     const upgraded = createSqliteDatabase(path);
     await upgraded.migrateDatabase();
     expect(upgraded.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 5,
+      user_version: 6,
     });
     expect(
       upgraded.sqlite
