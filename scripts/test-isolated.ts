@@ -29,6 +29,7 @@ async function runSqliteTests() {
         "./packages/backend/test/judge-tools.test.ts",
         "./packages/backend/test/project-folders.test.ts",
         "./packages/backend/test/challenge-workspace.test.ts",
+        "./packages/backend/test/project-workspace-tools.test.ts",
         "./apps/desktop/test/sqlite.test.ts",
         "./apps/desktop/test/workspace-editors.test.ts",
         "./apps/desktop/test/setup.test.ts",

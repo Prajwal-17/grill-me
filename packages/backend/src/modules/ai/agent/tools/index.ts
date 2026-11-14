@@ -10,6 +10,13 @@ export {
   createResearchWorkspace,
   removeResearchWorkspace,
 } from "./research";
+export { createProjectTools, projectToolJournalContext } from "./project";
+export type {
+  ProjectToolActivity,
+  ProjectToolJournalContext,
+  ProjectToolLimits,
+  ProjectToolsOptions,
+} from "./project";
 
 export function createTaskTools(options: {
   allowSnapshot: boolean;
