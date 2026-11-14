@@ -59,7 +59,10 @@ export function frozenProjectSpecification(input: {
       minMinutes: challenge.durationMinMinutes,
       maxMinutes: challenge.durationMaxMinutes,
     },
-    starterCode: challenge.starterCode,
+    starterCode:
+      challenge.starterCode && !/^\s*={3,}\s*FILE:/m.test(challenge.starterCode)
+        ? challenge.starterCode
+        : null,
     stack: {
       experienceLevel:
         optionLabel(EXPERIENCE, preferences.experienceLevel) || null,

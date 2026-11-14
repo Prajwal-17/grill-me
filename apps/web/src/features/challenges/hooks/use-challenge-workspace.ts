@@ -6,6 +6,7 @@ import type {
 import {
   challengeKeys,
   getChallengeWorkspace,
+  getProjectPreparation,
   relinkChallengeWorkspace,
 } from "@/features/challenges/api/challenge-api";
 
@@ -26,6 +27,21 @@ export function useChallengeWorkspace(profileId: string, challengeId: string) {
     staleTime: 300_000,
     retry: false,
   });
+  const project = useQuery({
+    queryKey: challengeKeys.projectPreparation(profileId, challengeId),
+    queryFn: () => getProjectPreparation(profileId, challengeId),
+    staleTime: 5_000,
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.data?.status === "running" ||
+      query.state.data?.recovery.settling
+        ? 1_500
+        : false,
+    refetchIntervalInBackground: false,
+  });
+  const projectDirectory = project.data?.projectDirectory ?? undefined;
+  const destinationPath =
+    project.data?.projectPath ?? workspace.data?.path ?? null;
   const open = useMutation({
     mutationFn: (editor: WorkspaceEditor) => {
       if (!bridge)
@@ -39,6 +55,7 @@ export function useChallengeWorkspace(profileId: string, challengeId: string) {
         editor,
         challengeId,
         profileId,
+        ...(projectDirectory ? { projectDirectory } : {}),
       });
     },
   });
@@ -50,5 +67,27 @@ export function useChallengeWorkspace(profileId: string, challengeId: string) {
       void queries.invalidateQueries({ queryKey: ["challenges", "detail"] });
     },
   });
-  return { workspace, editors, open, relink, desktop: Boolean(bridge) };
+  const openRoot = useMutation({
+    mutationFn: () => {
+      if (!bridge || !workspace.data)
+        throw new Error("The desktop workspace folder is not available.");
+      return bridge.openWorkspaceInEditor({
+        path: workspace.data.path,
+        editor: "file-manager",
+        challengeId,
+        profileId,
+      });
+    },
+  });
+  return {
+    workspace,
+    editors,
+    open,
+    openRoot,
+    relink,
+    destinationPath,
+    projectDirectory,
+    projectLoading: project.isPending,
+    desktop: Boolean(bridge),
+  };
 }

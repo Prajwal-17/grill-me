@@ -58,8 +58,11 @@ export const generatedBuildContentSchema = z.strictObject({
     estimatedDifficultyScore: true,
   }).shape,
   estimatedDifficultyBand: buildDifficultySchema,
+  // Generation saves the brief; the scaffold task materializes all source files.
+  // Legacy stored challenges still accept starterCode through their own schema.
+  starterCode: z.null(),
   constraints: z.array(z.string()).max(0),
-  implementationMilestones: z.array(z.string()).max(0),
+  implementationMilestones: z.array(milestoneSchema).max(7),
 });
 
 export function generatedBuildSchemaForScope(scope: BuildScope) {
@@ -73,7 +76,7 @@ export function generatedBuildSchemaForScope(scope: BuildScope) {
     constraints: z.array(z.string()).max(0),
     expectedOutcome: z.string().trim().min(10).max(240),
     implementationBoundary: z.string().trim().max(450),
-    implementationMilestones: z.array(z.string()).max(0),
+    implementationMilestones: z.array(milestoneSchema).max(7),
   });
 }
 

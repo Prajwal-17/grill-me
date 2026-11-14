@@ -60,10 +60,16 @@ export function ChallengeWorkspaceSection({
   focusProject?: boolean;
   onProjectFocus?: () => void;
 }) {
-  const { workspace, editors, open, relink, desktop } = useChallengeWorkspace(
-    profileId,
-    challenge.id,
-  );
+  const {
+    workspace,
+    editors,
+    open,
+    relink,
+    desktop,
+    destinationPath,
+    projectDirectory,
+    projectLoading,
+  } = useChallengeWorkspace(profileId, challenge.id);
   if (workspace.isPending) return <WorkspaceLoading />;
   if (workspace.error) {
     const recordedPath = recordedWorkspacePath(workspace.error);
@@ -135,20 +141,23 @@ export function ChallengeWorkspaceSection({
             Workspace
           </h2>
           <p className="mt-1 break-all font-mono text-metadata text-muted">
-            {info.path}
+            {destinationPath ?? info.path}
           </p>
         </div>
         <CopyButton
-          text={info.path}
+          text={destinationPath ?? info.path}
           label="Copy path"
-          ariaLabel="Copy workspace path"
+          ariaLabel={
+            projectDirectory ? "Copy project path" : "Copy workspace path"
+          }
         />
       </div>
       <p className="mt-2 text-supporting text-muted">
-        Add code, notes, artifacts, and subfolders here. Starter files are
-        created once; existing files are never replaced.
+        {projectDirectory
+          ? "Implement the TODOs in this project. Preparation and setup progress are shown below."
+          : "Project preparation creates the source files and supporting configuration here. Existing files are preserved."}
       </p>
-      {info.starterFile && (
+      {info.starterFile && !projectDirectory && (
         <p className="mt-1 text-metadata text-muted">
           Starter file:{" "}
           <span className="font-mono text-foreground">{info.starterFile}</span>
@@ -159,7 +168,7 @@ export function ChallengeWorkspaceSection({
           <Button
             size="sm"
             variant="ghost"
-            disabled={open.isPending}
+            disabled={open.isPending || projectLoading}
             onClick={() => open.mutate("file-manager")}
           >
             {busyEditor === "file-manager" ? (
@@ -167,7 +176,7 @@ export function ChallengeWorkspaceSection({
             ) : (
               <EditorIcon editor="file-manager" />
             )}
-            Open folder
+            {projectDirectory ? "Open project folder" : "Open workspace folder"}
           </Button>
           {editors.isPending ? (
             <span role="status" className="text-metadata text-muted">
@@ -190,7 +199,7 @@ export function ChallengeWorkspaceSection({
                 key={option.id}
                 size="sm"
                 variant="secondary"
-                disabled={open.isPending}
+                disabled={open.isPending || projectLoading}
                 onClick={() => open.mutate(option.id)}
               >
                 {busyEditor === option.id ? (
@@ -253,10 +262,16 @@ export function ChallengeWorkspaceMenu({
   profileId: string;
   challenge: Challenge;
 }) {
-  const { workspace, editors, open, relink, desktop } = useChallengeWorkspace(
-    profileId,
-    challenge.id,
-  );
+  const {
+    workspace,
+    editors,
+    open,
+    openRoot,
+    relink,
+    desktop,
+    projectDirectory,
+    projectLoading,
+  } = useChallengeWorkspace(profileId, challenge.id);
   if (!desktop) return null;
   const options = editorOptions(editors.data);
   return (
@@ -276,7 +291,9 @@ export function ChallengeWorkspaceMenu({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Challenge workspace</DropdownMenuLabel>
+        <DropdownMenuLabel>
+          {projectDirectory ? "Practice project" : "Challenge workspace"}
+        </DropdownMenuLabel>
         {workspace.error ? (
           <>
             <DropdownMenuItem onSelect={() => void workspace.refetch()}>
@@ -291,7 +308,7 @@ export function ChallengeWorkspaceMenu({
           </>
         ) : (
           <DropdownMenuItem
-            disabled={!workspace.data || open.isPending}
+            disabled={!workspace.data || open.isPending || projectLoading}
             onSelect={() => open.mutate("file-manager")}
           >
             {open.isPending && open.variables === "file-manager" ? (
@@ -299,7 +316,7 @@ export function ChallengeWorkspaceMenu({
             ) : (
               <FolderOpen size={14} />
             )}
-            Open folder
+            {projectDirectory ? "Open project folder" : "Open workspace folder"}
           </DropdownMenuItem>
         )}
         {!editors.error && options.length > 0 && (
@@ -309,7 +326,7 @@ export function ChallengeWorkspaceMenu({
             {options.map((option) => (
               <DropdownMenuItem
                 key={option.id}
-                disabled={!workspace.data || open.isPending}
+                disabled={!workspace.data || open.isPending || projectLoading}
                 onSelect={() => open.mutate(option.id)}
               >
                 {open.isPending && open.variables === option.id ? (
@@ -321,6 +338,23 @@ export function ChallengeWorkspaceMenu({
               </DropdownMenuItem>
             ))}
           </>
+        )}
+        {projectDirectory && (
+          <DropdownMenuItem
+            disabled={!workspace.data || openRoot.isPending}
+            onSelect={() => openRoot.mutate()}
+          >
+            <FolderOpen size={14} />
+            Open parent workspace folder
+          </DropdownMenuItem>
+        )}
+        {openRoot.error && (
+          <DropdownMenuItem
+            disabled
+            className="whitespace-normal break-words text-destructive"
+          >
+            {openRoot.error.message}
+          </DropdownMenuItem>
         )}
         {open.error && (
           <>

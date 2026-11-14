@@ -163,7 +163,14 @@ export function projectRelativePath(path: string) {
     )
   )
     throw invalidPath("That path is reserved for app metadata or credentials.");
-  if (excludedPath(path.toLowerCase()))
+  if (
+    parts.some(
+      (part, index) =>
+        // A checked-in template is not a user's populated environment file.
+        !(index === parts.length - 1 && part === ".env.example") &&
+        excludedPath(part.toLowerCase()),
+    )
+  )
     throw invalidPath(
       "That path is reserved for credentials or generated dependency output.",
     );

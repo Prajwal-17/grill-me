@@ -58,6 +58,11 @@
 
 ### Fixed
 
+- Generate challenge specifications separately from project files, so new
+  projects are no longer bundled into a single starter file. Open the actual
+  project from workspace actions, allow safe `.env.example` templates, honor
+  requested milestones, and require setup and check authorization requests
+  before preparation completes. Existing challenge files remain untouched.
 - Refuse symbolic links for challenge workspace metadata and for app-owned data
   and workspace child folders, so marker and setup writes stay inside the
   selected real parent and never overwrite a linked target.

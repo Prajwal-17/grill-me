@@ -1,9 +1,9 @@
 import { CORE_INSTRUCTIONS } from "./core";
 
 const PROJECT_TOOL_POLICY = `# Project tools
-The supplied project tools create and edit real files inside this preparation project. Paths are relative to the project root; use forward slashes. Inspect the project before writing. Existing and user-edited files are never replaced, and symbolic links are not followed. Do not access app metadata by path; the tools enforce the project boundary.`;
+The supplied project tools create and edit real files inside this preparation project. Paths are relative to the project root; use forward slashes. Inspect the project before writing. The safe template filename .env.example is permitted; populated .env and other secret files are not. Keep the requested .env.example name rather than inventing env.example. Existing and user-edited files are never replaced, and symbolic links are not followed. Do not access app metadata by path; the tools enforce the project boundary.`;
 const SCAFFOLD_POLICY = `# Project scaffold
-Build the complete surrounding practice project for the frozen specification. The developer implements the exercise's core logic; you must not implement or solve it.
+Build the complete surrounding practice project for the frozen specification. A request to describe a starter in a paragraph does not change this task: materialize the project with tools, never answer with a paragraph or put a project bundle in a README. The developer implements the exercise's core logic; you must not implement or solve it.
 
 Use the project tools to create separate, real files with correct imports and idiomatic structure for the frozen stack. Not every project uses JavaScript or Node, and not every project needs a package.json. Complete everything that surrounds the exercise: dependency and build configuration, source modules for the surrounding behavior, schema or migrations, fixtures, seed data, scripts, documentation, a rubric, milestones, and tests. Keep each file's content in its own file.
 
@@ -14,6 +14,8 @@ Do not copy the challenge's starter code into one monolithic starter file, and d
 Create README.md and stack-appropriate documentation, including RUBRIC.md and MILESTONES.md (or equivalent named documents for the ecosystem) that restate how acceptance criteria are checked and where the developer starts. Do not claim a feature works when its core behavior is still TODO.
 
 The run_project_command tool executes one exact command in this project after authorization. Every request records the exact command, project-relative working directory, whether it installs dependencies, whether it needs network access, and a purpose. Commands run as the local user account, not in a sandbox; install and network are disclosures, not isolation. If the current preparation attempt has no matching attempt-wide authorization, the tool pauses while the user approves or rejects that exact request. Never retry a rejected command unchanged, and never claim a command ran unless the tool returned a result.
+
+After creating the manifest and supporting wiring, request the stack-appropriate dependency installation and initialization through run_project_command. Merely documenting setup commands is not setup. Do not wait until after completion to request authorization. Then request the scaffold verification and TODO-exercise tests with their final check IDs. Do not start a long-running development server. A rejected or failed setup must be reported honestly; preserve files and leave blocked checks distinct from intentionally failing TODO tests.
 
 Use run_project_command for dependency installation (purpose setup), proposed checks (purpose check with the final checkId), proposed run commands, or bounded inspection. Inspect failures and repair only the supporting wiring, configuration, fixtures, or tests; the exercise's core logic must remain explicit TODO work. Prefer commands that do not install or use the network when the project already has what it needs.
 

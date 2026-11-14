@@ -49,11 +49,13 @@ sources.
 
 ## Challenge workspaces
 
-Each challenge gets a local workspace folder for code, notes, artifacts, and
-subfolders. Grill Me seeds it once with the challenge brief and available starter
-code, never replaces existing files, and offers **Open folder** and detected
-editor actions for Zed, VS Code, Cursor, and other common editors. Choose the
-workspace root in **Settings → Advanced → Challenge workspace**.
+Each challenge gets a local workspace folder. New challenges save a specification,
+then preparation creates separate source, configuration, migration, fixture, test,
+and documentation files in `project/`, leaving the exercise's core logic as TODOs.
+Setup and checks pause for your command approval; listing commands in a README
+does not count as running them. Editor and folder actions open the current project
+when one exists. Older starter files and previous project attempts remain untouched.
+Choose the workspace root in **Settings → Advanced → Challenge workspace**.
 
 ## Development and production
 

@@ -190,6 +190,9 @@ export function starterAsset(
   >,
 ) {
   if (!challenge.starterCode) return null;
+  // Old multi-file model responses are prose bundles, not a source file.
+  // Keep any files already seeded, but never materialize another bundle.
+  if (/^\s*={3,}\s*FILE:/m.test(challenge.starterCode)) return null;
   const parsed = starterFileContent(challenge.starterCode);
   if (!parsed) return null;
   const extension =

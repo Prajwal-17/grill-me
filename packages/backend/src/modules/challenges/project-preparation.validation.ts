@@ -174,7 +174,12 @@ function setupFailed(commands: ProjectCommand[]) {
   return commands.some(
     (command) =>
       (command.purpose === "setup" || command.install) &&
-      (command.status === "failed" || command.status === "timed_out"),
+      (command.status === "failed" ||
+        command.status === "timed_out" ||
+        command.status === "rejected" ||
+        command.status === "cancelled" ||
+        command.status === "interrupted" ||
+        command.result?.status === "spawn_failed"),
   );
 }
 
@@ -427,7 +432,12 @@ export async function validateProjectScaffoldReport(
     throw invalid(
       'The report needs an intentionally failing todo_exercise test check with expected result "fail".',
     );
-  if (!report.checks.some((check) => check.intent === "verify"))
+  if (
+    !report.checks.some(
+      (check) =>
+        check.intent === "verify" && check.kind !== "manual" && check.command,
+    )
+  )
     throw invalid(
       "The report needs at least one verify check for the scaffold's supporting wiring.",
     );
@@ -437,6 +447,9 @@ export async function validateProjectScaffoldReport(
   const executionResultsAllowed =
     context.allowExecutionResults === true || context.commands !== undefined;
   const setupDidFail = setupFailed(commands);
+  // An executable scaffold must request authorization, not just print commands.
+  // Legacy/report-only validators can still inspect files without a command session.
+  const requiresExecution = context.commands !== undefined;
   for (const result of report.results) {
     if (results.has(result.checkId))
       throw invalid(
@@ -473,6 +486,21 @@ export async function validateProjectScaffoldReport(
       throw invalid(
         `Check ${check.id} reports "${result.status}", but there is no matching server command execution record. Run the exact check command first.`,
       );
+    if (
+      requiresExecution &&
+      check.kind !== "manual" &&
+      !setupDidFail &&
+      !commands.some(
+        (command) =>
+          command.purpose === "check" &&
+          command.checkId === check.id &&
+          commandSignature(command) === checkSignature(check) &&
+          command.status === "rejected",
+      )
+    )
+      throw invalid(
+        `Check ${check.id} has not been requested through run_project_command. Request authorization and run it before completing, or report the setup failure that blocked it.`,
+      );
     if (result.status === "blocked" && !setupDidFail)
       throw invalid(
         `Check ${check.id} is reported "blocked", but no setup or dependency command failed. Use "not_run" when the check was not attempted.`,
@@ -483,12 +511,48 @@ export async function validateProjectScaffoldReport(
       throw invalid(`Check ${check.id} is missing a result.`);
 
   const setupCommands = new Set<string>();
+  if (requiresExecution && journal.files["package.json"]) {
+    let manifest: { dependencies?: unknown; devDependencies?: unknown };
+    try {
+      manifest = JSON.parse(await trackedFile("package.json"));
+      if (!manifest || typeof manifest !== "object") throw new Error();
+    } catch {
+      throw invalid(
+        "The generated package.json must be a valid package manifest.",
+      );
+    }
+    const dependencies = [manifest.dependencies, manifest.devDependencies];
+    if (
+      dependencies.some(
+        (value) =>
+          value && typeof value === "object" && Object.keys(value).length > 0,
+      ) &&
+      !report.setup.some((command) => command.install)
+    )
+      throw invalid(
+        "The package manifest declares dependencies. Include the package manager's installation command in setup and request it through run_project_command before completing.",
+      );
+  }
   for (const command of report.setup) {
     const signature = commandSignature(command);
     if (setupCommands.has(signature))
       throw invalid("Setup commands must be distinct.");
     setupCommands.add(signature);
     await directoryCwd(command.cwd);
+    if (
+      requiresExecution &&
+      !commands.some(
+        (actual) =>
+          actual.purpose === "setup" &&
+          commandSignature(actual) === signature &&
+          actual.install === command.install &&
+          actual.network === command.network &&
+          (actual.result !== null || actual.status === "rejected"),
+      )
+    )
+      throw invalid(
+        `Setup command ${command.command} has only been documented. Request it through run_project_command and wait for authorization and its result before completing.`,
+      );
   }
   const runCommands = new Set<string>();
   for (const command of report.run) {
