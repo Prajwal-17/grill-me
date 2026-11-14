@@ -175,7 +175,7 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
                 disabled={busy}
                 value={prompt}
                 maxLength={4000}
-                placeholder="Describe a topic or something you want to build…"
+                placeholder="Describe a topic or something you want to build… Paste a URL or image link for context."
                 minHeight={180}
                 aria-invalid={Boolean(error)}
                 aria-describedby={error ? "generation-error" : undefined}

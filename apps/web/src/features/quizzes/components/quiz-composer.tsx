@@ -110,7 +110,7 @@ export function QuizComposer({ profileId }: { profileId: string }) {
           <PromptTextarea
             ref={textarea}
             aria-label="Describe what you want to practice"
-            placeholder="What would you like to test your knowledge of?"
+            placeholder="What would you like to test your knowledge of? Paste a URL or image link for context."
             value={prompt}
             maxLength={4000}
             minHeight={180}

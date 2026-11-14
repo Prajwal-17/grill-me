@@ -65,6 +65,7 @@ export function quizTask(input: QuizModelInput): StructuredTask<unknown> {
       },
     },
     allowSnapshot: false,
+    allowResearch: true,
   };
 }
 
@@ -95,5 +96,6 @@ export function quizTitleTask(
       validate: (value) => generatedQuizTitleSchema.parse(value),
     },
     allowSnapshot: false,
+    allowResearch: false,
   };
 }

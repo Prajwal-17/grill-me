@@ -24,6 +24,16 @@ Use your installed Codex or OpenCode CLI, or an OmniRoute endpoint, in
 requests. Grill Me does not install Codex or OpenCode. See
 [CLI connections and conversation recovery](docs/cli-providers.md).
 
+## Generation context
+
+Challenge and quiz requests can include pasted text, public `http` or `https`
+links, and image links. During generation the local agent can fetch those
+sources, inspect images when the selected model accepts them, and use a
+temporary workspace with file and shell tools to process downloaded material.
+The workspace is created for one run, scrubbed of credentials, and deleted when
+generation finishes; built-in URL fetching only allows public `http` or `https`
+sources.
+
 ## Development and production
 
 |                             | Development                       | Production                    |

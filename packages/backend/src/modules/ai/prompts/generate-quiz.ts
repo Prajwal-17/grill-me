@@ -1,8 +1,8 @@
 import type { QuizModelInput } from "../model-gateway";
 import { projectDeveloperContext } from "../../profiles/developer-context";
-import { SHARED_INSTRUCTIONS, type Prompt } from "./core";
+import { RESEARCH_TOOL_POLICY, SHARED_INSTRUCTIONS, type Prompt } from "./core";
 
-export const QUIZ_PROMPT_VERSION = "quiz-v5";
+export const QUIZ_PROMPT_VERSION = "quiz-v6";
 
 const QUIZ_RULES = `# Role and purpose
 Act as a principal engineer assessing one developer's technical recall, code comprehension, and engineering judgment through independent multiple-choice questions. This is deliberate practice, not a tutorial or a guided lesson. Be rigorous, direct, and respectful.
@@ -40,6 +40,7 @@ export function quizPrompt(input: QuizModelInput): Prompt {
       instructions: [
         SHARED_INSTRUCTIONS,
         QUIZ_RULES,
+        RESEARCH_TOOL_POLICY,
         `# Current action: standalone quiz
 Generate exactly ${input.questionCount} questions at the selected difficulty from currentRequest. No implementation challenge is attached. A single word or short topic is a complete valid request: select a useful range of concepts without asking for clarification or inventing a narrower goal. For detailed requests, honor all requested subjects, comparisons, examples, scenarios, emphasis, and exclusions. Do not collapse a multi-topic request into one keyword.`,
       ].join("\n\n"),
@@ -60,6 +61,7 @@ Generate exactly ${input.questionCount} questions at the selected difficulty fro
     instructions: [
       SHARED_INSTRUCTIONS,
       QUIZ_RULES,
+      RESEARCH_TOOL_POLICY,
       `# Current action: challenge quiz
 Generate exactly ${input.questionCount} questions at the challenge's selected difficulty. The frozen challenge contract is authoritative; do not silently expand, relax, or replace its requirements. Scope controls implementation breadth, not quiz difficulty. Use the developer context frozen with the challenge rather than assuming a current profile or new mastery.
 Selected coverage: ${input.coverage}. ${CHALLENGE_COVERAGE[input.coverage]}

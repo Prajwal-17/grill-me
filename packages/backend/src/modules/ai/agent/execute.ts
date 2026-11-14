@@ -197,6 +197,7 @@ export function createAgentExecutor(input: {
           attachments: options.attachments,
           completion: task.completion as CompletionSpec<T>,
           allowSnapshot: task.allowSnapshot,
+          allowResearch: task.allowResearch,
           workspace: options.workspace,
           manifest: options.manifest,
           signal: target.signal,

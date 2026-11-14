@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createSnapshotTools } from "@repo/backend/modules/ai/agent/tools/snapshot";
 import { createTaskTools } from "@repo/backend/modules/ai/agent/tools/index";
+import { createResearchTools } from "@repo/backend/modules/ai/agent/tools/research";
 
-test("task tools grant nothing unless a saved snapshot is explicitly requested", () => {
+test("task tools grant nothing unless a saved snapshot or research workspace is explicitly requested", async () => {
   expect(
     createTaskTools({ allowSnapshot: false }).map((tool) => tool.name),
   ).toEqual([]);
@@ -20,6 +21,26 @@ test("task tools grant nothing unless a saved snapshot is explicitly requested",
     "read_submission_file",
     "search_submission",
   ]);
+  const root = await mkdtemp(join(tmpdir(), "grill-research-tools-"));
+  try {
+    expect(
+      createTaskTools({
+        allowSnapshot: false,
+        allowResearch: true,
+        researchWorkspace: root,
+      }).map((tool) => tool.name),
+    ).toEqual([
+      "list_files",
+      "read_file",
+      "write_file",
+      "edit_file",
+      "search_files",
+      "run_command",
+      "fetch_url",
+    ]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test("snapshot tools only read manifest paths inside the saved submission", async () => {
@@ -48,6 +69,92 @@ test("snapshot tools only read manifest paths inside the saved submission", asyn
       type: "text",
       text: "answer.ts:1: export const answer = 42;",
     });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("research tools read, write, search, and run commands inside the workspace", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-research-tool-"));
+  try {
+    const tools = createResearchTools({ workspace: root });
+    const write = tools.find((tool) => tool.name === "write_file")!;
+    await write.execute(
+      "call",
+      { path: "notes/answer.txt", content: "Alpha\nBeta answer\n" },
+      undefined,
+    );
+    const read = tools.find((tool) => tool.name === "read_file")!;
+    expect(
+      (await read.execute("call", { path: "notes/answer.txt" }, undefined))
+        .content[0],
+    ).toMatchObject({ type: "text", text: "Alpha\nBeta answer\n" });
+    const search = tools.find((tool) => tool.name === "search_files")!;
+    expect(
+      (await search.execute("call", { query: "answer" }, undefined)).content[0],
+    ).toMatchObject({
+      type: "text",
+      text: "notes/answer.txt:2: Beta answer",
+    });
+    const list = tools.find((tool) => tool.name === "list_files")!;
+    expect(
+      (await list.execute("call", {}, undefined)).content[0],
+    ).toMatchObject({ type: "text" });
+    const command = tools.find((tool) => tool.name === "run_command")!;
+    expect(
+      (await command.execute("call", { command: "pwd" }, undefined)).content[0],
+    ).toMatchObject({ type: "text" });
+    await expect(
+      read.execute("call", { path: "../outside.txt" }, undefined),
+    ).rejects.toThrow("outside the research workspace");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("fetch_url returns readable text and images, and blocks private hosts", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-research-fetch-"));
+  const pixel =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=";
+  try {
+    const tools = createResearchTools({
+      workspace: root,
+      allowImages: true,
+      lookupHost: async () => [{ address: "93.184.216.34", family: 4 }],
+      fetchImpl: (async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/image.png"))
+          return new Response(Buffer.from(pixel, "base64"), {
+            headers: { "content-type": "image/png" },
+          });
+        return new Response(
+          "<html><title>Docs</title><body><h1>Hello</h1><script>bad()</script><p>World</p></body></html>",
+          { headers: { "content-type": "text/html; charset=utf-8" } },
+        );
+      }) as unknown as typeof fetch,
+    });
+    const fetchUrl = tools.find((tool) => tool.name === "fetch_url")!;
+    const page = await fetchUrl.execute(
+      "call",
+      { url: "https://example.com/page" },
+      undefined,
+    );
+    expect(page.content[0]).toMatchObject({
+      type: "text",
+      text: "Docs\n\nHello\nWorld",
+    });
+    const image = await fetchUrl.execute(
+      "call",
+      { url: "https://example.com/image.png" },
+      undefined,
+    );
+    expect(image.content[0]).toMatchObject({
+      type: "image",
+      mimeType: "image/png",
+    });
+    await expect(
+      fetchUrl.execute("call", { url: "http://127.0.0.1/secret" }, undefined),
+    ).rejects.toThrow("private network");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

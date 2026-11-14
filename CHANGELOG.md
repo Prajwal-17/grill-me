@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Added
+
+- Let challenge and quiz generation inspect pasted context with a temporary
+  research workspace: public links and image URLs can be fetched and viewed,
+  files can be read and written, and shell commands can process downloaded
+  material before the result is written.
+
 ## desktop-v0.1.13 - 11 Nov 2026
 
 ### Added

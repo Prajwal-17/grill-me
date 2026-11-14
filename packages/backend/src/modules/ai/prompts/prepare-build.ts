@@ -1,6 +1,11 @@
 import type { BuildModelInput } from "../model-gateway";
 import { ESSENTIAL_CLARIFICATION_POLICY } from "../../challenges/clarification-policy";
-import { SHARED_INSTRUCTIONS, requestPromptContext, type Prompt } from "./core";
+import {
+  RESEARCH_TOOL_POLICY,
+  SHARED_INSTRUCTIONS,
+  requestPromptContext,
+  type Prompt,
+} from "./core";
 
 export function preparationPrompt(
   input: Omit<BuildModelInput, "clarificationContext">,
@@ -9,6 +14,8 @@ export function preparationPrompt(
     instructions:
       SHARED_INSTRUCTIONS +
       "\n\nYour only action is checking whether essential requirements are missing. Do not generate or assign a challenge in this stage.\n" +
+      RESEARCH_TOOL_POLICY +
+      "\n" +
       ESSENTIAL_CLARIFICATION_POLICY +
       `\n\nDefault to generating without clarification: return question:null and options:[].
 Preserve the explicitly named technology as the learning objective; saved preferences never replace it. If an unfamiliar external tool requires an unknown essential API contract, ask for that contract rather than substituting an unrelated exercise.

@@ -26,5 +26,6 @@ Do not infer seniority, years of experience, mastery, learning goals, topic fami
       validate: (value) => resumeExtractionSchema.parse(value),
     },
     allowSnapshot: false,
+    allowResearch: false,
   };
 }

@@ -6,8 +6,10 @@ import { providerError } from "../../../local/providers/common";
 import type { Manifest } from "../../projects/snapshot";
 import {
   createCompletionTool,
+  createResearchWorkspace,
   createTaskTools,
   recordCompletionFailure,
+  removeResearchWorkspace,
   type CompletionSpec,
   type CompletionState,
 } from "./tools";
@@ -46,6 +48,7 @@ type StructuredRunOptions<T> = BaseRunOptions & {
   attachments?: MessageAttachment[];
   completion: CompletionSpec<T>;
   allowSnapshot: boolean;
+  allowResearch?: boolean;
   workspace?: string;
   manifest?: Manifest;
 };
@@ -374,27 +377,39 @@ async function runAgent(input: {
 export async function runStructured<T>(
   options: StructuredRunOptions<T>,
 ): Promise<StructuredRunResult<T>> {
-  const result = await runAgent({
-    options,
-    text: options.userText,
-    context: options.context,
-    attachments: options.attachments,
-    tools: createTaskTools({
-      allowSnapshot: options.allowSnapshot,
-      workspace: options.workspace,
-      manifest: options.manifest,
-    }),
-    completion: options.completion as CompletionSpec<unknown>,
-    streamText: false,
-    requireImageSupport: false,
-  });
-  return {
-    value: result.completion as T,
-    usage: result.usage,
-    turnCount: result.turnCount,
-    toolCallCount: result.toolCallCount,
-    messages: result.messages,
-  };
+  const researchWorkspace = options.allowResearch
+    ? await createResearchWorkspace()
+    : undefined;
+  try {
+    const result = await runAgent({
+      options,
+      text: options.userText,
+      context: options.context,
+      attachments: options.attachments,
+      tools: createTaskTools({
+        allowSnapshot: options.allowSnapshot,
+        workspace: options.workspace,
+        manifest: options.manifest,
+        allowResearch: options.allowResearch,
+        researchWorkspace,
+        allowImages: options.resolved.providerModel.capabilities?.images,
+        signal: options.signal,
+      }),
+      completion: options.completion as CompletionSpec<unknown>,
+      streamText: false,
+      requireImageSupport: false,
+    });
+    return {
+      value: result.completion as T,
+      usage: result.usage,
+      turnCount: result.turnCount,
+      toolCallCount: result.toolCallCount,
+      messages: result.messages,
+    };
+  } finally {
+    if (researchWorkspace)
+      await removeResearchWorkspace(researchWorkspace).catch(() => {});
+  }
 }
 
 export async function runText(
