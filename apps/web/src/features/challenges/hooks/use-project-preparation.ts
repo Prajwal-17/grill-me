@@ -33,37 +33,46 @@ export function useProjectPreparation(
     enabled: options.enabled ?? true,
     staleTime: 5_000,
     retry: false,
-    refetchInterval: (query) =>
-      query.state.data?.status === "running" ? 1_500 : false,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data?.status === "running" || data?.recovery.settling
+        ? 1_500
+        : false;
+    },
     refetchIntervalInBackground: false,
   });
   const apply = (data: Awaited<ReturnType<typeof getProjectPreparation>>) => {
     queries.setQueryData(key, data);
   };
+  const refreshAfterError = () => {
+    void queries.invalidateQueries({ queryKey: key });
+  };
   const start = useMutation({
     mutationFn: (selection?: ModelSelection) =>
       startProjectPreparation(profileId, challengeId, selection),
     onSuccess: apply,
+    onError: refreshAfterError,
   });
   const cancel = useMutation({
     mutationFn: () => cancelProjectPreparation(profileId, challengeId),
     onSuccess: apply,
+    onError: refreshAfterError,
   });
   const retry = useMutation({
     mutationFn: () => retryProjectPreparation(profileId, challengeId),
     onSuccess: apply,
+    onError: refreshAfterError,
   });
   const resume = useMutation({
     mutationFn: () => resumeProjectPreparation(profileId, challengeId),
     onSuccess: apply,
+    onError: refreshAfterError,
   });
   const fresh = useMutation({
     mutationFn: () => startFreshProjectPreparation(profileId, challengeId),
     onSuccess: apply,
+    onError: refreshAfterError,
   });
-  const refreshAfterError = () => {
-    void queries.invalidateQueries({ queryKey: key });
-  };
   const approve = useMutation({
     mutationFn: (commandId: string) =>
       approveProjectCommand(profileId, challengeId, commandId),

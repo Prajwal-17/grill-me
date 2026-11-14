@@ -195,6 +195,72 @@ function previousAttemptInput(
   };
 }
 
+/**
+ * Rebuild the layout for an already-recorded attempt. The attempt number is a
+ * logical run ordinal and may differ from the folder ordinal after a resume, so
+ * the folder name stored on the row is authoritative.
+ */
+function recordedProjectLayout(row: ProjectPreparationRow): ProjectLayout {
+  const folderAttempt = projectAttemptNumber(row.projectDirectory);
+  if (!folderAttempt)
+    throw new AppError(
+      "PROJECT_PREPARATION_INVALID",
+      "The saved project folder name is invalid. Start a fresh attempt.",
+      409,
+    );
+  const layout = projectLayout(dirname(row.projectPath), folderAttempt);
+  if (
+    layout.projectRoot !== row.projectPath ||
+    layout.projectDirectory !== row.projectDirectory
+  )
+    throw new AppError(
+      "PROJECT_PREPARATION_INVALID",
+      "The saved project preparation path is invalid. Start a fresh attempt.",
+      409,
+    );
+  return layout;
+}
+
+function preparationRecordError(error: unknown) {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (
+    code === "SQLITE_CONSTRAINT_UNIQUE" ||
+    code === "SQLITE_CONSTRAINT_PRIMARYKEY" ||
+    (error instanceof Error &&
+      error.message.includes("UNIQUE constraint failed"))
+  )
+    return new AppError(
+      "PROJECT_PREPARATION_CONFLICT",
+      "Another preparation attempt was recorded at the same time. Every existing and newly created project folder is preserved; try again from the refreshed preparation state.",
+      409,
+      true,
+    );
+  return new AppError(
+    "PROJECT_PREPARATION_UNAVAILABLE",
+    "Project preparation could not be recorded. Every existing and newly created project folder is preserved.",
+    503,
+    true,
+  );
+}
+
+async function createPreparationRecord(
+  input: Parameters<typeof projectPreparationModel.create>[0],
+) {
+  try {
+    const row = await projectPreparationModel.create(input);
+    if (row) return row;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+    throw preparationRecordError(error);
+  }
+  throw new AppError(
+    "PROJECT_PREPARATION_UNAVAILABLE",
+    "Project preparation could not be recorded.",
+    500,
+    true,
+  );
+}
+
 function publicPreparation(
   challengeId: string,
   row: ProjectPreparationRow | undefined,
@@ -294,7 +360,10 @@ export function createProjectPreparationService(dependencies: {
   async function drainActiveRun(challengeId: string) {
     const active = activeRuns.get(challengeId);
     if (!active) return;
+    // Fence the agent and command session synchronously before the first
+    // awaited database update so no command can reach its pre-spawn check.
     active.controller.abort();
+    commands.deactivate(active.preparationId);
     await commands
       .interruptPreparation(active.preparationId, "interrupted")
       .catch(() => {});
@@ -407,7 +476,9 @@ export function createProjectPreparationService(dependencies: {
       activity,
       controller,
     } = input;
-    let scaffoldReport: ProjectScaffoldReport | undefined;
+    // Only a report that passed server validation may be persisted. The raw
+    // gateway payload is never stored as a trusted report.
+    let validatedReport: ProjectScaffoldReport | undefined;
 
     const persistActivity = async (entry: ProjectPreparationActivity) => {
       addActivity(activity, entry);
@@ -434,7 +505,7 @@ export function createProjectPreparationService(dependencies: {
           "This model does not support project scaffolding.",
           503,
         );
-      scaffoldReport = await llm.scaffoldProject({
+      const reported = await llm.scaffoldProject({
         profileId: row.profileId,
         challengeId: row.challengeId,
         selection: input.selection,
@@ -453,13 +524,13 @@ export function createProjectPreparationService(dependencies: {
           "Project preparation was cancelled.",
           499,
         );
-      const validated = await validateProjectScaffoldReport(scaffoldReport, {
+      const validated = await validateProjectScaffoldReport(reported, {
         layout,
         specification,
         allowExecutionResults: true,
         commands: await commandSession.results(),
       });
-      scaffoldReport = validated;
+      validatedReport = validated;
       if (validated.problems.length) {
         await persistActivity({
           type: "failed",
@@ -510,7 +581,7 @@ export function createProjectPreparationService(dependencies: {
         id: row.id,
         runToken,
         status: cancelled ? "cancelled" : "failed",
-        report: cancelled ? null : (scaffoldReport ?? null),
+        report: cancelled ? null : (validatedReport ?? null),
         error: cancelled ? null : projectError(error),
         activity: boundedActivity(activity),
         at: now(),
@@ -679,8 +750,12 @@ export function createProjectPreparationService(dependencies: {
       base.status !== "interrupted"
     )
       throw notRecoverable(base.status);
-    if (base && base.status !== "not_started")
+    if (base && base.status !== "not_started") {
+      // Supersession fences any in-memory command session synchronously before
+      // the awaited database interrupt.
+      commands.deactivate(base.id);
       await commands.interruptPreparation(base.id, "interrupted");
+    }
 
     let layout: ProjectLayout;
     let specification: ProjectFrozenSpecification;
@@ -688,6 +763,7 @@ export function createProjectPreparationService(dependencies: {
     let row: ProjectPreparationRow | undefined;
     let selection = options.selection;
     let continuation: ProjectScaffoldContinuation | null = null;
+    let activeMode: ProjectPreparationMode = mode;
 
     if (mode === "resume" && base) {
       const inspection = await inspectProjectResume({
@@ -717,7 +793,9 @@ export function createProjectPreparationService(dependencies: {
           inspection.missingFileCount - (challengeMissing ? 1 : 0),
         ),
       };
-      row = await projectPreparationModel.create({
+      // The attempt number is the logical run ordinal, not the folder ordinal.
+      // It must stay unique even when resume reuses the existing folder.
+      row = await createPreparationRecord({
         id: crypto.randomUUID(),
         profileId,
         challengeId,
@@ -730,33 +808,87 @@ export function createProjectPreparationService(dependencies: {
           base.requestedModel ?? specification.model.selection?.model ?? null,
         at: now(),
       });
-      if (!row)
-        throw new AppError(
-          "PROJECT_PREPARATION_UNAVAILABLE",
-          "The resumed project preparation could not be recorded.",
-          500,
-          true,
-        );
     } else if (mode === "start" && base?.status === "not_started") {
+      // A process can stop after a pending attempt row is recorded but before
+      // it starts running. Reconstruct the recorded attempt from its own folder
+      // and frozen specification instead of allocating another folder.
       row = base;
-      previous = await projectPreparationModel.previous(
-        challengeId,
-        base.attempt,
-      );
-      layout = projectLayout(dirname(base.projectPath), base.attempt);
-      if (
-        layout.projectRoot !== base.projectPath ||
-        layout.projectDirectory !== base.projectDirectory
-      )
-        throw new AppError(
-          "PROJECT_PREPARATION_INVALID",
-          "The saved project preparation path is invalid. Start a fresh attempt.",
-          409,
-        );
+      activeMode = base.mode;
       specification = base.specification;
-      selection = specification.model.selection ?? selection;
+      selection = specification.model.selection ?? undefined;
+      previous =
+        activeMode === "fresh"
+          ? undefined
+          : await projectPreparationModel.previous(challengeId, base.attempt);
+      try {
+        layout = recordedProjectLayout(base);
+        if (activeMode === "resume") {
+          const inspection = await inspectProjectResume({
+            projectPath: base.projectPath,
+            projectDirectory: base.projectDirectory,
+          });
+          if (inspection.status !== "available" || !inspection.layout)
+            throw resumeFailure(inspection);
+          layout = inspection.layout;
+          if (challenge.workspacePath !== layout.workspaceRoot) {
+            await challenges.setWorkspacePath(
+              challenge.id,
+              layout.workspaceRoot,
+            );
+            challenge.workspacePath = layout.workspaceRoot;
+          }
+          const challengeMissing = inspection.missingFiles.includes(
+            frozenSpecificationPath,
+          );
+          continuation = {
+            resumedFromAttempt:
+              previous?.attempt ?? Math.max(1, base.attempt - 1),
+            missingFiles: inspection.missingFiles.filter(
+              (path) => path !== frozenSpecificationPath,
+            ),
+            missingFileCount: Math.max(
+              0,
+              inspection.missingFileCount - (challengeMissing ? 1 : 0),
+            ),
+          };
+        }
+      } catch (error) {
+        // A pending attempt that cannot be reconstructed must become
+        // recoverable instead of trapping the challenge in not_started.
+        const failure =
+          error instanceof AppError
+            ? error
+            : new AppError(
+                "PROJECT_PREPARATION_UNAVAILABLE",
+                "The pending project preparation could not be reconstructed.",
+                503,
+                true,
+              );
+        const pendingActivity = [...base.activity];
+        addActivity(pendingActivity, {
+          type: "failed",
+          at: nowIso(now()),
+          message:
+            "The pending preparation could not continue. Partial files are preserved.",
+        });
+        const failed = await projectPreparationModel.failPending(
+          base.id,
+          projectError(failure),
+          boundedActivity(pendingActivity),
+          now(),
+        );
+        if (failed) return preparationView(challengeId, failed, previous);
+        throw failure;
+      }
     } else {
       previous = base;
+      const attempt = (base?.attempt ?? 0) + 1;
+      if (attempt > maxProjectAttempts)
+        throw new AppError(
+          "PROJECT_ATTEMPTS_EXHAUSTED",
+          "This challenge reached the maximum number of preparation attempts.",
+          409,
+        );
       const workspace = await workspaces.ensure(challenge);
       if (challenge.workspacePath !== workspace.path) {
         await challenges.setWorkspacePath(challenge.id, workspace.path);
@@ -766,7 +898,6 @@ export function createProjectPreparationService(dependencies: {
         root: workspace.path,
         now,
       });
-      const attempt = projectAttemptNumber(created.layout.projectDirectory)!;
       layout = created.layout;
       if (mode === "retry" || mode === "fresh") {
         // Retry and fresh preserve the saved frozen specification exactly: no
@@ -784,7 +915,9 @@ export function createProjectPreparationService(dependencies: {
           at: now(),
         });
       }
-      row = await projectPreparationModel.create({
+      // The new folder ordinal is independent of the logical attempt number,
+      // which must keep increasing after a resume reused an older folder.
+      row = await createPreparationRecord({
         id: crypto.randomUUID(),
         profileId,
         challengeId,
@@ -803,13 +936,6 @@ export function createProjectPreparationService(dependencies: {
               null),
         at: now(),
       });
-      if (!row)
-        throw new AppError(
-          "PROJECT_PREPARATION_UNAVAILABLE",
-          "Project preparation could not be recorded.",
-          500,
-          true,
-        );
     }
 
     const activity = [...row.activity];
@@ -843,11 +969,11 @@ export function createProjectPreparationService(dependencies: {
       type: "started",
       at: nowIso(now()),
       message:
-        mode === "resume"
-          ? `Resumed attempt ${base!.attempt} in ${layout.projectDirectory}.`
-          : mode === "retry"
-            ? `Retried attempt ${base!.attempt} in ${layout.projectDirectory} with the saved frozen specification.`
-            : mode === "fresh"
+        activeMode === "resume"
+          ? `Resumed attempt ${previous?.attempt ?? Math.max(1, row.attempt - 1)} in ${layout.projectDirectory}.`
+          : activeMode === "retry"
+            ? `Retried attempt ${previous?.attempt ?? Math.max(1, row.attempt - 1)} in ${layout.projectDirectory} with the saved frozen specification.`
+            : activeMode === "fresh"
               ? `Started a fresh project folder from the saved frozen specification.`
               : "Scaffolding started.",
     });
@@ -880,7 +1006,7 @@ export function createProjectPreparationService(dependencies: {
       runToken,
       layout,
       specification,
-      previous: mode === "fresh" ? undefined : previous,
+      previous: activeMode === "fresh" ? undefined : previous,
       selection,
       continuation,
       activity,
@@ -1087,6 +1213,14 @@ export function createProjectPreparationService(dependencies: {
     cancel(profileId: string, challengeId: string) {
       return serialize(transitionKey(profileId, challengeId), async () => {
         await owned(profileId, challengeId);
+        // Fence the agent and command session synchronously before the first
+        // awaited update. Otherwise a command could pass its pre-spawn check
+        // while cancellation is still writing the database.
+        const active = activeRuns.get(challengeId);
+        if (active) {
+          active.controller.abort();
+          commands.deactivate(active.preparationId);
+        }
         const current = await projectPreparationModel.latest(challengeId);
         if (!current) return preparationView(challengeId, undefined, undefined);
         if (current.status !== "not_started" && current.status !== "running")
@@ -1110,9 +1244,7 @@ export function createProjectPreparationService(dependencies: {
         );
         const target = cancelled ?? current;
         await commands.interruptPreparation(target.id, "cancelled");
-        const active = activeRuns.get(challengeId);
         if (active && active.preparationId === target.id) {
-          active.controller.abort();
           // Wait for the agent and its process group to unwind before the
           // response offers another attempt. A stuck run remains fenced by its
           // cancelled row and the next transition still waits for it.
@@ -1159,16 +1291,21 @@ export function createProjectPreparationService(dependencies: {
             timeout.unref();
           }),
         ]);
+      const fence = () => {
+        for (const entry of activeRuns.values()) entry.controller.abort();
+        commands.deactivateAll();
+      };
       const pendingTransitions = [...transitions.values()];
+      fence();
       await projectPreparationModel.markInterrupted(now()).catch(() => {});
       await commands.recover().catch(() => {});
-      for (const entry of activeRuns.values()) entry.controller.abort();
       if (pendingTransitions.length) await wait(pendingTransitions);
       // A start that was already in preflight may have scheduled while the
       // first pass ran. Fence and abort again before closing the database.
+      fence();
       await projectPreparationModel.markInterrupted(now()).catch(() => {});
       await commands.recover().catch(() => {});
-      for (const entry of activeRuns.values()) entry.controller.abort();
+      fence();
       const running = [...activeRuns.values()].map((entry) => entry.promise);
       if (running.length) await wait(running);
     },

@@ -385,16 +385,26 @@ export function createProjectCommandRuntime(
     return resultForTool(saved);
   }
 
-  async function endSession(session: CommandSession) {
-    if (!session.active) return;
+  /**
+   * Fence a session in memory before any awaited database work. A command that
+   * already passed its pre-spawn read can no longer pass the session-active
+   * check, so cancellation and supersession cannot race a new process launch.
+   */
+  function deactivateSession(session: CommandSession) {
+    if (!session.active) return false;
     session.active = false;
     if (sessions.get(session.preparationId) === session)
       sessions.delete(session.preparationId);
+    for (const id of session.commandIds) wake(id);
+    return true;
+  }
+
+  async function endSession(session: CommandSession) {
+    deactivateSession(session);
     const interrupted = await projectCommandModel
       .interruptPreparation(session.preparationId, "interrupted", now())
       .catch(() => []);
     wakeRows(interrupted);
-    for (const id of session.commandIds) wake(id);
   }
 
   return {
@@ -442,6 +452,17 @@ export function createProjectCommandRuntime(
     },
 
     wake,
+
+    /** Synchronous fence used before cancellation or supersession awaits. */
+    deactivate(preparationId: string) {
+      const session = sessions.get(preparationId);
+      if (session) deactivateSession(session);
+    },
+
+    /** Synchronous shutdown fence; never waits for a command process. */
+    deactivateAll() {
+      for (const session of [...sessions.values()]) deactivateSession(session);
+    },
 
     async interruptPreparation(
       preparationId: string,
