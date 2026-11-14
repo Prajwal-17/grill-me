@@ -217,15 +217,19 @@ test("SQLite v1 upgrades retain existing conversations and initialize completed 
     const upgraded = createSqliteDatabase(path);
     await upgraded.migrateDatabase();
     expect(upgraded.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 4,
+      user_version: 5,
     });
     expect(
       upgraded.sqlite
         .query(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_runs','agent_run_events') ORDER BY name",
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_runs','agent_run_events','project_preparations') ORDER BY name",
         )
         .all(),
-    ).toEqual([{ name: "agent_run_events" }, { name: "agent_runs" }]);
+    ).toEqual([
+      { name: "agent_run_events" },
+      { name: "agent_runs" },
+      { name: "project_preparations" },
+    ]);
     expect(
       (
         upgraded.sqlite.query("PRAGMA table_info(review_jobs)").all() as {

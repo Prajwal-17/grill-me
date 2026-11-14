@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { AgentMessage, AgentTool } from "@earendil-works/pi-agent-core";
 import type { ModelSelection } from "@repo/backend/shared/contracts";
 import { AppError } from "../../../shared/errors/app-error";
 import { startAiLog } from "../../logs/ai-log-recorder";
@@ -19,7 +19,9 @@ import type { StableAgentEvent } from "./events";
 import type { AgentRuntime } from "./types";
 import type { createLimiter, createResourceLocks } from "./limiter";
 
-const LOG_OPERATION: Record<AgentOperation, LogOperation> = {
+// Scaffolding state is durable in project_preparations, not in the diagnostic
+// AI log. The null entry documents the narrow observability opt-out.
+const LOG_OPERATION: Record<AgentOperation, LogOperation | null> = {
   preparation: "preparation",
   generation: "generation",
   clarify: "clarify",
@@ -30,6 +32,7 @@ const LOG_OPERATION: Record<AgentOperation, LogOperation> = {
   prompt_enhancement: "prompt_enhancement",
   resume_import: "resume_import",
   verification: "review",
+  project_scaffolding: null,
 };
 
 export type RunTarget = {
@@ -48,6 +51,10 @@ type StructuredRunOptions = {
   manifest?: Manifest;
   attachments?: MessageAttachment[];
   timeoutMs?: number;
+  /** Extra task-scoped tools, such as project files or an authorized runner. */
+  tools?: AgentTool[];
+  /** Diagnostic AI logs and run events; workflow state is persisted separately. */
+  observability?: boolean;
 };
 
 type RunContext = {
@@ -94,11 +101,16 @@ export function createAgentExecutor(input: {
     resolved: ResolvedAgentModel,
     stream: boolean,
   ): Promise<RunContext> {
+    const operation = LOG_OPERATION[target.operation];
+    if (!operation)
+      throw new Error(
+        "This operation has no diagnostic log mapping; disable observability for it.",
+      );
     const log = await startAiLog(
       {
         profileId: target.profileId,
         challengeId: target.challengeId ?? undefined,
-        operation: LOG_OPERATION[target.operation],
+        operation,
         preview: target.preview,
       },
       {
@@ -177,11 +189,16 @@ export function createAgentExecutor(input: {
     ): Promise<StructuredRunResult<T>> {
       const resolved = await runtime.resolve(target.selection);
       const release = await slots.acquire(target.signal);
-      const context = await startRun(target, resolved, false);
-      const onEvent = async (event: StableAgentEvent) => {
-        if (event.type === "text_delta") return;
-        await agentRunStore.event(context.runId, event.type, event);
-      };
+      const context =
+        options.observability === false
+          ? undefined
+          : await startRun(target, resolved, false);
+      const onEvent = context
+        ? async (event: StableAgentEvent) => {
+            if (event.type === "text_delta") return;
+            await agentRunStore.event(context.runId, event.type, event);
+          }
+        : undefined;
       try {
         if (resolved.providerModel.capabilities?.tools === false)
           throw new AppError(
@@ -200,20 +217,23 @@ export function createAgentExecutor(input: {
           allowResearch: task.allowResearch,
           workspace: options.workspace,
           manifest: options.manifest,
+          tools: options.tools,
           signal: target.signal,
           timeoutMs: options.timeoutMs ?? runtime.timeoutMs?.() ?? 900_000,
+          limits: task.limits,
           onEvent,
         });
-        await finishSuccess(
-          context,
-          result.usage,
-          JSON.stringify(result.value),
-          result.turnCount,
-          result.toolCallCount,
-        );
+        if (context)
+          await finishSuccess(
+            context,
+            result.usage,
+            JSON.stringify(result.value),
+            result.turnCount,
+            result.toolCallCount,
+          );
         return result;
       } catch (error) {
-        await finishFailure(context, error, target.signal);
+        if (context) await finishFailure(context, error, target.signal);
         throw error;
       } finally {
         release();

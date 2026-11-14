@@ -20,11 +20,13 @@
   research workspace: public links and image URLs can be fetched and viewed,
   files can be read and written, and shell commands can process downloaded
   material before the result is written.
-- Add the foundation for guided challenge projects: preparation attempts get
-  isolated `project`/`project-N` folders, a generated-file journal protects user
-  edits from being overwritten, and bounded project tools handle listing,
-  reading, searching, creating, and editing files. Preparation itself is enabled
-  in a follow-up milestone.
+- Prepare a guided project after each generated challenge: freeze its
+  specification first, then scaffold separate project files with configuration,
+  migrations, fixtures, documentation, a rubric, milestones, and intentionally
+  failing TODO exercise tests. Core logic stays unfinished for the developer,
+  only one scaffold writes per challenge, and partial files survive failures or
+  cancellation. Existing workspaces, starter files, and earlier attempts are
+  never replaced.
 
 ### Removed
 

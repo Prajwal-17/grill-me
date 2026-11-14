@@ -26,6 +26,7 @@ import {
   toChallenge,
 } from "./challenge.utils";
 import type { ChallengeWorkspaceService } from "./workspace";
+import type { ProjectPreparationService } from "./project-preparation.service";
 
 export function createChallengeService(dependencies: {
   challenges: ChallengeModel;
@@ -33,8 +34,10 @@ export function createChallengeService(dependencies: {
   profiles: ProfileService;
   llm: ModelGateway;
   workspaces: ChallengeWorkspaceService;
+  preparations?: ProjectPreparationService;
 }) {
-  const { challenges, messages, profiles, llm, workspaces } = dependencies;
+  const { challenges, messages, profiles, llm, workspaces, preparations } =
+    dependencies;
   // Remember valid essential questions so a client cannot skip one after preparation.
   // Bounded to avoid retaining abandoned requests indefinitely in this local server.
   const pendingQuestions = new Map<
@@ -268,9 +271,20 @@ export function createChallengeService(dependencies: {
             row.id,
             workspace.path,
           );
-          return toChallenge(
+          const saved = toChallenge(
             updated ?? { ...row, workspacePath: workspace.path },
           );
+          // Kick off the frozen specification and background scaffold only
+          // after the challenge row and workspace are saved. Preparation
+          // failures never remove or roll back the challenge.
+          if (preparations?.available())
+            await preparations
+              .start(profileId, saved.id, {
+                selection: input.selection,
+                request: input.prompt,
+              })
+              .catch(() => {});
+          return saved;
         } catch (error) {
           // The challenge remains usable without its optional folder. Opening
           // the workspace later retries initialization and reports the reason.

@@ -63,6 +63,7 @@ function populate(path: string) {
 function populateV3(path: string) {
   populate(path);
   const db = new Database(path);
+
   try {
     db.exec(`
       ALTER TABLE review_jobs ADD COLUMN model_selection TEXT;
@@ -110,6 +111,20 @@ function populateV3(path: string) {
       INSERT INTO agent_run_events(id,run_id,sequence,type,payload,created_at)
         VALUES (1,'run-a',1,'status','{"status":"running"}',1000),(2,'run-a',2,'completed','{}',1001);
       PRAGMA user_version = 3;
+    `);
+  } finally {
+    db.close();
+  }
+}
+
+function populateV4(path: string) {
+  populateV3(path);
+  const db = new Database(path);
+  try {
+    db.exec(`
+      ALTER TABLE challenges ADD COLUMN workspace_path TEXT;
+      UPDATE challenges SET workspace_path='/saved/workspace/challenge-a' WHERE id='challenge-a';
+      PRAGMA user_version = 4;
     `);
   } finally {
     db.close();
@@ -211,7 +226,7 @@ function withoutWorkspacePath(value: Record<string, unknown[]>) {
   return value;
 }
 
-test("v2 practice databases upgrade to v4 while preserving existing rows, relationships, and indexes", async () => {
+test("v2 practice databases upgrade to v5 while preserving existing rows, relationships, and indexes", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v2-upgrade-"));
   const path = join(root, "grill-me.sqlite");
   try {
@@ -221,7 +236,7 @@ test("v2 practice databases upgrade to v4 while preserving existing rows, relati
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 4,
+      user_version: 5,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
@@ -259,7 +274,7 @@ test("v2 practice databases upgrade to v4 while preserving existing rows, relati
   }
 });
 
-test("v3 practice databases upgrade to v4 while preserving agent history and model selections", async () => {
+test("v3 practice databases upgrade to v5 while preserving agent history and model selections", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v3-upgrade-"));
   const path = join(root, "grill-me.sqlite");
   try {
@@ -269,7 +284,7 @@ test("v3 practice databases upgrade to v4 while preserving agent history and mod
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 4,
+      user_version: 5,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
@@ -292,6 +307,51 @@ test("v3 practice databases upgrade to v4 while preserving agent history and mod
     ).toEqual({ count: 2 });
     await database.migrateDatabase();
     expect(withoutWorkspacePath(snapshotWithAgentRuns(path))).toEqual(before);
+    database.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("populated v4 databases add project preparation state without changing practice data", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-v4-to-v5-"));
+  const path = join(root, "grill-me.sqlite");
+  try {
+    populateV4(path);
+    const before = snapshotWithAgentRuns(path);
+    const indexesBefore = indexNames(path);
+    const database = createSqliteDatabase(path);
+    await database.migrateDatabase();
+    expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
+      user_version: 5,
+    });
+    expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect(indexNames(path)).toEqual(expect.arrayContaining(indexesBefore));
+    expect(snapshotWithAgentRuns(path)).toEqual(before);
+    const challenge = database.sqlite
+      .query("SELECT workspace_path FROM challenges WHERE id='challenge-a'")
+      .get() as { workspace_path: string };
+    expect(challenge.workspace_path).toBe("/saved/workspace/challenge-a");
+    expect(
+      database.sqlite
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='project_preparations'",
+        )
+        .all(),
+    ).toEqual([{ name: "project_preparations" }]);
+    expect(
+      database.sqlite
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'project_preparations_%' ORDER BY name",
+        )
+        .all(),
+    ).toEqual([
+      { name: "project_preparations_active_unique" },
+      { name: "project_preparations_challenge_attempt_unique" },
+      { name: "project_preparations_challenge_updated_idx" },
+    ]);
+    await database.migrateDatabase();
+    expect(snapshotWithAgentRuns(path)).toEqual(before);
     database.close();
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -326,25 +386,26 @@ test("a failed v3 migration rolls back without changing v2 data", async () => {
   }
 });
 
-test("fresh databases execute the full schema chain and reach version 4", async () => {
-  const root = await mkdtemp(join(tmpdir(), "grill-fresh-v4-"));
+test("fresh databases execute the full schema chain and reach version 5", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-fresh-v5-"));
   const path = join(root, "fresh.sqlite");
   try {
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 4,
+      user_version: 5,
     });
     expect(
       database.sqlite
         .query(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('messages','quizzes','agent_runs','agent_run_events') ORDER BY name",
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('messages','quizzes','agent_runs','agent_run_events','project_preparations') ORDER BY name",
         )
         .all(),
     ).toEqual([
       { name: "agent_run_events" },
       { name: "agent_runs" },
       { name: "messages" },
+      { name: "project_preparations" },
       { name: "quizzes" },
     ]);
     expect(

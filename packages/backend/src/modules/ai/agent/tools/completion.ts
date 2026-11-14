@@ -29,7 +29,7 @@ export type CompletionSpec<T> = {
   label?: string;
   description: string;
   schema: object;
-  validate: (value: unknown) => T;
+  validate: (value: unknown) => T | Promise<T>;
 };
 
 export function createCompletionTool<T>(
@@ -48,7 +48,7 @@ export function createCompletionTool<T>(
           `A result was already accepted by ${spec.name}. Do not call it again.`,
         );
       try {
-        state.value = spec.validate(params);
+        state.value = await spec.validate(params);
       } catch (error) {
         const message =
           error instanceof Error

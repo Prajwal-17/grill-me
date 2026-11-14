@@ -249,6 +249,190 @@ export const challengeWorkspaceSchema = z.object({
   starterFile: z.string().min(1).max(255).nullable(),
 });
 export type ChallengeWorkspace = z.infer<typeof challengeWorkspaceSchema>;
+export const projectPreparationStatusSchema = z.enum([
+  "not_started",
+  "running",
+  "ready",
+  "failed",
+  "cancelled",
+  "interrupted",
+]);
+export type ProjectPreparationStatus = z.infer<
+  typeof projectPreparationStatusSchema
+>;
+export const projectPreparationActivityTypeSchema = z.enum([
+  "listed",
+  "read",
+  "searched",
+  "created_directory",
+  "created_file",
+  "edited_file",
+  "specification_saved",
+  "started",
+  "completed",
+  "failed",
+  "cancelled",
+  "interrupted",
+]);
+export type ProjectPreparationActivityType = z.infer<
+  typeof projectPreparationActivityTypeSchema
+>;
+export const projectPreparationActivitySchema = z.object({
+  type: projectPreparationActivityTypeSchema,
+  at: z.string().datetime(),
+  path: z.string().max(512).optional(),
+  bytes: z.number().int().nonnegative().optional(),
+  entries: z.number().int().nonnegative().optional(),
+  matches: z.number().int().nonnegative().optional(),
+  replacements: z.number().int().nonnegative().optional(),
+  truncated: z.boolean().optional(),
+  query: z.string().max(300).optional(),
+  message: z.string().max(500).optional(),
+});
+export type ProjectPreparationActivity = z.infer<
+  typeof projectPreparationActivitySchema
+>;
+export const projectFrozenSpecificationSchema = z.object({
+  version: z.literal(1),
+  challengeId: z.string().uuid(),
+  profileId: z.string().uuid(),
+  challengeNumber: z.number().int().positive(),
+  title: z.string().min(1).max(120),
+  request: z.string().trim().min(1).max(4_000),
+  scope: z.enum(["focused", "feature", "system"]),
+  difficulty: z.enum(["easy", "medium", "hard", "grill"]),
+  problemStatement: z.string().min(1).max(5_000),
+  expectedOutcome: z.string().min(1).max(1_000),
+  implementationBoundary: z.string().max(1_000).nullable(),
+  constraints: z.array(z.string().max(500)).max(20),
+  objectives: z.array(z.string().max(500)).max(20),
+  acceptanceCriteria: z.array(z.string().max(500)).min(1).max(20),
+  durationEstimate: z.object({
+    minMinutes: z.number().int().positive(),
+    maxMinutes: z.number().int().positive(),
+  }),
+  starterCode: z.string().max(50_000).nullable(),
+  stack: z.object({
+    experienceLevel: z.string().max(80).nullable(),
+    languages: z.array(z.string().max(80)).max(50),
+    stack: z.array(z.string().max(80)).max(50),
+    currentFocus: z.string().max(80).nullable(),
+  }),
+  model: z.object({
+    selection: modelSelectionSchema.nullable(),
+    label: z.string().max(200),
+  }),
+  frozenAt: z.string().datetime(),
+});
+export type ProjectFrozenSpecification = z.infer<
+  typeof projectFrozenSpecificationSchema
+>;
+export const projectFileRoleSchema = z.enum([
+  "source",
+  "config",
+  "migration",
+  "test",
+  "fixture",
+  "documentation",
+]);
+export type ProjectFileRole = z.infer<typeof projectFileRoleSchema>;
+export const projectCommandProposalSchema = z.strictObject({
+  id: z.string().trim().min(1).max(80).optional(),
+  label: z.string().trim().min(1).max(200),
+  command: z.string().trim().min(1).max(2_000),
+  cwd: z.string().trim().max(512).default("."),
+  install: z.boolean(),
+  network: z.boolean(),
+});
+export type ProjectCommandProposal = z.infer<
+  typeof projectCommandProposalSchema
+>;
+export const projectCheckIntentSchema = z.enum(["verify", "todo_exercise"]);
+export type ProjectCheckIntent = z.infer<typeof projectCheckIntentSchema>;
+export const projectCheckExpectationSchema = z.enum(["pass", "fail"]);
+export type ProjectCheckExpectation = z.infer<
+  typeof projectCheckExpectationSchema
+>;
+export const projectCheckProposalSchema = z.strictObject({
+  id: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(200),
+  kind: z.enum(["test", "typecheck", "build", "lint", "manual"]),
+  command: z.string().trim().min(1).max(2_000).nullable(),
+  cwd: z.string().trim().max(512).default("."),
+  install: z.boolean(),
+  network: z.boolean(),
+  intent: projectCheckIntentSchema.default("verify"),
+  expected: projectCheckExpectationSchema.default("pass"),
+});
+export type ProjectCheckProposal = z.infer<typeof projectCheckProposalSchema>;
+export const projectCheckResultSchema = z.strictObject({
+  checkId: z.string().trim().min(1).max(80),
+  status: z.enum(["not_run", "passed", "failed", "blocked"]),
+  detail: z.string().trim().max(1_000).nullable().default(null),
+});
+export type ProjectCheckResult = z.infer<typeof projectCheckResultSchema>;
+export const projectScaffoldReportSchema = z.strictObject({
+  summary: z.string().trim().min(1).max(2_000),
+  files: z
+    .array(
+      z.strictObject({
+        path: z.string().min(1).max(512),
+        role: projectFileRoleSchema,
+        purpose: z.string().trim().max(300).nullable().default(null),
+      }),
+    )
+    .min(1)
+    .max(200),
+  todos: z
+    .array(
+      z.strictObject({
+        path: z.string().min(1).max(512),
+        line: z.number().int().positive(),
+        note: z.string().trim().min(1).max(300),
+      }),
+    )
+    .max(200),
+  setup: z.array(projectCommandProposalSchema).max(20),
+  run: z.array(projectCommandProposalSchema).max(20),
+  checks: z.array(projectCheckProposalSchema).min(1).max(40),
+  results: z.array(projectCheckResultSchema).min(1).max(40),
+  problems: z.array(z.string().trim().min(1).max(500)).max(20),
+});
+export type ProjectScaffoldReport = z.infer<typeof projectScaffoldReportSchema>;
+export const projectPreparationErrorSchema = z.object({
+  code: z.string().min(1).max(160),
+  message: z.string().min(1).max(4_000),
+  retryable: z.boolean(),
+  details: z.record(z.string(), z.unknown()).optional(),
+});
+export type ProjectPreparationError = z.infer<
+  typeof projectPreparationErrorSchema
+>;
+export const projectPreparationSchema = z.object({
+  id: z.string().uuid().nullable(),
+  challengeId: z.string().uuid(),
+  attempt: z.number().int().positive().nullable(),
+  projectDirectory: z.string().min(1).max(64).nullable(),
+  projectPath: z.string().min(1).max(4_096).nullable(),
+  status: projectPreparationStatusSchema,
+  specification: projectFrozenSpecificationSchema.nullable(),
+  report: projectScaffoldReportSchema.nullable(),
+  activity: z.array(projectPreparationActivitySchema).max(200),
+  error: projectPreparationErrorSchema.nullable(),
+  requestedModel: z.string().max(200).nullable(),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  updatedAt: z.string().datetime().nullable(),
+  previousAttempt: z
+    .object({
+      attempt: z.number().int().positive(),
+      status: projectPreparationStatusSchema,
+      projectDirectory: z.string().min(1).max(64),
+      summary: z.string().max(2_000).nullable(),
+    })
+    .nullable(),
+});
+export type ProjectPreparation = z.infer<typeof projectPreparationSchema>;
 export const workspaceEditorSchema = z.enum([
   "vscode",
   "cursor",

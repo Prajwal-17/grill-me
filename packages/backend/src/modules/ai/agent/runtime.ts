@@ -21,9 +21,22 @@ import type { ResolvedAgentModel } from "./providers";
 const AGENT_LIMITS = {
   maxTurns: 12,
   maxToolCalls: 24,
-  maxRepairs: 2,
   maxTextChars: 32_000,
 } as const;
+
+type AgentLimits = {
+  maxTurns: number;
+  maxToolCalls: number;
+  maxTextChars: number;
+};
+
+function agentLimits(overrides?: Partial<AgentLimits>): AgentLimits {
+  return {
+    maxTurns: overrides?.maxTurns ?? AGENT_LIMITS.maxTurns,
+    maxToolCalls: overrides?.maxToolCalls ?? AGENT_LIMITS.maxToolCalls,
+    maxTextChars: overrides?.maxTextChars ?? AGENT_LIMITS.maxTextChars,
+  };
+}
 
 type UsageTotals = {
   input: number;
@@ -39,6 +52,7 @@ type BaseRunOptions = {
   history?: AgentMessage[];
   signal?: AbortSignal;
   timeoutMs?: number;
+  limits?: Partial<AgentLimits>;
   onEvent?: (event: StableAgentEvent) => void | Promise<void>;
 };
 
@@ -51,6 +65,11 @@ type StructuredRunOptions<T> = BaseRunOptions & {
   allowResearch?: boolean;
   workspace?: string;
   manifest?: Manifest;
+  /**
+   * Task-scoped tools in addition to the read-only task tools, such as the
+   * project file tools or a later, separately authorized command tool.
+   */
+  tools?: AgentTool[];
 };
 
 type TextRunOptions = BaseRunOptions & {
@@ -135,6 +154,7 @@ async function runAgent(input: {
   const { options } = input;
   const { resolved } = options;
   const signal = options.signal;
+  const limits = agentLimits(options.limits);
   const toolNames = new Set([
     ...input.tools.map((tool) => tool.name),
     ...(input.completion ? [input.completion.name] : []),
@@ -182,7 +202,7 @@ async function runAgent(input: {
           499,
         );
       toolCallCount++;
-      if (toolCallCount > AGENT_LIMITS.maxToolCalls) {
+      if (toolCallCount > limits.maxToolCalls) {
         limitError = new AppError(
           "MODEL_LIMIT_EXCEEDED",
           "The model used too many tool calls. Try a narrower request.",
@@ -212,7 +232,7 @@ async function runAgent(input: {
     finishTurn: () => {
       if (completionState?.fatal) return { action: "end" };
       if (completionState?.value !== undefined) return { action: "end" };
-      if (completionState && turnCount >= AGENT_LIMITS.maxTurns) {
+      if (completionState && turnCount >= limits.maxTurns) {
         limitError = new AppError(
           "MODEL_LIMIT_EXCEEDED",
           "The model did not finish within the allowed turns. Try again with a narrower request.",
@@ -230,7 +250,7 @@ async function runAgent(input: {
           "The request was cancelled.",
           499,
         );
-      if (turnCount > AGENT_LIMITS.maxTurns) {
+      if (turnCount > limits.maxTurns) {
         limitError = new AppError(
           "MODEL_LIMIT_EXCEEDED",
           "The model did not finish within the allowed turns. Try again with a narrower request.",
@@ -257,7 +277,7 @@ async function runAgent(input: {
         const delta = event.assistantMessageEvent.delta;
         if (!delta) return;
         textChars.value += delta.length;
-        if (textChars.value > AGENT_LIMITS.maxTextChars)
+        if (textChars.value > limits.maxTextChars)
           throw new AppError(
             "MODEL_OUTPUT_TOO_LARGE",
             "The model response exceeded the local output limit.",
@@ -386,15 +406,18 @@ export async function runStructured<T>(
       text: options.userText,
       context: options.context,
       attachments: options.attachments,
-      tools: createTaskTools({
-        allowSnapshot: options.allowSnapshot,
-        workspace: options.workspace,
-        manifest: options.manifest,
-        allowResearch: options.allowResearch,
-        researchWorkspace,
-        allowImages: options.resolved.providerModel.capabilities?.images,
-        signal: options.signal,
-      }),
+      tools: [
+        ...(options.tools ?? []),
+        ...createTaskTools({
+          allowSnapshot: options.allowSnapshot,
+          workspace: options.workspace,
+          manifest: options.manifest,
+          allowResearch: options.allowResearch,
+          researchWorkspace,
+          allowImages: options.resolved.providerModel.capabilities?.images,
+          signal: options.signal,
+        }),
+      ],
       completion: options.completion as CompletionSpec<unknown>,
       streamText: false,
       requireImageSupport: false,

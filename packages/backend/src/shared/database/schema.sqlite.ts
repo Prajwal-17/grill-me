@@ -1,5 +1,11 @@
 import type { GuidedPreferences } from "@repo/backend/shared/preferences";
 import type {
+  ProjectFrozenSpecification,
+  ProjectPreparationActivity,
+  ProjectPreparationError,
+  ProjectScaffoldReport,
+} from "@repo/backend/shared/contracts";
+import type {
   GenerationError,
   GenerationRequest,
 } from "../../modules/generations/generation.schema";
@@ -136,6 +142,74 @@ export const challenges = sqliteTable(
     uniqueIndex("challenges_profile_number_unique").on(
       table.profileId,
       table.number,
+    ),
+  ],
+);
+
+// Durable project-preparation attempts. Each challenge may have one active
+// attempt at a time; finished attempts stay readable so partial files and their
+// reports are never discarded for a later retry.
+export const projectPreparations = sqliteTable(
+  "project_preparations",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    challengeId: text("challenge_id")
+      .notNull()
+      .references(() => challenges.id, { onDelete: "cascade" }),
+    attempt: integer("attempt").notNull(),
+    projectDirectory: text("project_directory").notNull(),
+    projectPath: text("project_path").notNull(),
+    specification: jsonb("specification")
+      .$type<ProjectFrozenSpecification>()
+      .notNull(),
+    status: text("status", {
+      enum: [
+        "not_started",
+        "running",
+        "ready",
+        "failed",
+        "cancelled",
+        "interrupted",
+      ],
+    })
+      .notNull()
+      .default("not_started"),
+    runToken: text("run_token"),
+    activity: jsonb("activity")
+      .$type<ProjectPreparationActivity[]>()
+      .notNull()
+      .default([]),
+    report: jsonb("report").$type<ProjectScaffoldReport>(),
+    error: jsonb("error").$type<ProjectPreparationError>(),
+    requestedModel: text("requested_model"),
+    startedAt: contextTimestamp("started_at"),
+    completedAt: contextTimestamp("completed_at"),
+    createdAt: contextTimestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: contextTimestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("project_preparations_challenge_attempt_unique").on(
+      table.challengeId,
+      table.attempt,
+    ),
+    uniqueIndex("project_preparations_active_unique")
+      .on(table.challengeId)
+      .where(sql`${table.status} in ('not_started', 'running')`),
+    index("project_preparations_challenge_updated_idx").on(
+      table.challengeId,
+      table.updatedAt,
+    ),
+    check("project_preparations_attempt_positive", sql`${table.attempt} > 0`),
+    check(
+      "project_preparations_status_check",
+      sql`${table.status} in ('not_started', 'running', 'ready', 'failed', 'cancelled', 'interrupted')`,
     ),
   ],
 );

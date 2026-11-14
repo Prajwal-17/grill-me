@@ -106,9 +106,9 @@ export function createSqliteDatabase(path: string) {
     const version = (
       sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    if (version > 4)
+    if (version > 5)
       throw new Error("This database needs a newer desktop application.");
-    if (version === 4) return;
+    if (version === 5) return;
     sqlite
       .transaction(() => {
         if (version === 0) {
@@ -168,7 +168,34 @@ CREATE TABLE agent_run_events (
 CREATE UNIQUE INDEX agent_run_events_run_sequence_unique ON agent_run_events (run_id, sequence);`);
         if (version < 4)
           sqlite.exec("ALTER TABLE challenges ADD COLUMN workspace_path TEXT;");
-        sqlite.exec("PRAGMA user_version = 4;");
+        if (version < 5)
+          sqlite.exec(`CREATE TABLE project_preparations (
+  id text PRIMARY KEY NOT NULL,
+  profile_id text NOT NULL,
+  challenge_id text NOT NULL,
+  attempt integer NOT NULL,
+  project_directory text NOT NULL,
+  project_path text NOT NULL,
+  specification text NOT NULL,
+  status text DEFAULT 'not_started' NOT NULL,
+  run_token text,
+  activity text DEFAULT '[]' NOT NULL,
+  report text,
+  error text,
+  requested_model text,
+  started_at integer,
+  completed_at integer,
+  created_at integer NOT NULL,
+  updated_at integer NOT NULL,
+  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON UPDATE no action ON DELETE cascade,
+  FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON UPDATE no action ON DELETE cascade,
+  CONSTRAINT project_preparations_attempt_positive CHECK(attempt > 0),
+  CONSTRAINT project_preparations_status_check CHECK(status in ('not_started','running','ready','failed','cancelled','interrupted'))
+);
+CREATE UNIQUE INDEX project_preparations_challenge_attempt_unique ON project_preparations (challenge_id, attempt);
+CREATE UNIQUE INDEX project_preparations_active_unique ON project_preparations (challenge_id) WHERE status in ('not_started', 'running');
+CREATE INDEX project_preparations_challenge_updated_idx ON project_preparations (challenge_id, updated_at);`);
+        sqlite.exec("PRAGMA user_version = 5;");
       })
       .immediate();
     const violations = sqlite.query("PRAGMA foreign_key_check").all();

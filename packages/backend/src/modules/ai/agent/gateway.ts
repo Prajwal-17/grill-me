@@ -2,6 +2,7 @@ import type {
   BuildModelInput,
   JudgeInput,
   ModelGateway,
+  ProjectScaffoldModelInput,
   QuizModelInput,
   QuizTitleModelInput,
 } from "../model-gateway";
@@ -16,12 +17,14 @@ import {
   generationTask,
   hintTask,
   preparationTask,
+  projectScaffoldTask,
   quizTask,
   quizTitleTask,
   resumeTask,
   reviewTask,
   verificationTask,
 } from "./tasks";
+import { createProjectTools, projectToolJournalContext } from "./tools/project";
 
 function imageAttachments(attachments: JudgeInput["attachments"]) {
   return attachments.filter(
@@ -216,6 +219,35 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
         generationTask(input),
       );
       return result.value as Awaited<ReturnType<ModelGateway["generateBuild"]>>;
+    },
+
+    async scaffoldProject(input: ProjectScaffoldModelInput) {
+      const result = await executor.structured(
+        {
+          profileId: input.profileId,
+          operation: "project_scaffolding",
+          challengeId: input.challengeId,
+          resourceKind: "project_preparation",
+          resourceId: `${input.challengeId}:${input.layout.projectDirectory}`,
+          preview: input.specification.title,
+          selection: input.selection,
+          signal: input.signal,
+        },
+        projectScaffoldTask(input),
+        {
+          tools: createProjectTools({
+            root: input.layout.projectRoot,
+            journal: projectToolJournalContext(input.layout),
+            signal: input.signal,
+            onActivity: input.onActivity,
+          }),
+          // Project preparation state is workflow state, not a diagnostic log.
+          observability: false,
+        },
+      );
+      return result.value as Awaited<
+        ReturnType<NonNullable<ModelGateway["scaffoldProject"]>>
+      >;
     },
 
     respond(input) {

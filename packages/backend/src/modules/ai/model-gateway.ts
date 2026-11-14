@@ -16,8 +16,15 @@ import type {
   ChatMessage,
   MessageAttachment,
 } from "../messages/message.schema";
-import type { ModelSelection } from "@repo/backend/shared/contracts";
+import type {
+  ModelSelection,
+  ProjectFrozenSpecification,
+  ProjectPreparationStatus,
+  ProjectScaffoldReport,
+} from "@repo/backend/shared/contracts";
 import type { ProfilePreferences } from "../profiles/profile.schema";
+import type { ProjectLayout } from "../challenges/project-workspace";
+import type { ProjectToolActivity } from "./agent/tools/project";
 import type {
   GeneratedQuiz,
   QuestionCount,
@@ -91,6 +98,31 @@ export type BuildModelInput = {
   };
 };
 
+export type ProjectScaffoldPreviousAttempt = {
+  attempt: number;
+  status: ProjectPreparationStatus;
+  projectDirectory: string;
+  projectPath: string;
+  summary: string | null;
+  todos: { path: string; line: number; note: string }[];
+  problems: string[];
+  error: { code: string; message: string } | null;
+};
+
+export type ProjectScaffoldModelInput = {
+  profileId: string;
+  challengeId: string;
+  selection?: ModelSelection;
+  signal?: AbortSignal;
+  /** Discovered frozen specification, stable for this attempt. */
+  specification: ProjectFrozenSpecification;
+  /** Attempt layout, including the project tools root and journal location. */
+  layout: ProjectLayout;
+  previousAttempt: ProjectScaffoldPreviousAttempt | null;
+  /** Best-effort progress reporting persisted by the preparation service. */
+  onActivity?: (activity: ProjectToolActivity) => void | Promise<void>;
+};
+
 export type JudgeInput = {
   workspace?: string;
   codexModel?: string;
@@ -136,6 +168,9 @@ export interface ModelGateway {
     input: Omit<BuildModelInput, "clarificationContext">,
   ): Promise<ChallengePreparation>;
   generateBuild(input: BuildModelInput): Promise<BuildGenerationResult>;
+  scaffoldProject?(
+    input: ProjectScaffoldModelInput,
+  ): Promise<ProjectScaffoldReport>;
   respond(input: {
     signal?: AbortSignal;
     selection?: ModelSelection;

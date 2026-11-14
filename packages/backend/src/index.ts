@@ -54,11 +54,13 @@ export async function createBackend(options: {
     providerStatus: options.providerStatus,
     providerModels: options.providerModels,
   });
+  await app.projectPreparations.recover();
   return {
     app,
     start: () => app.generations.start(),
     stop: async () => {
       app.generations.stop();
+      await app.projectPreparations.stop();
       await closeDatabase();
     },
   };

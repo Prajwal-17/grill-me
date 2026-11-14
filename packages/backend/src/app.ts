@@ -6,6 +6,9 @@ import { challengeModel } from "./modules/challenges/challenge.model";
 import { createChallengeRoutes } from "./modules/challenges/challenge.routes";
 import { createChallengeService } from "./modules/challenges/challenge.service";
 import { createChallengeWorkspaceService } from "./modules/challenges/workspace";
+import { createProjectPreparationController } from "./modules/challenges/project-preparation.controller";
+import { createProjectPreparationRoutes } from "./modules/challenges/project-preparation.routes";
+import { createProjectPreparationService } from "./modules/challenges/project-preparation.service";
 import { createLogRoutes } from "./modules/logs/log.routes";
 import { createMessageController } from "./modules/messages/message.controller";
 import { messageModel } from "./modules/messages/message.model";
@@ -69,12 +72,21 @@ export function createApp({
   );
 
   const reviewService = createReviewService(llm);
+  const workspaces = createChallengeWorkspaceService(workspaceRoot);
+  const projectPreparations = createProjectPreparationService({
+    challenges: challengeModel,
+    messages: messageModel,
+    profiles: profileService,
+    workspaces,
+    llm,
+  });
   const challengeService = createChallengeService({
     challenges: challengeModel,
     messages: messageModel,
     profiles: profileService,
     llm,
-    workspaces: createChallengeWorkspaceService(workspaceRoot),
+    workspaces,
+    preparations: projectPreparations,
   });
   const messageService = createMessageService({
     challenges: challengeModel,
@@ -104,6 +116,12 @@ export function createApp({
   );
   app.route(
     "/challenges",
+    createProjectPreparationRoutes(
+      createProjectPreparationController(projectPreparations),
+    ),
+  );
+  app.route(
+    "/challenges",
     createMessageRoutes(createMessageController(messageService)),
   );
   const quizService = createQuizService(llm, challengeService, profileService);
@@ -117,5 +135,5 @@ export function createApp({
   app.route("/quizzes", createQuizRoutes(quizService, true));
   app.onError(handleError);
 
-  return Object.assign(app, { generations });
+  return Object.assign(app, { generations, projectPreparations });
 }
