@@ -5,6 +5,7 @@ import { z } from "zod";
 import {
   projectScaffoldReportSchema,
   type ProjectCheckProposal,
+  type ProjectCommand,
   type ProjectCommandProposal,
   type ProjectFrozenSpecification,
   type ProjectScaffoldReport,
@@ -25,7 +26,12 @@ import {
 export type ProjectScaffoldValidationContext = {
   layout: ProjectLayout;
   specification: ProjectFrozenSpecification;
-  /** Command execution is a later milestone; planned checks are not run yet. */
+  /**
+   * Persisted command execution records. When present, reported check results
+   * must match the latest real execution instead of being accepted as prose.
+   */
+  commands?: ProjectCommand[];
+  /** Kept for compatibility with callers that validate reports without commands. */
   allowExecutionResults?: boolean;
 };
 
@@ -71,6 +77,44 @@ function checkSignature(check: ProjectCheckProposal) {
   return check.command
     ? `${check.command.trim()}\0${normalizedCwd(check.cwd)}`
     : null;
+}
+
+function executedCheck(
+  check: ProjectCheckProposal,
+  commands: ProjectCommand[],
+) {
+  const signature = checkSignature(check);
+  if (!signature) return undefined;
+  return [...commands]
+    .reverse()
+    .find(
+      (command) =>
+        command.purpose === "check" &&
+        command.checkId === check.id &&
+        command.result !== null &&
+        `${command.command.trim()}\0${normalizedCwd(command.cwd)}` ===
+          signature,
+    );
+}
+
+function actualCheckStatus(command: ProjectCommand) {
+  if (
+    command.result?.status === "timed_out" ||
+    command.result?.status === "cancelled" ||
+    command.result?.status === "spawn_failed"
+  )
+    return "blocked" as const;
+  if (command.status === "succeeded") return "passed" as const;
+  if (command.status === "failed") return "failed" as const;
+  return "blocked" as const;
+}
+
+function setupFailed(commands: ProjectCommand[]) {
+  return commands.some(
+    (command) =>
+      (command.purpose === "setup" || command.install) &&
+      (command.status === "failed" || command.status === "timed_out"),
+  );
 }
 
 export async function validateProjectScaffoldReport(
@@ -282,6 +326,10 @@ export async function validateProjectScaffoldReport(
     );
 
   const results = new Map<string, (typeof report.results)[number]>();
+  const commands = context.commands ?? [];
+  const executionResultsAllowed =
+    context.allowExecutionResults === true || context.commands !== undefined;
+  const setupDidFail = setupFailed(commands);
   for (const result of report.results) {
     if (results.has(result.checkId))
       throw invalid(
@@ -292,18 +340,35 @@ export async function validateProjectScaffoldReport(
         `Check result ${result.checkId} does not match a reported check.`,
       );
     results.set(result.checkId, result);
-    if (!context.allowExecutionResults && result.status !== "not_run")
+    const check = report.checks.find((entry) => entry.id === result.checkId)!;
+    const executed = executedCheck(check, commands);
+    if (executed) {
+      const actual = actualCheckStatus(executed);
+      if (result.status === "not_run")
+        throw invalid(
+          `Check ${check.id} was executed with an actual ${actual} result. Report that result instead of "not_run".`,
+        );
+      if (result.status !== actual)
+        throw invalid(
+          `Check ${check.id} reports "${result.status}", but its latest actual execution was ${actual}. Reports cannot change command results.`,
+        );
+      if (check.intent === "todo_exercise" && result.status === "passed")
+        throw invalid(
+          `TODO exercise check ${check.id} unexpectedly passed. The unfinished core logic must leave it failing.`,
+        );
+      continue;
+    }
+    if (!executionResultsAllowed && result.status !== "not_run")
       throw invalid(
         'Commands have not been executed yet, so every check result must be "not_run".',
       );
-    const check = report.checks.find((entry) => entry.id === result.checkId)!;
-    if (
-      context.allowExecutionResults &&
-      check.intent === "todo_exercise" &&
-      result.status === "passed"
-    )
+    if (result.status === "passed" || result.status === "failed")
       throw invalid(
-        `TODO exercise check ${check.id} unexpectedly passed. The unfinished core logic must leave it failing.`,
+        `Check ${check.id} reports "${result.status}", but there is no matching server command execution record. Run the exact check command first.`,
+      );
+    if (result.status === "blocked" && !setupDidFail)
+      throw invalid(
+        `Check ${check.id} is reported "blocked", but no setup or dependency command failed. Use "not_run" when the check was not attempted.`,
       );
   }
   for (const check of report.checks)

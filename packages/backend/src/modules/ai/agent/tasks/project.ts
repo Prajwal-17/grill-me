@@ -51,10 +51,14 @@ export function projectScaffoldTask(
       description:
         "Return the complete, validated scaffold report after creating the project files. List every generated file, TODO location, proposed setup/run/check command, check result, and remaining problem. This call ends project preparation.",
       schema: z.toJSONSchema(projectScaffoldReportSchema),
-      validate: (value) =>
+      validate: async (value) =>
         validateProjectScaffoldReport(value, {
           layout: input.layout,
           specification: input.specification,
+          allowExecutionResults: Boolean(input.commandResults),
+          commands: input.commandResults
+            ? await input.commandResults()
+            : undefined,
         }),
     },
     allowSnapshot: false,

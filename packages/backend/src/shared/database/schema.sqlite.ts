@@ -1,5 +1,6 @@
 import type { GuidedPreferences } from "@repo/backend/shared/preferences";
 import type {
+  ProjectCommandResult,
   ProjectFrozenSpecification,
   ProjectPreparationActivity,
   ProjectPreparationError,
@@ -210,6 +211,138 @@ export const projectPreparations = sqliteTable(
     check(
       "project_preparations_status_check",
       sql`${table.status} in ('not_started', 'running', 'ready', 'failed', 'cancelled', 'interrupted')`,
+    ),
+  ],
+);
+
+// Operator-approved scaffold commands. A row is persisted before any command
+// can run, and its exact request, attempt, specification hash, and run token
+// fence a single atomic claim. Results are the only source of reported check
+// outcomes; rejected and stale approvals never start a child process.
+export const projectCommandRequests = sqliteTable(
+  "project_command_requests",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    challengeId: text("challenge_id")
+      .notNull()
+      .references(() => challenges.id, { onDelete: "cascade" }),
+    preparationId: text("preparation_id")
+      .notNull()
+      .references(() => projectPreparations.id, { onDelete: "cascade" }),
+    attempt: integer("attempt").notNull(),
+    specificationHash: text("specification_hash").notNull(),
+    runToken: text("run_token").notNull(),
+    purpose: text("purpose", {
+      enum: ["setup", "check", "run", "inspect"],
+    }).notNull(),
+    checkId: text("check_id"),
+    command: text("command").notNull(),
+    cwd: text("cwd").notNull().default("."),
+    install: boolean("install").notNull().default(false),
+    network: boolean("network").notNull().default(false),
+    timeoutMs: integer("timeout_ms").notNull(),
+    status: text("status", {
+      enum: [
+        "pending",
+        "approved",
+        "running",
+        "succeeded",
+        "failed",
+        "timed_out",
+        "cancelled",
+        "rejected",
+        "interrupted",
+      ],
+    })
+      .notNull()
+      .default("pending"),
+    authorization: text("authorization", {
+      enum: ["individual", "attempt"],
+    }),
+    result: jsonb("result").$type<ProjectCommandResult>(),
+    decidedAt: contextTimestamp("decided_at"),
+    startedAt: contextTimestamp("started_at"),
+    completedAt: contextTimestamp("completed_at"),
+    createdAt: contextTimestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: contextTimestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("project_command_requests_preparation_created_idx").on(
+      table.preparationId,
+      table.createdAt,
+    ),
+    index("project_command_requests_preparation_status_idx").on(
+      table.preparationId,
+      table.status,
+    ),
+    uniqueIndex("project_command_requests_running_unique")
+      .on(table.preparationId, table.command, table.cwd)
+      .where(sql`${table.status} = 'running'`),
+    check(
+      "project_command_requests_attempt_positive",
+      sql`${table.attempt} > 0`,
+    ),
+    check(
+      "project_command_requests_timeout_positive",
+      sql`${table.timeoutMs} > 0`,
+    ),
+    check(
+      "project_command_requests_purpose_check",
+      sql`${table.purpose} in ('setup', 'check', 'run', 'inspect')`,
+    ),
+    check(
+      "project_command_requests_status_check",
+      sql`${table.status} in ('pending', 'approved', 'running', 'succeeded', 'failed', 'timed_out', 'cancelled', 'rejected', 'interrupted')`,
+    ),
+    check(
+      "project_command_requests_authorization_check",
+      sql`${table.authorization} is null or ${table.authorization} in ('individual', 'attempt')`,
+    ),
+  ],
+);
+
+// Attempt-wide command authorization is explicit about install and network
+// disclosures and belongs to exactly one preparation attempt. It is never a
+// global permission and a fresh attempt needs its own approval.
+export const projectCommandAuthorizations = sqliteTable(
+  "project_command_authorizations",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    challengeId: text("challenge_id")
+      .notNull()
+      .references(() => challenges.id, { onDelete: "cascade" }),
+    preparationId: text("preparation_id")
+      .notNull()
+      .references(() => projectPreparations.id, { onDelete: "cascade" }),
+    attempt: integer("attempt").notNull(),
+    specificationHash: text("specification_hash").notNull(),
+    runToken: text("run_token").notNull(),
+    install: boolean("install").notNull().default(false),
+    network: boolean("network").notNull().default(false),
+    createdAt: contextTimestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: contextTimestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("project_command_authorizations_preparation_unique").on(
+      table.preparationId,
+    ),
+    check(
+      "project_command_authorizations_attempt_positive",
+      sql`${table.attempt} > 0`,
     ),
   ],
 );

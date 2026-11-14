@@ -11,6 +11,15 @@ const startProjectPreparationSchema = z.object({
   selection: modelSelectionSchema.optional(),
 });
 
+const commandParamsSchema = challengeParamsSchema.extend({
+  commandId: z.string().uuid(),
+});
+
+const attemptCommandAuthorizationSchema = z.strictObject({
+  install: z.boolean(),
+  network: z.boolean(),
+});
+
 async function optionalJson(request: Request) {
   const text = await request.text();
   if (!text.trim()) return {};
@@ -40,6 +49,10 @@ function challengeId(c: Context) {
   return parseInput(challengeParamsSchema, c.req.param()).id;
 }
 
+function commandParams(c: Context) {
+  return parseInput(commandParamsSchema, c.req.param());
+}
+
 export function createProjectPreparationController(
   service: ProjectPreparationService,
 ) {
@@ -64,6 +77,42 @@ export function createProjectPreparationController(
 
     cancel: async (c: Context) =>
       c.json({ data: await service.cancel(profileId(c), challengeId(c)) }),
+
+    approveCommand: async (c: Context) => {
+      const params = commandParams(c);
+      return c.json({
+        data: await service.approveCommand(
+          profileId(c),
+          params.id,
+          params.commandId,
+        ),
+      });
+    },
+
+    rejectCommand: async (c: Context) => {
+      const params = commandParams(c);
+      return c.json({
+        data: await service.rejectCommand(
+          profileId(c),
+          params.id,
+          params.commandId,
+        ),
+      });
+    },
+
+    authorizeAttemptCommands: async (c: Context) => {
+      const input = parseInput(
+        attemptCommandAuthorizationSchema,
+        await optionalJson(c.req.raw),
+      );
+      return c.json({
+        data: await service.authorizeAttemptCommands(
+          profileId(c),
+          challengeId(c),
+          input,
+        ),
+      });
+    },
   };
 }
 

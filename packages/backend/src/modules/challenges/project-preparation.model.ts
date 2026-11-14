@@ -54,6 +54,23 @@ export const projectPreparationModel = {
     );
   },
 
+  /** Current writer fence for command execution, independent of UI reads. */
+  runningByToken(id: string, runToken: string) {
+    return first(
+      db
+        .select()
+        .from(projectPreparations)
+        .where(
+          and(
+            eq(projectPreparations.id, id),
+            eq(projectPreparations.runToken, runToken),
+            eq(projectPreparations.status, "running"),
+          ),
+        )
+        .limit(1),
+    );
+  },
+
   create(input: {
     id: string;
     profileId: string;

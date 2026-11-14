@@ -106,9 +106,9 @@ export function createSqliteDatabase(path: string) {
     const version = (
       sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    if (version > 5)
+    if (version > 6)
       throw new Error("This database needs a newer desktop application.");
-    if (version === 5) return;
+    if (version === 6) return;
     sqlite
       .transaction(() => {
         if (version === 0) {
@@ -195,7 +195,61 @@ CREATE UNIQUE INDEX agent_run_events_run_sequence_unique ON agent_run_events (ru
 CREATE UNIQUE INDEX project_preparations_challenge_attempt_unique ON project_preparations (challenge_id, attempt);
 CREATE UNIQUE INDEX project_preparations_active_unique ON project_preparations (challenge_id) WHERE status in ('not_started', 'running');
 CREATE INDEX project_preparations_challenge_updated_idx ON project_preparations (challenge_id, updated_at);`);
-        sqlite.exec("PRAGMA user_version = 5;");
+        if (version < 6)
+          sqlite.exec(`CREATE TABLE project_command_requests (
+  id text PRIMARY KEY NOT NULL,
+  profile_id text NOT NULL,
+  challenge_id text NOT NULL,
+  preparation_id text NOT NULL,
+  attempt integer NOT NULL,
+  specification_hash text NOT NULL,
+  run_token text NOT NULL,
+  purpose text NOT NULL,
+  check_id text,
+  command text NOT NULL,
+  cwd text DEFAULT '.' NOT NULL,
+  install integer DEFAULT false NOT NULL,
+  network integer DEFAULT false NOT NULL,
+  timeout_ms integer NOT NULL,
+  status text DEFAULT 'pending' NOT NULL,
+  authorization text,
+  result text,
+  decided_at integer,
+  started_at integer,
+  completed_at integer,
+  created_at integer NOT NULL,
+  updated_at integer NOT NULL,
+  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON UPDATE no action ON DELETE cascade,
+  FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON UPDATE no action ON DELETE cascade,
+  FOREIGN KEY (preparation_id) REFERENCES project_preparations(id) ON UPDATE no action ON DELETE cascade,
+  CONSTRAINT project_command_requests_attempt_positive CHECK(attempt > 0),
+  CONSTRAINT project_command_requests_timeout_positive CHECK(timeout_ms > 0),
+  CONSTRAINT project_command_requests_purpose_check CHECK(purpose in ('setup', 'check', 'run', 'inspect')),
+  CONSTRAINT project_command_requests_status_check CHECK(status in ('pending', 'approved', 'running', 'succeeded', 'failed', 'timed_out', 'cancelled', 'rejected', 'interrupted')),
+  CONSTRAINT project_command_requests_authorization_check CHECK(authorization is null or authorization in ('individual', 'attempt'))
+);
+CREATE INDEX project_command_requests_preparation_created_idx ON project_command_requests (preparation_id, created_at);
+CREATE INDEX project_command_requests_preparation_status_idx ON project_command_requests (preparation_id, status);
+CREATE UNIQUE INDEX project_command_requests_running_unique ON project_command_requests (preparation_id, command, cwd) WHERE status = 'running';
+CREATE TABLE project_command_authorizations (
+  id text PRIMARY KEY NOT NULL,
+  profile_id text NOT NULL,
+  challenge_id text NOT NULL,
+  preparation_id text NOT NULL,
+  attempt integer NOT NULL,
+  specification_hash text NOT NULL,
+  run_token text NOT NULL,
+  install integer DEFAULT false NOT NULL,
+  network integer DEFAULT false NOT NULL,
+  created_at integer NOT NULL,
+  updated_at integer NOT NULL,
+  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON UPDATE no action ON DELETE cascade,
+  FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON UPDATE no action ON DELETE cascade,
+  FOREIGN KEY (preparation_id) REFERENCES project_preparations(id) ON UPDATE no action ON DELETE cascade,
+  CONSTRAINT project_command_authorizations_attempt_positive CHECK(attempt > 0)
+);
+CREATE UNIQUE INDEX project_command_authorizations_preparation_unique ON project_command_authorizations (preparation_id);`);
+        sqlite.exec("PRAGMA user_version = 6;");
       })
       .immediate();
     const violations = sqlite.query("PRAGMA foreign_key_check").all();

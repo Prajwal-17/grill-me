@@ -249,6 +249,82 @@ export const challengeWorkspaceSchema = z.object({
   starterFile: z.string().min(1).max(255).nullable(),
 });
 export type ChallengeWorkspace = z.infer<typeof challengeWorkspaceSchema>;
+export const projectCommandPurposeSchema = z.enum([
+  "setup",
+  "check",
+  "run",
+  "inspect",
+]);
+export type ProjectCommandPurpose = z.infer<typeof projectCommandPurposeSchema>;
+export const projectCommandStatusSchema = z.enum([
+  "pending",
+  "approved",
+  "running",
+  "succeeded",
+  "failed",
+  "timed_out",
+  "cancelled",
+  "rejected",
+  "interrupted",
+]);
+export type ProjectCommandStatus = z.infer<typeof projectCommandStatusSchema>;
+export const projectCommandOutcomeStatusSchema = z.enum([
+  "succeeded",
+  "failed",
+  "timed_out",
+  "cancelled",
+  "rejected",
+  "spawn_failed",
+]);
+export type ProjectCommandOutcomeStatus = z.infer<
+  typeof projectCommandOutcomeStatusSchema
+>;
+export const projectCommandResultSchema = z.strictObject({
+  status: projectCommandOutcomeStatusSchema,
+  started: z.boolean(),
+  exitCode: z.number().int().nullable(),
+  signal: z.string().max(32).nullable(),
+  output: z.string().max(131_072),
+  outputBytes: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+  timedOut: z.boolean(),
+  cancelled: z.boolean(),
+  durationMs: z.number().int().nonnegative(),
+  error: z
+    .object({
+      code: z.string().min(1).max(160),
+      message: z.string().min(1).max(1_000),
+    })
+    .nullable(),
+});
+export type ProjectCommandResult = z.infer<typeof projectCommandResultSchema>;
+export const projectCommandSchema = z.object({
+  id: z.string().uuid(),
+  purpose: projectCommandPurposeSchema,
+  checkId: z.string().max(80).nullable(),
+  status: projectCommandStatusSchema,
+  command: z.string().min(1).max(2_000),
+  cwd: z.string().min(1).max(512),
+  install: z.boolean(),
+  network: z.boolean(),
+  timeoutMs: z.number().int().positive().max(120_000),
+  authorization: z.enum(["individual", "attempt"]).nullable(),
+  result: projectCommandResultSchema.nullable(),
+  createdAt: z.string().datetime(),
+  decidedAt: z.string().datetime().nullable(),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+});
+export type ProjectCommand = z.infer<typeof projectCommandSchema>;
+export const projectCommandAuthorizationSchema = z.object({
+  attempt: z.number().int().positive(),
+  install: z.boolean(),
+  network: z.boolean(),
+  approvedAt: z.string().datetime(),
+});
+export type ProjectCommandAuthorization = z.infer<
+  typeof projectCommandAuthorizationSchema
+>;
 export const projectPreparationStatusSchema = z.enum([
   "not_started",
   "running",
@@ -418,6 +494,8 @@ export const projectPreparationSchema = z.object({
   specification: projectFrozenSpecificationSchema.nullable(),
   report: projectScaffoldReportSchema.nullable(),
   activity: z.array(projectPreparationActivitySchema).max(200),
+  commands: z.array(projectCommandSchema).max(50),
+  commandAuthorization: projectCommandAuthorizationSchema.nullable(),
   error: projectPreparationErrorSchema.nullable(),
   requestedModel: z.string().max(200).nullable(),
   startedAt: z.string().datetime().nullable(),
@@ -446,6 +524,22 @@ export const workspaceEditorSchema = z.enum([
 ]);
 export type WorkspaceEditor = z.infer<typeof workspaceEditorSchema>;
 export type WorkspaceEditorOption = { id: WorkspaceEditor; label: string };
+/**
+ * Preparation folders are direct children of a validated challenge workspace.
+ * The first attempt is `project`; later attempts are `project-2` through
+ * `project-99`. This matches `projectAttemptNumber` in the backend workspace
+ * module without importing Node-only code into the renderer contract.
+ */
+export const projectDirectoryNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine(
+    (value) => /^project(?:-(?:[2-9]|[1-9][0-9]))?$/.test(value),
+    "Use the preparation project folder directly inside the challenge workspace.",
+  );
+export type ProjectDirectoryName = z.infer<typeof projectDirectoryNameSchema>;
 export const workspaceLaunchSchema = z
   .object({
     path: z
@@ -457,6 +551,8 @@ export const workspaceLaunchSchema = z
     editor: workspaceEditorSchema,
     challengeId: z.string().uuid(),
     profileId: z.string().uuid(),
+    /** Optional prepared project subfolder inside the challenge workspace. */
+    projectDirectory: projectDirectoryNameSchema.optional(),
   })
   .strict();
 export type WorkspaceLaunch = z.infer<typeof workspaceLaunchSchema>;

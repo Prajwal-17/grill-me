@@ -5,6 +5,7 @@ import { createSnapshotTools } from "./snapshot";
 
 export { createCompletionTool, recordCompletionFailure } from "./completion";
 export type { CompletionSpec, CompletionState } from "./completion";
+export { createProjectCommandTool } from "./command";
 export {
   createResearchTools,
   createResearchWorkspace,

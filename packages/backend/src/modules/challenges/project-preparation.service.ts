@@ -1,6 +1,8 @@
 import { dirname } from "node:path";
 import type {
   ModelSelection,
+  ProjectCommand,
+  ProjectCommandAuthorization,
   ProjectFrozenSpecification,
   ProjectPreparation,
   ProjectPreparationActivity,
@@ -33,6 +35,11 @@ import {
   writeFrozenSpecification,
 } from "./project-preparation.spec";
 import { validateProjectScaffoldReport } from "./project-preparation.validation";
+import {
+  createProjectCommandRuntime,
+  projectSpecificationHash,
+} from "./project-command.runtime";
+import { projectCommandModel } from "./project-command.model";
 import type { ChallengeWorkspaceService } from "./workspace";
 
 const maxActivityEntries = 200;
@@ -178,6 +185,8 @@ function publicPreparation(
   challengeId: string,
   row: ProjectPreparationRow | undefined,
   previous: ProjectPreparationRow | undefined,
+  commands: ProjectCommand[] = [],
+  commandAuthorization: ProjectCommandAuthorization | null = null,
 ): ProjectPreparation {
   if (!row)
     return {
@@ -190,6 +199,8 @@ function publicPreparation(
       specification: null,
       report: null,
       activity: [],
+      commands: [],
+      commandAuthorization: null,
       error: null,
       requestedModel: null,
       startedAt: null,
@@ -207,6 +218,8 @@ function publicPreparation(
     specification: row.specification,
     report: row.report ?? null,
     activity: boundedActivity(row.activity),
+    commands,
+    commandAuthorization,
     error: row.error ?? null,
     requestedModel: row.requestedModel,
     startedAt: row.startedAt ? nowIso(row.startedAt) : null,
@@ -226,9 +239,27 @@ export function createProjectPreparationService(dependencies: {
 }) {
   const { challenges, messages, profiles, workspaces, llm } = dependencies;
   const now = dependencies.now ?? (() => new Date());
+  const commands = createProjectCommandRuntime({ now });
   const starts = new Map<string, Promise<ProjectPreparation>>();
   const controllers = new Map<string, RunController>();
   const runs = new Set<Promise<void>>();
+
+  async function preparationView(
+    challengeId: string,
+    row: ProjectPreparationRow | undefined,
+    previous: ProjectPreparationRow | undefined,
+  ) {
+    const state = row
+      ? await commands.state(row.id)
+      : { commands: [], commandAuthorization: null };
+    return publicPreparation(
+      challengeId,
+      row,
+      previous,
+      state.commands,
+      state.commandAuthorization,
+    );
+  }
 
   async function originalRequest(challenge: ChallengeRow) {
     const snapshot = challenge.contextSnapshot?.currentRequest;
@@ -253,7 +284,7 @@ export function createProjectPreparationService(dependencies: {
     const previous = row
       ? await projectPreparationModel.previous(challengeId, row.attempt)
       : undefined;
-    return publicPreparation(challengeId, row, previous);
+    return preparationView(challengeId, row, previous);
   }
 
   function addActivity(
@@ -289,7 +320,18 @@ export function createProjectPreparationService(dependencies: {
         .catch(() => {});
     };
 
+    let commandSession: ReturnType<typeof commands.begin> | undefined;
     try {
+      commandSession = commands.begin({
+        profileId: row.profileId,
+        challengeId: row.challengeId,
+        preparationId: row.id,
+        attempt: row.attempt,
+        specificationHash: projectSpecificationHash(specification),
+        runToken,
+        layout,
+        signal: controller.signal,
+      });
       if (!llm.scaffoldProject)
         throw new AppError(
           "MODEL_UNAVAILABLE",
@@ -305,6 +347,8 @@ export function createProjectPreparationService(dependencies: {
         layout,
         previousAttempt: previousAttemptInput(previous),
         onActivity: (entry) => persistActivity(toolActivity(entry, now())),
+        runProjectCommand: commandSession.execute,
+        commandResults: commandSession.results,
       });
       if (controller.signal.aborted)
         throw new AppError(
@@ -315,6 +359,8 @@ export function createProjectPreparationService(dependencies: {
       const validated = await validateProjectScaffoldReport(scaffoldReport, {
         layout,
         specification,
+        allowExecutionResults: true,
+        commands: await commandSession.results(),
       });
       scaffoldReport = validated;
       if (validated.problems.length) {
@@ -373,6 +419,7 @@ export function createProjectPreparationService(dependencies: {
         at: now(),
       });
     } finally {
+      await commandSession?.end().catch(() => {});
       if (controllers.get(row.challengeId)?.controller === controller)
         controllers.delete(row.challengeId);
     }
@@ -410,13 +457,13 @@ export function createProjectPreparationService(dependencies: {
 
     const latest = await projectPreparationModel.latest(challengeId);
     if (latest?.status === "running")
-      return publicPreparation(
+      return preparationView(
         challengeId,
         latest,
         await projectPreparationModel.previous(challengeId, latest.attempt),
       );
     if (latest?.status === "ready")
-      return publicPreparation(
+      return preparationView(
         challengeId,
         latest,
         await projectPreparationModel.previous(challengeId, latest.attempt),
@@ -504,7 +551,7 @@ export function createProjectPreparationService(dependencies: {
         boundedActivity(activity),
         now(),
       );
-      if (failed) return publicPreparation(challengeId, failed, previous);
+      if (failed) return preparationView(challengeId, failed, previous);
       throw error;
     }
     if (!activity.some((entry) => entry.type === "specification_saved"))
@@ -531,7 +578,7 @@ export function createProjectPreparationService(dependencies: {
         (await projectPreparationModel.active(challengeId)) ??
         (await projectPreparationModel.latest(challengeId));
       if (active)
-        return publicPreparation(
+        return preparationView(
           challengeId,
           active,
           await projectPreparationModel.previous(challengeId, active.attempt),
@@ -553,7 +600,160 @@ export function createProjectPreparationService(dependencies: {
       selection,
       activity,
     });
-    return publicPreparation(challengeId, running, previous);
+    return preparationView(challengeId, running, previous);
+  }
+
+  async function currentCommandPreparation(
+    profileId: string,
+    challengeId: string,
+  ) {
+    await owned(profileId, challengeId);
+    const latest = await projectPreparationModel.latest(challengeId);
+    if (!latest || latest.status !== "running")
+      throw new AppError(
+        "PROJECT_COMMAND_STALE",
+        "There is no running preparation attempt for this command approval.",
+        409,
+      );
+    return latest;
+  }
+
+  function commandIsCurrent(
+    preparation: ProjectPreparationRow,
+    row: { preparationId: string; runToken: string; specificationHash: string },
+  ) {
+    return (
+      row.preparationId === preparation.id &&
+      row.runToken === preparation.runToken &&
+      row.specificationHash ===
+        projectSpecificationHash(preparation.specification)
+    );
+  }
+
+  async function decideCommand(
+    profileId: string,
+    challengeId: string,
+    commandId: string,
+    decision: "approved" | "rejected",
+  ) {
+    const preparation = await currentCommandPreparation(profileId, challengeId);
+    const row = await projectCommandModel.byId(commandId);
+    if (!row || row.profileId !== profileId || row.challengeId !== challengeId)
+      throw new AppError(
+        "PROJECT_COMMAND_NOT_FOUND",
+        "That command approval does not exist for this challenge.",
+        404,
+      );
+    if (!commandIsCurrent(preparation, row)) {
+      await projectCommandModel.interruptOne(row.id, "interrupted", now());
+      commands.wake(row.id);
+      throw new AppError(
+        "PROJECT_COMMAND_STALE",
+        "This command approval belongs to a superseded preparation attempt and was not used.",
+        409,
+      );
+    }
+    if (
+      row.status === decision ||
+      (decision === "approved" && row.status === "running")
+    )
+      return preparationView(
+        challengeId,
+        preparation,
+        await projectPreparationModel.previous(
+          challengeId,
+          preparation.attempt,
+        ),
+      );
+    if (row.status !== "pending")
+      throw new AppError(
+        "PROJECT_COMMAND_DECIDED",
+        "This command already has a final authorization decision.",
+        409,
+      );
+    const updated = await projectCommandModel.decide({
+      id: row.id,
+      preparationId: preparation.id,
+      runToken: preparation.runToken!,
+      status: decision,
+      authorization: decision === "approved" ? "individual" : null,
+      at: now(),
+    });
+    if (!updated) {
+      const latest = await projectCommandModel.byId(row.id);
+      if (
+        latest &&
+        (latest.status === decision ||
+          (decision === "approved" && latest.status === "running"))
+      )
+        return preparationView(
+          challengeId,
+          preparation,
+          await projectPreparationModel.previous(
+            challengeId,
+            preparation.attempt,
+          ),
+        );
+      if (!latest || latest.status !== "pending")
+        throw new AppError(
+          "PROJECT_COMMAND_DECIDED",
+          "This command was decided by another request.",
+          409,
+        );
+      throw new AppError(
+        "PROJECT_COMMAND_UNAVAILABLE",
+        "The command decision could not be saved.",
+        503,
+        true,
+      );
+    }
+    commands.wake(row.id);
+    return preparationView(
+      challengeId,
+      preparation,
+      await projectPreparationModel.previous(challengeId, preparation.attempt),
+    );
+  }
+
+  async function saveAttemptAuthorization(
+    profileId: string,
+    challengeId: string,
+    authorization: { install: boolean; network: boolean },
+  ) {
+    const preparation = await currentCommandPreparation(profileId, challengeId);
+    const at = now();
+    const saved = await projectCommandModel.upsertAuthorization({
+      id: crypto.randomUUID(),
+      profileId,
+      challengeId,
+      preparationId: preparation.id,
+      attempt: preparation.attempt,
+      specificationHash: projectSpecificationHash(preparation.specification),
+      runToken: preparation.runToken!,
+      install: authorization.install,
+      network: authorization.network,
+      at,
+    });
+    if (!saved)
+      throw new AppError(
+        "PROJECT_COMMAND_UNAVAILABLE",
+        "The attempt authorization could not be saved.",
+        503,
+        true,
+      );
+    const approved = await projectCommandModel.approvePendingForAttempt({
+      preparationId: preparation.id,
+      runToken: preparation.runToken!,
+      install: authorization.install,
+      network: authorization.network,
+      at,
+    });
+    for (const row of approved) commands.wake(row.id);
+    return preparationView(
+      challengeId,
+      preparation,
+      await projectPreparationModel.previous(challengeId, preparation.attempt),
+    );
   }
 
   return {
@@ -581,7 +781,7 @@ export function createProjectPreparationService(dependencies: {
     async cancel(profileId: string, challengeId: string) {
       await owned(profileId, challengeId);
       const current = await projectPreparationModel.latest(challengeId);
-      if (!current) return publicPreparation(challengeId, undefined, undefined);
+      if (!current) return preparationView(challengeId, undefined, undefined);
       const at = now();
       const cancelled = await projectPreparationModel.cancel(
         challengeId,
@@ -592,17 +792,37 @@ export function createProjectPreparationService(dependencies: {
         },
         at,
       );
+      const target = cancelled ?? current;
+      await commands.interruptPreparation(target.id, "cancelled");
       const active = controllers.get(challengeId);
-      if (active && active.preparationId === cancelled?.id)
+      if (active && active.preparationId === target.id)
         active.controller.abort();
       const previous = cancelled
         ? await projectPreparationModel.previous(challengeId, cancelled.attempt)
         : undefined;
-      return publicPreparation(challengeId, cancelled ?? current, previous);
+      return preparationView(challengeId, target, previous);
+    },
+
+    approveCommand(profileId: string, challengeId: string, commandId: string) {
+      return decideCommand(profileId, challengeId, commandId, "approved");
+    },
+
+    rejectCommand(profileId: string, challengeId: string, commandId: string) {
+      return decideCommand(profileId, challengeId, commandId, "rejected");
+    },
+
+    authorizeAttemptCommands(
+      profileId: string,
+      challengeId: string,
+      authorization: { install: boolean; network: boolean },
+    ) {
+      return saveAttemptAuthorization(profileId, challengeId, authorization);
     },
 
     async recover() {
-      return projectPreparationModel.markInterrupted(now());
+      const preparations = await projectPreparationModel.markInterrupted(now());
+      const commandsRecovered = await commands.recover();
+      return { preparations, commands: commandsRecovered };
     },
 
     async stop() {
@@ -616,11 +836,13 @@ export function createProjectPreparationService(dependencies: {
         ]);
       const pendingStarts = [...starts.values()];
       await projectPreparationModel.markInterrupted(now()).catch(() => {});
+      await commands.recover().catch(() => {});
       for (const entry of controllers.values()) entry.controller.abort();
       if (pendingStarts.length) await wait(pendingStarts);
       // A start that was already in preflight may have scheduled while the
       // first pass ran. Fence and abort again before closing the database.
       await projectPreparationModel.markInterrupted(now()).catch(() => {});
+      await commands.recover().catch(() => {});
       for (const entry of controllers.values()) entry.controller.abort();
       const running = [...runs];
       if (running.length) await wait(running);

@@ -131,6 +131,46 @@ function populateV4(path: string) {
   }
 }
 
+function populateV5(path: string) {
+  populateV4(path);
+  const db = new Database(path);
+  try {
+    db.exec(`
+      CREATE TABLE project_preparations (
+        id text PRIMARY KEY NOT NULL,
+        profile_id text NOT NULL,
+        challenge_id text NOT NULL,
+        attempt integer NOT NULL,
+        project_directory text NOT NULL,
+        project_path text NOT NULL,
+        specification text NOT NULL,
+        status text DEFAULT 'not_started' NOT NULL,
+        run_token text,
+        activity text DEFAULT '[]' NOT NULL,
+        report text,
+        error text,
+        requested_model text,
+        started_at integer,
+        completed_at integer,
+        created_at integer NOT NULL,
+        updated_at integer NOT NULL,
+        FOREIGN KEY (profile_id) REFERENCES profiles(id) ON UPDATE no action ON DELETE cascade,
+        FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON UPDATE no action ON DELETE cascade,
+        CONSTRAINT project_preparations_attempt_positive CHECK(attempt > 0),
+        CONSTRAINT project_preparations_status_check CHECK(status in ('not_started','running','ready','failed','cancelled','interrupted'))
+      );
+      CREATE UNIQUE INDEX project_preparations_challenge_attempt_unique ON project_preparations (challenge_id, attempt);
+      CREATE UNIQUE INDEX project_preparations_active_unique ON project_preparations (challenge_id) WHERE status in ('not_started', 'running');
+      CREATE INDEX project_preparations_challenge_updated_idx ON project_preparations (challenge_id, updated_at);
+      INSERT INTO project_preparations(id,profile_id,challenge_id,attempt,project_directory,project_path,specification,status,run_token,activity,report,error,requested_model,started_at,completed_at,created_at,updated_at)
+        VALUES ('prep-a','owner-a','challenge-a',1,'project','/saved/workspace/challenge-a/project','{"version":1}','ready',NULL,'[{"type":"completed","at":"2026-01-01T00:00:00.000Z"}]','{"summary":"Saved preparation","files":[],"todos":[],"setup":[],"run":[],"checks":[],"results":[],"problems":[]}',NULL,'fixture-model',1000,1001,1000,1001);
+      PRAGMA user_version = 5;
+    `);
+  } finally {
+    db.close();
+  }
+}
+
 function indexNames(path: string) {
   const db = new Database(path, { readonly: true });
   try {
@@ -226,7 +266,7 @@ function withoutWorkspacePath(value: Record<string, unknown[]>) {
   return value;
 }
 
-test("v2 practice databases upgrade to v5 while preserving existing rows, relationships, and indexes", async () => {
+test("v2 practice databases upgrade to v6 while preserving existing rows, relationships, and indexes", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v2-upgrade-"));
   const path = join(root, "grill-me.sqlite");
   try {
@@ -236,7 +276,7 @@ test("v2 practice databases upgrade to v5 while preserving existing rows, relati
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 5,
+      user_version: 6,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
@@ -274,7 +314,7 @@ test("v2 practice databases upgrade to v5 while preserving existing rows, relati
   }
 });
 
-test("v3 practice databases upgrade to v5 while preserving agent history and model selections", async () => {
+test("v3 practice databases upgrade to v6 while preserving agent history and model selections", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v3-upgrade-"));
   const path = join(root, "grill-me.sqlite");
   try {
@@ -284,7 +324,7 @@ test("v3 practice databases upgrade to v5 while preserving agent history and mod
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 5,
+      user_version: 6,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
@@ -314,7 +354,7 @@ test("v3 practice databases upgrade to v5 while preserving agent history and mod
 });
 
 test("populated v4 databases add project preparation state without changing practice data", async () => {
-  const root = await mkdtemp(join(tmpdir(), "grill-v4-to-v5-"));
+  const root = await mkdtemp(join(tmpdir(), "grill-v4-to-v6-"));
   const path = join(root, "grill-me.sqlite");
   try {
     populateV4(path);
@@ -323,7 +363,7 @@ test("populated v4 databases add project preparation state without changing prac
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 5,
+      user_version: 6,
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     expect(indexNames(path)).toEqual(expect.arrayContaining(indexesBefore));
@@ -358,6 +398,60 @@ test("populated v4 databases add project preparation state without changing prac
   }
 });
 
+test("populated v5 databases add command authorization state without changing preparation history", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-v5-to-v6-"));
+  const path = join(root, "grill-me.sqlite");
+  try {
+    populateV5(path);
+    const before = snapshotWithAgentRuns(path);
+    const preparationsBefore = rows(path, ["project_preparations"]);
+    const indexesBefore = indexNames(path);
+    const database = createSqliteDatabase(path);
+    await database.migrateDatabase();
+    expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
+      user_version: 6,
+    });
+    expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
+      integrity_check: "ok",
+    });
+    expect(indexNames(path)).toEqual(expect.arrayContaining(indexesBefore));
+    expect(snapshotWithAgentRuns(path)).toEqual(before);
+    expect(rows(path, ["project_preparations"])).toEqual(preparationsBefore);
+    expect(
+      database.sqlite
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('project_command_authorizations','project_command_requests') ORDER BY name",
+        )
+        .all(),
+    ).toEqual([
+      { name: "project_command_authorizations" },
+      { name: "project_command_requests" },
+    ]);
+    expect(
+      database.sqlite
+        .query(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'project_command_%' ORDER BY name",
+        )
+        .all(),
+    ).toEqual([
+      { name: "project_command_authorizations_preparation_unique" },
+      {
+        name: "project_command_requests_preparation_created_idx",
+      },
+      {
+        name: "project_command_requests_preparation_status_idx",
+      },
+      { name: "project_command_requests_running_unique" },
+    ]);
+    await database.migrateDatabase();
+    expect(rows(path, ["project_preparations"])).toEqual(preparationsBefore);
+    database.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("a failed v3 migration rolls back without changing v2 data", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v3-rollback-"));
   const path = join(root, "rollback.sqlite");
@@ -386,25 +480,27 @@ test("a failed v3 migration rolls back without changing v2 data", async () => {
   }
 });
 
-test("fresh databases execute the full schema chain and reach version 5", async () => {
-  const root = await mkdtemp(join(tmpdir(), "grill-fresh-v5-"));
+test("fresh databases execute the full schema chain and reach version 6", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-fresh-v6-"));
   const path = join(root, "fresh.sqlite");
   try {
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 5,
+      user_version: 6,
     });
     expect(
       database.sqlite
         .query(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('messages','quizzes','agent_runs','agent_run_events','project_preparations') ORDER BY name",
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('messages','quizzes','agent_runs','agent_run_events','project_preparations','project_command_requests','project_command_authorizations') ORDER BY name",
         )
         .all(),
     ).toEqual([
       { name: "agent_run_events" },
       { name: "agent_runs" },
       { name: "messages" },
+      { name: "project_command_authorizations" },
+      { name: "project_command_requests" },
       { name: "project_preparations" },
       { name: "quizzes" },
     ]);

@@ -18,6 +18,7 @@ import type {
 } from "../messages/message.schema";
 import type {
   ModelSelection,
+  ProjectCommand,
   ProjectFrozenSpecification,
   ProjectPreparationStatus,
   ProjectScaffoldReport,
@@ -25,6 +26,7 @@ import type {
 import type { ProfilePreferences } from "../profiles/profile.schema";
 import type { ProjectLayout } from "../challenges/project-workspace";
 import type { ProjectToolActivity } from "./agent/tools/project";
+import type { ProjectCommandExecutor } from "../challenges/project-command.types";
 import type {
   GeneratedQuiz,
   QuestionCount,
@@ -121,6 +123,13 @@ export type ProjectScaffoldModelInput = {
   previousAttempt: ProjectScaffoldPreviousAttempt | null;
   /** Best-effort progress reporting persisted by the preparation service. */
   onActivity?: (activity: ProjectToolActivity) => void | Promise<void>;
+  /**
+   * Task-scoped authorized command execution. Only the scaffold task receives
+   * this capability; review and conversational tasks never do.
+   */
+  runProjectCommand?: ProjectCommandExecutor;
+  /** Persisted command executions used to validate honest check results. */
+  commandResults?: () => Promise<ProjectCommand[]>;
 };
 
 export type JudgeInput = {

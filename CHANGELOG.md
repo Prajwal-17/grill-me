@@ -27,6 +27,13 @@
   only one scaffold writes per challenge, and partial files survive failures or
   cancellation. Existing workspaces, starter files, and earlier attempts are
   never replaced.
+- Let project scaffolding request exact dependency setup and check commands with
+  explicit install/network disclosures, then pause for individual or
+  preparation-attempt approval before anything runs. Approval is bound to the
+  frozen specification and current attempt, rejected or stale requests never
+  run, commands stop with cancellation, and a restart never replays them.
+  Reported check results must match real stored command outcomes, while a failed
+  check no longer prevents prepared files from being ready.
 
 ### Removed
 

@@ -25,6 +25,7 @@ import {
   verificationTask,
 } from "./tasks";
 import { createProjectTools, projectToolJournalContext } from "./tools/project";
+import { createProjectCommandTool } from "./tools/command";
 
 function imageAttachments(attachments: JudgeInput["attachments"]) {
   return attachments.filter(
@@ -235,12 +236,19 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
         },
         projectScaffoldTask(input),
         {
-          tools: createProjectTools({
-            root: input.layout.projectRoot,
-            journal: projectToolJournalContext(input.layout),
-            signal: input.signal,
-            onActivity: input.onActivity,
-          }),
+          tools: [
+            ...createProjectTools({
+              root: input.layout.projectRoot,
+              journal: projectToolJournalContext(input.layout),
+              signal: input.signal,
+              onActivity: input.onActivity,
+            }),
+            // The command tool is task-scoped and only exists while the service
+            // supplies an executor bound to this exact preparation attempt.
+            ...(input.runProjectCommand
+              ? [createProjectCommandTool(input.runProjectCommand)]
+              : []),
+          ],
           // Project preparation state is workflow state, not a diagnostic log.
           observability: false,
         },

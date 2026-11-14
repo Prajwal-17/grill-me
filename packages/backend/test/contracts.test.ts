@@ -17,6 +17,7 @@ import {
   quizPrompt,
   QUIZ_PROMPT_VERSION,
 } from "@repo/backend/modules/ai/prompts/generate-quiz";
+import { workspaceLaunchSchema } from "@repo/backend/shared/contracts";
 import { profilePreferencesSchema } from "@repo/backend/modules/profiles/profile.schema";
 import type { JudgeInput } from "@repo/backend/modules/ai/model-gateway";
 import { validatedReview } from "@repo/backend/modules/reviews/validated-review";
@@ -575,6 +576,39 @@ test("preparation checks missing requirements without inheriting assignment-writ
     "Do not generate or assign a challenge in this stage",
   );
   expect(prompt.instructions).toContain("needs no clarification");
+});
+
+test("workspace launch accepts only a direct preparation project folder name", () => {
+  const base = {
+    path: "/tmp/challenge-workspace",
+    editor: "vscode",
+    challengeId: crypto.randomUUID(),
+    profileId: crypto.randomUUID(),
+  };
+  expect(
+    workspaceLaunchSchema.parse({ ...base, projectDirectory: "project" })
+      .projectDirectory,
+  ).toBe("project");
+  expect(
+    workspaceLaunchSchema.parse({ ...base, projectDirectory: "project-2" })
+      .projectDirectory,
+  ).toBe("project-2");
+  expect(
+    workspaceLaunchSchema.parse({ ...base, projectDirectory: "project-99" })
+      .projectDirectory,
+  ).toBe("project-99");
+  expect(workspaceLaunchSchema.parse(base).projectDirectory).toBeUndefined();
+  for (const projectDirectory of [
+    "project-1",
+    "project-01",
+    "project-100",
+    "../project",
+    "project/child",
+    "artifacts",
+  ])
+    expect(() =>
+      workspaceLaunchSchema.parse({ ...base, projectDirectory }),
+    ).toThrow();
 });
 
 test("generation prompt includes only the selected scope and difficulty policy", async () => {
