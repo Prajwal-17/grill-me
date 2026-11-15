@@ -5,6 +5,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  realpath,
   rm,
   stat,
   symlink,
@@ -33,7 +34,9 @@ import {
 const roots: string[] = [];
 
 async function tempRoot() {
-  const root = await mkdtemp(join(tmpdir(), "grill-project-tools-"));
+  const root = await realpath(
+    await mkdtemp(join(tmpdir(), "grill-project-tools-")),
+  );
   roots.push(root);
   return root;
 }

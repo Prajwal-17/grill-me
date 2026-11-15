@@ -20,7 +20,9 @@ const NativeWebSocket = WebSocket as unknown as {
 };
 const roots: string[] = [];
 const temp = async () => {
-  const path = await mkdtemp(join(tmpdir(), "grill-local-test-"));
+  const path = await realpath(
+    await mkdtemp(join(tmpdir(), "grill-local-test-")),
+  );
   roots.push(path);
   return path;
 };

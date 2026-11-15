@@ -961,13 +961,20 @@ describe("project preparation recovery", () => {
     );
     const challenge = await createChallenge(app, owner.id);
     await waitForStatus(app, owner.id, challenge.id, ["running"]);
+    // Stop only after the file that the resumed turn edits exists, otherwise
+    // resume keeps the journaled files and the edit target may still be missing.
     for (let attempt = 0; attempt < 200; attempt++) {
       try {
-        await stat(join(model.inputs[0]!.layout.projectRoot, "src", "main.ts"));
-        break;
+        const wiring = join(
+          model.inputs[0]!.layout.projectRoot,
+          "src",
+          "wiring.ts",
+        );
+        if ((await readFile(wiring, "utf8")).includes("wiringReady")) break;
       } catch {
-        await Bun.sleep(10);
+        // Keep polling until the write lands.
       }
+      await Bun.sleep(10);
     }
     await app.projectPreparations.stop();
     const interrupted = await waitForStatus(app, owner.id, challenge.id, [

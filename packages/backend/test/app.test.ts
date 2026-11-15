@@ -19,19 +19,29 @@ import type {
 import { AppError } from "@repo/backend/shared/errors/app-error";
 import type { ChallengeWorkspace } from "@repo/backend/shared/contracts";
 import { challengeWorkspacePath } from "@repo/backend/modules/challenges/workspace";
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generationPrompt } from "@repo/backend/modules/ai/prompts/index";
 import type { GeneratedQuiz } from "@repo/backend/modules/quizzes/quiz.schema";
 import type { QuizService } from "@repo/backend/modules/quizzes/quiz.service";
 import { fixtureSql } from "./fixture-sql";
 
-const testRoot = "/tmp/grill-me-tests-" + crypto.randomUUID();
+const testRoot = await realpath(
+  await mkdtemp(join(tmpdir(), "grill-me-tests-")),
+);
 process.env.SNAPSHOT_ROOT = testRoot + "/snapshots";
 process.env.UPLOAD_ROOT = testRoot + "/uploads";
 process.env.WORKSPACES_ROOT = testRoot + "/workspaces";
 afterAll(async () => {
-  const { rm } = await import("node:fs/promises");
   await rm(testRoot, { recursive: true, force: true });
 });
 
