@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "lint": "eslint src test --max-warnings 0",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate --config drizzle.sqlite.config.ts && bun run scripts/generate-migration-manifest.ts",
+    "db:check": "bun run scripts/generate-migration-manifest.ts --check"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "1.5.2",

@@ -108,10 +108,13 @@ Package-level checks are available with `bun run lint` and
   fallback used when the OS credential store is unavailable, and the file must
   never be world-readable.
 - SQLite is the only database runtime. Keep `schema.sqlite.ts`,
-  `schema.legacy.ts`, `drizzle/fresh.sql`,
-  `drizzle/0000_desktop.sql`, and every `PRAGMA user_version` step in
-  `db.sqlite.ts` in sync. Follow the compatibility rules below; existing practice
-  data must remain readable.
+  `schema.legacy.ts`, the generated SQL files under `drizzle/`, their
+  `drizzle/meta/` journal and snapshots, and the generated
+  `migration-files.ts` manifest in sync. Add schema changes with
+  `bun run --cwd packages/backend db:generate`, then bump `DATABASE_VERSION` in
+  `db.sqlite.ts` so startup backs up the previous database; do not add a
+  hand-maintained fresh-schema file. Follow the compatibility rules below;
+  existing practice data must remain readable.
 - Write through the shared database adapter (`db`, `first`, `lockRows`,
   `databaseNow`, `nextGenerationNumber`) so write notifications reach the
   renderer. Keep profile scoping in every query and never trust a profile ID

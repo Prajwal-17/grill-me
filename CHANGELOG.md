@@ -53,6 +53,11 @@
 
 ### Changed
 
+- Build the SQLite schema from generated Drizzle migrations instead of a
+  hand-maintained fresh schema. New installs apply the current baseline and
+  trigger migration, older databases run the frozen legacy upgrade once while
+  current databases are stamped as already migrated, and future schema changes
+  are generated with `bun run db:generate`.
 - Allocate challenge and quiz numbers from the stored rows instead of a
   separate counter table. Existing numbers stay unchanged, and the migration
   stops before renaming anything if a legacy counter disagrees with the stored

@@ -40,17 +40,21 @@ Rules:
 
 ## Fresh installs
 
-A fresh database is created from `drizzle/fresh.sql`. It contains only
-live tables, indexes, and triggers:
+A fresh database applies the generated Drizzle migrations in `drizzle/`.
+`0001_current_schema.sql` creates only live tables, indexes, and constraints;
+`0002_immutability_triggers.sql` adds the generation-number triggers. It
+contains:
 
 - no `*_legacy` tables,
 - no `ai_logs`, `ai_log_events`, `agent_runs`, or `agent_run_events`,
 - no `generation_counters`, `projects`, `submissions`, `review_jobs`,
   `verification_runs`, or `messages`.
 
-`0000_desktop.sql` stays on disk for the v1–v7 upgrade path but is not used to
-create a new database. Fresh and upgraded databases have the same live schema
-when compared without legacy objects.
+`0000_desktop.sql` is the historical v1 baseline kept for migration history and
+legacy test fixtures; it is recorded in `__drizzle_migrations` but not executed
+on a fresh install. Fresh and upgraded databases expose the same live tables,
+columns, indexes, and foreign keys; column order can differ after SQLite
+`ALTER TABLE` upgrades.
 
 ## Generation numbers
 
@@ -63,10 +67,17 @@ before renaming when they disagree.
 
 ## Migration and recovery
 
-Startup takes a verified backup before migration. Upgrade steps are append-only:
-v1–v7 run unchanged, then v8 freezes retired tables and adds the number check,
-v9 adds harness tables, and v10 moves `messages` to `messages_legacy`. A new
-install applies `fresh.sql` and sets `user_version = 10`.
+Startup takes a verified backup before migration. New installs apply the
+generated Drizzle migrations and set `user_version = 10`. Databases created by
+an earlier build below v10 run the frozen legacy upgrader once (v1–v7 steps
+unchanged, then v8 freezes retired tables and adds the number check, v9 adds
+harness tables, and v10 moves `messages` to `messages_legacy`); databases
+already at v10 are stamped as migrated. Both are then recorded in
+`__drizzle_migrations`. All later schema changes are added with
+`bun run --cwd packages/backend db:generate`; the frozen legacy path must not be
+extended. Use the app's migration runner rather than `drizzle-kit migrate`,
+because `0000_desktop.sql` is recorded as a historical marker instead of being
+executed on a fresh install.
 
 Use `bun scripts/migrate-check.ts <copy.sqlite>` to migrate a copy and print
 versions, tables, row-count changes, integrity, foreign keys, numbers, triggers,

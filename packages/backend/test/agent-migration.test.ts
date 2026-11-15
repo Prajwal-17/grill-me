@@ -275,6 +275,11 @@ test("v2 practice databases upgrade to the latest schema and preserve every reti
       integrity_check: "ok",
     });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
+    expect(
+      database.sqlite
+        .query("SELECT count(*) AS count FROM __drizzle_migrations")
+        .get(),
+    ).toEqual({ count: 3 });
     const names = tables(path);
     for (const name of [...liveTables, ...legacyTables])
       expect(names).toContain(name);
@@ -404,8 +409,55 @@ test("fresh databases create only live tables", async () => {
     expect(names).not.toContain("ai_logs");
     expect(names).not.toContain("generation_counters");
     expect(names).not.toContain("review_jobs");
+    expect(
+      database.sqlite
+        .query("SELECT count(*) AS count FROM __drizzle_migrations")
+        .get(),
+    ).toEqual({ count: 3 });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     await database.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a current database without a Drizzle journal is stamped without rewriting rows", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-drizzle-stamp-"));
+  const path = join(root, "grill-me.sqlite");
+  try {
+    const first = createSqliteDatabase(path);
+    await first.migrateDatabase();
+    first.sqlite
+      .query(
+        "INSERT INTO profiles (id, email, created_at, updated_at) VALUES (?, ?, ?, ?)",
+      )
+      .run("stamped-profile", "stamped@test.local", 1000, 1000);
+    const before = rows(path, ["profiles", "challenges", "harness_threads"]);
+    const schema = (database: typeof first) =>
+      database.sqlite
+        .query(
+          "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '__drizzle_migrations' ORDER BY name",
+        )
+        .all();
+    const schemaBefore = schema(first);
+    await first.close();
+
+    const raw = new Database(path);
+    raw.exec("DROP TABLE __drizzle_migrations");
+    raw.close();
+
+    const reopened = createSqliteDatabase(path);
+    await reopened.migrateDatabase();
+    expect(
+      reopened.sqlite
+        .query("SELECT count(*) AS count FROM __drizzle_migrations")
+        .get(),
+    ).toEqual({ count: 3 });
+    expect(rows(path, ["profiles", "challenges", "harness_threads"])).toEqual(
+      before,
+    );
+    expect(schema(reopened)).toEqual(schemaBefore);
+    await reopened.close();
   } finally {
     await rm(root, { recursive: true, force: true });
   }

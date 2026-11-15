@@ -5,6 +5,7 @@ import {
   createSqliteDatabase,
   DATABASE_VERSION,
 } from "../packages/backend/src/shared/database/db.sqlite";
+import { drizzleMigrations } from "../packages/backend/src/shared/database/migration-files";
 
 const LATEST_VERSION = DATABASE_VERSION;
 
@@ -135,6 +136,15 @@ async function main() {
     const foreignKeys = database.sqlite.query("PRAGMA foreign_key_check").all();
     const afterTables = tableNames(target);
     const after = counts(target, afterTables);
+    const appliedMigrations = afterTables.includes("__drizzle_migrations")
+      ? Number(
+          (
+            database.sqlite
+              .query("SELECT count(*) AS count FROM __drizzle_migrations")
+              .get() as { count: number }
+          ).count,
+        )
+      : 0;
 
     const renames: Record<string, string> = {
       projects: "projects_legacy",
@@ -164,6 +174,10 @@ async function main() {
     if (integrity !== "ok") problems.push(`integrity_check: ${integrity}`);
     if (foreignKeys.length) problems.push("foreign_key_check returned rows");
     if (missing.length) problems.push(`missing tables: ${missing.join(", ")}`);
+    if (appliedMigrations !== drizzleMigrations.length)
+      problems.push(
+        `expected ${drizzleMigrations.length} applied Drizzle migrations, got ${appliedMigrations}`,
+      );
 
     const afterChallenges = query(
       target,
@@ -242,7 +256,11 @@ async function main() {
           afterVersion,
           integrity,
           foreignKeys: foreignKeys.length,
-          liveTables: afterTables.filter((table) => !table.endsWith("_legacy")),
+          liveTables: afterTables.filter(
+            (table) =>
+              !table.endsWith("_legacy") && table !== "__drizzle_migrations",
+          ),
+          drizzleMigrations: appliedMigrations,
           legacyTables: afterTables.filter((table) =>
             table.endsWith("_legacy"),
           ),
