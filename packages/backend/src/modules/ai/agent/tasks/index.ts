@@ -10,3 +10,4 @@ export { enhancementTask } from "./enhancement";
 export { resumeTask } from "./resume";
 export { conversationTask, hintTask } from "./conversation";
 export { projectScaffoldTask } from "./project";
+export { reviewTask } from "./review";

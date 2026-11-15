@@ -23,6 +23,10 @@ import {
 import { createProfileRoutes } from "./modules/profiles/profile.routes";
 import { createProfileService } from "./modules/profiles/profile.service";
 import { createQuizRoutes } from "./modules/quizzes/quiz.routes";
+import { createReviewController } from "./modules/reviews/review.controller";
+import { reviewModel } from "./modules/reviews/review.model";
+import { createReviewRoutes } from "./modules/reviews/review.routes";
+import { createReviewService } from "./modules/reviews/review.service";
 import { createQuizService } from "./modules/quizzes/quiz.service";
 import { handleError } from "./shared/http/error-handler";
 import { createGenerationService } from "./modules/generations/generation.service";
@@ -75,6 +79,11 @@ export function createApp({
     workspaces,
     preparations: projectPreparations,
   });
+  const reviews = createReviewService({
+    challenges: challengeModel,
+    reviews: reviewModel,
+    llm,
+  });
   const messageService = createMessageService({
     challenges: challengeModel,
     messages: messageModel,
@@ -103,6 +112,7 @@ export function createApp({
     "/challenges",
     createMessageRoutes(createMessageController(messageService)),
   );
+  app.route("/challenges", createReviewRoutes(createReviewController(reviews)));
   const quizService = createQuizService(llm, challengeService, profileService);
   const generations = createGenerationService({
     profiles: profileService,

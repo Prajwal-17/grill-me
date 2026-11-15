@@ -7,6 +7,7 @@ import type {
   HarnessTransport,
   HarnessTurnStatus,
   AgentPermissionMode,
+  ChallengeReviewResult,
   ProjectCommandResult,
   ProjectFrozenSpecification,
   ProjectPreparationMode,
@@ -120,6 +121,50 @@ export const challenges = sqliteTable(
     uniqueIndex("challenges_profile_number_unique").on(
       table.profileId,
       table.number,
+    ),
+  ],
+);
+
+// One row per explicit review. Reviews are appended, never overwritten, so a
+// later attempt keeps the earlier scorecard readable.
+export const challengeReviews = sqliteTable(
+  "challenge_reviews",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    challengeId: text("challenge_id")
+      .notNull()
+      .references(() => challenges.id, { onDelete: "cascade" }),
+    verdict: text("verdict", {
+      enum: ["meets", "partly_meets", "does_not_meet"],
+    }).notNull(),
+    criteriaMet: integer("criteria_met").notNull(),
+    criteriaTotal: integer("criteria_total").notNull(),
+    result: jsonb("result").$type<ChallengeReviewResult>().notNull(),
+    model: text("model").notNull(),
+    threadId: text("thread_id"),
+    createdAt: timestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("challenge_reviews_challenge_created_idx").on(
+      table.challengeId,
+      table.createdAt,
+    ),
+    index("challenge_reviews_profile_created_idx").on(
+      table.profileId,
+      table.createdAt,
+    ),
+    check(
+      "challenge_reviews_verdict_check",
+      sql`${table.verdict} in ('meets','partly_meets','does_not_meet')`,
+    ),
+    check(
+      "challenge_reviews_counts_check",
+      sql`${table.criteriaMet} between 0 and ${table.criteriaTotal} and ${table.criteriaTotal} > 0`,
     ),
   ],
 );

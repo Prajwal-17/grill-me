@@ -138,8 +138,8 @@ Package-level checks are available with `bun run lint` and
   instead of leaking raw stderr or credentials. OpenCode gets an isolated home
   per provider; Codex uses its configured home and reuses the host CLI login by
   default.
-- Reviews inspect submitted snapshots with read-only tools and must never execute
-  submitted code. Preserve the explicit, user-controlled completion, scoring,
+- Reviews inspect the challenge workspace with read-only tools and must never
+  execute submitted code. Preserve the explicit, user-controlled completion, scoring,
   and quiz autosave semantics.
 - `packages/backend` must stay side-effect free on import. `createBackend`
   initializes the database, recovers interrupted work, and returns the app.

@@ -16,7 +16,7 @@ import {
   stampDrizzleMigrations,
 } from "./migration-runner";
 
-export const DATABASE_VERSION = 11;
+export const DATABASE_VERSION = 12;
 const LATEST_VERSION = DATABASE_VERSION;
 /**
  * The frozen legacy upgrader in `legacy-migrations.ts` writes this schema.

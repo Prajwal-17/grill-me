@@ -21,6 +21,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Markdown } from "@/shared/components/markdown";
 import { ChallengeCard } from "@/features/challenges/components/challenge-card";
 import { ChallengeWorkspaceSection } from "@/features/challenges/components/challenge-workspace";
+import { ChallengeReviewSection } from "@/features/challenges/components/challenge-review";
 import { CopyButton } from "@/shared/components/ui/copy-button";
 import { statementMarkdown } from "@/features/challenges/lib/challenge-statement";
 import {
@@ -308,6 +309,11 @@ export function PracticeWorkspace({
                     challenge={challenge}
                     focusProject={focusProject}
                     onProjectFocus={() => setFocusProject(false)}
+                  />
+                  <ChallengeReviewSection
+                    profileId={profile.id}
+                    challenge={challenge}
+                    enabled={!archived}
                   />
                   {active && (
                     <div className="flex gap-2">

@@ -5,6 +5,7 @@ export type AgentOperation =
   | "generation"
   | "clarify"
   | "hint"
+  | "review"
   | "quiz_generation"
   | "quiz_title_generation"
   | "prompt_enhancement"

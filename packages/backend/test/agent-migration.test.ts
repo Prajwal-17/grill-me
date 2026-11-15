@@ -269,7 +269,7 @@ test("v2 practice databases upgrade to the latest schema and preserve every reti
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 11,
+      user_version: 12,
     });
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
       integrity_check: "ok",
@@ -279,7 +279,7 @@ test("v2 practice databases upgrade to the latest schema and preserve every reti
       database.sqlite
         .query("SELECT count(*) AS count FROM __drizzle_migrations")
         .get(),
-    ).toEqual({ count: 4 });
+    ).toEqual({ count: 5 });
     const names = tables(path);
     for (const name of [...liveTables, ...legacyTables])
       expect(names).toContain(name);
@@ -451,7 +451,7 @@ test("fresh databases create only live tables", async () => {
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 11,
+      user_version: 12,
     });
     const names = tables(path);
     for (const name of liveTables) expect(names).toContain(name);
@@ -463,7 +463,7 @@ test("fresh databases create only live tables", async () => {
       database.sqlite
         .query("SELECT count(*) AS count FROM __drizzle_migrations")
         .get(),
-    ).toEqual({ count: 4 });
+    ).toEqual({ count: 5 });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     await database.close();
   } finally {
@@ -502,7 +502,7 @@ test("a current database without a Drizzle journal is stamped without rewriting 
       reopened.sqlite
         .query("SELECT count(*) AS count FROM __drizzle_migrations")
         .get(),
-    ).toEqual({ count: 4 });
+    ).toEqual({ count: 5 });
     expect(rows(path, ["profiles", "challenges", "harness_threads"])).toEqual(
       before,
     );

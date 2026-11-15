@@ -660,6 +660,51 @@ export const projectFrozenSpecificationSchema = z.object({
 export type ProjectFrozenSpecification = z.infer<
   typeof projectFrozenSpecificationSchema
 >;
+export const reviewCriterionStatusSchema = z.enum(["pass", "partial", "fail"]);
+export type ReviewCriterionStatus = z.infer<typeof reviewCriterionStatusSchema>;
+export const reviewCriterionSchema = z.object({
+  criterion: z.string().trim().min(1).max(320),
+  status: reviewCriterionStatusSchema,
+  evidence: z.string().trim().min(1).max(240),
+  path: z.string().trim().max(300).nullable().default(null),
+  line: z.number().int().positive().nullable().default(null),
+});
+export type ReviewCriterion = z.infer<typeof reviewCriterionSchema>;
+export const reviewFindingSchema = z.object({
+  problem: z.string().trim().min(1).max(200),
+  fix: z.string().trim().min(1).max(200),
+});
+export type ReviewFinding = z.infer<typeof reviewFindingSchema>;
+export const challengeReviewVerdictSchema = z.enum([
+  "meets",
+  "partly_meets",
+  "does_not_meet",
+]);
+export type ChallengeReviewVerdict = z.infer<
+  typeof challengeReviewVerdictSchema
+>;
+/** The model's answer. The verdict and counts are derived, never supplied. */
+export const challengeReviewResultSchema = z.object({
+  criteria: z.array(reviewCriterionSchema).min(1).max(8),
+  strengths: z.array(z.string().trim().min(1).max(200)).max(3).default([]),
+  improvements: z.array(reviewFindingSchema).max(3).default([]),
+  nextStep: z.string().trim().min(1).max(200),
+});
+export type ChallengeReviewResult = z.infer<typeof challengeReviewResultSchema>;
+export const challengeReviewSchema = z.object({
+  id: z.string().uuid(),
+  profileId: z.string().uuid(),
+  challengeId: z.string().uuid(),
+  verdict: challengeReviewVerdictSchema,
+  criteriaMet: z.number().int().min(0),
+  criteriaTotal: z.number().int().min(1),
+  result: challengeReviewResultSchema,
+  model: z.string().max(200),
+  threadId: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type ChallengeReview = z.infer<typeof challengeReviewSchema>;
+
 export const projectFileRoleSchema = z.enum([
   "source",
   "config",

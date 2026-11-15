@@ -1047,7 +1047,7 @@ test("the latest schema keeps a defaulted preparation mode without touching olde
     const version = (
       db.sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    expect(version).toBe(11);
+    expect(version).toBe(12);
     const columns = db.sqlite
       .query("PRAGMA table_info(project_preparations)")
       .all() as { name: string; dflt_value: string | null; notnull: number }[];

@@ -81,6 +81,7 @@ export function GenerationMonitor() {
                   "quiz-attempts",
                   "progress",
                 ],
+                challenge_reviews: ["challenge-reviews"],
                 project_preparations: ["project-preparation"],
                 project_command_requests: ["project-preparation"],
                 harness_threads: ["harness-threads", "harness-thread"],

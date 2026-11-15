@@ -68,6 +68,40 @@ export type Challenge = {
   completedAt: string | null;
 };
 
+export type ReviewCriterionStatus = "pass" | "partial" | "fail";
+
+export type ReviewCriterion = {
+  criterion: string;
+  status: ReviewCriterionStatus;
+  evidence: string;
+  path: string | null;
+  line: number | null;
+};
+
+export type ReviewFinding = { problem: string; fix: string };
+
+export type ChallengeReviewVerdict = "meets" | "partly_meets" | "does_not_meet";
+
+export type ChallengeReviewResult = {
+  criteria: ReviewCriterion[];
+  strengths: string[];
+  improvements: ReviewFinding[];
+  nextStep: string;
+};
+
+export type ChallengeReview = {
+  id: string;
+  profileId: string;
+  challengeId: string;
+  verdict: ChallengeReviewVerdict;
+  criteriaMet: number;
+  criteriaTotal: number;
+  result: ChallengeReviewResult;
+  model: string;
+  threadId: string | null;
+  createdAt: string;
+};
+
 export type MessageMode = "generate" | "clarify" | "review" | "hint";
 
 export type MessageAttachment = {

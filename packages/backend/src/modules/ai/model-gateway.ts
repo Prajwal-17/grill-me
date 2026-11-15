@@ -13,6 +13,7 @@ import type {
 } from "../messages/message.schema";
 import type {
   AgentPermissionMode,
+  ChallengeReviewResult,
   ModelSelection,
   ProjectCommand,
   ProjectFrozenSpecification,
@@ -141,6 +142,16 @@ export type ProjectScaffoldModelInput = {
   commandResults?: () => Promise<ProjectCommand[]>;
 };
 
+export type ReviewModelInput = {
+  profileId: string;
+  challengeId: string;
+  challenge: Challenge;
+  workspacePath: string;
+  selection?: ModelSelection;
+  signal?: AbortSignal;
+  harness?: HarnessRunRequest;
+};
+
 export interface ModelGateway {
   enhanceBuildPrompt?(input: {
     profileId: string;
@@ -164,6 +175,7 @@ export interface ModelGateway {
     harness?: HarnessRunRequest;
   }): Promise<{ prompt: string }>;
 
+  reviewChallenge?(input: ReviewModelInput): Promise<ChallengeReviewResult>;
   prepareBuild(
     input: Omit<BuildModelInput, "clarificationContext">,
   ): Promise<ChallengePreparation>;

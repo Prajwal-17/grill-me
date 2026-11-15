@@ -37,6 +37,14 @@
   files can be read and written, and shell commands can process downloads
   before the result is written.
 
+#### Challenge review
+
+- Review an attempt against the challenge's own completion criteria. The review
+  reads the workspace, marks every criterion pass, partial, or fail with the
+  file and line that shows why, lists up to three things done right and three to
+  fix first, and gives one next step. It never runs the submitted code, and
+  earlier reviews stay readable.
+
 #### Project preparation
 
 - Prepare a guided project after each generated challenge. Grill Me freezes the

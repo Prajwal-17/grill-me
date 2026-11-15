@@ -19,9 +19,11 @@ import {
   quizTask,
   quizTitleTask,
   resumeTask,
+  reviewTask,
 } from "./tasks";
 import { createProjectTools, projectToolJournalContext } from "./tools/project";
 import { createProjectCommandTool } from "./tools/command";
+import { createReviewTools, reviewWorkspaceInventory } from "./tools/review";
 
 export function createPiGateway(runtime: AgentRuntime): ModelGateway {
   const executor = createAgentExecutor({
@@ -111,6 +113,30 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
         quizTitleTask(input),
       );
       return result.value.title;
+    },
+
+    async reviewChallenge(input) {
+      const inventory = await reviewWorkspaceInventory(input.workspacePath);
+      const result = await executor.structured(
+        {
+          profileId: input.profileId,
+          operation: "review",
+          challengeId: input.challengeId,
+          resourceKind: "challenge",
+          resourceId: input.challengeId,
+          preview: `Review #${input.challenge.number} ${input.challenge.title}`,
+          selection: input.selection,
+          signal: input.signal,
+          harness: input.harness,
+        },
+        reviewTask({
+          ...input,
+          inventory: inventory.files,
+          truncated: inventory.truncated,
+        }),
+        { tools: createReviewTools(inventory.root) },
+      );
+      return result.value;
     },
 
     async prepareBuild(input) {
