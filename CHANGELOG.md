@@ -4,6 +4,9 @@
 
 ### Added
 
+- Open the development or production SQLite database in Drizzle Studio with
+  `bun run db:studio:dev` or `bun run db:studio:prod`. Both use the saved data
+  folder and still honor `GRILL_ME_SQLITE_PATH`.
 - Record every agent run as a durable harness thread with turns, ordered
   transcript items, tool calls, approvals, questions, token usage, and stop or
   retry controls. Challenge generation, quiz generation, project preparation,

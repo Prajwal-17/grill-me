@@ -110,5 +110,22 @@ Browser/Electron E2E suites and their CI steps have been removed. Focused tests
 use temporary data and fake providers, with no production database or paid model
 calls. SQL migration history is retained as source history, not a deployment path.
 
+## Inspecting the database
+
+```sh
+bun run db:studio:dev   # development edition
+bun run db:studio:prod  # production edition
+```
+
+Open <https://local.drizzle.studio> to browse the selected database through the
+local Studio server on port 4983. On Linux, development uses
+`~/.config/grill-me-desktop-dev/grill-me.sqlite` and production uses
+`~/.config/grill-me-desktop/grill-me.sqlite`; macOS uses the corresponding
+`~/Library/Application Support` folders. Both commands honor the saved first-run
+data folder and can be pointed elsewhere with
+`GRILL_ME_SQLITE_PATH=/path/to/grill-me.sqlite`. The production command only
+opens production data when explicitly requested. Studio can edit rows; use the
+read-only backup path rather than hand-editing data you want to keep.
+
 The frontend lives in `apps/web`; Electron renders that Vite app. The backend and
 its shared transport contracts and preference options live in `packages/backend`.
