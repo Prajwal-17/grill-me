@@ -19,8 +19,9 @@ module.exports = async (context) => {
   for (const file of [
     join(backend, "node_modules/@napi-rs/keyring/index.js"),
     join(nativeRoot, native.main),
+    join(resources, "onboarding/index.html"),
   ]) {
     if (!statSync(file).isFile())
-      throw new Error(`Packaged credential-storage module is missing: ${file}`);
+      throw new Error(`Packaged desktop resource is missing: ${file}`);
   }
 };

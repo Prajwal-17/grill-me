@@ -1,12 +1,22 @@
 import { Database } from "bun:sqlite";
-import { readFile, writeFile, chmod } from "node:fs/promises";
-import { join } from "node:path";
+import { constants } from "node:fs";
+import {
+  access,
+  readFile,
+  writeFile,
+  chmod,
+  mkdir,
+  stat,
+} from "node:fs/promises";
+import { join, sep } from "node:path";
 import { parse } from "dotenv";
 import { z } from "zod";
 import {
   providerSchema,
   providerInputSchema,
   runtimeSettingsSchema,
+  workspacePreferenceSchema,
+  isSelectableWorkspacePath,
   defaultProviderSettings,
   credentialStorageSchema,
   type CredentialStorage,
@@ -19,8 +29,11 @@ import {
   type LocalSettings,
   type RuntimeSettings,
   type SettingsApi,
+  type WorkspacePreference,
 } from "@repo/backend/shared/contracts";
 import { AppError } from "../shared/errors/app-error";
+import { workspacesPath } from "../shared/storage/paths";
+import { canonicalPath } from "../shared/storage/canonical-path";
 import { changed } from "./changes";
 import type { CliProviders } from "./providers";
 import { apiModels } from "./providers/api";
@@ -43,6 +56,7 @@ const documentSchema = z.object({
   activeProviderId: z.string().uuid().nullable(),
   disconnectedProviders: z.array(z.string().uuid()).default([]),
   runtime: runtimeSettingsSchema,
+  workspace: workspacePreferenceSchema.default({ root: "" }),
   migrated: z.boolean().default(false),
 });
 type StoredDocument = z.infer<typeof documentSchema>;
@@ -78,6 +92,8 @@ export function createSettingsService(
     cli?: CliProviders;
     agent?: AgentIntegration;
     channel?: "development" | "production";
+    /** First-run workspace choice; an explicitly saved setting still wins. */
+    workspaceDefault?: string;
   } = {},
 ) {
   let agent = options.agent;
@@ -106,6 +122,7 @@ export function createSettingsService(
         activeProviderId: null,
         disconnectedProviders: [],
         runtime: runtimeSettingsSchema.parse({}),
+        workspace: workspacePreferenceSchema.parse({}),
         migrated: false,
       };
   for (const id of document.disconnectedProviders) options.cli?.disconnect(id);
@@ -159,6 +176,50 @@ export function createSettingsService(
       );
     }
   };
+  const defaultWorkspaceRoot = () =>
+    options.workspaceDefault &&
+    isSelectableWorkspacePath(options.workspaceDefault)
+      ? options.workspaceDefault
+      : workspacesPath();
+  const workspaceRoot = () => document.workspace.root || defaultWorkspaceRoot();
+  async function saveWorkspace(input: WorkspacePreference) {
+    const parsed = workspacePreferenceSchema.parse(input);
+    let root = "";
+    if (parsed.root) {
+      if (!isSelectableWorkspacePath(parsed.root))
+        throw new AppError(
+          "WORKSPACE_ROOT_INVALID",
+          "Choose an absolute workspace folder other than the filesystem root.",
+          400,
+        );
+      try {
+        await mkdir(parsed.root, { recursive: true, mode: 0o700 });
+        const canonical = await canonicalPath(parsed.root);
+        if (canonical === sep)
+          throw new AppError(
+            "WORKSPACE_ROOT_INVALID",
+            "Choose an absolute workspace folder other than the filesystem root.",
+            400,
+          );
+        if (!(await stat(canonical)).isDirectory())
+          throw new Error("Not a directory");
+        await access(
+          canonical,
+          constants.R_OK | constants.W_OK | constants.X_OK,
+        );
+        root = canonical;
+      } catch (error) {
+        if (error instanceof AppError) throw error;
+        throw new AppError(
+          "WORKSPACE_ROOT_UNAVAILABLE",
+          "The workspace folder could not be created or used. Check the path and permissions, or choose another folder.",
+          400,
+        );
+      }
+    }
+    persist({ ...document, workspace: { root } });
+    return get();
+  }
   const get: SettingsApi["get"] = async () => {
     const status = await keyring.status();
     const providers = await Promise.all(
@@ -181,6 +242,10 @@ export function createSettingsService(
       providers,
       activeProviderId: document.activeProviderId,
       runtime: document.runtime,
+      workspace: {
+        root: document.workspace.root || defaultWorkspaceRoot(),
+        defaultRoot: defaultWorkspaceRoot(),
+      },
       keyring: status,
       migration: {
         pending: Boolean(old),
@@ -337,6 +402,7 @@ export function createSettingsService(
         applyRuntime();
         return get();
       }),
+    saveWorkspace: (input) => exclusive(() => saveWorkspace(input)),
     testProvider: async (id) => {
       try {
         const value = await snapshot(id);
@@ -404,6 +470,7 @@ export function createSettingsService(
         codexModel: old.CODEX_MODEL ?? "",
         contextTokens: Number(old.DIRECT_REVIEW_CONTEXT_TOKENS ?? 12000),
         judgeTimeoutMs: Number(old.JUDGE_TIMEOUT_MS ?? 900000),
+        agentPermissions: document.runtime.agentPermissions,
       });
       const text = await readFile(legacyPath, "utf8");
       await writeFile(
@@ -516,6 +583,8 @@ export function createSettingsService(
     ...api,
     snapshot,
     runtime: () => ({ ...document.runtime }),
+    workspaceRoot,
+    defaultWorkspaceRoot,
     provider,
     setProviderEnabled: (id: string, enabled: boolean) =>
       exclusive(async () => {

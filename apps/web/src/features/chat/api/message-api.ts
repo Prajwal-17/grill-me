@@ -6,7 +6,7 @@ import type {
   ModelSelection,
 } from "@/shared/types/api";
 
-export type ComposerMode = "clarify" | "review";
+export type ComposerMode = "clarify";
 
 export function getMessages(profileId: string, challengeId: string) {
   return apiRequest<ChatMessage[]>(

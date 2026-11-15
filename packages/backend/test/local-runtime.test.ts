@@ -6,6 +6,7 @@ import {
   readFile,
   writeFile,
   chmod,
+  realpath,
   stat,
 } from "node:fs/promises";
 import { join } from "node:path";
@@ -70,6 +71,87 @@ test("new-provider defaults follow the edition and saved model/reasoning choices
     expect(await settings.snapshot(legacy.id)).not.toHaveProperty(
       "reasoningEffort",
     );
+  } finally {
+    settings.close();
+  }
+});
+
+test("workspace folders persist across restarts and reject invalid locations", async () => {
+  const root = await temp();
+  const folder = join(await temp(), "Grill Me Workspaces");
+  let settings = createSettingsService(root, {
+    keyring: memorySecretStore(),
+  });
+  try {
+    const initial = await settings.get();
+    expect(initial.workspace.root).toBe(initial.workspace.defaultRoot);
+    const saved = await settings.saveWorkspace({ root: folder });
+    const canonical = await realpath(folder);
+    expect(saved.workspace).toMatchObject({
+      root: canonical,
+      defaultRoot: initial.workspace.defaultRoot,
+    });
+    expect(settings.workspaceRoot()).toBe(canonical);
+    settings.close();
+
+    settings = createSettingsService(root, {
+      keyring: memorySecretStore(),
+    });
+    expect((await settings.get()).workspace.root).toBe(canonical);
+    expect(settings.workspaceRoot()).toBe(canonical);
+
+    const reset = await settings.saveWorkspace({ root: "" });
+    expect(reset.workspace.root).toBe(reset.workspace.defaultRoot);
+    expect(settings.workspaceRoot()).toBe(reset.workspace.defaultRoot);
+
+    await expect(
+      settings.saveWorkspace({ root: "relative/workspace" }),
+    ).rejects.toMatchObject({ code: "WORKSPACE_ROOT_INVALID" });
+    await expect(
+      settings.saveWorkspace({ root: "/tmp/.." }),
+    ).rejects.toMatchObject({ code: "WORKSPACE_ROOT_INVALID" });
+    const backslash = join(await temp(), "legal\\backslash");
+    const savedBackslash = await settings.saveWorkspace({ root: backslash });
+    expect(savedBackslash.workspace.root).toBe(backslash);
+    const file = join(await temp(), "not-a-folder");
+    await writeFile(file, "fixture");
+    await expect(settings.saveWorkspace({ root: file })).rejects.toMatchObject({
+      code: "WORKSPACE_ROOT_UNAVAILABLE",
+    });
+  } finally {
+    settings.close();
+  }
+});
+
+test("a first-run workspace default is used until the user saves another root", async () => {
+  const root = await temp();
+  const firstRun = join(await temp(), "Grill Me Workspaces");
+  let settings = createSettingsService(root, {
+    keyring: memorySecretStore(),
+    workspaceDefault: firstRun,
+  });
+  try {
+    const initial = await settings.get();
+    expect(initial.workspace).toEqual({
+      root: firstRun,
+      defaultRoot: firstRun,
+    });
+    expect(settings.workspaceRoot()).toBe(firstRun);
+    const reset = await settings.saveWorkspace({ root: "" });
+    expect(reset.workspace.root).toBe(firstRun);
+    const custom = join(await temp(), "practice");
+    const saved = await settings.saveWorkspace({ root: custom });
+    expect(saved.workspace.root).toBe(await realpath(custom));
+    expect(saved.workspace.defaultRoot).toBe(firstRun);
+    settings.close();
+
+    settings = createSettingsService(root, {
+      keyring: memorySecretStore(),
+      workspaceDefault: firstRun,
+    });
+    expect((await settings.get()).workspace.root).toBe(await realpath(custom));
+    const backToDefault = await settings.saveWorkspace({ root: "" });
+    expect(backToDefault.workspace.root).toBe(firstRun);
   } finally {
     settings.close();
   }
@@ -534,7 +616,7 @@ test("malformed and duplicate frames cannot repeat a mutation", async () => {
   }
 });
 
-test("configured provider endpoint, key and model drive local AI calls without leaking keys into logs", async () => {
+test("configured provider endpoint, key and model drive local AI calls without leaking keys into transcripts", async () => {
   const secret = "provider-integration-fixture-secret";
   let authorization = "";
   let requestedModel = "";
@@ -661,10 +743,23 @@ test("configured provider endpoint, key and model drive local AI calls without l
     expect(preview.type).toBe("result");
     expect(authorization).toBe(`Bearer ${secret}`);
     expect(requestedModel).toBe("configured-fixture-model");
-    const logs = await call("/logs", "GET", undefined, profile.data.id);
-    expect(logs.type).toBe("result");
-    expect(logs.data.items.length).toBeGreaterThan(0);
-    expect(JSON.stringify(logs)).not.toContain(secret);
+    const threads = await call(
+      "/harness?kind=resume_import",
+      "GET",
+      undefined,
+      profile.data.id,
+    );
+    expect(threads.type).toBe("result");
+    expect(threads.data.length).toBeGreaterThan(0);
+    const detail = await call(
+      `/harness/${threads.data[0].id}`,
+      "GET",
+      undefined,
+      profile.data.id,
+    );
+    expect(detail.type).toBe("result");
+    expect(detail.data.turns.length).toBeGreaterThan(0);
+    expect(JSON.stringify(detail)).not.toContain(secret);
   } finally {
     ws.close();
     await provider.stop(true);

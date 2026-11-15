@@ -40,11 +40,17 @@ test("development and production have separate persistent identities and setting
     "appId",
     "productName",
     "dataDirectory",
+    "dataFolderName",
+    "workspaceFolderName",
     "partition",
     "storageKey",
   ] as const)
     expect(dev[key]).not.toBe(prod[key]);
   expect(dev.dataDirectory).toBe("grill-me-desktop-dev");
+  expect(prod.dataFolderName).toBe("Grill Me");
+  expect(dev.dataFolderName).toBe("Grill Me Dev");
+  expect(prod.workspaceFolderName).toBe("Grill Me Workspaces");
+  expect(dev.workspaceFolderName).toBe("Grill Me Dev Workspaces");
   expect(() => desktopIdentity("invalid" as "production")).toThrow();
   const root = await mkdtemp(join(tmpdir(), "grill-editions-"));
   const services = [];

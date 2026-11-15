@@ -19,6 +19,7 @@ import {
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
 import { useToastError } from "@/shared/components/ui/toast";
+import { HarnessTranscript } from "@/features/harness";
 import { cancelGeneration, retryGeneration } from "../api/generation-api";
 import {
   useGenerationJobs,
@@ -138,6 +139,19 @@ export function GenerationJobRow({
           </p>
         </div>
         <JobActions job={job} onOpen={onOpen} />
+        {job.harnessThreadId && (
+          <details className="rounded border border-line bg-canvas px-2 py-1.5">
+            <summary className="cursor-pointer text-metadata text-muted hover:text-foreground">
+              Run transcript
+            </summary>
+            <div className="mt-2">
+              <HarnessTranscript
+                profileId={job.profileId}
+                threadId={job.harnessThreadId}
+              />
+            </div>
+          </details>
+        )}
       </div>
       {onClear && (
         <Button

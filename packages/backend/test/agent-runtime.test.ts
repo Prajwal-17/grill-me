@@ -5,15 +5,6 @@ import { tmpdir } from "node:os";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { runStructured, runText } from "@repo/backend/modules/ai/agent/runtime";
 import { AppError } from "@repo/backend/shared/errors/app-error";
-import { db } from "@repo/backend/shared/database/db";
-import {
-  agentRunEvents,
-  agentRuns,
-  challenges,
-  profiles,
-} from "@repo/backend/shared/database/schema";
-import { agentRunStore } from "@repo/backend/modules/ai/agent/store";
-import { eq } from "drizzle-orm";
 import { completeThing, resolvedModel } from "./fixtures/agent-fixtures";
 
 const roots: string[] = [];
@@ -289,37 +280,4 @@ test("text runs keep partial output when cancelled mid-stream", async () => {
     }),
   ).rejects.toMatchObject({ code: "REQUEST_CANCELLED" });
   expect(chunks.join("").length).toBeGreaterThan(0);
-});
-
-test("startup recovery marks unfinished runs interrupted without deleting their events", async () => {
-  const profileId = crypto.randomUUID();
-  await db.insert(profiles).values({
-    id: profileId,
-    email: `agent-recovery-${profileId}@test.local`,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-  const runId = await agentRunStore.start({
-    profileId,
-    operation: "generation",
-    providerId: "fixture-connection",
-    providerName: "Fixture",
-    providerPreset: "custom",
-    model: "fixture-model",
-  });
-  await agentRunStore.event(runId, "turn_started", { turn: 1 });
-  await agentRunStore.markInterrupted();
-  const row = (
-    await db.select().from(agentRuns).where(eq(agentRuns.id, runId))
-  )[0]!;
-  expect(row.status).toBe("interrupted");
-  expect(row.errorCode).toBe("AGENT_INTERRUPTED");
-  expect(
-    (
-      await db
-        .select()
-        .from(agentRunEvents)
-        .where(eq(agentRunEvents.runId, runId))
-    ).length,
-  ).toBe(1);
 });

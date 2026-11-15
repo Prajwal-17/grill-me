@@ -77,8 +77,6 @@ Preserve the developer's implementation work. Never reveal the challenge's compl
         difficulty: challenge.difficulty,
         problemStatement: challenge.problemStatement,
         completionCriteria: challenge.completionCriteria,
-        constraints: challenge.constraints,
-        starterCode: challenge.starterCode,
         implementationBoundary: challenge.implementationBoundary,
       },
       previousQuestions: input.previousQuestions,

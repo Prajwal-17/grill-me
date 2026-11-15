@@ -42,6 +42,12 @@ export function uploadsPath() {
   return resolve(configured("UPLOAD_ROOT") ?? join(appConfigRoot(), "uploads"));
 }
 
+export function workspacesPath() {
+  return resolve(
+    configured("WORKSPACES_ROOT") ?? join(appConfigRoot(), "workspaces"),
+  );
+}
+
 export function evaluationsPath() {
   return resolve(
     configured("EVALUATION_ROOT") ?? join(appConfigRoot(), "evaluations"),

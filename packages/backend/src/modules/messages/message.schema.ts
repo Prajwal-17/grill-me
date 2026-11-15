@@ -160,7 +160,7 @@ export const messageSchema = z.object({
 export const createMessageRequestSchema = z
   .object({
     content: z.string().trim().default(""),
-    mode: z.enum(["clarify", "review"]),
+    mode: z.literal("clarify").default("clarify"),
     attachments: z.array(messageAttachmentSchema).default([]),
     selection: modelSelectionSchema.optional(),
   })
@@ -170,13 +170,6 @@ export const createMessageRequestSchema = z
         code: "custom",
         message: "Add a message or attach at least one file.",
         path: ["content"],
-      });
-    }
-    if (input.attachments.length > 0 && input.mode !== "review") {
-      context.addIssue({
-        code: "custom",
-        message: "Attachments can only be submitted for solution review.",
-        path: ["mode"],
       });
     }
   });

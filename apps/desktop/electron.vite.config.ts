@@ -21,8 +21,14 @@ export default defineConfig(({ mode }) => {
     preload: {
       build: {
         rollupOptions: {
-          input: { index: resolve(import.meta.dirname, "src/preload.ts") },
-          output: { format: "cjs", entryFileNames: "index.cjs" },
+          input: {
+            index: resolve(import.meta.dirname, "src/preload.ts"),
+            onboarding: resolve(
+              import.meta.dirname,
+              "src/onboarding-preload.ts",
+            ),
+          },
+          output: { format: "cjs", entryFileNames: "[name].cjs" },
         },
       },
     },

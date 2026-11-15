@@ -15,6 +15,7 @@ export function backendEnvironment(input: {
   webOrigin?: string;
   workerPath?: string;
   keyringModule?: string;
+  workspaceDefaultRoot?: string;
   settings: Record<string, string>;
   inherited?: NodeJS.ProcessEnv;
 }) {
@@ -62,6 +63,9 @@ export function backendEnvironment(input: {
     GRILL_ME_DESKTOP: "1",
     GRILL_ME_HOME: input.dataRoot,
     GRILL_ME_SQLITE_PATH: join(input.dataRoot, "grill-me.sqlite"),
+    ...(input.workspaceDefaultRoot
+      ? { GRILL_ME_WORKSPACE_DEFAULT: input.workspaceDefaultRoot }
+      : {}),
     DESKTOP_API_TOKEN: input.token,
     API_PORT: String(input.port),
     DESKTOP_RENDERER_ROOT: input.rendererRoot,

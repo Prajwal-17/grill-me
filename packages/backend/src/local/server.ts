@@ -17,6 +17,7 @@ import { configuredModel } from "./model";
 import type { SecretStore } from "./secrets";
 import { backupBeforeMigration } from "./backup";
 import { createSocketHub, socketHandler } from "./socket";
+import { setHarnessPermissionModeProvider } from "../modules/harness/harness.service";
 
 export type LocalServerOptions = {
   dataRoot: string;
@@ -26,6 +27,8 @@ export type LocalServerOptions = {
   rendererRoot?: string;
   keyring?: SecretStore;
   keyringModule?: string;
+  /** Default for new challenge folders when no workspace setting exists. */
+  workspaceDefaultRoot?: string;
 };
 function ownDirectory(root: string) {
   mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -98,46 +101,14 @@ export async function startLocalServer(options: LocalServerOptions) {
     settings = createSettingsService(root, {
       keyring: options.keyring,
       modulePath: options.keyringModule,
+      workspaceDefault: options.workspaceDefaultRoot,
     });
     const config = settings;
+    setHarnessPermissionModeProvider(() => config.runtime().agentPermissions);
     runtime = await createBackend({
       database: { dialect: "sqlite", path: join(root, "grill-me.sqlite") },
       llm: configuredModel(settings),
-      providerStatus: async () => {
-        try {
-          const provider = await config.snapshot();
-          const status = await config.testProvider(provider.id);
-          return {
-            configured: true,
-            online: status.ok,
-            message: status.message,
-          };
-        } catch (error) {
-          return {
-            configured: false,
-            online: false,
-            message:
-              error instanceof
-              (await import("../shared/errors/app-error")).AppError
-                ? error.message
-                : "Configure an AI provider in Settings.",
-          };
-        }
-      },
-      providerModels: async () => {
-        const provider = await config.snapshot();
-        const models = await config.models(provider.id);
-        return {
-          models: models.map((model) => ({
-            id: model.id,
-            label: model.name,
-          })),
-          defaultModel:
-            provider.model === "auto"
-              ? (models[0]?.id ?? "auto")
-              : provider.model,
-        };
-      },
+      workspaceRoot: () => config.workspaceRoot(),
       webOrigin: options.origins.join(","),
     });
     const backend = runtime;

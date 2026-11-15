@@ -64,8 +64,8 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
       <SettingsFeedback error={change.error} />
       {!api.length && (
         <p className="mt-4 text-supporting text-muted">
-          Add an API connection to generate challenges, quizzes, hints,
-          discussions, and reviews. CLI integrations are inactive.
+          Add an API connection to generate challenges, quizzes, hints, and
+          discussions. CLI integrations are inactive.
         </p>
       )}
       <div className="mt-6 overflow-hidden rounded-lg bg-surface">

@@ -17,6 +17,8 @@ extraResources:
     to: icon.png
   - from: out/renderer
     to: renderer
+  - from: resources/onboarding
+    to: onboarding
   - from: resources/backend
     to: backend
   # electron-builder excludes a root node_modules directory during resource

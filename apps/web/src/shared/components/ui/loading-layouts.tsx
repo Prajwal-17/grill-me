@@ -254,26 +254,3 @@ export function QuizDetailSkeleton() {
     </LoadingRegion>
   );
 }
-
-export function ReviewSkeleton() {
-  return (
-    <LoadingRegion
-      label="Loading submissions…"
-      layout="reviews"
-      className="mx-auto w-full max-w-[900px] space-y-6 px-5 py-6 md:px-10"
-    >
-      <Skeleton className="ml-auto h-8 w-52" />
-      <div className="space-y-3 border-b border-line pb-5">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-4 w-3/4" />
-      </div>
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="space-y-3">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="h-4 w-4/5" />
-        </div>
-      ))}
-    </LoadingRegion>
-  );
-}

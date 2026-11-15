@@ -11,6 +11,8 @@ export function createChallengeRoutes(controller: ChallengeController) {
   routes.post("/prepare", controller.prepare);
   routes.post("/generate", controller.generate);
   routes.get("/:id", controller.getById);
+  routes.get("/:id/workspace", controller.workspace);
+  routes.post("/:id/workspace/relink", controller.relinkWorkspace);
   routes.post("/:id/hint", controller.hint);
   routes.post("/:id/complete", controller.complete);
   routes.post("/:id/status", controller.status);

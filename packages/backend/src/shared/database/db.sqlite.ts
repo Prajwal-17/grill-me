@@ -6,7 +6,23 @@ import { dirname, isAbsolute } from "node:path";
 import { drizzle } from "drizzle-orm/sqlite-proxy";
 import { sql, type AnyColumn } from "drizzle-orm";
 import * as schema from "./schema.sqlite";
-import initialSchema from "../../../drizzle-sqlite/0000_desktop.sql" with { type: "text" };
+import { upgradeLegacyDatabase } from "./legacy-migrations";
+import { drizzleMigrations } from "./migration-files";
+import {
+  applyDrizzleMigrations,
+  ensureImmutabilityTriggers,
+  hasDrizzleMigrations,
+  isFreshDatabase,
+  stampDrizzleMigrations,
+} from "./migration-runner";
+
+export const DATABASE_VERSION = 12;
+const LATEST_VERSION = DATABASE_VERSION;
+/**
+ * The frozen legacy upgrader in `legacy-migrations.ts` writes this schema.
+ * Journal rows up to here are stamped, never replayed; newer migrations run.
+ */
+const LEGACY_SCHEMA_MIGRATION = "0002_immutability_triggers";
 
 export function createSqliteDatabase(path: string) {
   if (!isAbsolute(path)) throw new Error("SQLite requires an absolute path.");
@@ -81,94 +97,77 @@ export function createSqliteDatabase(path: string) {
   const databaseNow = () => sql`cast(unixepoch('subsec') * 1000 as integer)`;
   const caseInsensitiveLike = (column: AnyColumn, pattern: string) =>
     sql`lower(${column}) like ${pattern.toLowerCase()}`;
+  /**
+   * Allocate the next display number inside the caller's BEGIN IMMEDIATE
+   * transaction. MAX(number)+1 keeps numbers monotonic without a counter table;
+   * deleted quizzes still count because number uniqueness includes them.
+   */
   async function nextGenerationNumber(
-    tx: unknown,
+    _tx: unknown,
     profileId: string,
     kind: "quiz" | "challenge",
   ): Promise<number> {
-    const [counter] = await (
-      tx as Parameters<Parameters<typeof sqliteDb.transaction>[0]>[0]
-    )
-      .insert(schema.generationCounters)
-      .values({ profileId, kind, value: 1 })
-      .onConflictDoUpdate({
-        target: [
-          schema.generationCounters.profileId,
-          schema.generationCounters.kind,
-        ],
-        set: { value: sql`${schema.generationCounters.value} + 1` },
-      })
-      .returning({ value: schema.generationCounters.value });
-    return counter!.value;
+    const table = kind === "challenge" ? "challenges" : "quizzes";
+    const column = kind === "challenge" ? "challenge_number" : "quiz_number";
+    const row = sqlite
+      .query(
+        `SELECT COALESCE(MAX(${column}), 0) + 1 AS value FROM ${table} WHERE profile_id = ?`,
+      )
+      .get(profileId) as { value: number };
+    return row.value;
   }
 
   async function migrateDatabase() {
     const version = (
       sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    if (version > 3)
+    if (version > LATEST_VERSION)
       throw new Error("This database needs a newer desktop application.");
-    if (version === 3) return;
-    sqlite
-      .transaction(() => {
-        if (version === 0) {
-          sqlite.exec(initialSchema);
-          for (const [table, column] of [
-            ["challenges", "challenge_number"],
-            ["quizzes", "quiz_number"],
-          ]) {
-            sqlite.exec(`CREATE TRIGGER ${table}_immutable_number BEFORE UPDATE OF profile_id, ${column} ON ${table}
-        WHEN NEW.profile_id != OLD.profile_id OR NEW.${column} != OLD.${column}
-        BEGIN SELECT RAISE(ABORT, 'Generation numbers and profiles are immutable'); END;`);
-          }
-        }
-        if (version < 2)
-          sqlite.exec(
-            "ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'completed' CHECK(status IN ('streaming','completed','failed','cancelled','interrupted')); ALTER TABLE messages ADD COLUMN error TEXT; ALTER TABLE messages ADD COLUMN reply_to TEXT;",
-          );
-        if (version < 3)
-          sqlite.exec(`ALTER TABLE review_jobs ADD COLUMN model_selection TEXT;
-CREATE TABLE agent_runs (
-  id text PRIMARY KEY NOT NULL,
-  profile_id text NOT NULL,
-  operation text NOT NULL,
-  challenge_id text,
-  resource_kind text,
-  resource_id text,
-  provider_id text NOT NULL,
-  provider_name text NOT NULL,
-  provider_preset text NOT NULL,
-  model text NOT NULL,
-  reasoning_effort text,
-  status text DEFAULT 'running' NOT NULL,
-  error_code text,
-  error_message text,
-  turn_count integer DEFAULT 0 NOT NULL,
-  tool_call_count integer DEFAULT 0 NOT NULL,
-  input_tokens integer,
-  output_tokens integer,
-  total_tokens integer,
-  started_at integer NOT NULL,
-  completed_at integer,
-  FOREIGN KEY (profile_id) REFERENCES profiles(id) ON UPDATE no action ON DELETE cascade,
-  FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON UPDATE no action ON DELETE set null,
-  CONSTRAINT agent_runs_status_check CHECK(status in ('running','completed','failed','cancelled','interrupted'))
-);
-CREATE INDEX agent_runs_profile_started_idx ON agent_runs (profile_id, started_at, id);
-CREATE INDEX agent_runs_status_started_idx ON agent_runs (status, started_at);
-CREATE TABLE agent_run_events (
-  id integer PRIMARY KEY NOT NULL,
-  run_id text NOT NULL,
-  sequence integer NOT NULL,
-  type text NOT NULL,
-  payload text NOT NULL,
-  created_at integer NOT NULL,
-  FOREIGN KEY (run_id) REFERENCES agent_runs(id) ON UPDATE no action ON DELETE cascade
-);
-CREATE UNIQUE INDEX agent_run_events_run_sequence_unique ON agent_run_events (run_id, sequence);`);
-        sqlite.exec("PRAGMA user_version = 3;");
-      })
-      .immediate();
+
+    if (version === 0) {
+      if (!hasDrizzleMigrations(sqlite) && !isFreshDatabase(sqlite))
+        throw new Error(
+          "The database has user_version 0 but already contains tables, so it cannot be initialized from Drizzle migrations.",
+        );
+      applyDrizzleMigrations(sqlite, drizzleMigrations, { fresh: true });
+      sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
+    } else if (version < LATEST_VERSION) {
+      if (hasDrizzleMigrations(sqlite)) {
+        // A managed database simply has newer migrations waiting.
+        applyDrizzleMigrations(sqlite, drizzleMigrations, { fresh: false });
+        sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
+      } else {
+        sqlite
+          .transaction(() => {
+            upgradeLegacyDatabase(sqlite, version);
+            // The frozen upgrader produces the v10 schema only; later
+            // migrations still have to run against the result.
+            stampDrizzleMigrations(
+              sqlite,
+              drizzleMigrations,
+              LEGACY_SCHEMA_MIGRATION,
+            );
+          })
+          .immediate();
+        applyDrizzleMigrations(sqlite, drizzleMigrations, { fresh: false });
+        sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
+      }
+    } else if (!hasDrizzleMigrations(sqlite)) {
+      // A database already at the current version was written by an earlier
+      // build, so its schema is current. Record the journal without replaying.
+      sqlite
+        .transaction(() => {
+          stampDrizzleMigrations(sqlite, drizzleMigrations);
+          sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
+        })
+        .immediate();
+    } else {
+      applyDrizzleMigrations(sqlite, drizzleMigrations, { fresh: false });
+      sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
+    }
+
+    ensureImmutabilityTriggers(sqlite);
+
     const violations = sqlite.query("PRAGMA foreign_key_check").all();
     if (violations.length)
       throw new Error("SQLite foreign-key validation failed.");

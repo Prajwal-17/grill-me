@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1793251846184,
+      "tag": "0000_desktop",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794746739138,
+      "tag": "0001_current_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794746739139,
+      "tag": "0002_immutability_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794749536338,
+      "tag": "0003_simplify_challenges",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794750332283,
+      "tag": "0004_challenge_reviews",
+      "breakpoints": true
+    }
+  ]
+}

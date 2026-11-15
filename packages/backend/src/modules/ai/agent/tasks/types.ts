@@ -4,13 +4,13 @@ export type AgentOperation =
   | "preparation"
   | "generation"
   | "clarify"
-  | "review"
   | "hint"
+  | "review"
   | "quiz_generation"
   | "quiz_title_generation"
   | "prompt_enhancement"
   | "resume_import"
-  | "verification";
+  | "project_scaffolding";
 
 export type CompletionSpec<T> = {
   name: string;
@@ -27,6 +27,12 @@ export type StructuredTask<T> = {
   completion: CompletionSpec<T>;
   allowSnapshot: boolean;
   allowResearch: boolean;
+  /** Task-scoped runtime caps. Higher limits need a narrow, justified task. */
+  limits?: {
+    maxTurns?: number;
+    maxToolCalls?: number;
+    maxTextChars?: number;
+  };
 };
 
 export type TextTask = {

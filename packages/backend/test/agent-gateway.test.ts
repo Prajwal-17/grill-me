@@ -35,17 +35,13 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     implementationBoundary: "",
     contextSnapshot: {},
     promptVersion: "fixture",
-    calibrationVersion: "fixture",
-    contractVersion: 2,
-    completionSource: null,
     durationEstimate: { minMinutes: 10, maxMinutes: 20 },
     implementationMilestones: [],
     problemStatement: "Build a deterministic grouping function.",
     expectedOutcome: "A function that returns grouped words.",
-    constraints: [],
-    starterCode: null,
     completionCriteria: ["Groups words by first letter."],
     hint: null,
+    workspacePath: null,
     status: "active" as const,
     createdAt: new Date().toISOString(),
     completedAt: null,
@@ -64,7 +60,6 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     implementationMilestones: [],
     problemStatement: challenge.problemStatement,
     expectedOutcome: challenge.expectedOutcome,
-    constraints: [],
     completionCriteria: challenge.completionCriteria,
     status: "active",
     createdAt: new Date(),
@@ -102,8 +97,6 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     problemStatement:
       "Build a function that groups words by their first letter.",
     expectedOutcome: "A function with deterministic output.",
-    constraints: [],
-    starterCode: null,
     completionCriteria: ["Groups repeated letters without dropping words."],
   };
   const quizQuestions = Array.from({ length: 5 }, (_, index) => ({
@@ -112,19 +105,6 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     correctOption: 0,
     explanation: "Only the first option matches the frozen behavior.",
   }));
-  const review = {
-    verdict: "accepted" as const,
-    summary: "The implementation meets the requirement.",
-    criteria: [{ id: "C1", status: "met" as const, evidence: "Groups words." }],
-    findings: [],
-    optionalImprovements: [],
-    correctness: { score: 4, evidence: "Behavior is complete." },
-    understanding: { score: 3, evidence: "Uses a clear invariant." },
-    judgment: { score: 3, evidence: "Choices fit the task." },
-    nextStep: null,
-    question: null,
-    verification: "inspection_only" as const,
-  };
   const selection = {
     providerId: crypto.randomUUID(),
     model: "fixture-model",
@@ -228,34 +208,6 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     }),
   ).toMatchObject({ displayName: null });
 
-  structured("complete_review", review);
-  expect(
-    await gateway.judge!({
-      challenge,
-      content: "export const ok = true;",
-      attachments: [],
-      evidence: { status: "inspection_only", reason: "Fixture", checks: [] },
-      assistance: { hints: 0, guidance: false },
-      selection,
-    }),
-  ).toMatchObject({ verdict: "accepted" });
-
-  structured("complete_verification", {
-    runtime: "unsupported",
-    reason: "No reliable harness.",
-    checks: [],
-  });
-  expect(
-    await gateway.planVerification!({
-      challenge,
-      content: "export const ok = true;",
-      attachments: [],
-      evidence: { status: "inspection_only", reason: "Fixture", checks: [] },
-      assistance: { hints: 0, guidance: false },
-      selection,
-    }),
-  ).toMatchObject({ runtime: "unsupported" });
-
   faux.setResponses([fauxAssistantMessage("A focused hint.")]);
   const hint: string[] = [];
   for await (const delta of gateway.generateHint({
@@ -280,5 +232,5 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
   }))
     reply.push(delta);
   expect(reply.join("")).toBe("A useful discussion reply.");
-  expect(seen).toEqual(Array(11).fill("fixture-model"));
+  expect(seen).toEqual(Array(9).fill("fixture-model"));
 });

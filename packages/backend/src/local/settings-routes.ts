@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   providerInputSchema,
   runtimeSettingsSchema,
+  workspacePreferenceSchema,
   credentialStorageSchema,
 } from "@repo/backend/shared/contracts";
 import { AppError } from "../shared/errors/app-error";
@@ -116,6 +117,13 @@ export function settingsRoutes(service: SettingsService) {
     c.json({
       data: await service.saveRuntime(
         parseInput(runtimeSettingsSchema, await readJson(c.req.raw)),
+      ),
+    }),
+  );
+  routes.post("/workspace", async (c) =>
+    c.json({
+      data: await service.saveWorkspace(
+        parseInput(workspacePreferenceSchema, await readJson(c.req.raw)),
       ),
     }),
   );

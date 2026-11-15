@@ -1,99 +1,69 @@
 import { z } from "zod";
-import type { JudgeInput } from "../../model-gateway";
-import {
-  criteriaFor,
-  reviewResultSchema,
-  verificationPlanSchema,
-} from "../../../reviews/review.schema";
-import { judgePrompt, verificationPrompt } from "../../prompts/judge";
+import type { ChallengeReviewResult } from "@repo/backend/shared/contracts";
+import { challengeReviewResultSchema } from "@repo/backend/shared/contracts";
+import type { ReviewModelInput } from "../../model-gateway";
+import { REVIEW_INSTRUCTIONS } from "../../prompts/review";
+import { validateReviewResult } from "../../../reviews/review.schema";
 import { contextBlock } from "../messages";
-import { withoutHistory } from "./context";
 import type { StructuredTask } from "./types";
 
 export function reviewTask(
-  input: JudgeInput,
-  snapshot: boolean,
-): StructuredTask<unknown> {
-  const prompt = judgePrompt(input);
-  const challenge = withoutHistory(input.challenge);
-  const submission = snapshot
-    ? [
-        contextBlock(
-          "snapshot_instructions",
-          "The saved submission files are available through list_submission_files, read_submission_file, and search_submission. Inspect the relevant files before deciding.",
-          { untrusted: false },
-        ),
-      ]
-    : [
-        contextBlock("submission_text", input.content, { untrusted: true }),
-        contextBlock(
-          "submission_files",
-          input.attachments.filter((attachment) => !attachment.data),
-          { untrusted: true },
-        ),
-      ];
+  input: Omit<ReviewModelInput, "selection" | "signal" | "harness"> & {
+    inventory: { path: string; bytes: number }[];
+    truncated: boolean;
+  },
+): StructuredTask<ChallengeReviewResult> {
+  const { challenge } = input;
   return {
     operation: "review",
-    instructions: prompt.instructions,
+    instructions: REVIEW_INSTRUCTIONS,
     context: [
-      contextBlock("review_challenge", challenge, { untrusted: true }),
-      contextBlock("criteria", criteriaFor(input.challenge), {
-        untrusted: false,
-      }),
-      contextBlock("assistance", input.assistance, { untrusted: false }),
-      contextBlock("verification_evidence", input.evidence, {
-        untrusted: true,
-      }),
-      contextBlock("followup", input.followup, { untrusted: false }),
-      contextBlock("previous_review", input.previousReview, {
-        untrusted: true,
-      }),
-      contextBlock("review_correction", input.reviewCorrection, {
-        untrusted: true,
-      }),
-      ...submission,
+      contextBlock(
+        "challenge",
+        {
+          number: challenge.number,
+          title: challenge.title,
+          scope: challenge.scope,
+          difficulty: challenge.contextualDifficulty,
+          problemStatement: challenge.problemStatement,
+          expectedOutcome: challenge.expectedOutcome,
+          implementationBoundary: challenge.implementationBoundary,
+          implementationMilestones: challenge.implementationMilestones,
+          completionCriteria: challenge.completionCriteria,
+          durationEstimate: challenge.durationEstimate,
+        },
+        { untrusted: true },
+      ),
+      contextBlock(
+        "workspace_inventory",
+        {
+          note: "Saved before this review started. Read files for the current content. Dependency output, VCS data, and Grill Me metadata are hidden.",
+          files: input.inventory,
+          truncatedAtLimit: input.truncated,
+        },
+        { untrusted: false },
+      ),
     ].join("\n\n"),
-    userText: "Review the saved submission against the frozen criteria.",
+    userText:
+      "Review this attempt against every completion criterion and return one complete_review call.",
     completion: {
       name: "complete_review",
       description:
-        "Return the complete structured review. Every criterion must be assessed exactly once.",
-      schema: z.toJSONSchema(reviewResultSchema),
-      validate: (value) => reviewResultSchema.parse(value),
+        "Return the complete review: one result per completion criterion in order, at most three strengths, at most three problems with fixes, and one next step. This call ends the review.",
+      schema: z.toJSONSchema(challengeReviewResultSchema),
+      validate: (value: unknown) =>
+        validateReviewResult(
+          value,
+          challenge.completionCriteria,
+          input.inventory.map((file) => file.path),
+        ),
     },
-    allowSnapshot: snapshot,
+    allowSnapshot: false,
     allowResearch: false,
-  };
-}
-
-export function verificationTask(input: JudgeInput): StructuredTask<unknown> {
-  const prompt = verificationPrompt(input);
-  return {
-    operation: "verification",
-    instructions: prompt.instructions,
-    context: [
-      contextBlock("verification_challenge", withoutHistory(input.challenge), {
-        untrusted: true,
-      }),
-      contextBlock("criteria", criteriaFor(input.challenge), {
-        untrusted: false,
-      }),
-      contextBlock(
-        "submission_files",
-        input.attachments.filter((attachment) => !attachment.data),
-        { untrusted: true },
-      ),
-      contextBlock("submission_text", input.content, { untrusted: true }),
-    ].join("\n\n"),
-    userText: "Create the bounded verification plan.",
-    completion: {
-      name: "complete_verification",
-      description:
-        "Return a verification plan or an unsupported runtime with a reason.",
-      schema: z.toJSONSchema(verificationPlanSchema),
-      validate: (value) => verificationPlanSchema.parse(value),
+    limits: {
+      maxTurns: 8,
+      maxToolCalls: 16,
+      maxTextChars: 24_000,
     },
-    allowSnapshot: true,
-    allowResearch: false,
   };
 }

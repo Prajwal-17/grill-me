@@ -7,6 +7,43 @@ import type { ProfileService } from "../profiles/profile.service";
 import type { QuizService } from "../quizzes/quiz.service";
 import { lockGeneration, completeGeneration } from "./generation.lease";
 import type { GenerationRequest, GenerationRun } from "./generation.schema";
+import { harnessService } from "../harness/harness.service";
+
+function harnessTitle(request: GenerationRequest) {
+  switch (request.kind) {
+    case "challenge":
+    case "quiz":
+      return request.input.prompt.slice(0, 200);
+    case "challenge_quiz":
+      return "Challenge quiz";
+  }
+}
+
+function harnessInputText(request: GenerationRequest) {
+  switch (request.kind) {
+    case "challenge":
+    case "quiz":
+      return request.input.prompt;
+    case "challenge_quiz":
+      return "Generate a quiz for this challenge.";
+  }
+}
+
+function harnessKind(request: GenerationRequest) {
+  return request.kind === "challenge"
+    ? "challenge_generation"
+    : "quiz_generation";
+}
+
+function harnessModel(request: GenerationRequest) {
+  switch (request.kind) {
+    case "challenge":
+    case "quiz":
+      return request.input.selection?.model ?? process.env.LLM_MODEL ?? "auto";
+    case "challenge_quiz":
+      return request.input.selection?.model ?? process.env.LLM_MODEL ?? "auto";
+  }
+}
 
 type Job = typeof generationJobs.$inferSelect;
 const LEASE_MS = 90_000;
@@ -27,6 +64,7 @@ function publicJob(job: Job) {
     resultId: job.resultId,
     resultTitle: job.resultTitle,
     resultNumber: job.resultNumber,
+    harnessThreadId: job.harnessThreadId,
     createdAt: job.createdAt.toISOString(),
     updatedAt: job.updatedAt.toISOString(),
     completedAt: job.completedAt?.toISOString() ?? null,
@@ -103,13 +141,40 @@ export function createGenerationService(dependencies: {
     });
   }
   async function run(job: Job) {
+    if (!job.harnessThreadId) {
+      const thread = await harnessService.createThread({
+        profileId: job.profileId,
+        kind: harnessKind(job.request),
+        title: harnessTitle(job.request),
+        challengeId:
+          job.request.kind === "challenge_quiz"
+            ? job.request.challengeId
+            : null,
+        model: harnessModel(job.request),
+        transport: "api",
+      });
+      await harnessService.appendTurn(thread.id, {
+        inputText: harnessInputText(job.request),
+      });
+      await db
+        .update(generationJobs)
+        .set({ harnessThreadId: thread.id })
+        .where(eq(generationJobs.id, job.id));
+      job.harnessThreadId = thread.id;
+    }
     const controller = new AbortController();
     controllers.set(job.id, controller);
     const lease = {
       id: job.id,
       token: job.runToken!,
       signal: controller.signal,
-    };
+      harness: job.harnessThreadId
+        ? {
+            threadId: job.harnessThreadId,
+            inputText: harnessInputText(job.request),
+          }
+        : undefined,
+    } satisfies GenerationRun;
     const heartbeat = setInterval(() => {
       void db
         .update(generationJobs)
@@ -136,7 +201,7 @@ export function createGenerationService(dependencies: {
             const preparation = await challenges.prepare(
               request.input,
               job.profileId,
-              controller.signal,
+              lease,
             );
             if (preparation.question) {
               await db
@@ -153,6 +218,12 @@ export function createGenerationService(dependencies: {
                   notifiedAt: null,
                 })
                 .where(runScope(lease));
+              if (job.harnessThreadId)
+                await harnessService.requestInput(job.harnessThreadId, {
+                  kind: "clarification",
+                  prompt: preparation.question,
+                  options: preparation.options,
+                });
               return;
             }
           }
@@ -212,6 +283,19 @@ export function createGenerationService(dependencies: {
           await completeGeneration(tx, lease, result);
         });
       }
+      if (result && job.harnessThreadId) {
+        const value = result as {
+          title?: string | null;
+          number?: number;
+          problemStatement?: string;
+        };
+        await harnessService.appendAssistant(
+          job.harnessThreadId,
+          value.problemStatement
+            ? `Your build is ready: **${value.title ?? "Challenge"}**. Ask me anything about the requirements when you get stuck.`
+            : `Quiz${value.number ? ` #${value.number}` : ""} is ready${value.title ? `: **${value.title}**` : "."}`,
+        );
+      }
     } catch (error) {
       const known = error instanceof AppError;
       if (
@@ -235,6 +319,14 @@ export function createGenerationService(dependencies: {
             leaseUntil: null,
           })
           .where(runScope(lease));
+        if (job.harnessThreadId)
+          await harnessService.requestInput(job.harnessThreadId, {
+            kind: "clarification",
+            prompt: error.details.question,
+            options: Array.isArray(error.details.options)
+              ? (error.details.options as string[])
+              : [],
+          });
       } else {
         if (!known) console.error("Background generation failed", error);
         await db
@@ -371,6 +463,25 @@ export function createGenerationService(dependencies: {
           "This request ID belongs to a different generation.",
           409,
         );
+      if (inserted && !job.harnessThreadId) {
+        const thread = await harnessService.createThread({
+          profileId,
+          kind: harnessKind(request),
+          title: harnessTitle(request),
+          challengeId:
+            request.kind === "challenge_quiz" ? request.challengeId : null,
+          model: harnessModel(request),
+          transport: "api",
+        });
+        await harnessService.appendTurn(thread.id, {
+          inputText: harnessInputText(request),
+        });
+        await db
+          .update(generationJobs)
+          .set({ harnessThreadId: thread.id })
+          .where(eq(generationJobs.id, job.id));
+        job.harnessThreadId = thread.id;
+      }
       void pump();
       return publicJob(job);
     },
@@ -485,6 +596,8 @@ export function createGenerationService(dependencies: {
             clarification: null,
             error: null,
             skipPreparation: true,
+            // The next run reuses this thread and records a new turn.
+            harnessThreadId: job.harnessThreadId,
             request: {
               ...request,
               input: {
@@ -504,6 +617,10 @@ export function createGenerationService(dependencies: {
           .returning();
         return updated!;
       });
+      if (result.harnessThreadId)
+        await harnessService
+          .answerPendingInput(result.harnessThreadId, answer)
+          .catch(() => {});
       void pump();
       return publicJob(result);
     },
@@ -574,6 +691,10 @@ export function createGenerationService(dependencies: {
           409,
         );
       controllers.get(id)?.abort();
+      if (job.harnessThreadId)
+        await harnessService
+          .stop(job.harnessThreadId, profileId)
+          .catch(() => {});
       return publicJob(job);
     },
   };

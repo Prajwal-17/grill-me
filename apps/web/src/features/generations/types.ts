@@ -22,6 +22,7 @@ export type GenerationJob = {
   resultId: string | null;
   resultTitle: string | null;
   resultNumber: number | null;
+  harnessThreadId: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;

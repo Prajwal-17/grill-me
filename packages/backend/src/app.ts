@@ -5,6 +5,11 @@ import { createChallengeController } from "./modules/challenges/challenge.contro
 import { challengeModel } from "./modules/challenges/challenge.model";
 import { createChallengeRoutes } from "./modules/challenges/challenge.routes";
 import { createChallengeService } from "./modules/challenges/challenge.service";
+import { createChallengeWorkspaceService } from "./modules/challenges/workspace";
+import { createProjectPreparationController } from "./modules/challenges/project-preparation.controller";
+import { createProjectPreparationRoutes } from "./modules/challenges/project-preparation.routes";
+import { createProjectPreparationService } from "./modules/challenges/project-preparation.service";
+import { createHarnessRoutes } from "./modules/harness/harness.routes";
 import { createLogRoutes } from "./modules/logs/log.routes";
 import { createMessageController } from "./modules/messages/message.controller";
 import { messageModel } from "./modules/messages/message.model";
@@ -17,9 +22,11 @@ import {
 } from "./modules/profiles/profile.model";
 import { createProfileRoutes } from "./modules/profiles/profile.routes";
 import { createProfileService } from "./modules/profiles/profile.service";
+import { createQuizRoutes } from "./modules/quizzes/quiz.routes";
+import { createReviewController } from "./modules/reviews/review.controller";
+import { reviewModel } from "./modules/reviews/review.model";
 import { createReviewRoutes } from "./modules/reviews/review.routes";
 import { createReviewService } from "./modules/reviews/review.service";
-import { createQuizRoutes } from "./modules/quizzes/quiz.routes";
 import { createQuizService } from "./modules/quizzes/quiz.service";
 import { handleError } from "./shared/http/error-handler";
 import { createGenerationService } from "./modules/generations/generation.service";
@@ -27,22 +34,13 @@ import { createGenerationRoutes } from "./modules/generations/generation.routes"
 
 type AppDependencies = {
   llm: ModelGateway;
+  workspaceRoot?: () => string;
   webOrigin?: string;
-  providerStatus?: () => Promise<{
-    configured: boolean;
-    online: boolean;
-    message: string;
-  }>;
-  providerModels?: () => Promise<{
-    models: { id: string; label: string }[];
-    defaultModel: string;
-  }>;
 };
 
 export function createApp({
   llm,
-  providerStatus,
-  providerModels,
+  workspaceRoot,
   webOrigin = "http://localhost:17018,http://127.0.0.1:17018",
 }: AppDependencies) {
   const app = new Hono();
@@ -65,11 +63,25 @@ export function createApp({
     profilePreferencesModel,
   );
 
-  const reviewService = createReviewService(llm);
+  const workspaces = createChallengeWorkspaceService(workspaceRoot);
+  const projectPreparations = createProjectPreparationService({
+    challenges: challengeModel,
+    messages: messageModel,
+    profiles: profileService,
+    workspaces,
+    llm,
+  });
   const challengeService = createChallengeService({
     challenges: challengeModel,
     messages: messageModel,
     profiles: profileService,
+    llm,
+    workspaces,
+    preparations: projectPreparations,
+  });
+  const reviews = createReviewService({
+    challenges: challengeModel,
+    reviews: reviewModel,
     llm,
   });
   const messageService = createMessageService({
@@ -79,16 +91,8 @@ export function createApp({
     llm,
   });
 
-  app.route(
-    "/",
-    createReviewRoutes(
-      reviewService,
-      profileService,
-      providerStatus,
-      providerModels,
-    ),
-  );
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
+  app.route("/harness", createHarnessRoutes(profileService));
   app.route("/logs", createLogRoutes(profileService));
   app.route(
     "/profiles",
@@ -100,8 +104,15 @@ export function createApp({
   );
   app.route(
     "/challenges",
+    createProjectPreparationRoutes(
+      createProjectPreparationController(projectPreparations),
+    ),
+  );
+  app.route(
+    "/challenges",
     createMessageRoutes(createMessageController(messageService)),
   );
+  app.route("/challenges", createReviewRoutes(createReviewController(reviews)));
   const quizService = createQuizService(llm, challengeService, profileService);
   const generations = createGenerationService({
     profiles: profileService,
@@ -113,5 +124,5 @@ export function createApp({
   app.route("/quizzes", createQuizRoutes(quizService, true));
   app.onError(handleError);
 
-  return Object.assign(app, { generations });
+  return Object.assign(app, { generations, projectPreparations });
 }

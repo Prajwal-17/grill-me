@@ -2,9 +2,8 @@
 
 This is the Vite React SPA rendered by Electron and buildable on its own with
 `bun run build`. Electron builds this workspace as its renderer from
-`apps/desktop/electron.vite.config.ts`. Read the root [`AGENTS.md`](../../AGENTS.md),
-[`PRODUCT.md`](PRODUCT.md), and [`DESIGN.md`](DESIGN.md) before changing behavior
-or visuals.
+`apps/desktop/electron.vite.config.ts`. Read the root [`AGENTS.md`](../../AGENTS.md)
+and [`PRODUCT.md`](PRODUCT.md) before changing behavior or visuals.
 
 ## Structure
 
@@ -39,9 +38,9 @@ or visuals.
 - Reuse the shadcn/Radix primitives in `src/shared/components/ui` and the
   semantic tokens in `src/app/globals.css`. Do not add a second component
   vocabulary, arbitrary colors, or one-off font sizes.
-- Follow the compact workspace layout and motion rules in `DESIGN.md`. Keep page
-  actions in content, preserve keyboard access, visible focus, reduced-motion
-  behavior, and mobile touch targets.
+- Follow the compact workspace layout and motion rules. Keep page actions in
+  content, preserve keyboard access, visible focus, reduced-motion behavior, and
+  mobile touch targets.
 - Generated Markdown, forms, empty/error/loading states, and background
   generation notifications have existing owners (`markdown/renderers.tsx`,
   `feedback.tsx`, `loading-layouts.tsx`, `generation-monitor.tsx`). Extend those

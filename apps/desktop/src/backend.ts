@@ -15,6 +15,7 @@ const server = await startLocalServer({
   origins: [process.env.DESKTOP_WEB_ORIGIN ?? "grill-me://app", "null"],
   rendererRoot: process.env.DESKTOP_RENDERER_ROOT,
   keyringModule: process.env.GRILL_KEYRING_MODULE,
+  workspaceDefaultRoot: process.env.GRILL_ME_WORKSPACE_DEFAULT || undefined,
 });
 console.log(JSON.stringify({ event: "desktop-ready", port: server.port }));
 let stopping = false;

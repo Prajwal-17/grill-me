@@ -1,8 +1,4 @@
-import {
-  PROMPT_VERSION,
-  CALIBRATION_VERSION,
-  CONTRACT_VERSION,
-} from "../ai/prompts/core";
+import { PROMPT_VERSION } from "../ai/prompts/core";
 import {
   and,
   desc,
@@ -20,7 +16,7 @@ import {
   databaseNow,
   nextGenerationNumber,
 } from "../../shared/database/db";
-import { challenges, messages } from "../../shared/database/schema";
+import { challenges } from "../../shared/database/schema";
 import type { ChallengeContent } from "./challenge.schema";
 import type { GenerationRun } from "../generations/generation.schema";
 import {
@@ -138,43 +134,17 @@ export const challengeModel = {
             implementationBoundary: content.implementationBoundary,
             contextSnapshot,
             promptVersion: PROMPT_VERSION,
-            calibrationVersion: CALIBRATION_VERSION,
-            contractVersion: CONTRACT_VERSION,
 
             durationMinMinutes: content.durationEstimate.minMinutes,
             durationMaxMinutes: content.durationEstimate.maxMinutes,
             implementationMilestones: content.implementationMilestones,
             problemStatement: content.problemStatement,
             expectedOutcome: content.expectedOutcome,
-            constraints: content.constraints,
-            starterCode: content.starterCode,
             completionCriteria: content.completionCriteria,
             createdAt: now,
           })
           .returning()
       )[0]!;
-
-      await tx.insert(messages).values([
-        {
-          id: crypto.randomUUID(),
-          challengeId: id,
-          role: "user",
-          mode: "generate",
-          content: prompt,
-          createdAt: now,
-        },
-        {
-          id: crypto.randomUUID(),
-          challengeId: id,
-          role: "assistant",
-          mode: "generate",
-          content:
-            "Your build is ready: **" +
-            content.title +
-            "**. Ask me anything about the requirements when you get stuck.",
-          createdAt: new Date(now.getTime() + 1),
-        },
-      ]);
 
       await completeGeneration(tx, generation, challenge);
 
@@ -186,7 +156,7 @@ export const challengeModel = {
     return first(
       db
         .update(challenges)
-        .set({ status, completedAt: null, completionSource: null })
+        .set({ status, completedAt: null })
         .where(eq(challenges.id, id))
         .returning(),
     );
@@ -216,7 +186,6 @@ export const challengeModel = {
         .update(challenges)
         .set({
           status: "completed",
-          completionSource: "user",
           completedAt: new Date(),
         })
         .where(eq(challenges.id, id))
@@ -224,30 +193,24 @@ export const challengeModel = {
     );
   },
 
-  saveHint(id: string, hint: string, helpKind: "hint" | "approach" = "hint") {
-    const now = new Date();
+  setWorkspacePath(id: string, workspacePath: string) {
+    return first(
+      db
+        .update(challenges)
+        .set({ workspacePath })
+        .where(eq(challenges.id, id))
+        .returning(),
+    );
+  },
 
-    return db.transaction(async (tx) => {
-      const challenge = (
-        await tx
-          .update(challenges)
-          .set({ hint })
-          .where(eq(challenges.id, id))
-          .returning()
-      )[0]!;
-
-      await tx.insert(messages).values({
-        id: crypto.randomUUID(),
-        challengeId: id,
-        role: "assistant",
-        mode: "hint",
-        content:
-          helpKind === "approach" ? "High-level approach\n\n" + hint : hint,
-        createdAt: now,
-      });
-
-      return challenge;
-    });
+  saveHint(id: string, hint: string) {
+    return first(
+      db
+        .update(challenges)
+        .set({ hint })
+        .where(eq(challenges.id, id))
+        .returning(),
+    );
   },
 };
 

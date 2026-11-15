@@ -15,7 +15,7 @@ import { Input } from "@/shared/components/ui/input";
 import { Button } from "@/shared/components/ui/button";
 import { DeveloperProjects } from "./developer-projects";
 
-export type PreferenceSection = "profile" | "practice" | "projects" | "reviews";
+export type PreferenceSection = "profile" | "practice" | "projects";
 export type PreferenceValues = Omit<
   ProfilePreferences,
   "profileId" | "updatedAt" | "developerContextUpdatedAt"

@@ -1,6 +1,22 @@
-import type { ModelSelection } from "@repo/backend/shared/contracts";
+import type {
+  ChallengeWorkspace,
+  ModelSelection,
+  ProjectCheckProposal,
+  ProjectCheckResult,
+  ProjectCommandProposal,
+  ProjectPreparation,
+  ProjectScaffoldReport,
+} from "@repo/backend/shared/contracts";
 import type { GuidedPreferences } from "@repo/backend/shared/preferences";
-export type { ModelSelection };
+export type {
+  ChallengeWorkspace,
+  ModelSelection,
+  ProjectCheckProposal,
+  ProjectCheckResult,
+  ProjectCommandProposal,
+  ProjectPreparation,
+  ProjectScaffoldReport,
+};
 export type Profile = {
   id: string;
   email: string;
@@ -31,9 +47,6 @@ export type Challenge = {
   implementationBoundary: string | null;
   contextSnapshot: Record<string, unknown> | null;
   promptVersion: string | null;
-  calibrationVersion: string | null;
-  contractVersion: number;
-  completionSource: "judge" | "legacy" | "user" | null;
 
   id: string;
   profileId: string;
@@ -46,14 +59,47 @@ export type Challenge = {
   implementationMilestones: string[];
   problemStatement: string;
   expectedOutcome: string;
-  constraints: string[];
-  starterCode: string | null;
   completionCriteria: string[];
   hint: string | null;
+  workspacePath: string | null;
   status: ChallengeStatus;
   archivedAt: string | null;
   createdAt: string;
   completedAt: string | null;
+};
+
+export type ReviewCriterionStatus = "pass" | "partial" | "fail";
+
+export type ReviewCriterion = {
+  criterion: string;
+  status: ReviewCriterionStatus;
+  evidence: string;
+  path: string | null;
+  line: number | null;
+};
+
+export type ReviewFinding = { problem: string; fix: string };
+
+export type ChallengeReviewVerdict = "meets" | "partly_meets" | "does_not_meet";
+
+export type ChallengeReviewResult = {
+  criteria: ReviewCriterion[];
+  strengths: string[];
+  improvements: ReviewFinding[];
+  nextStep: string;
+};
+
+export type ChallengeReview = {
+  id: string;
+  profileId: string;
+  challengeId: string;
+  verdict: ChallengeReviewVerdict;
+  criteriaMet: number;
+  criteriaTotal: number;
+  result: ChallengeReviewResult;
+  model: string;
+  threadId: string | null;
+  createdAt: string;
 };
 
 export type MessageMode = "generate" | "clarify" | "review" | "hint";
@@ -106,63 +152,3 @@ export type GenerateBuildRequest = {
   clarificationHistory?: ClarificationContext[];
   selection?: ModelSelection;
 };
-
-export type ScoreDimension = { score: number | null; evidence: string };
-export type ReviewResult = {
-  verdict: "accepted" | "needs_revision" | "needs_evidence";
-  summary: string;
-  criteria: {
-    id: string;
-    status: "met" | "unmet" | "unassessed";
-    evidence: string;
-  }[];
-  findings: {
-    criterionId: string;
-    location: string | null;
-    issue: string;
-    evidence: string;
-  }[];
-  optionalImprovements: string[];
-  correctness: ScoreDimension;
-  understanding: ScoreDimension;
-  judgment: ScoreDimension;
-  nextStep: string | null;
-  question: string | null;
-  verification: "checks_run" | "inspection_only" | "incomplete";
-};
-export type ReviewJob = {
-  aiLogId: string | null;
-  providerThreadId: string | null;
-  providerTurnId: string | null;
-  id: string;
-  submissionId: string;
-  judge: "omniroute" | "codex";
-  routingReason: string;
-  status: "queued" | "running" | "completed" | "failed" | "cancelled";
-  progress: string;
-  response: ReviewResult | null;
-  score: number | null;
-  error: string | null;
-  createdAt: string;
-  completedAt: string | null;
-  followup: string | null;
-};
-export type PracticeSubmission = {
-  id: string;
-  challengeId: string;
-  projectId: string | null;
-  sequence: number;
-  content: string;
-  manifest: { path: string; bytes: number; sha256: string }[];
-  assistance: { hints: number; guidance: boolean };
-  createdAt: string;
-  reviews: ReviewJob[];
-};
-export type SubmissionFile = {
-  path: string;
-  bytes: number;
-  content: string | null;
-  binary: boolean;
-  tooLarge: boolean;
-};
-export type ConnectedProject = { id: string; name: string; root: string };

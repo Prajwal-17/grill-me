@@ -5,11 +5,19 @@ import { createSnapshotTools } from "./snapshot";
 
 export { createCompletionTool, recordCompletionFailure } from "./completion";
 export type { CompletionSpec, CompletionState } from "./completion";
+export { createProjectCommandTool } from "./command";
 export {
   createResearchTools,
   createResearchWorkspace,
   removeResearchWorkspace,
 } from "./research";
+export { createProjectTools, projectToolJournalContext } from "./project";
+export type {
+  ProjectToolActivity,
+  ProjectToolJournalContext,
+  ProjectToolLimits,
+  ProjectToolsOptions,
+} from "./project";
 
 export function createTaskTools(options: {
   allowSnapshot: boolean;

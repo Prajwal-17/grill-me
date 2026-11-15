@@ -30,7 +30,7 @@ Bun backend is a private local component, not a separately hosted service.
   adapters, SQLite schema/migrations, storage, AI prompts, and the shared
   transport contracts and preference options under `src/shared`.
 - `scripts` — isolated test runner and release-note extraction.
-- `docs` — detailed provider, release, update, and implementation notes.
+- `docs` — retained legacy-data notes only.
 
 ## Commands
 
@@ -108,9 +108,13 @@ Package-level checks are available with `bun run lint` and
   fallback used when the OS credential store is unavailable, and the file must
   never be world-readable.
 - SQLite is the only database runtime. Keep `schema.sqlite.ts`,
-  `drizzle-sqlite/0000_desktop.sql`, and the `PRAGMA user_version` migration in
-  `db.sqlite.ts` in sync. Follow the compatibility rules below; existing practice
-  data must remain readable.
+  `schema.legacy.ts`, the generated SQL files under `drizzle/`, their
+  `drizzle/meta/` journal and snapshots, and the generated
+  `migration-files.ts` manifest in sync. Add schema changes with
+  `bun run --cwd packages/backend db:generate`, then bump `DATABASE_VERSION` in
+  `db.sqlite.ts` so startup backs up the previous database; do not add a
+  hand-maintained fresh-schema file. Follow the compatibility rules below;
+  existing practice data must remain readable.
 - Write through the shared database adapter (`db`, `first`, `lockRows`,
   `databaseNow`, `nextGenerationNumber`) so write notifications reach the
   renderer. Keep profile scoping in every query and never trust a profile ID
@@ -134,8 +138,8 @@ Package-level checks are available with `bun run lint` and
   instead of leaking raw stderr or credentials. OpenCode gets an isolated home
   per provider; Codex uses its configured home and reuses the host CLI login by
   default.
-- Reviews inspect submitted snapshots with read-only tools and must never execute
-  submitted code. Preserve the explicit, user-controlled completion, scoring,
+- Reviews inspect the challenge workspace with read-only tools and must never
+  execute submitted code. Preserve the explicit, user-controlled completion, scoring,
   and quiz autosave semantics.
 - `packages/backend` must stay side-effect free on import. `createBackend`
   initializes the database, recovers interrupted work, and returns the app.

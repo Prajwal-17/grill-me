@@ -1,10 +1,8 @@
 import { useSearchParams } from "react-router";
-import { localTransport } from "@/shared/lib/local-client";
 import { PreferencesSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import { Input } from "@/shared/components/ui/input";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { SettingsLayout } from "@/shared/components/layout/settings-layout";
 import { preferenceSections } from "@/shared/components/layout/settings-navigation";
@@ -18,13 +16,10 @@ import {
 import {
   DEFAULT_PREFERENCES,
   PreferencesFields,
-  PreferenceRow,
   type PreferenceSection,
   preferenceValues,
   type PreferenceValues,
 } from "@/features/profile/components/preferences-fields";
-import { apiRequest } from "@/shared/lib/api-client";
-import { DEFAULT_CODEX_MODEL } from "@repo/backend/shared/preferences";
 import { ResumeImport } from "../components/resume-import";
 import { useProfile } from "@/features/profile/hooks/use-profile";
 export function PreferencesPage() {
@@ -47,18 +42,6 @@ export function PreferencesPage() {
     queryKey: preferencesKey(profile?.id),
     queryFn: () => getPreferences(profile!.id),
     enabled: Boolean(profile),
-  });
-  const codexModels = useQuery({
-    queryKey: ["codex-models", profile?.id],
-    queryFn: () =>
-      apiRequest<{ models: { id: string; label: string }[] }>(
-        "/judges/models",
-        {},
-        profile!.id,
-      ),
-    enabled: Boolean(profile) && !localTransport,
-    retry: false,
-    staleTime: 60_000,
   });
   const form =
     edits ??
@@ -143,61 +126,6 @@ export function PreferencesPage() {
             onSubmit={submit}
           >
             <fieldset disabled={save.isPending}>
-              {!localTransport && (
-                <section
-                  data-preference-section="reviews"
-                  hidden={section !== "reviews"}
-                  aria-labelledby="reviews-section-title"
-                >
-                  <h2
-                    id="reviews-section-title"
-                    className="border-b border-line pb-4 text-section font-semibold tracking-[-0.02em]"
-                  >
-                    Code reviews
-                  </h2>
-                  <PreferenceRow label="Codex model" htmlFor="codex-model">
-                    <div className="space-y-2">
-                      <Input
-                        id="codex-model"
-                        list="codex-model-options"
-                        value={form.codexModel}
-                        required
-                        maxLength={160}
-                        onChange={(e) => update("codexModel", e.target.value)}
-                        className="w-full"
-                      />
-                      <datalist id="codex-model-options">
-                        {(
-                          codexModels.data?.models ?? [
-                            { id: DEFAULT_CODEX_MODEL, label: "GPT-5.6 Sol" },
-                          ]
-                        ).map((model) => (
-                          <option key={model.id} value={model.id}>
-                            {model.label}
-                          </option>
-                        ))}
-                      </datalist>
-                      {codexModels.isLoading && (
-                        <p className="text-supporting text-muted">
-                          Loading available models…
-                        </p>
-                      )}
-                      {codexModels.error && (
-                        <p className="text-supporting text-muted">
-                          Could not load models: {codexModels.error.message}{" "}
-                          <button
-                            type="button"
-                            className="underline"
-                            onClick={() => codexModels.refetch()}
-                          >
-                            Retry
-                          </button>
-                        </p>
-                      )}
-                    </div>
-                  </PreferenceRow>
-                </section>
-              )}
               <PreferencesFields
                 section={section}
                 values={form}

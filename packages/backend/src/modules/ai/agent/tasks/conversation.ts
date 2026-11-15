@@ -1,27 +1,26 @@
-import type { JudgeInput, LearnerContext } from "../../model-gateway";
+import type { LearnerContext } from "../../model-gateway";
 import type {
   ChatMessage,
   MessageAttachment,
 } from "../../../messages/message.schema";
+import type { Challenge } from "../../../challenges/challenge.schema";
 import { clarificationPrompt } from "../../prompts/clarify-build";
-import { reviewPrompt } from "../../prompts/review-build";
 import { hintPrompt } from "../../prompts/hint";
 import { contextBlock } from "../messages";
 import { conversationContext, technicalContext } from "./context";
 import type { TextTask } from "./types";
 
 export function conversationTask(input: {
-  mode: "clarify" | "review";
-  challenge: JudgeInput["challenge"];
+  mode: "clarify";
+  challenge: Challenge;
   messages: ChatMessage[];
   content: string;
   attachments: MessageAttachment[];
   learner: LearnerContext;
 }): TextTask {
-  const prompt =
-    input.mode === "review" ? reviewPrompt(input) : clarificationPrompt(input);
+  const prompt = clarificationPrompt(input);
   return {
-    operation: input.mode,
+    operation: "clarify",
     instructions: prompt.instructions,
     context: [
       conversationContext(input),
@@ -38,7 +37,7 @@ export function conversationTask(input: {
 
 export function hintTask(input: {
   helpKind?: "hint" | "approach";
-  challenge: JudgeInput["challenge"];
+  challenge: Challenge;
   messages: ChatMessage[];
   learner: LearnerContext;
 }): TextTask {

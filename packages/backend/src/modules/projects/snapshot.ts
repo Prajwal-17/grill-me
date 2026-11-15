@@ -37,6 +37,7 @@ const excluded = new Set([
   ".venv",
   "venv",
   ".data",
+  ".grill-me",
   ".codex",
   ".ssh",
   ".aws",

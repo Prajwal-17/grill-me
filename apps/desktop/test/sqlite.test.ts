@@ -52,36 +52,48 @@ describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
       expect((await outside)[0]?.email).toBe(email);
     });
 
-    test("number counters survive deletions and roll back with failed writes", async () => {
+    test("generation numbers come from the live rows and roll back with failed writes", async () => {
       const { sqliteDatabase, nextGenerationNumber } =
         await import("@repo/backend/shared/database/db");
-      const { db } = sqliteDatabase();
-      const { profiles, generationCounters } =
+      const { db, sqlite } = sqliteDatabase();
+      const { profiles } =
         await import("../../../packages/backend/src/shared/database/schema.sqlite");
       const id = crypto.randomUUID();
       await db.insert(profiles).values({ id, email: `${id}@test.local` });
       expect(
-        await db.transaction((tx) => nextGenerationNumber(tx, id, "quiz")),
+        await db.transaction((tx) => nextGenerationNumber(tx, id, "challenge")),
       ).toBe(1);
+      sqlite
+        .query(
+          `INSERT INTO challenges (
+            id, profile_id, challenge_number, title, scope, difficulty,
+            contextual_difficulty, duration_min_minutes, duration_max_minutes,
+            implementation_milestones, problem_statement, expected_outcome,
+            completion_criteria, created_at
+          ) VALUES (?, ?, 1, 'First build', 'focused', 'medium', 'medium', 15, 30,
+            '[]', 'Build something.', 'A build.', '["It works."]', 1)`,
+        )
+        .run(crypto.randomUUID(), id);
+      expect(
+        await db.transaction((tx) => nextGenerationNumber(tx, id, "challenge")),
+      ).toBe(2);
       await expect(
         db.transaction(async (tx) => {
-          await nextGenerationNumber(tx, id, "quiz");
+          await nextGenerationNumber(tx, id, "challenge");
           throw new Error("failed insert");
         }),
       ).rejects.toThrow("failed insert");
       expect(
-        await db.transaction((tx) => nextGenerationNumber(tx, id, "quiz")),
-      ).toBe(2);
-      expect(
         await db.transaction((tx) => nextGenerationNumber(tx, id, "challenge")),
-      ).toBe(1);
+      ).toBe(2);
       await db.delete(profiles).where(eq(profiles.id, id));
       expect(
-        await db
-          .select()
-          .from(generationCounters)
-          .where(eq(generationCounters.profileId, id)),
-      ).toEqual([]);
+        sqlite
+          .query(
+            "SELECT count(*) AS count FROM challenges WHERE profile_id = ?",
+          )
+          .get(id),
+      ).toEqual({ count: 0 });
     });
 
     test("migrations are repeatable and preserve the database", async () => {
@@ -111,6 +123,7 @@ test("desktop configuration cannot inherit production storage paths", async () =
       token: "test-token",
       port: 0,
       rendererRoot: "/renderer",
+      workspaceDefaultRoot: join(root, "chosen-workspaces"),
       settings: {
         GRILL_ME_HOME: "/production",
         CODEX_MODEL: "fixture",
@@ -130,6 +143,7 @@ test("desktop configuration cannot inherit production storage paths", async () =
       NODE_ENV: "development",
       GRILL_ME_HOME: root,
       GRILL_ME_SQLITE_PATH: join(root, "grill-me.sqlite"),
+      GRILL_ME_WORKSPACE_DEFAULT: join(root, "chosen-workspaces"),
       CODEX_MODEL: "fixture",
     });
     expect(env.PATH.split(":")[0]).toBe("/usr/bin");
@@ -189,7 +203,7 @@ test("SQLite v1 upgrades retain existing conversations and initialize completed 
     legacy.exec(
       await readFile(
         new URL(
-          "../../../packages/backend/drizzle-sqlite/0000_desktop.sql",
+          "../../../packages/backend/drizzle/0000_desktop.sql",
           import.meta.url,
         ),
         "utf8",
@@ -215,33 +229,48 @@ test("SQLite v1 upgrades retain existing conversations and initialize completed 
     const upgraded = createSqliteDatabase(path);
     await upgraded.migrateDatabase();
     expect(upgraded.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 3,
+      user_version: 12,
     });
     expect(
       upgraded.sqlite
         .query(
-          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_runs','agent_run_events') ORDER BY name",
+          "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_runs_legacy','agent_run_events_legacy','project_preparations') ORDER BY name",
         )
         .all(),
-    ).toEqual([{ name: "agent_run_events" }, { name: "agent_runs" }]);
+    ).toEqual([
+      { name: "agent_run_events_legacy" },
+      { name: "agent_runs_legacy" },
+      { name: "project_preparations" },
+    ]);
     expect(
       (
-        upgraded.sqlite.query("PRAGMA table_info(review_jobs)").all() as {
+        upgraded.sqlite
+          .query("PRAGMA table_info(review_jobs_legacy)")
+          .all() as {
           name: string;
         }[]
       ).some((column) => column.name === "model_selection"),
     ).toBe(true);
     expect(
       upgraded.sqlite
-        .query("SELECT content,status FROM messages WHERE id='legacy-message'")
+        .query(
+          "SELECT content,status FROM messages_legacy WHERE id='legacy-message'",
+        )
         .get(),
     ).toEqual({ content: "Saved before upgrade", status: "completed" });
     const columns = upgraded.sqlite
-      .query("PRAGMA table_info(messages)")
+      .query("PRAGMA table_info(messages_legacy)")
       .all() as { name: string; dflt_value: string | null }[];
     expect(columns.find((c) => c.name === "status")?.dflt_value).toBe(
       "'completed'",
     );
+    expect(
+      (
+        upgraded.sqlite.query("PRAGMA table_info(challenges)").all() as {
+          name: string;
+        }[]
+      ).some((column) => column.name === "workspace_path"),
+    ).toBe(true);
     await upgraded.migrateDatabase();
     upgraded.close();
   } finally {

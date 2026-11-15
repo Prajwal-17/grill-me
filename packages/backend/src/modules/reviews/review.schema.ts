@@ -1,142 +1,72 @@
-import { z } from "zod";
-import type { Challenge } from "../challenges/challenge.schema";
+import { AppError } from "../../shared/errors/app-error";
+import {
+  challengeReviewResultSchema,
+  type ChallengeReviewResult,
+  type ChallengeReviewVerdict,
+  type ReviewCriterion,
+} from "@repo/backend/shared/contracts";
 
-const assessment = (max: number) =>
-  z.object({
-    score: z.number().int().min(0).max(max).nullable(),
-    evidence: z.string().min(1),
-  });
-export const reviewResultSchema = z.object({
-  verdict: z.enum(["accepted", "needs_revision", "needs_evidence"]),
-  summary: z.string().min(1).max(1600),
-  criteria: z.array(
-    z.object({
-      id: z.string(),
-      status: z.enum(["met", "unmet", "unassessed"]),
-      evidence: z.string().min(1),
-    }),
-  ),
-  findings: z.array(
-    z.object({
-      criterionId: z.string(),
-      location: z.string().nullable(),
-      issue: z.string().min(1),
-      evidence: z.string().min(1),
-    }),
-  ),
-  optionalImprovements: z.array(z.string()),
-  correctness: assessment(4),
-  understanding: assessment(3),
-  judgment: assessment(3),
-  nextStep: z.string().trim().min(1).nullable(),
-  question: z.string().trim().min(1).nullable(),
-  verification: z.enum(["checks_run", "inspection_only", "incomplete"]),
-});
-export type ReviewResult = z.infer<typeof reviewResultSchema>;
-export const reviewJsonSchema = z.toJSONSchema(reviewResultSchema);
-export type VerificationEvidence = {
-  status: "checks_run" | "inspection_only" | "incomplete";
-  reason: string;
-  checks: {
-    criterionId: string;
-    command: string;
-    exitCode: number | null;
-    output: string;
-  }[];
-};
-export const verificationPlanSchema = z.object({
-  runtime: z.enum(["python", "javascript", "typescript", "go", "unsupported"]),
-  reason: z.string(),
-  checks: z.array(
-    z.object({
-      criterionId: z.string(),
-      filename: z.string(),
-      content: z.string(),
-    }),
-  ),
-});
-export type VerificationPlan = z.infer<typeof verificationPlanSchema>;
-export function criteriaFor(challenge: Challenge) {
-  return challenge.completionCriteria.map((text, i) => ({
-    id: `C${i + 1}`,
-    text,
-  }));
+function normalize(value: string) {
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
-export function validateReview(
+
+/**
+ * The verdict is derived from the judged criteria, not supplied by the model, so
+ * a review can never claim success while listing failed criteria.
+ */
+export function deriveReviewVerdict(
+  criteria: ReviewCriterion[],
+): ChallengeReviewVerdict {
+  if (criteria.every((entry) => entry.status === "pass")) return "meets";
+  if (criteria.every((entry) => entry.status === "fail"))
+    return "does_not_meet";
+  return "partly_meets";
+}
+
+/**
+ * Validate the model's result against the challenge's own checklist. Criteria
+ * must appear once each, in the original order, so the stored score is a real
+ * count instead of free-form prose.
+ */
+export function validateReviewResult(
   value: unknown,
-  challenge: Challenge,
-  evidence: VerificationEvidence,
-) {
-  const result = reviewResultSchema.parse(value);
-  const ids = criteriaFor(challenge).map((c) => c.id);
-  if (
-    result.criteria.length !== ids.length ||
-    new Set(result.criteria.map((c) => c.id)).size !== ids.length ||
-    result.criteria.some((c) => !ids.includes(c.id)) ||
-    result.findings.some((f) => !ids.includes(f.criterionId))
-  ) {
-    throw new Error(
-      "The review did not assess each original criterion exactly once.",
+  expected: string[],
+  knownPaths?: Iterable<string>,
+): ChallengeReviewResult {
+  const parsed = challengeReviewResultSchema.safeParse(value);
+  if (!parsed.success)
+    throw new AppError(
+      "REVIEW_OUTPUT_INVALID",
+      "The review result did not match the required shape.",
+      502,
+      true,
     );
-  }
-  if (
-    result.verdict === "accepted" &&
-    (result.findings.length ||
-      result.criteria.some((c) => c.status !== "met") ||
-      result.question !== null ||
-      result.nextStep !== null)
-  ) {
-    throw new Error(
-      "An accepted review cannot contain unmet criteria, required fixes, reviewer questions, or mandatory next steps.",
+  const result = parsed.data;
+  if (result.criteria.length !== expected.length)
+    throw new AppError(
+      "REVIEW_OUTPUT_INVALID",
+      `Return exactly ${expected.length} criteria results, one per challenge criterion, in order.`,
+      502,
+      true,
     );
-  }
-  if (result.verdict === "accepted" && result.correctness.score !== 4)
-    throw new Error(
-      "Accepted work must satisfy the correctness rubric completely.",
-    );
-  const unmet = result.criteria.filter(
-    (criterion) => criterion.status === "unmet",
-  );
-  const uncertain = result.criteria.some(
-    (criterion) => criterion.status === "unassessed",
-  );
-  if (
-    result.findings.some(
-      (finding) =>
-        !unmet.some((criterion) => criterion.id === finding.criterionId),
-    )
-  )
-    throw new Error(
-      "Required findings must refer to an unmet frozen requirement.",
-    );
-  const missingFindings = unmet.filter(
-    (criterion) =>
-      !result.findings.some((finding) => finding.criterionId === criterion.id),
-  );
-  if (missingFindings.length)
-    throw new Error(
-      "Every unmet criterion needs a corresponding finding. Missing criterion IDs: " +
-        missingFindings.map((criterion) => criterion.id).join(", "),
-    );
-  if (uncertain && result.verdict !== "needs_evidence")
-    throw new Error("Essential uncertainty requires a needs_evidence verdict.");
-  if (result.verdict === "needs_evidence" && !uncertain)
-    throw new Error(
-      "A needs_evidence verdict must identify an unassessed requirement.",
-    );
-  if (result.verdict === "needs_revision" && !unmet.length) {
-    throw new Error(
-      "A revision request must identify a concrete requirement violation.",
-    );
-  }
-  result.verification = evidence.status;
-  const parts = [
-    result.correctness.score,
-    result.understanding.score,
-    result.judgment.score,
-  ];
-  const score = parts.every((part): part is number => part !== null)
-    ? parts.reduce((sum, part) => sum + part, 0)
-    : null;
-  return { result, score };
+  const paths = knownPaths ? new Set(knownPaths) : null;
+  const criteria = result.criteria.map((entry, index) => {
+    const criterion = expected[index]!;
+    if (normalize(entry.criterion) !== normalize(criterion))
+      throw new AppError(
+        "REVIEW_OUTPUT_INVALID",
+        `Criterion ${index + 1} must be copied exactly as "${criterion}".`,
+        502,
+        true,
+      );
+    if (entry.path && paths && !paths.has(entry.path))
+      throw new AppError(
+        "REVIEW_OUTPUT_INVALID",
+        `"${entry.path}" is not a file in the workspace inventory. Cite a listed file or use null.`,
+        502,
+        true,
+      );
+    return { ...entry, criterion };
+  });
+  return { ...result, criteria };
 }
