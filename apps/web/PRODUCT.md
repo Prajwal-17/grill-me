@@ -8,7 +8,7 @@ The interface should be comfortable for sustained practice: readable task text, 
 
 The interface uses shadcn/Radix, with T3Code as a reference for spacing, surface hierarchy, compact navigation, and settings organization. Preserve Grill Me's original neutral charcoal/white palette, inverted monochrome actions, full-color logo, and orange Grill difficulty identity. The user explicitly rejected both the gray-blue replacement and the saturated navy/cobalt replacement. Refinement means improving tonal separation, contrast, borders, and interaction states within the original palette; it does not authorize changing the hue family. Collections emphasize search/filter/sort controls, settings use task-specific sections, and active work keeps task tabs with optional reference and file panels.
 
-Preserve existing data, API contracts, frozen challenge requirements, scoring rules, explicit completion, code attachment behavior, and quiz save/recovery behavior when extending the UI. Source product details live in the repository README; visual rules and tokens live in DESIGN.md.
+Preserve existing data, API contracts, frozen challenge requirements, scoring rules, explicit completion, code attachment behavior, and quiz save/recovery behavior when extending the UI. Source product details live in the repository README.
 
 This is a personal developer tool. Keep screens focused on controls, data, and results. Omit taglines, promotional empty states, routine instructions, and duplicate descriptions. Preserve field names, accessible semantics, technical limits, keyboard shortcuts, errors, and meaningful state.
 
