@@ -16,7 +16,7 @@
     },
     "apps/desktop": {
       "name": "@grill-me/desktop",
-      "version": "0.1.13",
+      "version": "0.2.0",
       "devDependencies": {
         "@grill-me/web": "workspace:*",
         "@repo/backend": "workspace:*",
@@ -39,7 +39,7 @@
     },
     "apps/web": {
       "name": "@grill-me/web",
-      "version": "0.1.13",
+      "version": "0.2.0",
       "dependencies": {
         "@pierre/diffs": "^1.4.2",
         "@pierre/trees": "^1.0.0-beta.6",
