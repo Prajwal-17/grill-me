@@ -95,8 +95,6 @@ export function conversationPromptContext(input: {
       problemStatement: challenge.problemStatement,
       expectedOutcome: challenge.expectedOutcome,
       implementationBoundary: challenge.implementationBoundary,
-      constraints: challenge.constraints,
-      starterCode: challenge.starterCode,
       implementationMilestones: challenge.implementationMilestones,
       completionCriteria: challenge.completionCriteria,
       hint: challenge.hint,

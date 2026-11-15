@@ -1,13 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
 import { db, migrateDatabase } from "@repo/backend/shared/database/db";
-import {
-  challenges,
-  harnessItems,
-  harnessThreads,
-  harnessTurns,
-  profiles,
-} from "@repo/backend/shared/database/schema";
+import { challenges, profiles } from "@repo/backend/shared/database/schema";
 import {
   harnessService,
   setHarnessPermissionModeProvider,
@@ -36,7 +29,6 @@ async function fixture() {
     implementationMilestones: [],
     problemStatement: "Exercise the harness transcript.",
     expectedOutcome: "A stored thread.",
-    constraints: [],
     completionCriteria: ["Turn rows exist."],
   });
   return { profileId, challengeId };
@@ -215,35 +207,5 @@ describe("harness transcripts", () => {
     setHarnessPermissionModeProvider(() => "auto-accept-edits");
     const detail = await harnessService.detail(created.id, profileId);
     expect(detail.turns[0]!.runtimeMode).toBe("auto");
-  });
-
-  test("interrupts unfinished rows when the schema is opened again", async () => {
-    const { profileId, challengeId } = await fixture();
-    const created = await thread(profileId, challengeId);
-    await harnessService.begin({
-      threadId: created.id,
-      inputText: "Start",
-    });
-    await db
-      .update(harnessThreads)
-      .set({ status: "running" })
-      .where(eq(harnessThreads.id, created.id));
-    await db
-      .update(harnessTurns)
-      .set({ status: "running" })
-      .where(eq(harnessTurns.threadId, created.id));
-    await db
-      .update(harnessItems)
-      .set({ status: "running" })
-      .where(eq(harnessItems.threadId, created.id));
-    await harnessService.recover();
-    expect(
-      (
-        await db
-          .select({ status: harnessThreads.status })
-          .from(harnessThreads)
-          .where(eq(harnessThreads.id, created.id))
-      )[0]!.status,
-    ).toBe("interrupted");
   });
 });

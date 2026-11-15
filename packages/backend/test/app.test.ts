@@ -66,8 +66,6 @@ const generated: GeneratedBuildContent = {
   implementationMilestones: [],
   problemStatement: "Build a function that groups words by their first letter.",
   expectedOutcome: "A function with deterministic, observable return values.",
-  constraints: [],
-  starterCode: null,
   completionCriteria: [
     "Returns an empty object for empty input.",
     "Groups repeated first letters without dropping words.",
@@ -1033,7 +1031,6 @@ describe("challenge workspaces", () => {
     model.final = {
       ...generated,
       topic: "TypeScript",
-      starterCode: null,
     };
     const app = createApp({ llm: model });
     const profile = await startProfile(
@@ -1041,10 +1038,6 @@ describe("challenge workspaces", () => {
       `workspace-${crypto.randomUUID()}@test.dev`,
     );
     const build = await createChallenge(app, profile.id);
-    await fixtureSql("UPDATE challenges SET starter_code=$1 WHERE id=$2", [
-      "export function group() {}",
-      build.id,
-    ]);
     expect(build.workspacePath).toContain(
       `/profiles/${profile.id}/0001-group-words-by-first-letter-`,
     );
@@ -1059,13 +1052,10 @@ describe("challenge workspaces", () => {
     const workspace = (await json<{ data: ChallengeWorkspace }>(response)).data;
     expect(workspace.path).toBe(workspacePath);
     expect(workspace.initialized).toBe(false);
-    expect(workspace.starterFile).toBe("starter.ts");
-    expect(await readFile(join(workspace.path, "starter.ts"), "utf8")).toBe(
-      "export function group() {}",
-    );
+    expect(workspace.starterFile).toBeNull();
 
     await writeFile(join(workspace.path, "README.md"), "My notes\n");
-    await writeFile(join(workspace.path, "starter.ts"), "My implementation\n");
+    await writeFile(join(workspace.path, "solution.ts"), "My implementation\n");
     const again = await request(
       app,
       `/challenges/${build.id}/workspace`,
@@ -1076,7 +1066,7 @@ describe("challenge workspaces", () => {
     expect(await readFile(join(workspace.path, "README.md"), "utf8")).toBe(
       "My notes\n",
     );
-    expect(await readFile(join(workspace.path, "starter.ts"), "utf8")).toBe(
+    expect(await readFile(join(workspace.path, "solution.ts"), "utf8")).toBe(
       "My implementation\n",
     );
 
@@ -1097,7 +1087,6 @@ describe("challenge workspaces", () => {
     const model = new FakeModel();
     model.final = {
       ...generated,
-      starterCode: null,
     };
     const app = createApp({ llm: model, workspaceRoot: () => root });
     const profile = await startProfile(
@@ -1105,14 +1094,10 @@ describe("challenge workspaces", () => {
       `workspace-lazy-${crypto.randomUUID()}@test.dev`,
     );
     const build = await createChallenge(app, profile.id);
-    await fixtureSql("UPDATE challenges SET starter_code=$1 WHERE id=$2", [
-      "export function group() {}",
-      build.id,
-    ]);
     const path = challengeWorkspacePath(root, build);
     await rm(build.workspacePath!, { recursive: true, force: true });
     await mkdir(path, { recursive: true });
-    await writeFile(join(path, "starter.ts"), "my own starter\n");
+    await writeFile(join(path, "solution.ts"), "my own starter\n");
     await fixtureSql("UPDATE challenges SET workspace_path=NULL WHERE id=$1", [
       build.id,
     ]);
@@ -1127,9 +1112,9 @@ describe("challenge workspaces", () => {
     expect(workspace).toMatchObject({
       path,
       initialized: true,
-      starterFile: "starter.ts",
+      starterFile: null,
     });
-    expect(await readFile(join(path, "starter.ts"), "utf8")).toBe(
+    expect(await readFile(join(path, "solution.ts"), "utf8")).toBe(
       "my own starter\n",
     );
     const detail = await json<{ data: Challenge }>(
@@ -1957,8 +1942,8 @@ describe("developer profile and frozen context", () => {
       selectedDifficulty: "medium",
     };
     await fixtureSql(
-      "UPDATE challenges SET estimated_difficulty_score=7, contract_version=1, constraints=$1::jsonb, implementation_milestones=$2::jsonb, context_snapshot=$3::jsonb, prompt_version='practice-v2.3', calibration_version='generator-estimate-v1' WHERE id=$4",
-      [["Use no packages."], ["Legacy milestone"], snapshot, challenge.id],
+      "UPDATE challenges SET estimated_difficulty_score=7, implementation_milestones=$1::jsonb, context_snapshot=$2::jsonb, prompt_version='practice-v2.3' WHERE id=$3",
+      [["Legacy milestone"], snapshot, challenge.id],
     );
     const stored = (
       await json<{ data: Challenge }>(
@@ -1966,9 +1951,7 @@ describe("developer profile and frozen context", () => {
       )
     ).data;
     expect(stored.estimatedDifficultyScore).toBe(7);
-    expect(stored.constraints).toEqual(["Use no packages."]);
     expect(stored.contextSnapshot).toEqual(snapshot);
-    expect(stored.contractVersion).toBe(1);
   });
 });
 
@@ -2003,8 +1986,10 @@ describe("band calibration and essential clarification", () => {
     );
     expect(challenge.estimatedDifficultyScore).toBeNull();
     expect(challenge.contextualDifficulty).toBe("easy");
-    expect(challenge.contractVersion).toBe(2);
-    expect(challenge.calibrationVersion).toBe("difficulty-bands-v1");
+    expect(challenge.contextSnapshot).toMatchObject({
+      contractVersion: 2,
+      calibrationVersion: "difficulty-bands-v1",
+    });
     const { buildJsonSchema } = await import("./fixtures/output-contract");
     expect(JSON.stringify(buildJsonSchema("system"))).not.toContain(
       "estimatedDifficultyScore",

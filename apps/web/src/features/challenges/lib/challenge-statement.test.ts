@@ -17,15 +17,10 @@ const challenge: Challenge = {
   implementationBoundary: "",
   contextSnapshot: null,
   promptVersion: "practice-v3.0",
-  calibrationVersion: "difficulty-bands-v1",
-  contractVersion: 2,
-  completionSource: null,
   durationEstimate: { minMinutes: 20, maxMinutes: 30 },
   implementationMilestones: [],
   problemStatement: "Group supplied words by their first letter.",
   expectedOutcome: "Submit the source function.",
-  constraints: [],
-  starterCode: null,
   completionCriteria: [
     "Preserve every word.",
     "Empty input returns an empty object.",
@@ -44,16 +39,22 @@ test("new assignments use readable bullets and band labels in copied Markdown", 
   assert.doesNotMatch(text, /\bC[12]\b/);
   assert.doesNotMatch(text, /Implementation boundary|Starter code/);
 });
-test("legacy frozen constraints, milestones and numeric metadata stay accessible", () => {
+test("legacy frozen milestones and numeric metadata stay accessible", () => {
   const old = {
     ...challenge,
-    contractVersion: 1,
     promptVersion: "practice-v2.3",
     estimatedDifficultyScore: 7,
-    constraints: ["No packages."],
     implementationMilestones: ["Frozen milestone"],
   };
-  assert.match(statementBody(old), /No packages\./);
   assert.match(statementBody(old), /Frozen milestone/);
   assert.match(statementMarkdown(old), /Difficulty: 7\/10/);
+});
+
+test("frozen challenge text renders as the task body", () => {
+  const old = {
+    ...challenge,
+    promptVersion: "practice-v2.3",
+    problemStatement: "Build the parser.\n\n**Constraints**\n\n- No packages.",
+  };
+  assert.match(statementBody(old), /No packages\./);
 });

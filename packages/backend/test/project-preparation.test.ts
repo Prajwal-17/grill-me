@@ -62,8 +62,6 @@ const generatedBuild: GeneratedBuildContent = {
   problemStatement:
     "Build a URL shortener service with separate HTTP, storage, migration, and test files.",
   expectedOutcome: "A runnable project skeleton with unfinished core logic.",
-  constraints: [],
-  starterCode: null,
   completionCriteria: [
     "Creates a short link and stores its target.",
     "Redirects a known short link.",
@@ -758,14 +756,9 @@ describe("Pi project-scaffold gateway", () => {
       implementationBoundary: "HTTP and storage boundary.",
       contextSnapshot: null,
       promptVersion: null,
-      calibrationVersion: null,
-      contractVersion: 2,
-      completionSource: null,
       problemStatement:
         "Build a URL shortener service with separate HTTP, storage, migration, and test files.",
       expectedOutcome: "A runnable skeleton with unimplemented core logic.",
-      constraints: [],
-      starterCode: null,
       completionCriteria: generatedBuild.completionCriteria,
       implementationMilestones: [],
       durationMinMinutes: 45,

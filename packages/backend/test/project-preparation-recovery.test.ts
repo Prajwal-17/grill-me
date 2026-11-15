@@ -68,8 +68,6 @@ const generatedBuild: GeneratedBuildContent = {
   problemStatement:
     "Build a URL shortener service with separate HTTP, storage, migration, and test files.",
   expectedOutcome: "A runnable project skeleton with unfinished core logic.",
-  constraints: [],
-  starterCode: null,
   completionCriteria: [
     "Creates a short link and stores its target.",
     "Redirects a known short link.",
@@ -1049,7 +1047,7 @@ test("the latest schema keeps a defaulted preparation mode without touching olde
     const version = (
       db.sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    expect(version).toBe(10);
+    expect(version).toBe(11);
     const columns = db.sqlite
       .query("PRAGMA table_info(project_preparations)")
       .all() as { name: string; dflt_value: string | null; notnull: number }[];

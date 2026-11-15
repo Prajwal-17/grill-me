@@ -17,7 +17,6 @@ import {
   challengeWorkspaceFolderName,
   challengeWorkspacePath,
   ensureChallengeWorkspace,
-  starterAsset,
   type WorkspaceChallenge,
 } from "@repo/backend/modules/challenges/workspace";
 
@@ -47,9 +46,7 @@ function challenge(
     expectedOutcome: "Submit the source function.",
     implementationBoundary: null,
     implementationMilestones: [],
-    constraints: [],
     completionCriteria: ["Groups every word.", "Keeps empty groups out."],
-    starterCode: "```ts\nexport function group() {}\n```",
     workspacePath: null,
     ...patch,
   };
@@ -71,19 +68,16 @@ describe("challenge workspaces", () => {
     ).toBe("0007-challenge-0f1e2d3c");
   });
 
-  test("seeds a README, starter file, and marker exactly once", async () => {
+  test("seeds a README and marker exactly once", async () => {
     const root = await tempRoot();
     const value = challenge();
     const created = await ensureChallengeWorkspace({ challenge: value, root });
     expect(created.initialized).toBe(true);
-    expect(created.starterFile).toBe("starter.ts");
+    expect(created.starterFile).toBeNull();
     expect(created.path).toBe(challengeWorkspacePath(root, value));
     expect((await stat(created.path)).isDirectory()).toBe(true);
     expect(await readFile(join(created.path, "README.md"), "utf8")).toContain(
       "Groups every word.",
-    );
-    expect(await readFile(join(created.path, "starter.ts"), "utf8")).toBe(
-      "export function group() {}",
     );
     const marker = JSON.parse(
       await readFile(join(created.path, ".grill-me/workspace.json"), "utf8"),
@@ -92,24 +86,24 @@ describe("challenge workspaces", () => {
       version: 1,
       challengeId: value.id,
       profileId: value.profileId,
-      starterFile: "starter.ts",
+      starterFile: null,
     });
 
     await writeFile(join(created.path, "README.md"), "My notes\n");
-    await writeFile(join(created.path, "starter.ts"), "my implementation\n");
+    await writeFile(join(created.path, "solution.ts"), "my implementation\n");
     const again = await ensureChallengeWorkspace({ challenge: value, root });
     expect(again.initialized).toBe(false);
     expect(await readFile(join(created.path, "README.md"), "utf8")).toBe(
       "My notes\n",
     );
-    expect(await readFile(join(created.path, "starter.ts"), "utf8")).toBe(
+    expect(await readFile(join(created.path, "solution.ts"), "utf8")).toBe(
       "my implementation\n",
     );
   });
 
   test("keeps an existing folder and never replaces user files", async () => {
     const root = await tempRoot();
-    const value = challenge({ starterCode: null });
+    const value = challenge();
     const path = challengeWorkspacePath(root, value);
     await mkdir(path, { recursive: true });
     await writeFile(join(path, "README.md"), "Existing notes\n");
@@ -236,70 +230,5 @@ describe("challenge workspaces", () => {
         root,
       }),
     ).rejects.toMatchObject({ code: "WORKSPACE_PATH_INVALID" });
-  });
-
-  test("infers common starter languages and ignores blank starter code", () => {
-    expect(starterAsset(challenge())).toEqual({
-      filename: "starter.ts",
-      content: "export function group() {}",
-    });
-    expect(
-      starterAsset(
-        challenge({
-          title: "Closures",
-          topic: "Python",
-          starterCode: "def solve(value):\n    pass",
-        }),
-      ),
-    ).toEqual({
-      filename: "starter.py",
-      content: "def solve(value):\n    pass",
-    });
-    expect(
-      starterAsset(
-        challenge({
-          title: "Plan a scheduler",
-          topic: "Algorithms",
-          starterCode: "```pseudocode\nreturn tasks by deadline\n```",
-        }),
-      ),
-    ).toEqual({
-      filename: "starter.txt",
-      content: "return tasks by deadline",
-    });
-    expect(starterAsset(challenge({ starterCode: "   " }))).toBeNull();
-  });
-
-  test("recognizes C++, C#, and C starter clues at token boundaries", () => {
-    const extension = (patch: Partial<WorkspaceChallenge>) => {
-      const starter = starterAsset(
-        challenge({
-          title: "Practice",
-          topic: null,
-          starterCode: "int main() { return 0; }",
-          ...patch,
-        }),
-      );
-      return starter?.filename;
-    };
-    expect(extension({ topic: "C++" })).toBe("starter.cpp");
-    expect(extension({ topic: "C++17" })).toBe("starter.cpp");
-    expect(extension({ topic: "C#" })).toBe("starter.cs");
-    expect(extension({ topic: "C# and Java" })).toBe("starter.cs");
-    expect(
-      extension({
-        starterCode: "#include <iostream>\nint main() { return 0; }",
-      }),
-    ).toBe("starter.cpp");
-    expect(
-      extension({
-        starterCode: "#include <stdio.h>\nint main() { return 0; }",
-      }),
-    ).toBe("starter.c");
-    expect(
-      extension({
-        starterCode: "using System;\nclass Program { static void Main() {} }",
-      }),
-    ).toBe("starter.cs");
   });
 });

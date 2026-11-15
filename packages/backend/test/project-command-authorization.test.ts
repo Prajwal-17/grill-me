@@ -59,8 +59,6 @@ const generatedBuild: GeneratedBuildContent = {
   problemStatement:
     "Build a URL shortener service with separate HTTP, storage, migration, and test files.",
   expectedOutcome: "A runnable project skeleton with unfinished core logic.",
-  constraints: [],
-  starterCode: null,
   completionCriteria: [
     "Creates a short link and stores its target.",
     "Redirects a known short link.",
@@ -787,14 +785,12 @@ describe("command tool isolation", () => {
         "Build a URL shortener service with separate HTTP, storage, and test files.",
       expectedOutcome: "A runnable skeleton with unfinished core logic.",
       implementationBoundary: null,
-      constraints: [],
       objectives: ["Create the project skeleton."],
       acceptanceCriteria: [
         "Creates a short link and stores its target.",
         "Redirects a known short link.",
       ],
       durationEstimate: { minMinutes: 45, maxMinutes: 75 },
-      starterCode: null,
       stack: {
         experienceLevel: "mid-level",
         languages: ["TypeScript"],

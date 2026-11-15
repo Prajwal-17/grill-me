@@ -35,15 +35,10 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     implementationBoundary: "",
     contextSnapshot: {},
     promptVersion: "fixture",
-    calibrationVersion: "fixture",
-    contractVersion: 2,
-    completionSource: null,
     durationEstimate: { minMinutes: 10, maxMinutes: 20 },
     implementationMilestones: [],
     problemStatement: "Build a deterministic grouping function.",
     expectedOutcome: "A function that returns grouped words.",
-    constraints: [],
-    starterCode: null,
     completionCriteria: ["Groups words by first letter."],
     hint: null,
     workspacePath: null,
@@ -65,7 +60,6 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     implementationMilestones: [],
     problemStatement: challenge.problemStatement,
     expectedOutcome: challenge.expectedOutcome,
-    constraints: [],
     completionCriteria: challenge.completionCriteria,
     status: "active",
     createdAt: new Date(),
@@ -103,8 +97,6 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     problemStatement:
       "Build a function that groups words by their first letter.",
     expectedOutcome: "A function with deterministic output.",
-    constraints: [],
-    starterCode: null,
     completionCriteria: ["Groups repeated letters without dropping words."],
   };
   const quizQuestions = Array.from({ length: 5 }, (_, index) => ({

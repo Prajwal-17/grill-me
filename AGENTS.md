@@ -30,7 +30,7 @@ Bun backend is a private local component, not a separately hosted service.
   adapters, SQLite schema/migrations, storage, AI prompts, and the shared
   transport contracts and preference options under `src/shared`.
 - `scripts` — isolated test runner and release-note extraction.
-- `docs` — detailed provider, release, update, and implementation notes.
+- `docs` — retained legacy-data notes only.
 
 ## Commands
 

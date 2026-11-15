@@ -38,10 +38,6 @@ package metadata, and passed explicitly to the backend. A production binary
 cannot be switched to development by exporting an environment variable.
 Both editions use only local SQLite; no external database is required.
 
-See [builds and releases](../../docs/desktop-release.md) for exact package commands,
-CI workflows, versioning, installation, and storage. See
-[CLI providers](../../docs/cli-providers.md) for authentication and history.
-
 Linux launcher and window icons are generated from `apps/web/public/icon.svg`.
 `bun run --cwd apps/desktop icons` exports static PNGs at native icon sizes to
 `resources/icons`. Development and package builds regenerate these assets;

@@ -47,9 +47,6 @@ export type Challenge = {
   implementationBoundary: string | null;
   contextSnapshot: Record<string, unknown> | null;
   promptVersion: string | null;
-  calibrationVersion: string | null;
-  contractVersion: number;
-  completionSource: "judge" | "legacy" | "user" | null;
 
   id: string;
   profileId: string;
@@ -62,8 +59,6 @@ export type Challenge = {
   implementationMilestones: string[];
   problemStatement: string;
   expectedOutcome: string;
-  constraints: string[];
-  starterCode: string | null;
   completionCriteria: string[];
   hint: string | null;
   workspacePath: string | null;

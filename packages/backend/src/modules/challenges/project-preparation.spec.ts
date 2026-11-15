@@ -50,7 +50,6 @@ export function frozenProjectSpecification(input: {
     problemStatement: challenge.problemStatement,
     expectedOutcome: challenge.expectedOutcome,
     implementationBoundary: challenge.implementationBoundary,
-    constraints: [...challenge.constraints],
     objectives: challenge.implementationMilestones.length
       ? [...challenge.implementationMilestones]
       : [challenge.expectedOutcome],
@@ -59,10 +58,6 @@ export function frozenProjectSpecification(input: {
       minMinutes: challenge.durationMinMinutes,
       maxMinutes: challenge.durationMaxMinutes,
     },
-    starterCode:
-      challenge.starterCode && !/^\s*={3,}\s*FILE:/m.test(challenge.starterCode)
-        ? challenge.starterCode
-        : null,
     stack: {
       experienceLevel:
         optionLabel(EXPERIENCE, preferences.experienceLevel) || null,
@@ -104,8 +99,6 @@ export function projectChallengeMarkdown(
     )}`,
     `## Objectives\n\n${list(specification.objectives, true)}`,
   ];
-  if (specification.constraints.length)
-    sections.push(`## Constraints\n\n${list(specification.constraints)}`);
   if (specification.implementationBoundary)
     sections.push(
       `## Implementation boundary\n\n${specification.implementationBoundary.trim()}`,
@@ -132,12 +125,6 @@ export function projectChallengeMarkdown(
       "Not every project uses JavaScript or Node. Follow the frozen stack and language implied by the request.",
     ].join("\n\n"),
   );
-  if (specification.starterCode?.trim())
-    sections.push(
-      "## Starter code supplied with the challenge\n\n```text\n" +
-        specification.starterCode.trim() +
-        "\n```",
-    );
   sections.push(
     [
       "## Project boundary",

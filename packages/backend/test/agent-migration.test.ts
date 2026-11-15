@@ -269,7 +269,7 @@ test("v2 practice databases upgrade to the latest schema and preserve every reti
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 10,
+      user_version: 11,
     });
     expect(database.sqlite.query("PRAGMA integrity_check").get()).toEqual({
       integrity_check: "ok",
@@ -279,7 +279,7 @@ test("v2 practice databases upgrade to the latest schema and preserve every reti
       database.sqlite
         .query("SELECT count(*) AS count FROM __drizzle_migrations")
         .get(),
-    ).toEqual({ count: 3 });
+    ).toEqual({ count: 4 });
     const names = tables(path);
     for (const name of [...liveTables, ...legacyTables])
       expect(names).toContain(name);
@@ -363,6 +363,56 @@ test("v2 practice databases upgrade to the latest schema and preserve every reti
   }
 });
 
+test("retired challenge fields fold into the brief before their columns are dropped", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-fold-"));
+  const path = join(root, "grill-me.sqlite");
+  try {
+    populate(path);
+    const raw = new Database(path);
+    raw.exec(`
+      UPDATE challenges
+      SET constraints = '["Use no packages.","Keep it synchronous."]',
+          starter_code = 'export function group() { return {}; }',
+          calibration_version = 'generator-estimate-v1',
+          context_snapshot = NULL
+      WHERE id = 'challenge-a';
+    `);
+    raw.close();
+    const database = createSqliteDatabase(path);
+    await database.migrateDatabase();
+    const stored = database.sqlite
+      .query(
+        "SELECT problem_statement AS statement, context_snapshot AS snapshot FROM challenges WHERE id = 'challenge-a'",
+      )
+      .get() as { statement: string; snapshot: string };
+    expect(stored.statement).toContain("Build a grouping function.");
+    expect(stored.statement).toContain("**Constraints**");
+    expect(stored.statement).toContain("- Use no packages.");
+    expect(stored.statement).toContain("- Keep it synchronous.");
+    expect(stored.statement).toContain("**Starter code**");
+    expect(stored.statement).toContain(
+      "export function group() { return {}; }",
+    );
+    expect(JSON.parse(stored.snapshot)).toMatchObject({
+      calibrationVersion: "generator-estimate-v1",
+      contractVersion: 1,
+    });
+    const columns = (
+      database.sqlite.query("PRAGMA table_info(challenges)").all() as {
+        name: string;
+      }[]
+    ).map((column) => column.name);
+    expect(columns).not.toContain("constraints");
+    expect(columns).not.toContain("starter_code");
+    expect(columns).not.toContain("completion_source");
+    expect(columns).not.toContain("calibration_version");
+    expect(columns).not.toContain("contract_version");
+    await database.close();
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("v5 databases receive command and harness tables without rewriting practice data", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-v5-upgrade-"));
   const path = join(root, "grill-me.sqlite");
@@ -401,7 +451,7 @@ test("fresh databases create only live tables", async () => {
     const database = createSqliteDatabase(path);
     await database.migrateDatabase();
     expect(database.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 10,
+      user_version: 11,
     });
     const names = tables(path);
     for (const name of liveTables) expect(names).toContain(name);
@@ -413,7 +463,7 @@ test("fresh databases create only live tables", async () => {
       database.sqlite
         .query("SELECT count(*) AS count FROM __drizzle_migrations")
         .get(),
-    ).toEqual({ count: 3 });
+    ).toEqual({ count: 4 });
     expect(database.sqlite.query("PRAGMA foreign_key_check").all()).toEqual([]);
     await database.close();
   } finally {
@@ -452,7 +502,7 @@ test("a current database without a Drizzle journal is stamped without rewriting 
       reopened.sqlite
         .query("SELECT count(*) AS count FROM __drizzle_migrations")
         .get(),
-    ).toEqual({ count: 3 });
+    ).toEqual({ count: 4 });
     expect(rows(path, ["profiles", "challenges", "harness_threads"])).toEqual(
       before,
     );

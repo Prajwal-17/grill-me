@@ -639,14 +639,12 @@ export const projectFrozenSpecificationSchema = z.object({
   problemStatement: z.string().min(1).max(5_000),
   expectedOutcome: z.string().min(1).max(1_000),
   implementationBoundary: z.string().max(1_000).nullable(),
-  constraints: z.array(z.string().max(500)).max(20),
   objectives: z.array(z.string().max(500)).max(20),
   acceptanceCriteria: z.array(z.string().max(500)).min(1).max(20),
   durationEstimate: z.object({
     minMinutes: z.number().int().positive(),
     maxMinutes: z.number().int().positive(),
   }),
-  starterCode: z.string().max(50_000).nullable(),
   stack: z.object({
     experienceLevel: z.string().max(80).nullable(),
     languages: z.array(z.string().max(80)).max(50),

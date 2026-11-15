@@ -21,8 +21,8 @@ restart after backend changes.
 
 Use your installed Codex or OpenCode CLI, or an OmniRoute endpoint, in
 **Settings → Providers**. Turn a provider on, then choose which one handles AI
-requests. Grill Me does not install Codex or OpenCode. See
-[CLI connections and conversation recovery](docs/cli-providers.md).
+requests. Grill Me does not install Codex or OpenCode; configure the installed
+CLI or endpoint in Settings → Providers.
 
 ## First launch and storage
 
@@ -93,8 +93,6 @@ bun run desktop:dmg:x64        # Intel production DMG
 ```
 
 These commands build packages; normal development needs only `bun dev`.
-[Desktop build and release instructions](docs/desktop-release.md) describe manual
-CI builds, versioning, tag-triggered GitHub releases, installation, and isolation.
 The desktop version in the top bar opens Settings → About, where the complete
 release history is available. The same history is maintained in
 [CHANGELOG.md](CHANGELOG.md) and used for GitHub release notes.

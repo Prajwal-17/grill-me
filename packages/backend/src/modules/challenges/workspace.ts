@@ -29,9 +29,7 @@ export type WorkspaceChallenge = {
   expectedOutcome: string;
   implementationBoundary: string | null;
   implementationMilestones: string[];
-  constraints: string[];
   completionCriteria: string[];
-  starterCode: string | null;
   workspacePath: string | null;
 };
 
@@ -46,163 +44,6 @@ const markerSchema = z.object({
   seededFiles: z.array(z.string().max(255)).max(20).default([]),
 });
 type WorkspaceMarker = z.infer<typeof markerSchema>;
-
-const extensions: Record<string, string> = {
-  bash: "sh",
-  c: "c",
-  "c#": "cs",
-  "c++": "cpp",
-  clojure: "clj",
-  cpp: "cpp",
-  csharp: "cs",
-  css: "css",
-  dart: "dart",
-  elixir: "ex",
-  erlang: "erl",
-  go: "go",
-  golang: "go",
-  haskell: "hs",
-  html: "html",
-  java: "java",
-  javascript: "js",
-  js: "js",
-  json: "json",
-  jsx: "jsx",
-  kotlin: "kt",
-  lua: "lua",
-  markdown: "md",
-  md: "md",
-  php: "php",
-  plaintext: "txt",
-  pseudo: "txt",
-  pseudocode: "txt",
-  py: "py",
-  python: "py",
-  rb: "rb",
-  react: "tsx",
-  rs: "rs",
-  ruby: "rb",
-  rust: "rs",
-  sh: "sh",
-  shell: "sh",
-  sql: "sql",
-  swift: "swift",
-  text: "txt",
-  ts: "ts",
-  tsx: "tsx",
-  typescript: "ts",
-  txt: "txt",
-  vue: "vue",
-  yaml: "yml",
-  yml: "yml",
-};
-
-const contextLanguages: [RegExp, string][] = [
-  [/\btypescript\b/i, "ts"],
-  [/\btsx\b/i, "tsx"],
-  [/\bjavascript\b/i, "js"],
-  [/\bnode(?:\.js)?\b/i, "js"],
-  [/\bpython\b/i, "py"],
-  [/\bgo(?:lang)?\b/i, "go"],
-  [/\brust\b/i, "rs"],
-  [/\bc#(?![#\w])/i, "cs"],
-  [/\bjava\b/i, "java"],
-  [/\bkotlin\b/i, "kt"],
-  [/\bruby\b/i, "rb"],
-  [/\bphp\b/i, "php"],
-  [/\bswift\b/i, "swift"],
-  [/\bc\+\+(?!\+)/i, "cpp"],
-  [/\bsql\b/i, "sql"],
-  [/\bhtml\b/i, "html"],
-  [/\bcss\b/i, "css"],
-  [/\breact\b/i, "tsx"],
-];
-
-function starterFileContent(starterCode: string) {
-  const value = starterCode.trim();
-  if (!value) return null;
-  const fenced = /^```([a-zA-Z0-9_+#.-]*)[^\n]*\n([\s\S]*?)\n```\s*$/.exec(
-    value,
-  );
-  const content = (fenced?.[2] ?? value).trimEnd();
-  if (!content) return null;
-  return { content, language: fenced?.[1]?.toLowerCase() ?? "" };
-}
-
-function extensionFor(language: string) {
-  return extensions[language.toLowerCase()] ?? null;
-}
-
-function inferExtension(text: string) {
-  for (const [pattern, extension] of contextLanguages)
-    if (pattern.test(text)) return extension;
-  return null;
-}
-
-function inferCodeExtension(code: string) {
-  if (
-    /^\s*(?:from\s+\S+\s+import|import\s+\S+)/m.test(code) &&
-    /\bdef\s+/.test(code)
-  )
-    return "py";
-  if (/\bdef\s+\w+\s*\(/.test(code)) return "py";
-  if (/\b(?:interface|type)\s+\w+|:\s*(?:string|number|boolean)\b/.test(code))
-    return "ts";
-  if (
-    /\bimport\s+(?:UIKit|SwiftUI|Foundation)\b|\bfunc\s+\w+\s*\([^)]*\)\s*->/.test(
-      code,
-    )
-  )
-    return "swift";
-  if (/^\s*package\s+main\b|\bfunc\s+\w+\s*\(/m.test(code)) return "go";
-  if (/\bfn\s+main\s*\(|\blet\s+mut\b/.test(code)) return "rs";
-  if (
-    /#include\s*<(?:stdio|stdlib|string|math|time|assert|ctype|errno|float|limits|locale|setjmp|signal|stdarg|stddef|stdint|wchar)\.h>/.test(
-      code,
-    )
-  )
-    return "c";
-  if (
-    /#include\s*<(?:iostream|vector|string|map|unordered_map|memory|algorithm|utility|sstream|fstream|array|deque|set|queue|stack|thread|mutex|chrono|optional|variant|tuple|string_view|bitset|complex|functional|numeric|iterator|regex|filesystem|random|atomic|future|list|forward_list|type_traits|iomanip|cstdint|cstring|cmath|cstdio|ctime|initializer_list|condition_variable)>|\bstd::|\busing\s+namespace\s+std\b|\btemplate\s*</.test(
-      code,
-    )
-  )
-    return "cpp";
-  if (
-    /\busing\s+System(?:\.[\w.]+)?\s*;|\bConsole\.WriteLine\b|\bnamespace\s+[A-Za-z_]\w*\s*[{;]/.test(
-      code,
-    )
-  )
-    return "cs";
-  if (/\bpublic\s+(?:class|interface)\b|\bSystem\.out\b/.test(code))
-    return "java";
-  if (/#include\s*</.test(code)) return "c";
-  if (/<\?php/.test(code)) return "php";
-  if (/\bfunction\s+\w+\s*\(|\b(?:const|let)\s+\w+\s*=/.test(code)) return "js";
-  if (/^\s*<[a-z][\s\S]*>/i.test(code)) return "html";
-  return null;
-}
-
-export function starterAsset(
-  challenge: Pick<
-    WorkspaceChallenge,
-    "title" | "topic" | "problemStatement" | "starterCode"
-  >,
-) {
-  if (!challenge.starterCode) return null;
-  // Old multi-file model responses are prose bundles, not a source file.
-  // Keep any files already seeded, but never materialize another bundle.
-  if (/^\s*={3,}\s*FILE:/m.test(challenge.starterCode)) return null;
-  const parsed = starterFileContent(challenge.starterCode);
-  if (!parsed) return null;
-  const extension =
-    extensionFor(parsed.language) ??
-    inferExtension(`${challenge.title} ${challenge.topic ?? ""}`) ??
-    inferExtension(challenge.problemStatement) ??
-    inferCodeExtension(parsed.content) ??
-    "txt";
-  return { filename: `starter.${extension}`, content: parsed.content };
-}
 
 export function challengeWorkspaceFolderName(
   challenge: Pick<WorkspaceChallenge, "id" | "number" | "title">,
@@ -249,8 +90,6 @@ function readme(challenge: WorkspaceChallenge, starterFile: string | null) {
     "## Expected outcome\n\n" + challenge.expectedOutcome.trim(),
     "## Requirements\n\n" + list(challenge.completionCriteria),
   ];
-  if (challenge.constraints.length)
-    sections.push("## Constraints\n\n" + list(challenge.constraints));
   if (challenge.implementationBoundary)
     sections.push(
       "## Implementation boundary\n\n" +
@@ -591,9 +430,8 @@ export async function ensureChallengeWorkspace(input: {
   }
 
   const existingMarker = await readMarker(path, challenge);
-  const starter = starterAsset(challenge);
   const initialized = !existingMarker;
-  let starterFile = existingMarker?.starterFile ?? starter?.filename ?? null;
+  const starterFile = existingMarker?.starterFile ?? null;
   if (!existingMarker) {
     const seededFiles: string[] = [];
     if (
@@ -603,11 +441,6 @@ export async function ensureChallengeWorkspace(input: {
       )
     )
       seededFiles.push("README.md");
-    if (starter) {
-      if (await writeMissing(join(path, starter.filename), starter.content))
-        seededFiles.push(starter.filename);
-      starterFile = starter.filename;
-    }
     await writeMarker(path, {
       version: 1,
       challengeId: challenge.id,
@@ -616,17 +449,6 @@ export async function ensureChallengeWorkspace(input: {
       starterFile,
       seededFiles,
     });
-  } else if (!existingMarker.starterFile && starter) {
-    // A marker can predate starter support in this local app. Never replace an
-    // existing file, but make the generated starter available once.
-    if (await writeMissing(join(path, starter.filename), starter.content)) {
-      starterFile = starter.filename;
-      await writeMarker(path, {
-        ...existingMarker,
-        starterFile,
-        seededFiles: [...existingMarker.seededFiles, starter.filename],
-      });
-    }
   }
 
   return { path, initialized, starterFile };

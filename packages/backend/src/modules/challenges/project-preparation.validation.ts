@@ -82,7 +82,6 @@ function specificationText(specification: ProjectFrozenSpecification) {
     specification.implementationBoundary ?? "",
     ...specification.objectives,
     ...specification.acceptanceCriteria,
-    ...specification.constraints,
   ].join("\n");
 }
 

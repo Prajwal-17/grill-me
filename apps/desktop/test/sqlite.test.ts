@@ -69,9 +69,9 @@ describe.skipIf(!process.env.GRILL_ME_SQLITE_PATH)(
             id, profile_id, challenge_number, title, scope, difficulty,
             contextual_difficulty, duration_min_minutes, duration_max_minutes,
             implementation_milestones, problem_statement, expected_outcome,
-            constraints, completion_criteria, created_at
+            completion_criteria, created_at
           ) VALUES (?, ?, 1, 'First build', 'focused', 'medium', 'medium', 15, 30,
-            '[]', 'Build something.', 'A build.', '[]', '["It works."]', 1)`,
+            '[]', 'Build something.', 'A build.', '["It works."]', 1)`,
         )
         .run(crypto.randomUUID(), id);
       expect(
@@ -229,7 +229,7 @@ test("SQLite v1 upgrades retain existing conversations and initialize completed 
     const upgraded = createSqliteDatabase(path);
     await upgraded.migrateDatabase();
     expect(upgraded.sqlite.query("PRAGMA user_version").get()).toEqual({
-      user_version: 10,
+      user_version: 11,
     });
     expect(
       upgraded.sqlite

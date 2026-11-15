@@ -75,6 +75,10 @@
   counter disagrees with the stored maximum.
 - Create only active tables on a fresh install. Upgraded databases keep retired
   data under `*_legacy` names, and new installs never create those tables.
+- Remove five unused challenge fields: constraints, starter code, completion
+  source, calibration version, and contract version. Saved constraints and
+  starter code move into the challenge text, version stamps move into the saved
+  context, and existing challenges still read the same.
 
 #### Project preparation
 

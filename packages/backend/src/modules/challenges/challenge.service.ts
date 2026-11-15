@@ -2,6 +2,7 @@ import {
   requestPromptContext,
   PROMPT_VERSION,
   CALIBRATION_VERSION,
+  CONTRACT_VERSION,
 } from "../ai/prompts/core";
 import type { ModelSelection } from "@repo/backend/shared/contracts";
 import { AppError } from "../../shared/errors/app-error";
@@ -262,6 +263,7 @@ export function createChallengeService(dependencies: {
             ...JSON.parse(requestPromptContext(modelInput)),
             promptVersion: PROMPT_VERSION,
             calibrationVersion: CALIBRATION_VERSION,
+            contractVersion: CONTRACT_VERSION,
             requestedModel: process.env.LLM_MODEL ?? "auto",
           },
           generation,

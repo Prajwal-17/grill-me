@@ -45,8 +45,6 @@ const legacyBuildContentSchema = z.object({
   implementationBoundary: z.string().trim().max(800),
   problemStatement: z.string().min(20).max(5_000),
   expectedOutcome: z.string().min(10),
-  constraints: z.array(z.string().min(1)).max(8),
-  starterCode: z.string().nullable(),
   completionCriteria: z.array(z.string().min(1)).min(1).max(8),
   durationEstimate: durationEstimateSchema,
   implementationMilestones: z.array(milestoneSchema).max(7),
@@ -59,9 +57,6 @@ export const generatedBuildContentSchema = z.strictObject({
   }).shape,
   estimatedDifficultyBand: buildDifficultySchema,
   // Generation saves the brief; the scaffold task materializes all source files.
-  // Legacy stored challenges still accept starterCode through their own schema.
-  starterCode: z.null(),
-  constraints: z.array(z.string()).max(0),
   implementationMilestones: z.array(milestoneSchema).max(7),
 });
 
@@ -73,7 +68,6 @@ export function generatedBuildSchemaForScope(scope: BuildScope) {
       .array(z.string().trim().min(1).max(320))
       .min(1)
       .max(scope === "focused" ? 4 : scope === "feature" ? 6 : 8),
-    constraints: z.array(z.string()).max(0),
     expectedOutcome: z.string().trim().min(10).max(240),
     implementationBoundary: z.string().trim().max(450),
     implementationMilestones: z.array(milestoneSchema).max(7),
@@ -105,12 +99,6 @@ export const challengeSchema = challengeContentSchema.extend({
   implementationBoundary: z.string().nullable().default(null),
   contextSnapshot: z.record(z.string(), z.unknown()).nullable().default(null),
   promptVersion: z.string().nullable().default(null),
-  calibrationVersion: z.string().nullable().default(null),
-  contractVersion: z.number().int().default(1),
-  completionSource: z
-    .enum(["judge", "legacy", "user"])
-    .nullable()
-    .default(null),
   id: z.string().uuid(),
   profileId: z.string().uuid(),
   number: z.number().int().positive(),

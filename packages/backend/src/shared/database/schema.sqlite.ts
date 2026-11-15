@@ -89,11 +89,6 @@ export const challenges = sqliteTable(
     implementationBoundary: text("implementation_boundary"),
     contextSnapshot: jsonb("context_snapshot").$type<Record<string, unknown>>(),
     promptVersion: text("prompt_version"),
-    calibrationVersion: text("calibration_version"),
-    contractVersion: integer("contract_version").notNull().default(1),
-    completionSource: text("completion_source", {
-      enum: ["judge", "legacy", "user"],
-    }),
     contextualDifficulty: text("contextual_difficulty", {
       enum: ["easy", "medium", "hard", "grill"],
     }).notNull(),
@@ -104,8 +99,6 @@ export const challenges = sqliteTable(
       .notNull(),
     problemStatement: text("problem_statement").notNull(),
     expectedOutcome: text("expected_outcome").notNull(),
-    constraints: jsonb("constraints").$type<string[]>().notNull(),
-    starterCode: text("starter_code"),
     completionCriteria: jsonb("completion_criteria")
       .$type<string[]>()
       .notNull(),

@@ -88,18 +88,24 @@ export function applyDrizzleMigrations(
 
 /**
  * Mark an already-current database as managed by the Drizzle journal without
- * replaying SQL. Used once for databases upgraded by the frozen legacy path.
+ * replaying SQL. `through` stops at the last migration the frozen legacy
+ * upgrader already produced; anything newer still runs normally.
  */
 export function stampDrizzleMigrations(
   sqlite: Database,
   migrations: DrizzleMigrationFile[],
+  through?: string,
 ) {
   if (!migrations.length)
     throw new Error("No Drizzle migrations are available.");
   ensureMigrationsTable(sqlite);
   const latest = appliedAt(sqlite);
-  for (const migration of migrations)
-    if (migration.when > latest) record(sqlite, migration);
+  const limit = through
+    ? migrations.findIndex((migration) => migration.tag === through)
+    : migrations.length - 1;
+  if (limit < 0) throw new Error(`Unknown migration tag: ${through}`);
+  for (const [index, migration] of migrations.entries())
+    if (index <= limit && migration.when > latest) record(sqlite, migration);
 }
 
 /**

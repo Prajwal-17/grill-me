@@ -4,6 +4,7 @@ import type { DrizzleMigrationFile } from "./migration-runner";
 import migration0 from "../../../drizzle/0000_desktop.sql" with { type: "text" };
 import migration1 from "../../../drizzle/0001_current_schema.sql" with { type: "text" };
 import migration2 from "../../../drizzle/0002_immutability_triggers.sql" with { type: "text" };
+import migration3 from "../../../drizzle/0003_simplify_challenges.sql" with { type: "text" };
 
 export const drizzleMigrations: DrizzleMigrationFile[] = [
   {
@@ -23,5 +24,11 @@ export const drizzleMigrations: DrizzleMigrationFile[] = [
     when: 1794746739139,
     historical: false,
     sql: migration2,
+  },
+  {
+    tag: "0003_simplify_challenges",
+    when: 1794749536338,
+    historical: false,
+    sql: migration3,
   },
 ];

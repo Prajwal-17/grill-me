@@ -1,8 +1,4 @@
-import {
-  PROMPT_VERSION,
-  CALIBRATION_VERSION,
-  CONTRACT_VERSION,
-} from "../ai/prompts/core";
+import { PROMPT_VERSION } from "../ai/prompts/core";
 import {
   and,
   desc,
@@ -138,16 +134,12 @@ export const challengeModel = {
             implementationBoundary: content.implementationBoundary,
             contextSnapshot,
             promptVersion: PROMPT_VERSION,
-            calibrationVersion: CALIBRATION_VERSION,
-            contractVersion: CONTRACT_VERSION,
 
             durationMinMinutes: content.durationEstimate.minMinutes,
             durationMaxMinutes: content.durationEstimate.maxMinutes,
             implementationMilestones: content.implementationMilestones,
             problemStatement: content.problemStatement,
             expectedOutcome: content.expectedOutcome,
-            constraints: content.constraints,
-            starterCode: content.starterCode,
             completionCriteria: content.completionCriteria,
             createdAt: now,
           })
@@ -164,7 +156,7 @@ export const challengeModel = {
     return first(
       db
         .update(challenges)
-        .set({ status, completedAt: null, completionSource: null })
+        .set({ status, completedAt: null })
         .where(eq(challenges.id, id))
         .returning(),
     );
@@ -194,7 +186,6 @@ export const challengeModel = {
         .update(challenges)
         .set({
           status: "completed",
-          completionSource: "user",
           completedAt: new Date(),
         })
         .where(eq(challenges.id, id))

@@ -16,8 +16,13 @@ import {
   stampDrizzleMigrations,
 } from "./migration-runner";
 
-export const DATABASE_VERSION = 10;
+export const DATABASE_VERSION = 11;
 const LATEST_VERSION = DATABASE_VERSION;
+/**
+ * The frozen legacy upgrader in `legacy-migrations.ts` writes this schema.
+ * Journal rows up to here are stamped, never replayed; newer migrations run.
+ */
+const LEGACY_SCHEMA_MIGRATION = "0002_immutability_triggers";
 
 export function createSqliteDatabase(path: string) {
   if (!isAbsolute(path)) throw new Error("SQLite requires an absolute path.");
@@ -127,20 +132,29 @@ export function createSqliteDatabase(path: string) {
       applyDrizzleMigrations(sqlite, drizzleMigrations, { fresh: true });
       sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
     } else if (version < LATEST_VERSION) {
-      if (hasDrizzleMigrations(sqlite))
-        throw new Error(
-          "This legacy database has a Drizzle migration journal but an older schema version.",
-        );
-      sqlite
-        .transaction(() => {
-          upgradeLegacyDatabase(sqlite, version);
-          stampDrizzleMigrations(sqlite, drizzleMigrations);
-          sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
-        })
-        .immediate();
+      if (hasDrizzleMigrations(sqlite)) {
+        // A managed database simply has newer migrations waiting.
+        applyDrizzleMigrations(sqlite, drizzleMigrations, { fresh: false });
+        sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
+      } else {
+        sqlite
+          .transaction(() => {
+            upgradeLegacyDatabase(sqlite, version);
+            // The frozen upgrader produces the v10 schema only; later
+            // migrations still have to run against the result.
+            stampDrizzleMigrations(
+              sqlite,
+              drizzleMigrations,
+              LEGACY_SCHEMA_MIGRATION,
+            );
+          })
+          .immediate();
+        applyDrizzleMigrations(sqlite, drizzleMigrations, { fresh: false });
+        sqlite.exec(`PRAGMA user_version = ${LATEST_VERSION};`);
+      }
     } else if (!hasDrizzleMigrations(sqlite)) {
-      // A database upgraded by an earlier build already has the current
-      // schema. Record the Drizzle journal once instead of replaying SQL.
+      // A database already at the current version was written by an earlier
+      // build, so its schema is current. Record the journal without replaying.
       sqlite
         .transaction(() => {
           stampDrizzleMigrations(sqlite, drizzleMigrations);
