@@ -218,6 +218,7 @@ export function createProjectCommandRuntime(
   async function execute(
     session: CommandSession,
     rawRequest: ProjectCommandToolRequest,
+    options?: { preauthorized?: boolean },
   ): Promise<ProjectCommandToolResult> {
     let request: ProjectCommandToolRequest;
     try {
@@ -256,7 +257,9 @@ export function createProjectCommandRuntime(
     const authorization = await projectCommandModel.authorization(
       session.preparationId,
     );
-    const authorizedByAttempt = covers(authorization, session, request);
+    const authorizedByAttempt =
+      options?.preauthorized === true ||
+      covers(authorization, session, request);
     const timeoutMs =
       request.timeoutMs ?? projectCommandLimits.defaultTimeoutMs;
     let row = await projectCommandModel.create({
@@ -429,7 +432,7 @@ export function createProjectCommandRuntime(
       };
       sessions.set(input.preparationId, session);
       return {
-        execute: (request) => execute(session, request),
+        execute: (request, options) => execute(session, request, options),
         results: async () =>
           (await projectCommandModel.executed(input.preparationId)).map(
             projectCommandFromRow,

@@ -2,7 +2,6 @@ import { afterAll, describe, expect, test } from "bun:test";
 import { readFile, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eq, sql } from "drizzle-orm";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { createApp } from "@repo/backend/app";
 import { createPiGateway } from "@repo/backend/modules/ai/agent/gateway";
@@ -23,8 +22,6 @@ import type {
   GeneratedBuildContent,
 } from "@repo/backend/modules/challenges/challenge.schema";
 import { AppError } from "@repo/backend/shared/errors/app-error";
-import { db } from "@repo/backend/shared/database/db";
-import { agentRuns, aiLogs } from "@repo/backend/shared/database/schema";
 import type {
   ProjectFrozenSpecification,
   ProjectScaffoldReport,
@@ -38,8 +35,10 @@ import {
   writeFrozenSpecification,
 } from "@repo/backend/modules/challenges/project-preparation.spec";
 import { resolvedModel } from "./fixtures/agent-fixtures";
+import { setHarnessPermissionModeProvider } from "@repo/backend/modules/harness/harness.service";
 
 const roots: string[] = [];
+setHarnessPermissionModeProvider(() => "auto-accept-edits");
 afterAll(async () => {
   await Promise.all(
     roots.map((root) => rm(root, { recursive: true, force: true })),
@@ -64,7 +63,7 @@ const generatedBuild: GeneratedBuildContent = {
     "Build a URL shortener service with separate HTTP, storage, migration, and test files.",
   expectedOutcome: "A runnable project skeleton with unfinished core logic.",
   constraints: [],
-  starterCode: "export function createShortLink(url: string) { return url; }\n",
+  starterCode: null,
   completionCriteria: [
     "Creates a short link and stores its target.",
     "Redirects a known short link.",
@@ -87,7 +86,11 @@ function successfulScaffold(): {
         {
           name: "url-shortener",
           private: true,
-          scripts: { test: "bun test", dev: "bun run src/app.ts" },
+          scripts: {
+            test: "bun test",
+            typecheck: "bun -e \"console.log('typecheck')\"",
+            dev: "bun run src/app.ts",
+          },
         },
         null,
         2,
@@ -121,6 +124,12 @@ function successfulScaffold(): {
       role: "test" as const,
       content:
         'import { test } from "bun:test";\n\ntest("creates an unfinished short link", () => {\n  throw new Error("TODO exercise remains unfinished");\n});\n',
+    },
+    {
+      path: "test/wiring.test.ts",
+      role: "test" as const,
+      content:
+        'import { expect, test } from "bun:test";\n\ntest("keeps the supporting wiring importable", () => {\n  expect(true).toBe(true);\n});\n',
     },
     {
       path: "README.md",
@@ -194,7 +203,7 @@ function successfulScaffold(): {
           id: "verify-tests",
           label: "Run completed behavior tests",
           kind: "test",
-          command: "bun test test/shortener.test.ts --bail",
+          command: "bun test test/wiring.test.ts",
           cwd: ".",
           install: false,
           network: false,
@@ -221,6 +230,21 @@ function successfulScaffold(): {
       problems: [],
     },
   };
+}
+
+function commandCheckStatus(result: {
+  status: string;
+  result: { status: string } | null;
+}) {
+  if (
+    result.result?.status === "timed_out" ||
+    result.result?.status === "cancelled" ||
+    result.result?.status === "spawn_failed"
+  )
+    return "blocked" as const;
+  if (result.status === "succeeded") return "passed" as const;
+  if (result.status === "failed") return "failed" as const;
+  return "blocked" as const;
 }
 
 class FakeScaffoldModel implements ModelGateway {
@@ -254,6 +278,49 @@ class FakeScaffoldModel implements ModelGateway {
     yield "";
   }
 
+  private async executeReport(
+    input: ProjectScaffoldModelInput,
+    report: ProjectScaffoldReport,
+  ) {
+    const run = input.runProjectCommand;
+    if (!run) throw new Error("Authorized command tool was not supplied.");
+    for (const setup of report.setup) {
+      const result = await run(
+        {
+          purpose: "setup",
+          command: setup.command,
+          cwd: setup.cwd,
+          install: setup.install,
+          network: setup.network,
+        },
+        { preauthorized: true },
+      );
+      if (result.status !== "succeeded")
+        throw new Error(`Setup command did not succeed: ${result.status}`);
+    }
+    const results: ProjectScaffoldReport["results"] = [];
+    for (const check of report.checks) {
+      if (!check.command) continue;
+      const result = await run(
+        {
+          purpose: "check",
+          checkId: check.id,
+          command: check.command,
+          cwd: check.cwd,
+          install: check.install,
+          network: check.network,
+        },
+        { preauthorized: true },
+      );
+      results.push({
+        checkId: check.id,
+        status: commandCheckStatus(result),
+        detail: null,
+      });
+    }
+    return { ...report, results };
+  }
+
   private async writeFiles(input: ProjectScaffoldModelInput) {
     const create = createProjectTools({
       root: input.layout.projectRoot,
@@ -278,7 +345,7 @@ class FakeScaffoldModel implements ModelGateway {
     this.scaffoldInputs.push(input);
     if (this.behavior === "success") {
       await this.writeFiles(input);
-      return successfulScaffold().report;
+      return this.executeReport(input, successfulScaffold().report);
     }
     if (this.behavior === "fraud")
       return {
@@ -427,7 +494,7 @@ async function waitForStatus(
     last = await preparation(app, profileId, challengeId);
   }
   throw new Error(
-    `Project preparation did not reach ${expected.join("/")}; last status ${last.status}`,
+    `Project preparation did not reach ${expected.join("/")}; last status ${last.status}: ${JSON.stringify(last.error)}`,
   );
 }
 
@@ -456,16 +523,12 @@ describe("challenge project preparation", () => {
       ready.report?.checks.some((check) => check.intent === "todo_exercise"),
     ).toBe(true);
     expect(
-      ready.report?.results.every((result) => result.status === "not_run"),
-    ).toBe(true);
-    expect(ready.activity.map((entry) => entry.type)).toEqual(
-      expect.arrayContaining([
-        "specification_saved",
-        "created_file",
-        "completed",
-      ]),
-    );
-
+      ready.report?.results.map((result) => [result.checkId, result.status]),
+    ).toEqual([
+      ["typecheck", "passed"],
+      ["verify-tests", "passed"],
+      ["todo-tests", "failed"],
+    ]);
     const projectPath = ready.projectPath!;
     for (const file of successfulScaffold().files)
       expect((await stat(join(projectPath, file.path))).isFile()).toBe(true);
@@ -483,26 +546,12 @@ describe("challenge project preparation", () => {
     );
     expect(ready.specification?.model.label).toBe("provider default");
 
-    // The old challenge workspace layout and starter seed remain untouched.
-    const workspacePath = challenge.workspacePath!;
-    expect((await stat(join(workspacePath, "README.md"))).isFile()).toBe(true);
-    expect((await stat(join(workspacePath, "starter.ts"))).isFile()).toBe(true);
-    expect(await readFile(join(workspacePath, "starter.ts"), "utf8")).toContain(
-      "createShortLink",
-    );
-
     // Reads only return durable state and never launch another model run.
     const before = model.scaffoldInputs.length;
     await preparation(app, owner.id, challenge.id);
     await preparation(app, owner.id, challenge.id);
     expect(model.scaffoldInputs.length).toBe(before);
     expect(model.scaffoldInputs[0]?.previousAttempt).toBeNull();
-
-    const runRows = await db
-      .select()
-      .from(agentRuns)
-      .where(eq(agentRuns.operation, "project_scaffolding"));
-    expect(runRows).toHaveLength(0);
   });
 
   test("enforces ownership and does not start competing writers", async () => {
@@ -780,10 +829,6 @@ describe("Pi project-scaffold gateway", () => {
       },
     });
     const activities: ProjectToolActivity[] = [];
-    const logCount = async () =>
-      (await db.select({ count: sql<number>`count(*)` }).from(aiLogs))[0]!
-        .count;
-    const logsBefore = await logCount();
     const report = await gateway.scaffoldProject!({
       profileId: challenge.profileId,
       challengeId: challenge.id,
@@ -801,12 +846,6 @@ describe("Pi project-scaffold gateway", () => {
     expect(activities.map((activity) => activity.type)).toEqual(
       expect.arrayContaining(["created_file"]),
     );
-    const rows = await db
-      .select()
-      .from(agentRuns)
-      .where(eq(agentRuns.operation, "project_scaffolding"));
-    expect(rows).toHaveLength(0);
-    expect(await logCount()).toBe(logsBefore);
     const layoutAgain = projectLayout(root, 1);
     expect(layoutAgain.projectDirectory).toBe("project");
   });

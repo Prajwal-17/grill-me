@@ -1,12 +1,14 @@
 import type { AgentMessage, AgentTool } from "@earendil-works/pi-agent-core";
 import type { ModelSelection } from "@repo/backend/shared/contracts";
 import { AppError } from "../../../shared/errors/app-error";
-import { startAiLog } from "../../logs/ai-log-recorder";
-import type { LogOperation } from "../../logs/log.schema";
 import type { Manifest } from "../../projects/snapshot";
 import type { MessageAttachment } from "../../messages/message.schema";
 import { TextQueue } from "../../../local/providers/common";
-import { agentRunStore } from "./store";
+import {
+  harnessService,
+  type HarnessRecorder,
+} from "../../harness/harness.service";
+import type { HarnessRunRequest } from "../../harness/types";
 import { runStructured, runText, type StructuredRunResult } from "./runtime";
 import type { ResolvedAgentModel } from "./providers";
 import type {
@@ -19,22 +21,6 @@ import type { StableAgentEvent } from "./events";
 import type { AgentRuntime } from "./types";
 import type { createLimiter, createResourceLocks } from "./limiter";
 
-// Scaffolding state is durable in project_preparations, not in the diagnostic
-// AI log. The null entry documents the narrow observability opt-out.
-const LOG_OPERATION: Record<AgentOperation, LogOperation | null> = {
-  preparation: "preparation",
-  generation: "generation",
-  clarify: "clarify",
-  review: "review",
-  hint: "hint",
-  quiz_generation: "quiz_generation",
-  quiz_title_generation: "quiz_title_generation",
-  prompt_enhancement: "prompt_enhancement",
-  resume_import: "resume_import",
-  verification: "review",
-  project_scaffolding: null,
-};
-
 export type RunTarget = {
   profileId: string;
   operation: AgentOperation;
@@ -44,6 +30,8 @@ export type RunTarget = {
   preview: string;
   selection?: ModelSelection;
   signal?: AbortSignal;
+  /** Feature-owned thread and turn. Omit to create a durable thread per run. */
+  harness?: HarnessRunRequest;
 };
 
 type StructuredRunOptions = {
@@ -53,40 +41,28 @@ type StructuredRunOptions = {
   timeoutMs?: number;
   /** Extra task-scoped tools, such as project files or an authorized runner. */
   tools?: AgentTool[];
-  /** Diagnostic AI logs and run events; workflow state is persisted separately. */
-  observability?: boolean;
 };
-
-type RunContext = {
-  resolved: ResolvedAgentModel;
-  runId: string;
-  log: Awaited<ReturnType<typeof startAiLog>>;
-};
-
-function logUsage(usage: {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  totalTokens: number;
-}) {
-  return {
-    input_tokens: usage.input,
-    output_tokens: usage.output,
-    total_tokens: usage.totalTokens,
-    input_tokens_details: { cached_tokens: usage.cacheRead },
-    output_tokens_details: { reasoning_tokens: 0 },
-  };
-}
 
 function statusFor(
   error: unknown,
   signal?: AbortSignal,
-): "success" | "error" | "cancelled" {
+): "failed" | "cancelled" | "interrupted" {
   if (signal?.aborted) return "cancelled";
   if (error instanceof AppError && error.code === "REQUEST_CANCELLED")
     return "cancelled";
-  return "error";
+  if (error instanceof AppError && error.code === "HARNESS_INTERRUPTED")
+    return "interrupted";
+  return "failed";
+}
+
+function errorFor(error: unknown) {
+  return {
+    code: error instanceof AppError ? error.code : "AGENT_RUN_FAILED",
+    message:
+      error instanceof Error
+        ? error.message.slice(0, 4_000)
+        : "The agent run failed.",
+  };
 }
 
 export function createAgentExecutor(input: {
@@ -96,89 +72,69 @@ export function createAgentExecutor(input: {
 }) {
   const { runtime, slots, resources } = input;
 
-  async function startRun(
+  async function startHarness(
     target: RunTarget,
     resolved: ResolvedAgentModel,
-    stream: boolean,
-  ): Promise<RunContext> {
-    const operation = LOG_OPERATION[target.operation];
-    if (!operation)
-      throw new Error(
-        "This operation has no diagnostic log mapping; disable observability for it.",
-      );
-    const log = await startAiLog(
-      {
+  ): Promise<HarnessRecorder | undefined> {
+    if (target.harness) {
+      const run = await harnessService.begin({
+        threadId: target.harness.threadId,
+        turnId: target.harness.turnId,
+        inputText: target.harness.inputText,
+      });
+      return run.recorder;
+    }
+    try {
+      const run = await harnessService.beginAutomatic({
         profileId: target.profileId,
-        challengeId: target.challengeId ?? undefined,
-        operation,
-        preview: target.preview,
-      },
-      {
+        kind: target.operation,
+        title: target.preview.slice(0, 500) || target.operation,
+        challengeId: target.challengeId ?? null,
         model: resolved.model.id,
-        provider: resolved.connection.name,
-        operation: target.operation,
-        reasoning: resolved.requestedReasoning,
-        ...(stream ? { stream: true } : {}),
-      },
-      resolved.connection.endpoint ?? resolved.connection.preset,
-    );
-    const runId = await agentRunStore.start({
-      profileId: target.profileId,
-      operation: target.operation,
-      challengeId: target.challengeId ?? null,
-      resourceKind: target.resourceKind ?? null,
-      resourceId: target.resourceId ?? null,
-      providerId: resolved.connection.id,
-      providerName: resolved.connection.name,
-      providerPreset: resolved.connection.preset,
-      model: resolved.model.id,
-      reasoningEffort: resolved.requestedReasoning,
-    });
-    return { resolved, runId, log };
+        reasoningEffort: resolved.requestedReasoning,
+        inputText: target.preview || target.operation,
+      });
+      return run.recorder;
+    } catch (error) {
+      // A deleted or synthetic profile must not make an otherwise valid model
+      // call fail. Feature-owned threads still surface their errors.
+      console.warn("[harness] Could not record this run.", error);
+      return undefined;
+    }
   }
 
-  async function finishSuccess(
-    context: RunContext,
-    usage: {
-      input: number;
-      output: number;
-      cacheRead: number;
-      cacheWrite: number;
-      totalTokens: number;
-    },
-    outputText: string,
-    turnCount: number,
-    toolCallCount: number,
+  async function finishHarness(
+    recorder: HarnessRecorder | undefined,
+    result:
+      | {
+          status: "completed";
+          usage: { input: number; output: number; totalTokens: number };
+        }
+      | {
+          status: "failed" | "cancelled" | "interrupted";
+          error: unknown;
+          signal?: AbortSignal;
+        },
   ) {
-    context.log.response({
-      model: context.resolved.model.id,
-      output_text: outputText.slice(0, 16_000),
-      usage: logUsage(usage),
-    });
-    await context.log.finish("success");
-    await agentRunStore.finish(context.runId, {
-      status: "completed",
-      turnCount,
-      toolCallCount,
-      inputTokens: usage.input,
-      outputTokens: usage.output,
-      totalTokens: usage.totalTokens,
-    });
-  }
-
-  async function finishFailure(
-    context: RunContext,
-    error: unknown,
-    signal?: AbortSignal,
-  ) {
-    const status = statusFor(error, signal);
-    await context.log.finish(status, error);
-    await agentRunStore.finish(context.runId, {
-      status: status === "cancelled" ? "cancelled" : "failed",
-      errorCode: error instanceof AppError ? error.code : "AGENT_RUN_FAILED",
-      errorMessage:
-        error instanceof Error ? error.message : "The agent run failed.",
-    });
+    if (!recorder) return;
+    try {
+      if (result.status === "completed")
+        await recorder.finish({
+          status: "completed",
+          usage: {
+            input: result.usage.input,
+            output: result.usage.output,
+            totalTokens: result.usage.totalTokens,
+          },
+        });
+      else
+        await recorder.finish({
+          status: statusFor(result.error, result.signal),
+          error: errorFor(result.error),
+        });
+    } catch (error) {
+      console.warn("[harness] Could not finish the run transcript.", error);
+    }
   }
 
   return {
@@ -189,17 +145,15 @@ export function createAgentExecutor(input: {
     ): Promise<StructuredRunResult<T>> {
       const resolved = await runtime.resolve(target.selection);
       const release = await slots.acquire(target.signal);
-      const context =
-        options.observability === false
-          ? undefined
-          : await startRun(target, resolved, false);
-      const onEvent = context
-        ? async (event: StableAgentEvent) => {
-            if (event.type === "text_delta") return;
-            await agentRunStore.event(context.runId, event.type, event);
-          }
-        : undefined;
+      let recorder: HarnessRecorder | undefined;
+      const onEvent = (event: StableAgentEvent) => {
+        if (!recorder) return;
+        void recorder.event(event).catch((error) => {
+          console.warn("[harness] Could not save a run event.", error);
+        });
+      };
       try {
+        recorder = await startHarness(target, resolved);
         if (resolved.providerModel.capabilities?.tools === false)
           throw new AppError(
             "MODEL_TOOLS_UNSUPPORTED",
@@ -223,17 +177,17 @@ export function createAgentExecutor(input: {
           limits: task.limits,
           onEvent,
         });
-        if (context)
-          await finishSuccess(
-            context,
-            result.usage,
-            JSON.stringify(result.value),
-            result.turnCount,
-            result.toolCallCount,
-          );
+        await finishHarness(recorder, {
+          status: "completed",
+          usage: result.usage,
+        });
         return result;
       } catch (error) {
-        if (context) await finishFailure(context, error, target.signal);
+        await finishHarness(recorder, {
+          status: "failed",
+          error,
+          signal: target.signal,
+        });
         throw error;
       } finally {
         release();
@@ -247,7 +201,7 @@ export function createAgentExecutor(input: {
     ): AsyncGenerator<string> {
       const releaseSlot = await slots.acquire(target.signal);
       let releaseResource = () => {};
-      let context: RunContext | undefined;
+      let recorder: HarnessRecorder | undefined;
       const queue = new TextQueue();
       try {
         if (target.resourceKind && target.resourceId)
@@ -255,10 +209,12 @@ export function createAgentExecutor(input: {
             `${target.resourceKind}:${target.resourceId}`,
           );
         const resolved = await runtime.resolve(target.selection);
-        context = await startRun(target, resolved, true);
-        const onEvent = async (event: StableAgentEvent) => {
-          if (event.type === "text_delta") return;
-          await agentRunStore.event(context!.runId, event.type, event);
+        recorder = await startHarness(target, resolved);
+        const onEvent = (event: StableAgentEvent) => {
+          if (!recorder) return;
+          void recorder.event(event).catch((error) => {
+            console.warn("[harness] Could not save a run event.", error);
+          });
         };
         const running = runText({
           resolved,
@@ -271,7 +227,6 @@ export function createAgentExecutor(input: {
           timeoutMs: runtime.timeoutMs?.() ?? 900_000,
           onEvent,
           onText: (delta) => {
-            context?.log.delta(delta);
             queue.push(delta);
           },
         });
@@ -291,15 +246,16 @@ export function createAgentExecutor(input: {
           await settled.catch(() => {});
         }
         const result = await settled;
-        await finishSuccess(
-          context,
-          result.usage,
-          result.text,
-          result.turnCount,
-          result.toolCallCount,
-        );
+        await finishHarness(recorder, {
+          status: "completed",
+          usage: result.usage,
+        });
       } catch (error) {
-        if (context) await finishFailure(context, error, target.signal);
+        await finishHarness(recorder, {
+          status: "failed",
+          error,
+          signal: target.signal,
+        });
         throw error;
       } finally {
         releaseResource();

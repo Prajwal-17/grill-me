@@ -1,8 +1,5 @@
-import type {
-  BuildModelInput,
-  JudgeInput,
-  LearnerContext,
-} from "../../model-gateway";
+import type { BuildModelInput, LearnerContext } from "../../model-gateway";
+import type { Challenge } from "../../../challenges/challenge.schema";
 import { projectDeveloperContext } from "../../../profiles/developer-context";
 import { contextBlock } from "../messages";
 
@@ -35,7 +32,7 @@ export function buildOptions(
 }
 
 export function conversationContext(input: {
-  challenge: JudgeInput["challenge"];
+  challenge: Challenge;
   learner: LearnerContext;
 }) {
   return contextBlock(

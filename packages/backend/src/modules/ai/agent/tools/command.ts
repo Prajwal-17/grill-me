@@ -1,22 +1,35 @@
 import type { AgentTool } from "@earendil-works/pi-agent-core";
+import type { AgentPermissionMode } from "@repo/backend/shared/contracts";
 import { projectCommandLimits } from "../../../challenges/project-command-runner";
 import type { ProjectCommandExecutor } from "../../../challenges/project-command.types";
+import { AppError } from "../../../../shared/errors/app-error";
+import {
+  permissionDecisionFor,
+  type PermissionAsk,
+} from "../permission-policy";
 
 const purposes = ["setup", "check", "run", "inspect"] as const;
 
 /**
  * The only command execution surface available to the scaffold task. It is
- * created with a per-run executor that persists an exact request and waits for
- * individual or attempt-wide approval before anything can start.
+ * created with a per-run executor that persists an exact request. The central
+ * permission policy decides whether the current mode allows, asks, or denies
+ * the command scope before the executor records it.
  */
 export function createProjectCommandTool(
   execute: ProjectCommandExecutor,
+  options?: {
+    permissionMode?: AgentPermissionMode;
+    requestPermission?: PermissionAsk;
+    signal?: AbortSignal;
+  },
 ): AgentTool<any> {
+  const mode = options?.permissionMode ?? "auto";
   return {
     name: "run_project_command",
     label: "Run authorized project command",
     description:
-      "Run one exact command in the prepared project. The command is first recorded with its working directory and install/network disclosures, then pauses for the user's explicit approval unless the current preparation attempt already authorizes that scope. A rejected or stale command never runs. Commands run as your local user account, not in a sandbox; only the declared scope is approved, and network access is not isolated. Use purpose setup for dependency installation, check for a final check command with its exact checkId, run for a proposed run command, and inspect for exploratory commands. Report only the structured result returned here. Do not retry a rejected command unchanged.",
+      "Run one exact command in the prepared project. The command is recorded with its working directory and install/network disclosures. The app-wide permission mode decides whether it runs, asks for approval, or is denied. A rejected or stale command never runs. Commands run as your local user account, not in a sandbox; network access is not isolated. Use purpose setup for dependency installation, check for a final check command with its exact checkId, run for a proposed run command, and inspect for exploratory commands. Report only the structured result returned here. Do not retry a rejected command unchanged.",
     parameters: {
       type: "object",
       properties: {
@@ -64,8 +77,46 @@ export function createProjectCommandTool(
       additionalProperties: false,
     },
     executionMode: "sequential",
-    execute: async (_toolCallId, params) => {
-      const result = await execute(params);
+    execute: async (
+      _toolCallId,
+      params: {
+        purpose: string;
+        command: string;
+        cwd?: string;
+        install: boolean;
+        network: boolean;
+        timeoutMs?: number;
+        checkId?: string;
+      },
+      callSignal?: AbortSignal,
+    ) => {
+      const actions = [
+        "run_command" as const,
+        ...(params.install ? (["install"] as const) : []),
+        ...(params.network ? (["network"] as const) : []),
+      ];
+      const decision = permissionDecisionFor(mode, actions);
+      if (decision === "deny")
+        throw new AppError(
+          "PERMISSION_DENIED",
+          "The current permission mode does not allow this command.",
+          403,
+        );
+      // Ask uses the existing durable project command request, which is bound
+      // to the preparation attempt and asks before spawning. Allow skips that
+      // pause; outside-workspace access is still denied above.
+      const result = await execute(
+        {
+          purpose: params.purpose as (typeof purposes)[number],
+          command: params.command,
+          cwd: params.cwd ?? ".",
+          install: params.install,
+          network: params.network,
+          timeoutMs: params.timeoutMs,
+          checkId: params.checkId,
+        },
+        decision === "allow" ? { preauthorized: true } : undefined,
+      );
       return {
         content: [
           {

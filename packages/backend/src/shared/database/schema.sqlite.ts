@@ -1,9 +1,14 @@
 import type { GuidedPreferences } from "@repo/backend/shared/preferences";
 import type {
+  HarnessAttachmentDirection,
+  HarnessAttachmentKind,
+  HarnessItemType,
+  HarnessThreadStatus,
+  HarnessTransport,
+  HarnessTurnStatus,
+  AgentPermissionMode,
   ProjectCommandResult,
   ProjectFrozenSpecification,
-  ProjectPreparationActivity,
-  ProjectPreparationError,
   ProjectPreparationMode,
   ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
@@ -21,10 +26,10 @@ import {
   index,
   integer,
   primaryKey,
-  real,
   sqliteTable,
   text,
   uniqueIndex,
+  type AnySQLiteColumn,
 } from "drizzle-orm/sqlite-core";
 
 const timestamp = (name: string, _options?: { mode: "date" }) =>
@@ -32,10 +37,9 @@ const timestamp = (name: string, _options?: { mode: "date" }) =>
 const contextTimestamp = timestamp;
 const jsonb = (name: string) => text(name, { mode: "json" });
 const boolean = (name: string) => integer(name, { mode: "boolean" });
-const doublePrecision = real;
-const serial = (name: string) => integer(name);
 
-// The application's only schema. Migrations live in drizzle-sqlite.
+// The application's only live schema. Retired data lives in schema.legacy.ts
+// and is never written by this application again.
 export const profiles = sqliteTable("profiles", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
@@ -63,27 +67,6 @@ export const profilePreferences = sqliteTable("profile_preferences", {
     .notNull()
     .$defaultFn(() => new Date()),
 });
-
-// Allocated inside the desktop write transaction for each profile and kind.
-// Keeping the counters outside the records prevents number reuse after deletion.
-export const generationCounters = sqliteTable(
-  "generation_counters",
-  {
-    profileId: text("profile_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["quiz", "challenge"] }).notNull(),
-    value: integer("value").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.profileId, table.kind] }),
-    check("generation_counters_value_check", sql`${table.value} > 0`),
-    check(
-      "generation_counters_kind_check",
-      sql`${table.kind} in ('quiz', 'challenge')`,
-    ),
-  ],
-);
 
 export const challenges = sqliteTable(
   "challenges",
@@ -184,12 +167,19 @@ export const projectPreparations = sqliteTable(
       .notNull()
       .default("not_started"),
     runToken: text("run_token"),
+    // Legacy progress for attempts recorded before harness threads. New runs
+    // write harness_items instead; this column stays readable and untouched.
     activity: jsonb("activity")
-      .$type<ProjectPreparationActivity[]>()
+      .$type<
+        import("@repo/backend/shared/contracts").ProjectPreparationActivity[]
+      >()
       .notNull()
       .default([]),
     report: jsonb("report").$type<ProjectScaffoldReport>(),
-    error: jsonb("error").$type<ProjectPreparationError>(),
+    error:
+      jsonb("error").$type<
+        import("@repo/backend/shared/contracts").ProjectPreparationError
+      >(),
     requestedModel: text("requested_model"),
     startedAt: contextTimestamp("started_at"),
     completedAt: contextTimestamp("completed_at"),
@@ -371,7 +361,7 @@ export const quizzes = sqliteTable(
     difficulty: text("difficulty", {
       enum: ["easy", "medium", "hard", "grill"],
     }),
-    // The service allocates this number in the same write transaction.
+    // Allocated from MAX(number) in the same write transaction.
     number: integer("quiz_number").notNull().default(0),
     requestId: text("request_id").notNull(),
     questionCount: integer("question_count").notNull(),
@@ -414,6 +404,257 @@ export const quizzes = sqliteTable(
     check(
       "quizzes_scope_check",
       sql`(${table.challengeId} is not null and ${table.coverage} in ('challenge', 'related', 'mixed')) or (${table.challengeId} is null and ${table.coverage} = 'topic' and ${table.topic} is not null and ${table.difficulty} is not null)`,
+    ),
+  ],
+);
+
+// A harness thread is the durable identity of one agent run. Turns capture the
+// exact permission mode, model, and transport used, so changing Settings never
+// rewrites history.
+export const harnessThreads = sqliteTable(
+  "harness_threads",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    /** Code registry value such as `chat`, `challenge_generation`, `quiz_generation`. */
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    status: text("status")
+      .$type<HarnessThreadStatus>()
+      .notNull()
+      .default("queued"),
+    challengeId: text("challenge_id").references(() => challenges.id, {
+      onDelete: "set null",
+    }),
+    parentThreadId: text("parent_thread_id").references(
+      (): AnySQLiteColumn => harnessThreads.id,
+      { onDelete: "set null" },
+    ),
+    transport: text("transport").$type<HarnessTransport>().notNull(),
+    connectionId: text("connection_id"),
+    model: text("model").notNull(),
+    reasoningEffort: text("reasoning_effort"),
+    runtimeMode: text("runtime_mode")
+      .$type<AgentPermissionMode>()
+      .notNull()
+      .default("approval-required"),
+    nativeThreadId: text("native_thread_id"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    createdAt: contextTimestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: contextTimestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    completedAt: contextTimestamp("completed_at"),
+  },
+  (table) => [
+    index("harness_threads_profile_updated_idx").on(
+      table.profileId,
+      table.updatedAt,
+    ),
+    index("harness_threads_challenge_updated_idx").on(
+      table.challengeId,
+      table.updatedAt,
+    ),
+    index("harness_threads_status_created_idx").on(
+      table.status,
+      table.createdAt,
+    ),
+    check(
+      "harness_threads_status_check",
+      sql`${table.status} in ('queued','running','waiting','completed','failed','cancelled','interrupted')`,
+    ),
+    check(
+      "harness_threads_transport_check",
+      sql`${table.transport} in ('api','codex_cli','opencode_cli')`,
+    ),
+    check(
+      "harness_threads_runtime_mode_check",
+      sql`${table.runtimeMode} in ('approval-required','auto-accept-edits','auto','full-access')`,
+    ),
+  ],
+);
+
+export const harnessTurns = sqliteTable(
+  "harness_turns",
+  {
+    id: text("id").primaryKey(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => harnessThreads.id, { onDelete: "cascade" }),
+    ordinal: integer("ordinal").notNull(),
+    status: text("status")
+      .$type<HarnessTurnStatus>()
+      .notNull()
+      .default("queued"),
+    inputText: text("input_text").notNull(),
+    transport: text("transport").$type<HarnessTransport>().notNull(),
+    connectionId: text("connection_id"),
+    model: text("model").notNull(),
+    reasoningEffort: text("reasoning_effort"),
+    runtimeMode: text("runtime_mode").$type<AgentPermissionMode>().notNull(),
+    nativeTurnId: text("native_turn_id"),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    totalTokens: integer("total_tokens"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    requestedAt: contextTimestamp("requested_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    startedAt: contextTimestamp("started_at"),
+    completedAt: contextTimestamp("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("harness_turns_thread_ordinal_unique").on(
+      table.threadId,
+      table.ordinal,
+    ),
+    check("harness_turns_ordinal_positive", sql`${table.ordinal} > 0`),
+    check(
+      "harness_turns_status_check",
+      sql`${table.status} in ('queued','running','waiting','completed','failed','cancelled','interrupted')`,
+    ),
+    check(
+      "harness_turns_runtime_mode_check",
+      sql`${table.runtimeMode} in ('approval-required','auto-accept-edits','auto','full-access')`,
+    ),
+  ],
+);
+
+export const harnessTurnAttempts = sqliteTable(
+  "harness_turn_attempts",
+  {
+    id: text("id").primaryKey(),
+    turnId: text("turn_id")
+      .notNull()
+      .references(() => harnessTurns.id, { onDelete: "cascade" }),
+    ordinal: integer("ordinal").notNull(),
+    status: text("status")
+      .$type<HarnessTurnStatus>()
+      .notNull()
+      .default("running"),
+    nativeThreadId: text("native_thread_id"),
+    nativeTurnId: text("native_turn_id"),
+    errorCode: text("error_code"),
+    errorMessage: text("error_message"),
+    startedAt: contextTimestamp("started_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    completedAt: contextTimestamp("completed_at"),
+  },
+  (table) => [
+    uniqueIndex("harness_turn_attempts_turn_ordinal_unique").on(
+      table.turnId,
+      table.ordinal,
+    ),
+    check("harness_turn_attempts_ordinal_positive", sql`${table.ordinal} > 0`),
+    check(
+      "harness_turn_attempts_status_check",
+      sql`${table.status} in ('queued','running','waiting','completed','failed','cancelled','interrupted')`,
+    ),
+  ],
+);
+
+export const harnessItems = sqliteTable(
+  "harness_items",
+  {
+    id: text("id").primaryKey(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => harnessThreads.id, { onDelete: "cascade" }),
+    turnId: text("turn_id").references(() => harnessTurns.id, {
+      onDelete: "cascade",
+    }),
+    attemptId: text("attempt_id").references(() => harnessTurnAttempts.id, {
+      onDelete: "set null",
+    }),
+    parentItemId: text("parent_item_id").references(
+      (): AnySQLiteColumn => harnessItems.id,
+      { onDelete: "set null" },
+    ),
+    ordinal: integer("ordinal").notNull(),
+    type: text("type").$type<HarnessItemType>().notNull(),
+    status: text("status").notNull(),
+    title: text("title"),
+    text: text("text"),
+    payload: jsonb("payload_json")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    startedAt: contextTimestamp("started_at"),
+    completedAt: contextTimestamp("completed_at"),
+    createdAt: contextTimestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+    updatedAt: contextTimestamp("updated_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("harness_items_thread_ordinal_unique").on(
+      table.threadId,
+      table.ordinal,
+    ),
+    index("harness_items_turn_ordinal_idx").on(table.turnId, table.ordinal),
+    index("harness_items_thread_type_updated_idx").on(
+      table.threadId,
+      table.type,
+      table.updatedAt,
+    ),
+    check(
+      "harness_items_type_check",
+      sql`${table.type} in ('user_message','assistant_message','reasoning','command_execution','file_change','file_read','file_search','web_search','tool_call','user_input_request','approval_request','system_notice','error')`,
+    ),
+    check(
+      "harness_items_status_check",
+      sql`${table.status} in ('pending','running','completed','cancelled','failed')`,
+    ),
+    check("harness_items_ordinal_positive", sql`${table.ordinal} > 0`),
+  ],
+);
+
+export const harnessAttachments = sqliteTable(
+  "harness_attachments",
+  {
+    id: text("id").primaryKey(),
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => harnessThreads.id, { onDelete: "cascade" }),
+    turnId: text("turn_id").references(() => harnessTurns.id, {
+      onDelete: "set null",
+    }),
+    itemId: text("item_id").references(() => harnessItems.id, {
+      onDelete: "set null",
+    }),
+    direction: text("direction").$type<HarnessAttachmentDirection>().notNull(),
+    kind: text("kind").$type<HarnessAttachmentKind>().notNull(),
+    name: text("name").notNull(),
+    mime: text("mime"),
+    bytes: integer("bytes"),
+    sha256: text("sha256"),
+    path: text("path"),
+    url: text("url"),
+    createdAt: contextTimestamp("created_at")
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    index("harness_attachments_thread_created_idx").on(
+      table.threadId,
+      table.createdAt,
+    ),
+    check(
+      "harness_attachments_direction_check",
+      sql`${table.direction} in ('input','output')`,
+    ),
+    check(
+      "harness_attachments_kind_check",
+      sql`${table.kind} in ('image','file','url','diff','report','snapshot')`,
     ),
   ],
 );
@@ -461,6 +702,10 @@ export const generationJobs = sqliteTable(
     skipPreparation: boolean("skip_preparation").notNull().default(false),
     runToken: text("run_token"),
     leaseUntil: contextTimestamp("lease_until"),
+    harnessThreadId: text("harness_thread_id").references(
+      () => harnessThreads.id,
+      { onDelete: "set null" },
+    ),
     createdAt: contextTimestamp("created_at")
       .notNull()
       .$defaultFn(() => new Date()),
@@ -517,269 +762,6 @@ export const quizAttempts = sqliteTable(
     uniqueIndex("quiz_attempts_quiz_number_unique").on(
       table.quizId,
       table.number,
-    ),
-  ],
-);
-
-export const messages = sqliteTable("messages", {
-  id: text("id").primaryKey(),
-  challengeId: text("challenge_id")
-    .notNull()
-    .references(() => challenges.id, { onDelete: "cascade" }),
-  role: text("role", { enum: ["user", "assistant"] }).notNull(),
-  mode: text("mode", {
-    enum: ["generate", "clarify", "review", "hint"],
-  }).notNull(),
-  content: text("content").notNull(),
-  status: text("status", {
-    enum: ["streaming", "completed", "failed", "cancelled", "interrupted"],
-  })
-    .notNull()
-    .default("completed"),
-  error: text("error"),
-  replyTo: text("reply_to"),
-  attachments: jsonb("attachments")
-    .$type<{ filename: string; text: string }[]>()
-    .notNull()
-    .default([]),
-  createdAt: timestamp("created_at", { mode: "date" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
-
-export const aiLogs = sqliteTable(
-  "ai_logs",
-  {
-    id: text("id").primaryKey(),
-    profileId: text("profile_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    challengeId: text("challenge_id").references(() => challenges.id, {
-      onDelete: "set null",
-    }),
-    operation: text("operation", {
-      enum: [
-        "preparation",
-        "prompt_enhancement",
-        "generation",
-        "clarify",
-        "review",
-        "hint",
-        "quiz_generation",
-        "quiz_title_generation",
-        "resume_import",
-      ],
-    }).notNull(),
-    status: text("status", {
-      enum: ["running", "success", "error", "cancelled"],
-    }).notNull(),
-    requestedModel: text("requested_model").notNull(),
-    actualModel: text("actual_model"),
-    endpoint: text("endpoint").notNull(),
-    providerRequestId: text("provider_request_id"),
-    streamed: boolean("streamed").notNull(),
-    preview: text("preview").notNull(),
-    startedAt: timestamp("started_at", { mode: "date" }).notNull(),
-    completedAt: timestamp("completed_at", { mode: "date" }),
-    durationMs: integer("duration_ms"),
-    firstTokenMs: integer("first_token_ms"),
-    inputTokens: integer("input_tokens"),
-    outputTokens: integer("output_tokens"),
-    totalTokens: integer("total_tokens"),
-    cachedTokens: integer("cached_tokens"),
-    reasoningTokens: integer("reasoning_tokens"),
-    costUsd: doublePrecision("cost_usd"),
-    requestBody: jsonb("request_body")
-      .$type<Record<string, unknown>>()
-      .notNull(),
-    responseBody: jsonb("response_body").$type<Record<string, unknown>>(),
-    responseText: text("response_text").notNull().default(""),
-    streamEvents: jsonb("stream_events").$type<unknown[]>(),
-    error: jsonb("error").$type<Record<string, unknown>>(),
-  },
-  (table) => [
-    index("ai_logs_profile_started_idx").on(
-      table.profileId,
-      table.startedAt,
-      table.id,
-    ),
-    index("ai_logs_profile_status_idx").on(
-      table.profileId,
-      table.status,
-      table.startedAt,
-    ),
-  ],
-);
-
-export const projects = sqliteTable("projects", {
-  id: text("id").primaryKey(),
-  profileId: text("profile_id")
-    .notNull()
-    .references(() => profiles.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  root: text("root").notNull(),
-  createdAt: timestamp("created_at", { mode: "date" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
-
-export const submissions = sqliteTable("submissions", {
-  id: text("id").primaryKey(),
-  challengeId: text("challenge_id")
-    .notNull()
-    .references(() => challenges.id, { onDelete: "cascade" }),
-  sequence: integer("sequence").notNull(),
-  contractVersion: integer("contract_version").notNull(),
-  content: text("content").notNull(),
-  attachments: jsonb("attachments")
-    .$type<{ filename: string; text: string }[]>()
-    .notNull(),
-  projectId: text("project_id").references(() => projects.id, {
-    onDelete: "set null",
-  }),
-  snapshotPath: text("snapshot_path").notNull(),
-  manifest: jsonb("manifest")
-    .$type<{ path: string; sha256: string; bytes: number }[]>()
-    .notNull(),
-  gitContext: jsonb("git_context").$type<Record<string, string | null>>(),
-  assistance: jsonb("assistance")
-    .$type<{ hints: number; guidance: boolean }>()
-    .notNull(),
-  createdAt: timestamp("created_at", { mode: "date" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
-
-export const reviewJobs = sqliteTable("review_jobs", {
-  id: text("id").primaryKey(),
-  submissionId: text("submission_id")
-    .notNull()
-    .references(() => submissions.id, { onDelete: "cascade" }),
-  judge: text("judge", { enum: ["omniroute", "codex"] }).notNull(),
-  modelSelection: jsonb("model_selection").$type<{
-    providerId: string;
-    model: string;
-    reasoningEffort?: string | null;
-  }>(),
-  routingReason: text("routing_reason").notNull(),
-  status: text("status", {
-    enum: ["queued", "running", "completed", "failed", "cancelled"],
-  }).notNull(),
-  progress: text("progress").notNull(),
-  response:
-    jsonb("response").$type<
-      import("../../modules/reviews/review.schema").ReviewResult
-    >(),
-  score: integer("score"),
-  error: text("error"),
-  followup: text("followup"),
-  aiLogId: text("ai_log_id"),
-  providerThreadId: text("provider_thread_id"),
-  providerTurnId: text("provider_turn_id"),
-  promptVersion: text("prompt_version").notNull(),
-  createdAt: timestamp("created_at", { mode: "date" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-  completedAt: timestamp("completed_at", { mode: "date" }),
-});
-
-export const verificationRuns = sqliteTable("verification_runs", {
-  id: text("id").primaryKey(),
-  reviewId: text("review_id")
-    .notNull()
-    .references(() => reviewJobs.id, { onDelete: "cascade" }),
-  evidence: jsonb("evidence")
-    .$type<import("../../modules/reviews/review.schema").VerificationEvidence>()
-    .notNull(),
-  createdAt: timestamp("created_at", { mode: "date" })
-    .notNull()
-    .$defaultFn(() => new Date()),
-});
-
-export const aiLogEvents = sqliteTable(
-  "ai_log_events",
-  {
-    id: serial("id").primaryKey(),
-    logId: text("log_id")
-      .notNull()
-      .references(() => aiLogs.id, { onDelete: "cascade" }),
-    recordedAt: timestamp("recorded_at", { mode: "date" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    payload: jsonb("payload").$type<unknown>().notNull(),
-  },
-  (table) => [index("ai_log_events_log_idx").on(table.logId, table.id)],
-);
-
-// Application-owned runtime diagnostics. These tables never store credentials
-// or provider request headers, and they are independent of practice records.
-export const agentRuns = sqliteTable(
-  "agent_runs",
-  {
-    id: text("id").primaryKey(),
-    profileId: text("profile_id")
-      .notNull()
-      .references(() => profiles.id, { onDelete: "cascade" }),
-    operation: text("operation").notNull(),
-    challengeId: text("challenge_id").references(() => challenges.id, {
-      onDelete: "set null",
-    }),
-    resourceKind: text("resource_kind"),
-    resourceId: text("resource_id"),
-    providerId: text("provider_id").notNull(),
-    providerName: text("provider_name").notNull(),
-    providerPreset: text("provider_preset").notNull(),
-    model: text("model").notNull(),
-    reasoningEffort: text("reasoning_effort"),
-    status: text("status", {
-      enum: ["running", "completed", "failed", "cancelled", "interrupted"],
-    })
-      .notNull()
-      .default("running"),
-    errorCode: text("error_code"),
-    errorMessage: text("error_message"),
-    turnCount: integer("turn_count").notNull().default(0),
-    toolCallCount: integer("tool_call_count").notNull().default(0),
-    inputTokens: integer("input_tokens"),
-    outputTokens: integer("output_tokens"),
-    totalTokens: integer("total_tokens"),
-    startedAt: timestamp("started_at", { mode: "date" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-    completedAt: timestamp("completed_at", { mode: "date" }),
-  },
-  (table) => [
-    index("agent_runs_profile_started_idx").on(
-      table.profileId,
-      table.startedAt,
-      table.id,
-    ),
-    index("agent_runs_status_started_idx").on(table.status, table.startedAt),
-    check(
-      "agent_runs_status_check",
-      sql`${table.status} in ('running','completed','failed','cancelled','interrupted')`,
-    ),
-  ],
-);
-
-export const agentRunEvents = sqliteTable(
-  "agent_run_events",
-  {
-    id: serial("id").primaryKey(),
-    runId: text("run_id")
-      .notNull()
-      .references(() => agentRuns.id, { onDelete: "cascade" }),
-    sequence: integer("sequence").notNull(),
-    type: text("type").notNull(),
-    payload: jsonb("payload").$type<unknown>().notNull(),
-    createdAt: timestamp("created_at", { mode: "date" })
-      .notNull()
-      .$defaultFn(() => new Date()),
-  },
-  (table) => [
-    uniqueIndex("agent_run_events_run_sequence_unique").on(
-      table.runId,
-      table.sequence,
     ),
   ],
 );

@@ -40,6 +40,9 @@ import {
 } from "@repo/backend/shared/database/db";
 
 await migrateDatabase();
+const { setHarnessPermissionModeProvider } =
+  await import("@repo/backend/modules/harness/harness.service");
+setHarnessPermissionModeProvider(() => "auto-accept-edits");
 
 const roots: string[] = [];
 afterAll(async () => {
@@ -74,6 +77,17 @@ const generatedBuild: GeneratedBuildContent = {
 };
 
 const projectFiles = [
+  {
+    path: "package.json",
+    role: "config" as const,
+    content: JSON.stringify({ name: "url-shortener", private: true }, null, 2),
+  },
+  {
+    path: "migrations/001_links.sql",
+    role: "migration" as const,
+    content:
+      "CREATE TABLE links (slug TEXT PRIMARY KEY, target TEXT NOT NULL);\n",
+  },
   {
     path: "src/main.ts",
     role: "source" as const,
@@ -200,6 +214,17 @@ function reportFor(
     run: [],
     checks: [
       {
+        id: "verify",
+        label: "Verify the supporting wiring",
+        kind: "test",
+        command: "bun -e \"console.log('verify')\"",
+        cwd: ".",
+        install: false,
+        network: false,
+        intent: "verify",
+        expected: "pass",
+      },
+      {
         id: "todo-exercise",
         label: "Run the intentionally failing TODO exercise",
         kind: "test",
@@ -211,9 +236,56 @@ function reportFor(
         expected: "fail",
       },
     ],
-    results: [{ checkId: "todo-exercise", status: "not_run", detail: null }],
+    results: [
+      { checkId: "verify", status: "not_run", detail: null },
+      { checkId: "todo-exercise", status: "not_run", detail: null },
+    ],
     problems: [],
   };
+}
+
+function checkStatus(result: {
+  status: string;
+  result: { status: string } | null;
+}) {
+  if (
+    result.result?.status === "timed_out" ||
+    result.result?.status === "cancelled" ||
+    result.result?.status === "spawn_failed"
+  )
+    return "blocked" as const;
+  if (result.status === "succeeded") return "passed" as const;
+  if (result.status === "failed") return "failed" as const;
+  return "blocked" as const;
+}
+
+async function executeChecks(
+  input: ProjectScaffoldModelInput,
+  report: ProjectScaffoldReport,
+) {
+  const run = input.runProjectCommand;
+  if (!run) throw new Error("Authorized command tool was not supplied.");
+  const results: ProjectScaffoldReport["results"] = [];
+  for (const check of report.checks) {
+    if (!check.command) continue;
+    const result = await run(
+      {
+        purpose: "check",
+        checkId: check.id,
+        command: check.command,
+        cwd: check.cwd,
+        install: check.install,
+        network: check.network,
+      },
+      { preauthorized: true },
+    );
+    results.push({
+      checkId: check.id,
+      status: checkStatus(result),
+      detail: null,
+    });
+  }
+  return { ...report, results };
 }
 
 async function writtenFiles(input: ProjectScaffoldModelInput) {
@@ -229,7 +301,7 @@ async function completeFromDisk(
   input: ProjectScaffoldModelInput,
   summary: string,
 ) {
-  return reportFor(await writtenFiles(input), summary);
+  return executeChecks(input, reportFor(await writtenFiles(input), summary));
 }
 
 async function failAfterFiles(
@@ -967,7 +1039,7 @@ describe("project preparation recovery", () => {
   });
 });
 
-test("schema version 7 adds a defaulted preparation mode without touching older rows", async () => {
+test("the latest schema keeps a defaulted preparation mode without touching older rows", async () => {
   const root = await tempRoot();
   const db = (
     await import("@repo/backend/shared/database/db.sqlite")
@@ -977,7 +1049,7 @@ test("schema version 7 adds a defaulted preparation mode without touching older 
     const version = (
       db.sqlite.query("PRAGMA user_version").get() as { user_version: number }
     ).user_version;
-    expect(version).toBe(7);
+    expect(version).toBe(10);
     const columns = db.sqlite
       .query("PRAGMA table_info(project_preparations)")
       .all() as { name: string; dflt_value: string | null; notnull: number }[];

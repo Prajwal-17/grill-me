@@ -9,6 +9,6 @@
 **/playwright-report/
 **/test-results/
 
-packages/backend/drizzle-sqlite/meta/
+packages/backend/drizzle/meta/
 apps/desktop/release/
 apps/desktop/resources/backend/

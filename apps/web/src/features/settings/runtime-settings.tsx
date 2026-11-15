@@ -14,6 +14,20 @@ import {
 } from "./settings-layout";
 import { useSettingsMutation } from "./use-settings-mutation";
 import { WorkspaceSettingsPanel } from "./workspace-settings";
+
+const PERMISSION_DESCRIPTIONS: Record<
+  RuntimeSettings["agentPermissions"],
+  string
+> = {
+  "approval-required":
+    "The agent asks before editing files, running commands, installing packages, or using the network. Reading is always allowed.",
+  "auto-accept-edits":
+    "The agent may edit workspace files without asking. Commands, installs, and network access still ask.",
+  auto: "The agent may edit files and run workspace commands. Installs and network access still ask.",
+  "full-access":
+    "The agent may edit files, run commands, install packages, and use the network. It still cannot read secrets or leave the workspace.",
+};
+
 export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
   const [draft, setDraft] = useState<RuntimeSettings | null>(null);
   const save = useSettingsMutation(() => setDraft(null));
@@ -40,10 +54,37 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
         }}
       >
         <fieldset disabled={save.isPending} className="min-w-0">
-          <SettingsRow label="Review timeout" htmlFor="review-timeout">
+          <SettingsRow label="Agent permissions" htmlFor="agent-permissions">
+            <div className="max-w-md space-y-2">
+              <select
+                id="agent-permissions"
+                value={runtime.agentPermissions}
+                onChange={(e) =>
+                  update({
+                    agentPermissions: e.target
+                      .value as RuntimeSettings["agentPermissions"],
+                  })
+                }
+                className="h-9 w-full rounded-md border border-line bg-canvas px-2.5 text-ui text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="approval-required">Approval required</option>
+                <option value="auto-accept-edits">Auto-accept edits</option>
+                <option value="auto">Auto</option>
+                <option value="full-access">Full access</option>
+              </select>
+              <p className="text-supporting text-muted">
+                {PERMISSION_DESCRIPTIONS[runtime.agentPermissions]}
+              </p>
+              <p className="text-metadata text-muted">
+                Applies to the next agent turn. Running approvals stay pending
+                until the agent or you resolve them.
+              </p>
+            </div>
+          </SettingsRow>
+          <SettingsRow label="Run timeout" htmlFor="run-timeout">
             <div className="flex max-w-56 items-center gap-2.5">
               <Input
-                id="review-timeout"
+                id="run-timeout"
                 type="number"
                 min={1}
                 max={3600}

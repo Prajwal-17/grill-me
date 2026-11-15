@@ -4,13 +4,11 @@ export type AgentOperation =
   | "preparation"
   | "generation"
   | "clarify"
-  | "review"
   | "hint"
   | "quiz_generation"
   | "quiz_title_generation"
   | "prompt_enhancement"
   | "resume_import"
-  | "verification"
   | "project_scaffolding";
 
 export type CompletionSpec<T> = {

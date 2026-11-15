@@ -1,4 +1,3 @@
-import { localTransport } from "@/shared/lib/local-client";
 import {
   Monitor,
   Bot,
@@ -6,7 +5,6 @@ import {
   UserRound,
   Target,
   Folder,
-  ScanLine,
   Info,
 } from "lucide-react";
 import { Link, useLocation, useSearchParams } from "react-router";
@@ -21,14 +19,11 @@ export const settingsSections = [
     : []),
 ] as const;
 
-export const preferenceSections = (
-  [
-    { id: "profile", icon: UserRound, label: "Profile" },
-    { id: "practice", icon: Target, label: "Practice" },
-    { id: "projects", icon: Folder, label: "Projects" },
-    { id: "reviews", icon: ScanLine, label: "Code reviews" },
-  ] as const
-).filter(({ id }) => !localTransport || id !== "reviews");
+export const preferenceSections = [
+  { id: "profile", icon: UserRound, label: "Profile" },
+  { id: "practice", icon: Target, label: "Practice" },
+  { id: "projects", icon: Folder, label: "Projects" },
+] as const;
 
 export function SettingsSectionNavigation({
   kind,

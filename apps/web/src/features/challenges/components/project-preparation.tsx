@@ -28,6 +28,7 @@ import type {
 } from "@/features/challenges/lib/project-preparation-view";
 import { projectPreparationView } from "@/features/challenges/lib/project-preparation-view";
 import { useProjectPreparation } from "@/features/challenges/hooks/use-project-preparation";
+import { HarnessThreadPanel } from "@/features/harness";
 
 const toneClass: Record<ProjectTone, string> = {
   neutral: "text-foreground",
@@ -836,6 +837,16 @@ export function ProjectPreparationRegion({
             <p className="mt-2 break-words text-metadata text-muted">
               Last activity: {view.lastActivity.label}
             </p>
+          )}
+          {view.attempt !== null && (
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="mb-2 text-metadata text-muted">Run transcript</p>
+              <HarnessThreadPanel
+                profileId={profileId}
+                kind="project_scaffold"
+                challengeId={challengeId}
+              />
+            </div>
           )}
           {view.canCancel && (
             <div className="mt-3 flex flex-wrap items-center gap-2">

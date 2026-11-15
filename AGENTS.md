@@ -108,7 +108,8 @@ Package-level checks are available with `bun run lint` and
   fallback used when the OS credential store is unavailable, and the file must
   never be world-readable.
 - SQLite is the only database runtime. Keep `schema.sqlite.ts`,
-  `drizzle-sqlite/0000_desktop.sql`, and the `PRAGMA user_version` migration in
+  `schema.legacy.ts`, `drizzle/fresh.sql`,
+  `drizzle/0000_desktop.sql`, and every `PRAGMA user_version` step in
   `db.sqlite.ts` in sync. Follow the compatibility rules below; existing practice
   data must remain readable.
 - Write through the shared database adapter (`db`, `first`, `lockRows`,

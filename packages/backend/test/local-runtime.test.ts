@@ -616,7 +616,7 @@ test("malformed and duplicate frames cannot repeat a mutation", async () => {
   }
 });
 
-test("configured provider endpoint, key and model drive local AI calls without leaking keys into logs", async () => {
+test("configured provider endpoint, key and model drive local AI calls without leaking keys into transcripts", async () => {
   const secret = "provider-integration-fixture-secret";
   let authorization = "";
   let requestedModel = "";
@@ -743,10 +743,23 @@ test("configured provider endpoint, key and model drive local AI calls without l
     expect(preview.type).toBe("result");
     expect(authorization).toBe(`Bearer ${secret}`);
     expect(requestedModel).toBe("configured-fixture-model");
-    const logs = await call("/logs", "GET", undefined, profile.data.id);
-    expect(logs.type).toBe("result");
-    expect(logs.data.items.length).toBeGreaterThan(0);
-    expect(JSON.stringify(logs)).not.toContain(secret);
+    const threads = await call(
+      "/harness?kind=resume_import",
+      "GET",
+      undefined,
+      profile.data.id,
+    );
+    expect(threads.type).toBe("result");
+    expect(threads.data.length).toBeGreaterThan(0);
+    const detail = await call(
+      `/harness/${threads.data[0].id}`,
+      "GET",
+      undefined,
+      profile.data.id,
+    );
+    expect(detail.type).toBe("result");
+    expect(detail.data.turns.length).toBeGreaterThan(0);
+    expect(JSON.stringify(detail)).not.toContain(secret);
   } finally {
     ws.close();
     await provider.stop(true);

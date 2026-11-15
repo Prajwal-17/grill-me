@@ -281,6 +281,7 @@ export function createQuizService(
         const generated = await llm.generateQuiz({
           ...input,
           signal: generation?.signal,
+          harness: generation?.harness,
         });
         let content;
         try {

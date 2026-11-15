@@ -45,6 +45,8 @@ export type LogPage = {
   page: number;
   pageSize: number;
   totalPages: number;
+  /** False on fresh installs, where legacy log tables were never created. */
+  available: boolean;
 };
 export type LogFilters = {
   page: number;

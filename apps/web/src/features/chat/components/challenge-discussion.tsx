@@ -8,7 +8,7 @@ import { getMessages, retryMessage, sendMessage } from "../api/message-api";
 import { ChatMessage } from "./chat-message";
 import { ModelPicker } from "@/shared/components/ai/model-picker";
 import { useComposerModel } from "@/shared/components/ai/use-composer-model";
-export function ReviewDiscussion({
+export function ChallengeDiscussion({
   profileId,
   challengeId,
   active,
@@ -69,9 +69,7 @@ export function ReviewDiscussion({
       setReply("");
     },
   });
-  const history =
-    messages.data?.filter((m) => m.mode === "clarify" || m.mode === "review") ??
-    [];
+  const history = messages.data?.filter((m) => m.mode === "clarify") ?? [];
   const last = history.at(-1);
   const savedFailure =
     last?.error === send.error?.message ||
@@ -158,7 +156,7 @@ export function ReviewDiscussion({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             disabled={inFlight}
-            placeholder="Ask about this challenge or a review…"
+            placeholder="Ask about this challenge…"
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <ModelPicker disabled={inFlight} />

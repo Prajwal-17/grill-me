@@ -35,4 +35,9 @@ export type GenerationError = {
   message: string;
   retryable: boolean;
 };
-export type GenerationRun = { id: string; token: string; signal?: AbortSignal };
+export type GenerationRun = {
+  id: string;
+  token: string;
+  signal?: AbortSignal;
+  harness?: import("../harness/types").HarnessRunRequest;
+};

@@ -6,7 +6,6 @@ import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
 import { createApp } from "@repo/backend/app";
 import { createPiGateway } from "@repo/backend/modules/ai/agent/gateway";
 import { runStructured } from "@repo/backend/modules/ai/agent/runtime";
-import { verificationTask } from "@repo/backend/modules/ai/agent/tasks/review";
 import {
   createProjectTools,
   projectToolJournalContext,
@@ -15,7 +14,6 @@ import { createProjectWorkspace } from "@repo/backend/modules/challenges/project
 import { writeFrozenSpecification } from "@repo/backend/modules/challenges/project-preparation.spec";
 import type {
   BuildModelInput,
-  JudgeInput,
   ModelGateway,
   ProjectScaffoldModelInput,
 } from "@repo/backend/modules/ai/model-gateway";
@@ -31,9 +29,11 @@ import type {
   ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
 import { migrateDatabase } from "@repo/backend/shared/database/db";
+import { setHarnessPermissionModeProvider } from "@repo/backend/modules/harness/harness.service";
 import { resolvedModel } from "./fixtures/agent-fixtures";
 
 await migrateDatabase();
+setHarnessPermissionModeProvider(() => "auto-accept-edits");
 
 const roots: string[] = [];
 afterAll(async () => {
@@ -60,7 +60,7 @@ const generatedBuild: GeneratedBuildContent = {
     "Build a URL shortener service with separate HTTP, storage, migration, and test files.",
   expectedOutcome: "A runnable project skeleton with unfinished core logic.",
   constraints: [],
-  starterCode: "export function createShortLink(url: string) { return url; }\n",
+  starterCode: null,
   completionCriteria: [
     "Creates a short link and stores its target.",
     "Redirects a known short link.",
@@ -90,6 +90,12 @@ const projectFiles = [
       'import { createShortLink } from "./shortener";\n\nexport function handleCreate(target: string) {\n  return createShortLink(target);\n}\n',
   },
   {
+    path: "migrations/001_links.sql",
+    role: "migration" as const,
+    content:
+      "CREATE TABLE links (slug TEXT PRIMARY KEY, target TEXT NOT NULL);\n",
+  },
+  {
     path: "test/shortener.test.ts",
     role: "test" as const,
     content:
@@ -112,7 +118,13 @@ type Behavior =
   | "fraud-no-run"
   | "duplicate";
 
-function report(checkCommand: string, status: "passed" | "failed" | "not_run") {
+const todoCommand = "bun test test/shortener.test.ts";
+
+function report(
+  checkCommand: string,
+  status: "passed" | "failed" | "not_run",
+  todoStatus: "failed" | "not_run" = "failed",
+) {
   return {
     summary: "Created the URL shortener scaffold with a TODO exercise.",
     files: projectFiles.map((file) => ({
@@ -145,7 +157,7 @@ function report(checkCommand: string, status: "passed" | "failed" | "not_run") {
         id: "todo",
         label: "Run the intentionally failing TODO exercise",
         kind: "test" as const,
-        command: 'bun -e "process.exit(1)"',
+        command: todoCommand,
         cwd: ".",
         install: false,
         network: false,
@@ -155,7 +167,7 @@ function report(checkCommand: string, status: "passed" | "failed" | "not_run") {
     ],
     results: [
       { checkId: "verify", status, detail: null },
-      { checkId: "todo", status: "not_run" as const, detail: null },
+      { checkId: "todo", status: todoStatus, detail: null },
     ],
     problems: [],
   } satisfies ProjectScaffoldReport;
@@ -204,6 +216,25 @@ class FakeCommandScaffoldModel implements ModelGateway {
       );
   }
 
+  private async runTodo(
+    input: ProjectScaffoldModelInput,
+  ): Promise<"failed" | "not_run"> {
+    const run = input.runProjectCommand;
+    if (!run) throw new Error("Authorized command tool was not supplied.");
+    const result = await run(
+      {
+        purpose: "check",
+        checkId: "todo",
+        command: todoCommand,
+        cwd: ".",
+        install: false,
+        network: false,
+      },
+      { preauthorized: true },
+    );
+    return result.status === "failed" ? "failed" : "not_run";
+  }
+
   async scaffoldProject(
     input: ProjectScaffoldModelInput,
   ): Promise<ProjectScaffoldReport> {
@@ -223,7 +254,7 @@ class FakeCommandScaffoldModel implements ModelGateway {
       case "reject": {
         const result = await run(command);
         expect(result.status).toBe("rejected");
-        return report(this.checkCommand, "not_run");
+        return report(this.checkCommand, "not_run", await this.runTodo(input));
       }
       case "attempt": {
         const setup = await run({
@@ -236,20 +267,22 @@ class FakeCommandScaffoldModel implements ModelGateway {
         expect(setup.status).toBe("succeeded");
         const result = await run(command);
         expect(result.status).toBe("succeeded");
-        return report(this.checkCommand, "passed");
+        return report(this.checkCommand, "passed", await this.runTodo(input));
       }
       case "fraud": {
         await run(command);
-        return report(this.checkCommand, "failed");
+        return report(this.checkCommand, "failed", await this.runTodo(input));
       }
       case "fraud-no-run":
-        return report(this.checkCommand, "passed");
-      case "cancel":
+        return report(this.checkCommand, "passed", "not_run");
+      case "cancel": {
+        await run(command);
+        return report(this.checkCommand, "passed", "not_run");
+      }
       case "duplicate": {
         const result = await run(command);
-        if (this.behavior === "duplicate")
-          expect(result.status).toBe("succeeded");
-        return report(this.checkCommand, "passed");
+        expect(result.status).toBe("succeeded");
+        return report(this.checkCommand, "passed", await this.runTodo(input));
       }
       default: {
         const result = await run(command);
@@ -259,7 +292,7 @@ class FakeCommandScaffoldModel implements ModelGateway {
             : result.status === "failed"
               ? "failed"
               : "not_run";
-        return report(this.checkCommand, status);
+        return report(this.checkCommand, status, await this.runTodo(input));
       }
     }
   }
@@ -353,7 +386,7 @@ async function waitForPreparation(
     last = await preparation(app, profileId, challengeId);
   }
   throw new Error(
-    `Preparation did not reach ${expected.join("/")}; last ${last.status}`,
+    `Preparation did not reach ${expected.join("/")}; last ${last.status}: ${JSON.stringify(last.error)}`,
   );
 }
 
@@ -535,12 +568,17 @@ describe("authorized scaffold commands", () => {
       install: true,
       network: true,
     });
-    expect(ready.commands).toHaveLength(2);
     expect(
-      ready.commands.every(
-        (command) =>
-          command.status === "succeeded" && command.authorization === "attempt",
-      ),
+      ready.commands.filter((command) => command.checkId !== "todo"),
+    ).toHaveLength(2);
+    expect(
+      ready.commands
+        .filter((command) => command.checkId !== "todo")
+        .every(
+          (command) =>
+            command.status === "succeeded" &&
+            command.authorization === "attempt",
+        ),
     ).toBe(true);
     expect(ready.report?.results[0]?.status).toBe("passed");
   });
@@ -718,7 +756,10 @@ describe("authorized scaffold commands", () => {
     const ready = await waitForPreparation(app, owner.id, challenge.id, [
       "ready",
     ]);
-    expect(ready.commands).toHaveLength(1);
+    expect(
+      ready.commands.filter((command) => command.checkId === "verify"),
+    ).toHaveLength(1);
+    expect(ready.commands).toHaveLength(2);
     expect(
       await readFile(join(ready.projectPath!, "run-count.txt"), "utf8"),
     ).toBe("x");
@@ -797,6 +838,20 @@ describe("command tool isolation", () => {
       startedAt: completedAt,
       completedAt,
     };
+    const todoExecution: ProjectCommand = {
+      ...execution,
+      id: crypto.randomUUID(),
+      checkId: "todo",
+      status: "failed",
+      command: todoCommand,
+      result: {
+        ...result,
+        status: "failed",
+        exitCode: 1,
+        output: "",
+        outputBytes: 0,
+      },
+    };
     const requests: unknown[] = [];
     const { faux, resolved } = resolvedModel();
     faux.setResponses([
@@ -816,6 +871,14 @@ describe("command tool isolation", () => {
             purpose: "check",
             checkId: "verify",
             command: checkCommand,
+            cwd: ".",
+            install: false,
+            network: false,
+          }),
+          fauxToolCall("run_project_command", {
+            purpose: "check",
+            checkId: "todo",
+            command: todoCommand,
             cwd: ".",
             install: false,
             network: false,
@@ -846,170 +909,24 @@ describe("command tool isolation", () => {
       previousAttempt: null,
       runProjectCommand: async (request) => {
         requests.push(request);
+        const selected = request.checkId === "todo" ? todoExecution : execution;
         return {
-          id: execution.id,
+          id: selected.id,
           purpose: request.purpose,
           checkId: request.checkId ?? null,
-          status: "succeeded",
+          status: selected.status === "failed" ? "failed" : "succeeded",
           authorization: "individual",
           command: request.command,
           cwd: request.cwd,
           install: request.install,
           network: request.network,
           timeoutMs: request.timeoutMs ?? 30_000,
-          result,
+          result: selected.result,
         };
       },
-      commandResults: async () => [execution],
+      commandResults: async () => [execution, todoExecution],
     });
-    expect(requests).toHaveLength(1);
+    expect(requests).toHaveLength(2);
     expect(scaffolded.results[0]?.status).toBe("passed");
-  });
-
-  test("review and verification tasks never expose the authorized command tool", async () => {
-    const challenge = {
-      id: crypto.randomUUID(),
-      profileId: crypto.randomUUID(),
-      number: 1,
-      title: "Fixture verification",
-      scope: "focused" as const,
-      difficulty: "medium" as const,
-      contextualDifficulty: "medium" as const,
-      estimatedDifficultyScore: null,
-      difficultyReason: "Fixture",
-      topic: "TypeScript",
-      implementationBoundary: "",
-      contextSnapshot: null,
-      promptVersion: null,
-      calibrationVersion: null,
-      contractVersion: 2,
-      completionSource: null,
-      problemStatement: "Verify a saved submission without executing it.",
-      expectedOutcome: "A bounded plan.",
-      constraints: [],
-      starterCode: null,
-      completionCriteria: ["The submitted function is inspected."],
-      implementationMilestones: [],
-      durationEstimate: { minMinutes: 10, maxMinutes: 20 },
-      hint: null,
-      workspacePath: null,
-      status: "active" as const,
-      createdAt: new Date().toISOString(),
-      completedAt: null,
-      archivedAt: null,
-    } satisfies Challenge;
-    const input: JudgeInput = {
-      challenge,
-      content: "export const answer = 42;",
-      attachments: [],
-      evidence: {
-        status: "inspection_only",
-        reason: "Fixture inspection.",
-        checks: [],
-      },
-      assistance: { hints: 0, guidance: false },
-      followup: null,
-      previousReview: null,
-    };
-    const task = verificationTask(input);
-    const { faux, resolved } = resolvedModel();
-    faux.setResponses([
-      fauxAssistantMessage(
-        [
-          fauxToolCall("run_project_command", {
-            purpose: "check",
-            checkId: "verify",
-            command: "printf should-not-run",
-            install: false,
-            network: false,
-          }),
-        ],
-        { stopReason: "toolUse" },
-      ),
-      fauxAssistantMessage(
-        [
-          fauxToolCall("complete_verification", {
-            runtime: "unsupported",
-            reason: "Review tasks never receive the command tool.",
-            checks: [],
-          }),
-        ],
-        { stopReason: "toolUse" },
-      ),
-    ]);
-    const result = await runStructured({
-      resolved,
-      instructions: task.instructions,
-      context: task.context,
-      userText: task.userText,
-      completion: task.completion,
-      allowSnapshot: task.allowSnapshot,
-      allowResearch: false,
-    });
-    expect(result.value).toMatchObject({ runtime: "unsupported" });
-    const blocked = result.messages.find(
-      (message) =>
-        message.role === "toolResult" &&
-        message.toolName === "run_project_command",
-    );
-    expect(blocked).toBeDefined();
-    expect(JSON.stringify(blocked)).toContain('"isError":true');
-    expect(JSON.stringify(blocked)).toContain("not found");
-  });
-});
-
-describe("command recovery", () => {
-  test("shutdown interrupts a pending command and a fresh attempt never replays it", async () => {
-    const root = await tempRoot();
-    const model = new FakeCommandScaffoldModel();
-    model.behavior = "cancel";
-    model.checkCommand =
-      "bun -e \"require('fs').writeFileSync('restart-marker.txt', 'ran')\"";
-    const app = appWith(model, root);
-    const owner = await startProfile(
-      app,
-      `command-restart-${crypto.randomUUID()}@test.dev`,
-    );
-    const challenge = await createChallenge(app, owner.id);
-    const pending = await waitForCommand(app, owner.id, challenge.id, [
-      "pending",
-    ]);
-
-    await app.projectPreparations.stop();
-    const interrupted = await waitForPreparation(app, owner.id, challenge.id, [
-      "interrupted",
-    ]);
-    expect(interrupted.commands[0]?.status).toBe("interrupted");
-    expect(interrupted.commands[0]?.result).toBeNull();
-    const stale = await approve(
-      app,
-      owner.id,
-      challenge.id,
-      pending.command.id,
-    );
-    expect(stale.status).toBe(409);
-
-    model.behavior = "success";
-    model.checkCommand = "bun -e \"console.log('second-attempt')\"";
-    const started = await request(
-      app,
-      `/challenges/${challenge.id}/project-preparation/start`,
-      owner.id,
-      {},
-    );
-    expect(started.status).toBe(202);
-    const next = await waitForCommand(app, owner.id, challenge.id, ["pending"]);
-    expect(next.command.id).not.toBe(pending.command.id);
-    await approve(app, owner.id, challenge.id, next.command.id);
-    const ready = await waitForPreparation(app, owner.id, challenge.id, [
-      "ready",
-    ]);
-    expect(ready.attempt).toBe(2);
-    expect(ready.commands).toHaveLength(1);
-    const marker = join(
-      model.inputs[1]!.layout.projectRoot,
-      "restart-marker.txt",
-    );
-    await expect(stat(marker)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

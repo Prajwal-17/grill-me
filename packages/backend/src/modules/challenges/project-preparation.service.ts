@@ -51,6 +51,7 @@ import {
   type ProjectResumeInspection,
 } from "./project-preparation.recovery";
 import type { ChallengeWorkspaceService } from "./workspace";
+import { harnessService } from "../harness/harness.service";
 
 const maxActivityEntries = 200;
 const settlingTimeoutMs = 5_000;
@@ -467,25 +468,11 @@ export function createProjectPreparationService(dependencies: {
     activity: ProjectPreparationActivity[];
     controller: AbortController;
   }) {
-    const {
-      row,
-      runToken,
-      layout,
-      specification,
-      previous,
-      activity,
-      controller,
-    } = input;
+    const { row, runToken, layout, specification, previous, controller } =
+      input;
     // Only a report that passed server validation may be persisted. The raw
     // gateway payload is never stored as a trusted report.
     let validatedReport: ProjectScaffoldReport | undefined;
-
-    const persistActivity = async (entry: ProjectPreparationActivity) => {
-      addActivity(activity, entry);
-      await projectPreparationModel
-        .updateActivity(row.id, runToken, boundedActivity(activity), now())
-        .catch(() => {});
-    };
 
     let commandSession: ReturnType<typeof commands.begin> | undefined;
     try {
@@ -505,6 +492,17 @@ export function createProjectPreparationService(dependencies: {
           "This model does not support project scaffolding.",
           503,
         );
+      const thread = await harnessService.createThread({
+        profileId: row.profileId,
+        kind: "project_scaffold",
+        title: specification.title,
+        challengeId: row.challengeId,
+        transport: "api",
+        model: input.selection?.model ?? specification.model.label ?? "auto",
+      });
+      const turn = await harnessService.appendTurn(thread.id, {
+        inputText: `Prepare ${specification.title}`,
+      });
       const reported = await llm.scaffoldProject({
         profileId: row.profileId,
         challengeId: row.challengeId,
@@ -514,7 +512,28 @@ export function createProjectPreparationService(dependencies: {
         layout,
         previousAttempt: previousAttemptInput(previous),
         continuation: input.continuation ?? null,
-        onActivity: (entry) => persistActivity(toolActivity(entry, now())),
+        harness: {
+          threadId: thread.id,
+          turnId: turn.id,
+          inputText: turn.inputText,
+        },
+        permissionMode: harnessService.currentRuntimeMode(),
+        requestPermission: async (request) => {
+          const decision = await harnessService.request({
+            threadId: thread.id,
+            turnId: turn.id,
+            type: "approval_request",
+            kind: request.action,
+            prompt: request.prompt,
+            signal: request.signal ?? controller.signal,
+          });
+          if (decision.decision !== "allow")
+            throw new AppError(
+              "PERMISSION_DENIED",
+              "The requested project action was denied.",
+              403,
+            );
+        },
         runProjectCommand: commandSession.execute,
         commandResults: commandSession.results,
       });
@@ -532,11 +551,6 @@ export function createProjectPreparationService(dependencies: {
       });
       validatedReport = validated;
       if (validated.problems.length) {
-        await persistActivity({
-          type: "failed",
-          at: nowIso(now()),
-          message: "Preparation reported unresolved problems.",
-        });
         await projectPreparationModel.finish({
           id: row.id,
           runToken,
@@ -549,41 +563,29 @@ export function createProjectPreparationService(dependencies: {
             retryable: true,
             details: { problems: validated.problems.slice(0, 20) },
           },
-          activity: boundedActivity(activity),
+          activity: row.activity,
           at: now(),
         });
         return;
       }
-      await persistActivity({
-        type: "completed",
-        at: nowIso(now()),
-        message: "Project files and frozen specification are ready.",
-      });
       await projectPreparationModel.finish({
         id: row.id,
         runToken,
         status: "ready",
         report: validated,
         error: null,
-        activity: boundedActivity(activity),
+        activity: row.activity,
         at: now(),
       });
     } catch (error) {
       const cancelled = cancelledError(error, controller.signal);
-      await persistActivity({
-        type: cancelled ? "cancelled" : "failed",
-        at: nowIso(now()),
-        message: cancelled
-          ? "Preparation was cancelled. Partial files are preserved."
-          : "Preparation failed. Partial files are preserved.",
-      });
       await projectPreparationModel.finish({
         id: row.id,
         runToken,
         status: cancelled ? "cancelled" : "failed",
         report: cancelled ? null : (validatedReport ?? null),
         error: cancelled ? null : projectError(error),
-        activity: boundedActivity(activity),
+        activity: row.activity,
         at: now(),
       });
     } finally {
@@ -864,17 +866,10 @@ export function createProjectPreparationService(dependencies: {
                 503,
                 true,
               );
-        const pendingActivity = [...base.activity];
-        addActivity(pendingActivity, {
-          type: "failed",
-          at: nowIso(now()),
-          message:
-            "The pending preparation could not continue. Partial files are preserved.",
-        });
         const failed = await projectPreparationModel.failPending(
           base.id,
           projectError(failure),
-          boundedActivity(pendingActivity),
+          base.activity,
           now(),
         );
         if (failed) return preparationView(challengeId, failed, previous);
@@ -977,10 +972,12 @@ export function createProjectPreparationService(dependencies: {
               ? `Started a fresh project folder from the saved frozen specification.`
               : "Scaffolding started.",
     });
+    // Keep any legacy activity exactly as stored. New progress lives in the
+    // project_scaffold harness transcript.
     const running = await projectPreparationModel.markRunning(
       row.id,
       runToken,
-      boundedActivity(activity),
+      row.activity,
       now(),
     );
     if (!running) {

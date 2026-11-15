@@ -2,6 +2,7 @@ import { Database } from "bun:sqlite";
 import { chmod, mkdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { AppError } from "../shared/errors/app-error";
+import { DATABASE_VERSION } from "../shared/database/db.sqlite";
 
 function version(path: string) {
   const db = new Database(path, { readonly: true });
@@ -60,11 +61,11 @@ export async function backupBeforeMigration(
       { cause: error instanceof Error ? error.message : String(error) },
     );
   }
-  if (practiceVersion >= 4) return null;
+  if (practiceVersion >= DATABASE_VERSION) return null;
   const directory = join(
     root,
     "backups",
-    `${new Date().toISOString().replace(/[:.]/g, "-")}-pre-v4`,
+    `${new Date().toISOString().replace(/[:.]/g, "-")}-pre-v${practiceVersion}`,
   );
   try {
     await mkdir(directory, { recursive: true, mode: 0o700 });

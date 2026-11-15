@@ -67,6 +67,10 @@ export function LogsPage() {
             filters={filters}
             onChange={(next) => navigate(logHref(next))}
           />
+          <p className="border-b border-line bg-panel px-3 py-2 text-metadata text-muted">
+            Legacy logs. This page is read-only; new agent runs are stored as
+            run transcripts and are not written here.
+          </p>
           {logs.isLoading ? (
             <div className="min-h-0 flex-1 overflow-y-auto">
               <CollectionSkeleton kind="logs" />
@@ -197,12 +201,20 @@ export function LogsPage() {
                         className="mx-auto mb-4 text-muted"
                       />
                       <h2 className="font-medium">
-                        {filters.search ||
-                        filters.status !== "all" ||
-                        filters.operation !== "all"
-                          ? "No matching requests"
-                          : "No AI requests yet"}
+                        {logs.data.available === false
+                          ? "No legacy logs on this install"
+                          : filters.search ||
+                              filters.status !== "all" ||
+                              filters.operation !== "all"
+                            ? "No matching requests"
+                            : "No legacy requests recorded"}
                       </h2>
+                      {logs.data.available === false && (
+                        <p className="mx-auto mt-2 max-w-md text-supporting text-muted">
+                          Logs were retired. Open a challenge's Runs tab to see
+                          harness transcripts.
+                        </p>
+                      )}
                       {(filters.search ||
                         filters.status !== "all" ||
                         filters.operation !== "all") && (

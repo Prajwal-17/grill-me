@@ -1,12 +1,10 @@
 import type {
   BuildModelInput,
-  JudgeInput,
   ModelGateway,
   ProjectScaffoldModelInput,
   QuizModelInput,
   QuizTitleModelInput,
 } from "../model-gateway";
-import type { Manifest } from "../../projects/snapshot";
 import { createAgentExecutor } from "./execute";
 import { createLimiter, createResourceLocks } from "./limiter";
 import { conversationMessages } from "./messages";
@@ -21,17 +19,9 @@ import {
   quizTask,
   quizTitleTask,
   resumeTask,
-  reviewTask,
-  verificationTask,
 } from "./tasks";
 import { createProjectTools, projectToolJournalContext } from "./tools/project";
 import { createProjectCommandTool } from "./tools/command";
-
-function imageAttachments(attachments: JudgeInput["attachments"]) {
-  return attachments.filter(
-    (attachment) => attachment.data && attachment.mimeType,
-  );
-}
 
 export function createPiGateway(runtime: AgentRuntime): ModelGateway {
   const executor = createAgentExecutor({
@@ -40,37 +30,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
     resources: createResourceLocks(),
   });
 
-  async function judgeWithSnapshot(
-    input: JudgeInput,
-    workspace: string,
-    manifest: Manifest,
-  ) {
-    const result = await executor.structured(
-      {
-        profileId: input.challenge.profileId,
-        operation: "review",
-        challengeId: input.challenge.id,
-        resourceKind: "review",
-        resourceId: workspace,
-        preview: input.challenge.title,
-        selection: input.selection,
-        signal: input.signal,
-      },
-      reviewTask(input, true),
-      {
-        workspace,
-        manifest,
-        attachments: imageAttachments(input.attachments),
-      },
-    );
-    return result.value as Awaited<
-      ReturnType<NonNullable<ModelGateway["reviewWorkspace"]>>
-    >;
-  }
-
   return {
-    reviewWorkspace: judgeWithSnapshot,
-
     async enhanceBuildPrompt(input) {
       const result = await executor.structured(
         {
@@ -78,6 +38,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           operation: "prompt_enhancement",
           preview: input.prompt,
           selection: input.selection,
+          harness: input.harness,
         },
         enhancementTask({ ...input, target: "build" }),
       );
@@ -91,6 +52,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           operation: "prompt_enhancement",
           preview: input.prompt,
           selection: input.selection,
+          harness: input.harness,
         },
         enhancementTask({ ...input, target: "quiz" }),
       );
@@ -105,6 +67,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           preview: "Resume profile draft",
           selection: input.selection,
           signal: input.signal,
+          harness: input.harness,
         },
         resumeTask(input),
       );
@@ -126,6 +89,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
             : input.prompt.slice(0, 200),
           selection: input.selection,
           signal: input.signal,
+          harness: input.harness,
         },
         quizTask(input),
       );
@@ -142,56 +106,11 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           challengeId: input.challengeId,
           preview: input.currentTitle,
           selection: input.selection,
+          harness: input.harness,
         },
         quizTitleTask(input),
       );
       return result.value.title;
-    },
-
-    async judge(input: JudgeInput) {
-      const result = await executor.structured(
-        {
-          profileId: input.challenge.profileId,
-          operation: "review",
-          challengeId: input.challenge.id,
-          resourceKind: "review",
-          resourceId: input.workspace ?? input.challenge.id,
-          preview: input.challenge.title,
-          selection: input.selection,
-          signal: input.signal,
-        },
-        reviewTask(input, Boolean(input.workspace)),
-        input.workspace
-          ? {
-              workspace: input.workspace,
-              manifest: [],
-              attachments: imageAttachments(input.attachments),
-            }
-          : { attachments: input.attachments },
-      );
-      return result.value as Awaited<
-        ReturnType<NonNullable<ModelGateway["judge"]>>
-      >;
-    },
-
-    async planVerification(input: JudgeInput) {
-      const result = await executor.structured(
-        {
-          profileId: input.challenge.profileId,
-          operation: "verification",
-          challengeId: input.challenge.id,
-          preview: "Verification: " + input.challenge.title,
-          selection: input.selection,
-          signal: input.signal,
-        },
-        verificationTask(input),
-        input.workspace
-          ? { workspace: input.workspace, manifest: [] }
-          : { attachments: input.attachments },
-      );
-      return result.value as Awaited<
-        ReturnType<NonNullable<ModelGateway["planVerification"]>>
-      >;
     },
 
     async prepareBuild(input) {
@@ -202,6 +121,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           preview: input.prompt,
           selection: input.selection,
           signal: input.signal,
+          harness: input.harness,
         },
         preparationTask(input),
       );
@@ -216,6 +136,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           preview: input.prompt,
           selection: input.selection,
           signal: input.signal,
+          harness: input.harness,
         },
         generationTask(input),
       );
@@ -233,6 +154,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           preview: input.specification.title,
           selection: input.selection,
           signal: input.signal,
+          harness: input.harness,
         },
         projectScaffoldTask(input),
         {
@@ -241,16 +163,20 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
               root: input.layout.projectRoot,
               journal: projectToolJournalContext(input.layout),
               signal: input.signal,
+              permissionMode: input.permissionMode,
+              requestPermission: input.requestPermission,
               onActivity: input.onActivity,
             }),
-            // The command tool is task-scoped and only exists while the service
-            // supplies an executor bound to this exact preparation attempt.
             ...(input.runProjectCommand
-              ? [createProjectCommandTool(input.runProjectCommand)]
+              ? [
+                  createProjectCommandTool(input.runProjectCommand, {
+                    permissionMode: input.permissionMode,
+                    requestPermission: input.requestPermission,
+                    signal: input.signal,
+                  }),
+                ]
               : []),
           ],
-          // Project preparation state is workflow state, not a diagnostic log.
-          observability: false,
         },
       );
       return result.value as Awaited<
@@ -269,6 +195,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           preview: input.content || input.challenge.title,
           selection: input.selection,
           signal: input.signal,
+          harness: input.harness,
         },
         conversationTask(input),
         conversationMessages(input.messages),
@@ -285,6 +212,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           resourceId: input.challenge.id,
           preview: input.challenge.title,
           selection: input.selection,
+          harness: input.harness,
         },
         hintTask(input),
         conversationMessages(input.messages),

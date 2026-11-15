@@ -9,6 +9,7 @@ import { createChallengeWorkspaceService } from "./modules/challenges/workspace"
 import { createProjectPreparationController } from "./modules/challenges/project-preparation.controller";
 import { createProjectPreparationRoutes } from "./modules/challenges/project-preparation.routes";
 import { createProjectPreparationService } from "./modules/challenges/project-preparation.service";
+import { createHarnessRoutes } from "./modules/harness/harness.routes";
 import { createLogRoutes } from "./modules/logs/log.routes";
 import { createMessageController } from "./modules/messages/message.controller";
 import { messageModel } from "./modules/messages/message.model";
@@ -21,8 +22,6 @@ import {
 } from "./modules/profiles/profile.model";
 import { createProfileRoutes } from "./modules/profiles/profile.routes";
 import { createProfileService } from "./modules/profiles/profile.service";
-import { createReviewRoutes } from "./modules/reviews/review.routes";
-import { createReviewService } from "./modules/reviews/review.service";
 import { createQuizRoutes } from "./modules/quizzes/quiz.routes";
 import { createQuizService } from "./modules/quizzes/quiz.service";
 import { handleError } from "./shared/http/error-handler";
@@ -33,22 +32,11 @@ type AppDependencies = {
   llm: ModelGateway;
   workspaceRoot?: () => string;
   webOrigin?: string;
-  providerStatus?: () => Promise<{
-    configured: boolean;
-    online: boolean;
-    message: string;
-  }>;
-  providerModels?: () => Promise<{
-    models: { id: string; label: string }[];
-    defaultModel: string;
-  }>;
 };
 
 export function createApp({
   llm,
   workspaceRoot,
-  providerStatus,
-  providerModels,
   webOrigin = "http://localhost:17018,http://127.0.0.1:17018",
 }: AppDependencies) {
   const app = new Hono();
@@ -71,7 +59,6 @@ export function createApp({
     profilePreferencesModel,
   );
 
-  const reviewService = createReviewService(llm);
   const workspaces = createChallengeWorkspaceService(workspaceRoot);
   const projectPreparations = createProjectPreparationService({
     challenges: challengeModel,
@@ -95,16 +82,8 @@ export function createApp({
     llm,
   });
 
-  app.route(
-    "/",
-    createReviewRoutes(
-      reviewService,
-      profileService,
-      providerStatus,
-      providerModels,
-    ),
-  );
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
+  app.route("/harness", createHarnessRoutes(profileService));
   app.route("/logs", createLogRoutes(profileService));
   app.route(
     "/profiles",

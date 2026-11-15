@@ -218,6 +218,18 @@ export function generateChallenge(
   );
 }
 
+export function setChallengeStatus(
+  profileId: string,
+  challengeId: string,
+  status: "active" | "paused",
+) {
+  return apiRequest<Challenge>(
+    `/challenges/${challengeId}/status`,
+    { method: "POST", body: JSON.stringify({ status }) },
+    profileId,
+  );
+}
+
 export function completeChallenge(profileId: string, challengeId: string) {
   return apiRequest<Challenge>(
     `/challenges/${challengeId}/complete`,

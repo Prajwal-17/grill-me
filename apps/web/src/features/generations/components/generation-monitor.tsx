@@ -67,12 +67,10 @@ export function GenerationMonitor() {
               if (key === "desktop-window") return false;
               if (!tables || tables.includes("*")) return true;
               const affected: Record<string, string[]> = {
-                settings: ["local-settings", "judge-status"],
+                settings: ["local-settings"],
                 profiles: ["profile"],
                 profile_preferences: ["profile"],
                 generation_jobs: ["generation-jobs", "generation-job"],
-                ai_logs: ["ai-logs", "ai-log"],
-                ai_log_events: ["ai-logs", "ai-log"],
                 challenges: ["challenges", "progress"],
                 messages: ["messages", "challenges"],
                 quizzes: ["quizzes", "quiz", "challenges"],
@@ -83,12 +81,12 @@ export function GenerationMonitor() {
                   "quiz-attempts",
                   "progress",
                 ],
-                submissions: ["submissions", "challenges", "progress"],
-                review_jobs: ["submissions", "challenges", "progress"],
-                verification_runs: ["submissions"],
-                projects: ["projects"],
                 project_preparations: ["project-preparation"],
                 project_command_requests: ["project-preparation"],
+                harness_threads: ["harness-threads", "harness-thread"],
+                harness_turns: ["harness-threads", "harness-thread"],
+                harness_items: ["harness-threads", "harness-thread"],
+                harness_attachments: ["harness-threads", "harness-thread"],
               };
               return tables.some((table) => affected[table]?.includes(key));
             },

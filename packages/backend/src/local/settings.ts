@@ -470,6 +470,7 @@ export function createSettingsService(
         codexModel: old.CODEX_MODEL ?? "",
         contextTokens: Number(old.DIRECT_REVIEW_CONTEXT_TOKENS ?? 12000),
         judgeTimeoutMs: Number(old.JUDGE_TIMEOUT_MS ?? 900000),
+        agentPermissions: document.runtime.agentPermissions,
       });
       const text = await readFile(legacyPath, "utf8");
       await writeFile(

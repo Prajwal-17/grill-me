@@ -39,10 +39,7 @@ export function learnerPromptContext(context: LearnerContext) {
       learningGoal: preferences.learningGoal,
     },
     ...(preferences.includeRecentChallenges
-      ? {
-          recentBuilds: context.recentChallenges,
-          recentEvidence: context.recentEvidence ?? [],
-        }
+      ? { recentBuilds: context.recentChallenges }
       : {}),
   };
 }
@@ -70,10 +67,7 @@ export function requestPromptContext(
         .join(" "),
     ),
     ...(input.learner.preferences.includeRecentChallenges
-      ? {
-          recentBuilds: input.learner.recentChallenges,
-          recentEvidence: input.learner.recentEvidence ?? [],
-        }
+      ? { recentBuilds: input.learner.recentChallenges }
       : {}),
     clarificationHistory:
       input.clarificationHistory ??

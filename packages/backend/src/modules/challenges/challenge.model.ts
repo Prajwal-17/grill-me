@@ -20,7 +20,7 @@ import {
   databaseNow,
   nextGenerationNumber,
 } from "../../shared/database/db";
-import { challenges, messages } from "../../shared/database/schema";
+import { challenges } from "../../shared/database/schema";
 import type { ChallengeContent } from "./challenge.schema";
 import type { GenerationRun } from "../generations/generation.schema";
 import {
@@ -154,28 +154,6 @@ export const challengeModel = {
           .returning()
       )[0]!;
 
-      await tx.insert(messages).values([
-        {
-          id: crypto.randomUUID(),
-          challengeId: id,
-          role: "user",
-          mode: "generate",
-          content: prompt,
-          createdAt: now,
-        },
-        {
-          id: crypto.randomUUID(),
-          challengeId: id,
-          role: "assistant",
-          mode: "generate",
-          content:
-            "Your build is ready: **" +
-            content.title +
-            "**. Ask me anything about the requirements when you get stuck.",
-          createdAt: new Date(now.getTime() + 1),
-        },
-      ]);
-
       await completeGeneration(tx, generation, challenge);
 
       return challenge;
@@ -234,30 +212,14 @@ export const challengeModel = {
     );
   },
 
-  saveHint(id: string, hint: string, helpKind: "hint" | "approach" = "hint") {
-    const now = new Date();
-
-    return db.transaction(async (tx) => {
-      const challenge = (
-        await tx
-          .update(challenges)
-          .set({ hint })
-          .where(eq(challenges.id, id))
-          .returning()
-      )[0]!;
-
-      await tx.insert(messages).values({
-        id: crypto.randomUUID(),
-        challengeId: id,
-        role: "assistant",
-        mode: "hint",
-        content:
-          helpKind === "approach" ? "High-level approach\n\n" + hint : hint,
-        createdAt: now,
-      });
-
-      return challenge;
-    });
+  saveHint(id: string, hint: string) {
+    return first(
+      db
+        .update(challenges)
+        .set({ hint })
+        .where(eq(challenges.id, id))
+        .returning(),
+    );
   },
 };
 

@@ -106,6 +106,7 @@ export const projectCommandModel = {
             "failed",
             "timed_out",
             "cancelled",
+            "rejected",
           ]),
         ),
       )

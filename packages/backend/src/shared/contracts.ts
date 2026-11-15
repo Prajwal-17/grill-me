@@ -75,7 +75,12 @@ export type AgentRunEvent =
   | { type: "run_started"; operation: string }
   | { type: "turn_started"; turn: number }
   | { type: "text_delta"; text: string }
-  | { type: "message_completed"; message: unknown }
+  | {
+      type: "message_completed";
+      message: unknown;
+      /** Assistant reasoning text is kept as a separate harness item. */
+      reasoning?: string;
+    }
   | {
       type: "tool_started";
       toolCallId: string;
@@ -215,6 +220,13 @@ export type ProviderConnection = {
     methods: { type: "oauth" | "api"; label: string; index: number }[];
   }[];
 };
+export const agentPermissionModeSchema = z.enum([
+  "approval-required",
+  "auto-accept-edits",
+  "auto",
+  "full-access",
+]);
+export type AgentPermissionMode = z.infer<typeof agentPermissionModeSchema>;
 export const runtimeSettingsSchema = z.object({
   codexBin: z
     .string()
@@ -224,6 +236,8 @@ export const runtimeSettingsSchema = z.object({
   codexModel: z.string().max(160).default(""),
   contextTokens: z.number().int().min(1024).max(1000000).default(12000),
   judgeTimeoutMs: z.number().int().min(1000).max(3600000).default(900000),
+  /** One app-wide permission mode. Read at the start of each harness turn. */
+  agentPermissions: agentPermissionModeSchema.default("approval-required"),
 });
 export type RuntimeSettings = z.infer<typeof runtimeSettingsSchema>;
 export const workspacePreferenceSchema = z.object({
@@ -243,6 +257,212 @@ export type LocalSettings = {
   keyring: { available: boolean; message: string };
   migration: { pending: boolean; message: string | null };
 };
+/**
+ * Harness threads are durable runs. They are written directly by the local
+ * backend; there is no event-sourced projection. `kind` is a code registry so
+ * adding a feature never requires a database migration.
+ */
+export const harnessTransportSchema = z.enum([
+  "api",
+  "codex_cli",
+  "opencode_cli",
+]);
+export type HarnessTransport = z.infer<typeof harnessTransportSchema>;
+export const harnessThreadStatusSchema = z.enum([
+  "queued",
+  "running",
+  "waiting",
+  "completed",
+  "failed",
+  "cancelled",
+  "interrupted",
+]);
+export type HarnessThreadStatus = z.infer<typeof harnessThreadStatusSchema>;
+export const harnessTurnStatusSchema = z.enum([
+  "queued",
+  "running",
+  "waiting",
+  "completed",
+  "failed",
+  "cancelled",
+  "interrupted",
+]);
+export type HarnessTurnStatus = z.infer<typeof harnessTurnStatusSchema>;
+export const harnessItemTypeSchema = z.enum([
+  "user_message",
+  "assistant_message",
+  "reasoning",
+  "command_execution",
+  "file_change",
+  "file_read",
+  "file_search",
+  "web_search",
+  "tool_call",
+  "user_input_request",
+  "approval_request",
+  "system_notice",
+  "error",
+]);
+export type HarnessItemType = z.infer<typeof harnessItemTypeSchema>;
+export const harnessItemStatusSchema = z.enum([
+  "pending",
+  "running",
+  "completed",
+  "cancelled",
+  "failed",
+]);
+export type HarnessItemStatus = z.infer<typeof harnessItemStatusSchema>;
+export const harnessAttachmentDirectionSchema = z.enum(["input", "output"]);
+export type HarnessAttachmentDirection = z.infer<
+  typeof harnessAttachmentDirectionSchema
+>;
+export const harnessAttachmentKindSchema = z.enum([
+  "image",
+  "file",
+  "url",
+  "diff",
+  "report",
+  "snapshot",
+]);
+export type HarnessAttachmentKind = z.infer<typeof harnessAttachmentKindSchema>;
+export const harnessThreadSchema = z.object({
+  id: z.string().uuid(),
+  profileId: z.string().uuid(),
+  kind: z.string().min(1).max(64),
+  title: z.string().min(1).max(500),
+  status: harnessThreadStatusSchema,
+  challengeId: z.string().uuid().nullable(),
+  parentThreadId: z.string().uuid().nullable(),
+  transport: harnessTransportSchema,
+  connectionId: z.string().uuid().nullable(),
+  model: z.string().min(1).max(160),
+  reasoningEffort: reasoningEffortSchema.nullable(),
+  runtimeMode: agentPermissionModeSchema,
+  nativeThreadId: z.string().max(500).nullable(),
+  errorCode: z.string().max(160).nullable(),
+  errorMessage: z.string().max(4000).nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  completedAt: z.string().datetime().nullable(),
+});
+export type HarnessThread = z.infer<typeof harnessThreadSchema>;
+export const harnessTurnSchema = z.object({
+  id: z.string().uuid(),
+  threadId: z.string().uuid(),
+  ordinal: z.number().int().positive(),
+  status: harnessTurnStatusSchema,
+  inputText: z.string(),
+  transport: harnessTransportSchema,
+  connectionId: z.string().uuid().nullable(),
+  model: z.string().min(1).max(160),
+  reasoningEffort: reasoningEffortSchema.nullable(),
+  runtimeMode: agentPermissionModeSchema,
+  nativeTurnId: z.string().max(500).nullable(),
+  inputTokens: z.number().int().nonnegative().nullable(),
+  outputTokens: z.number().int().nonnegative().nullable(),
+  totalTokens: z.number().int().nonnegative().nullable(),
+  errorCode: z.string().max(160).nullable(),
+  errorMessage: z.string().max(4000).nullable(),
+  requestedAt: z.string().datetime(),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+});
+export type HarnessTurn = z.infer<typeof harnessTurnSchema>;
+export const harnessTurnAttemptSchema = z.object({
+  id: z.string().uuid(),
+  turnId: z.string().uuid(),
+  ordinal: z.number().int().positive(),
+  status: harnessTurnStatusSchema,
+  nativeThreadId: z.string().max(500).nullable(),
+  nativeTurnId: z.string().max(500).nullable(),
+  errorCode: z.string().max(160).nullable(),
+  errorMessage: z.string().max(4000).nullable(),
+  startedAt: z.string().datetime(),
+  completedAt: z.string().datetime().nullable(),
+});
+export type HarnessTurnAttempt = z.infer<typeof harnessTurnAttemptSchema>;
+export const harnessItemSchema = z.object({
+  id: z.string().uuid(),
+  threadId: z.string().uuid(),
+  turnId: z.string().uuid().nullable(),
+  attemptId: z.string().uuid().nullable(),
+  parentItemId: z.string().uuid().nullable(),
+  ordinal: z.number().int().positive(),
+  type: harnessItemTypeSchema,
+  status: harnessItemStatusSchema,
+  title: z.string().max(500).nullable(),
+  text: z.string().nullable(),
+  payload: z.record(z.string(), z.unknown()),
+  startedAt: z.string().datetime().nullable(),
+  completedAt: z.string().datetime().nullable(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type HarnessItem = z.infer<typeof harnessItemSchema>;
+export const harnessAttachmentSchema = z.object({
+  id: z.string().uuid(),
+  threadId: z.string().uuid(),
+  turnId: z.string().uuid().nullable(),
+  itemId: z.string().uuid().nullable(),
+  direction: harnessAttachmentDirectionSchema,
+  kind: harnessAttachmentKindSchema,
+  name: z.string().min(1).max(500),
+  mime: z.string().max(200).nullable(),
+  bytes: z.number().int().nonnegative().nullable(),
+  sha256: z.string().max(128).nullable(),
+  path: z.string().max(4096).nullable(),
+  url: z.string().max(4096).nullable(),
+  createdAt: z.string().datetime(),
+});
+export type HarnessAttachment = z.infer<typeof harnessAttachmentSchema>;
+export const harnessThreadDetailSchema = z.object({
+  thread: harnessThreadSchema,
+  turns: z.array(
+    harnessTurnSchema.extend({
+      attempts: z.array(harnessTurnAttemptSchema),
+      items: z.array(harnessItemSchema),
+    }),
+  ),
+  attachments: z.array(harnessAttachmentSchema),
+});
+export type HarnessThreadDetail = z.infer<typeof harnessThreadDetailSchema>;
+export const harnessThreadSummarySchema = harnessThreadSchema.extend({
+  turnCount: z.number().int().nonnegative(),
+  itemCount: z.number().int().nonnegative(),
+});
+export type HarnessThreadSummary = z.infer<typeof harnessThreadSummarySchema>;
+export const harnessThreadCreateSchema = z.object({
+  kind: z.string().trim().min(1).max(64),
+  title: z.string().trim().min(1).max(500),
+  challengeId: z.string().uuid().nullable().optional(),
+  parentThreadId: z.string().uuid().nullable().optional(),
+  transport: harnessTransportSchema,
+  connectionId: z.string().uuid().nullable().optional(),
+  model: z.string().trim().min(1).max(160),
+  reasoningEffort: reasoningEffortSchema.nullable().optional(),
+  runtimeMode: agentPermissionModeSchema.optional(),
+});
+export type HarnessThreadCreate = z.infer<typeof harnessThreadCreateSchema>;
+export const harnessTurnCreateSchema = z.object({
+  inputText: z.string().min(1).max(32_000),
+  /**
+   * Permissions are snapshotted when the turn starts. Later Settings changes
+   * affect the next turn, never a request that is already waiting.
+   */
+  runtimeMode: agentPermissionModeSchema.optional(),
+  transport: harnessTransportSchema.optional(),
+  connectionId: z.string().uuid().nullable().optional(),
+  model: z.string().trim().min(1).max(160).optional(),
+  reasoningEffort: reasoningEffortSchema.nullable().optional(),
+});
+export type HarnessTurnCreate = z.infer<typeof harnessTurnCreateSchema>;
+export const harnessRequestDecisionSchema = z.object({
+  decision: z.enum(["allow", "deny"]),
+  answer: z.string().trim().max(4000).optional(),
+});
+export type HarnessRequestDecision = z.infer<
+  typeof harnessRequestDecisionSchema
+>;
 export const challengeWorkspaceSchema = z.object({
   path: z.string().min(1).max(4096),
   initialized: z.boolean(),

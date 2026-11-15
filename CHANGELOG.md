@@ -4,6 +4,15 @@
 
 ### Added
 
+- Record every agent run as a durable harness thread with turns, ordered
+  transcript items, tool calls, approvals, questions, token usage, and stop or
+  retry controls. Challenge generation, quiz generation, project preparation,
+  chat, and hints show their real run history in the challenge Runs tab and
+  project preparation panel.
+- Add one app-wide agent permission mode in Settings → Advanced: approval
+  required, auto-accept edits, auto, or full access. File edits, commands,
+  installs, and network access follow the same matrix, and changing the mode
+  applies to the next turn without retracting a pending approval.
 - Ask where Grill Me keeps app data and challenge workspaces during first-run
   setup, with labelled defaults, native folder selection, and a skip action.
   Custom parents get edition-specific child folders, the choice is remembered,
@@ -44,6 +53,12 @@
 
 ### Changed
 
+- Allocate challenge and quiz numbers from the stored rows instead of a
+  separate counter table. Existing numbers stay unchanged, and the migration
+  stops before renaming anything if a legacy counter disagrees with the stored
+  maximum.
+- Create only live tables on a fresh install. Upgraded databases keep retired
+  data under `*_legacy` names, while a new install never creates those tables.
 - Require prepared projects to include an explicit TODO in generated source,
   stack-appropriate configuration and documentation, a generated test, a real
   failing exercise test, and a migration when the frozen request or stack needs
@@ -53,6 +68,12 @@
 
 ### Removed
 
+- Retire solution reviews and verification: their routes, services, prompts,
+  and UI are gone. Existing submissions, review jobs, and verification rows stay
+  stored as legacy data and are not surfaced.
+- Stop writing AI request logs. The Logs page now shows a read-only legacy
+  banner, still lists old requests, and shows an empty state on fresh installs
+  where no legacy log tables exist.
 - Remove the standalone History page and its practice-progress summary;
   completed and stopped builds remain available from Challenges → Completed.
 

@@ -20,6 +20,8 @@ import {
   sep,
 } from "node:path";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
+import type { AgentPermissionMode } from "@repo/backend/shared/contracts";
+import { authorizePermission, type PermissionAsk } from "../permission-policy";
 import {
   deleteProjectJournal,
   emptyProjectJournal,
@@ -105,7 +107,11 @@ export type ProjectToolsOptions = {
   /** Persistent generated-file journal context outside the project root. */
   journal: ProjectToolJournalContext;
   signal?: AbortSignal;
-  /** Best-effort notification for later persisted preparation activity. */
+  /** App-wide permission mode for this run. */
+  permissionMode?: AgentPermissionMode;
+  /** Ask the harness for approval when the mode requires it. */
+  requestPermission?: PermissionAsk;
+  /** Best-effort notification for legacy preparation activity. */
   onActivity?: (activity: ProjectToolActivity) => void | Promise<void>;
   /** Test and lifecycle overrides. Values are capped to safe maxima. */
   limits?: Partial<ProjectToolLimits>;
@@ -285,6 +291,19 @@ export function createProjectTools(
   const limits = normalizeLimits(options.limits);
   const now = options.now ?? (() => new Date());
   const signal = options.signal;
+  // The gateway passes the turn's mode. Direct tool callers (tests and
+  // reusable helpers) are already trusted code, so they default to auto.
+  const permissionMode = options.permissionMode ?? "auto";
+
+  async function authorizeWrite(path: string, callSignal?: AbortSignal) {
+    await authorizePermission({
+      mode: permissionMode,
+      actions: ["write_workspace"],
+      summary: `Create or edit ${path} in this project.`,
+      signal: callSignal ?? signal,
+      ask: options.requestPermission,
+    });
+  }
   let seedJournal = options.journal.journal ?? null;
   if (seedJournal)
     seedJournal = validateProjectJournal(seedJournal, projectDirectory);
@@ -986,6 +1005,7 @@ export function createProjectTools(
           };
         }
         await ensureCapacity(root, 0);
+        await authorizeWrite(relativePath, callSignal);
         await createMissingDirectories(root, relativePath);
         assertActive(callSignal);
         await report({
@@ -1039,6 +1059,7 @@ export function createProjectTools(
             409,
           );
         await ensureCapacity(root, 1);
+        await authorizeWrite(relativePath, callSignal);
         const parent = dirname(relativePath);
         if (parent !== ".") await createMissingDirectories(root, parent);
         const current = await entryState(root, relativePath);
@@ -1129,6 +1150,7 @@ export function createProjectTools(
             "That project file was not created by Grill Me. Existing and user-created files are never overwritten.",
             409,
           );
+        await authorizeWrite(relativePath, callSignal);
         const entry = await existingEntry(root, relativePath, callSignal);
         const info = entry.info!;
         if (!info.isFile())

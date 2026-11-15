@@ -27,6 +27,7 @@ import {
 } from "./challenge.utils";
 import type { ChallengeWorkspaceService } from "./workspace";
 import type { ProjectPreparationService } from "./project-preparation.service";
+import { harnessService } from "../harness/harness.service";
 
 export function createChallengeService(dependencies: {
   challenges: ChallengeModel;
@@ -81,7 +82,6 @@ export function createChallengeService(dependencies: {
     return {
       profileId,
       preferences,
-      recentEvidence: [],
       recentChallenges: [],
     };
   }
@@ -149,13 +149,14 @@ export function createChallengeService(dependencies: {
         selection?: ModelSelection;
       },
       profileId: string,
-      signal?: AbortSignal,
+      generation?: GenerationRun,
     ) {
       await profiles.assertExists(profileId);
       const output = challengePreparationSchema.safeParse(
         await llm.prepareBuild({
           ...input,
-          signal,
+          signal: generation?.signal,
+          harness: generation?.harness,
           learner: await learnerContext(profileId),
         }),
       );
@@ -202,6 +203,7 @@ export function createChallengeService(dependencies: {
       let modelInput: BuildModelInput = {
         ...input,
         signal: generation?.signal,
+        harness: generation?.harness,
         clarificationHistory: history,
         learner: await learnerContext(profileId),
       };
@@ -340,17 +342,33 @@ export function createChallengeService(dependencies: {
     ) {
       const row = requireActiveChallenge(await owned(id, profileId));
       let hint = "";
+      const thread = await harnessService.createThread({
+        profileId,
+        kind: "hint",
+        title: row.title,
+        challengeId: row.id,
+        transport: "api",
+        model: process.env.LLM_MODEL ?? "auto",
+      });
+      const turn = await harnessService.appendTurn(thread.id, {
+        inputText: helpKind === "approach" ? "High-level approach" : "Hint",
+      });
       for await (const delta of llm.generateHint({
         helpKind,
         challenge: toChallenge(row),
         messages: (await messages.findRowsByChallenge(row.id)).map(toMessage),
         learner: await learnerContext(profileId),
+        harness: {
+          threadId: thread.id,
+          turnId: turn.id,
+          inputText: turn.inputText,
+        },
       })) {
         hint += delta;
         await onDelta(delta);
       }
 
-      return toChallenge(await challenges.saveHint(row.id, hint, helpKind));
+      return toChallenge((await challenges.saveHint(row.id, hint))!);
     },
 
     owned,

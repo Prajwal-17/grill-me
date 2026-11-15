@@ -1,6 +1,14 @@
 import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
 import type { AgentRunEvent } from "@repo/backend/shared/contracts";
 
+function reasoningText(message: AgentMessage) {
+  if (message.role !== "assistant") return "";
+  return message.content
+    .flatMap((block) => (block.type === "thinking" ? [block.thinking] : []))
+    .join("\n\n")
+    .trim();
+}
+
 const SECRET_KEY =
   /^(authorization|proxy-authorization|x-api-key|api[-_]?key|access[-_]?token|refresh[-_]?token|password|secret|cookie|set-cookie|token)$/i;
 const BEARER = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
@@ -118,11 +126,16 @@ export function stableEvent(
         return { type: "text_delta", text };
       }
       return null;
-    case "message_end":
+    case "message_end": {
+      const reasoning = reasoningText(event.message);
       return {
         type: "message_completed",
         message: safeMessage(event.message),
+        ...(reasoning
+          ? { reasoning: redactString(reasoning.slice(0, 32_000)) }
+          : {}),
       };
+    }
     case "tool_execution_start":
       return {
         type: "tool_started",

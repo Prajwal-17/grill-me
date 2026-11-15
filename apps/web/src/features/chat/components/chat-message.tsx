@@ -31,13 +31,7 @@ export function ChatMessage({
     },
     [],
   );
-  const label = user
-    ? "You"
-    : mode === "review"
-      ? "Solution review"
-      : mode === "hint"
-        ? "Hint"
-        : "Grill Me";
+  const label = user ? "You" : mode === "hint" ? "Hint" : "Grill Me";
   async function copy() {
     try {
       await navigator.clipboard.writeText(content);
@@ -71,13 +65,7 @@ export function ChatMessage({
           <StreamingText
             content={content}
             streaming={streaming}
-            waitingLabel={
-              mode === "review"
-                ? "Reviewing solution…"
-                : mode === "hint"
-                  ? "Preparing a hint…"
-                  : "Thinking…"
-            }
+            waitingLabel={mode === "hint" ? "Preparing a hint…" : "Thinking…"}
           />
         )}
         {attachments.length > 0 && (

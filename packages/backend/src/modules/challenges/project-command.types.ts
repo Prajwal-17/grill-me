@@ -59,6 +59,7 @@ export type ProjectCommandToolResult = {
 
 export type ProjectCommandExecutor = (
   request: ProjectCommandToolRequest,
+  options?: { preauthorized?: boolean },
 ) => Promise<ProjectCommandToolResult>;
 
 export type ProjectCommandState = ProjectCommand;
