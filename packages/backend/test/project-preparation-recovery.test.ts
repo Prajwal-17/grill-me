@@ -398,7 +398,7 @@ async function waitForStatus(
     last = await preparation(app, profileId, challengeId);
   }
   throw new Error(
-    `Project preparation did not reach ${expected.join("/")}; last status ${last.status}`,
+    `Project preparation did not reach ${expected.join("/")}; last status ${last.status}; error ${JSON.stringify(last.error)}; report ${JSON.stringify(last.report)}`,
   );
 }
 
@@ -961,18 +961,17 @@ describe("project preparation recovery", () => {
     );
     const challenge = await createChallenge(app, owner.id);
     await waitForStatus(app, owner.id, challenge.id, ["running"]);
-    // Stop only after the file that the resumed turn edits exists, otherwise
-    // resume keeps the journaled files and the edit target may still be missing.
-    for (let attempt = 0; attempt < 200; attempt++) {
+    // Stop only after every file is journaled. Resume recreates only journaled
+    // missing files, so a partial journal cannot satisfy project validation.
+    const journalPath = model.inputs[0]!.layout.journalPath;
+    for (let attempt = 0; attempt < 400; attempt++) {
       try {
-        const wiring = join(
-          model.inputs[0]!.layout.projectRoot,
-          "src",
-          "wiring.ts",
-        );
-        if ((await readFile(wiring, "utf8")).includes("wiringReady")) break;
+        const journal = JSON.parse(await readFile(journalPath, "utf8")) as {
+          files: Record<string, unknown>;
+        };
+        if (projectFiles.every((file) => journal.files[file.path])) break;
       } catch {
-        // Keep polling until the write lands.
+        // Keep polling until the journal lands.
       }
       await Bun.sleep(10);
     }
