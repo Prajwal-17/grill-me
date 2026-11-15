@@ -2,21 +2,14 @@
 
 ## Unreleased
 
+## desktop-v0.2.0 - 15 Nov 2026
+
+This release adds challenge workspaces, guided project preparation, review
+against completion criteria, and a durable transcript for every AI run.
+
 ### Added
 
-#### Agent runs
-
-- Add a durable transcript for every agent run. Generation notifications, the
-  challenge Runs tab, and the project preparation panel show turns, tool calls,
-  approvals, token usage, and stop or retry controls.
-
-#### Permissions
-
-- Add one app-wide agent permission mode in Settings → Advanced: approval
-  required, auto-accept edits, auto, or full access. The mode applies to the
-  next turn, and pending approvals stay pending.
-
-#### App data and workspaces
+#### Challenge workspaces
 
 - Give every challenge a local workspace folder for code, notes, artifacts, and
   subfolders. New challenges seed a brief and starter code once, existing files
@@ -30,22 +23,7 @@
   Custom parents get edition-specific child folders, the choice is remembered,
   and existing installations keep their data where it is.
 
-#### Challenge generation
-
-- Let challenge and quiz generation inspect pasted context in a temporary
-  research workspace. Public links and image URLs can be fetched and viewed,
-  files can be read and written, and shell commands can process downloads
-  before the result is written.
-
-#### Challenge review
-
-- Review an attempt against the challenge's own completion criteria. The review
-  reads the workspace, marks every criterion pass, partial, or fail with the
-  file and line that shows why, lists up to three things done right and three to
-  fix first, and gives one next step. It never runs the submitted code, and
-  earlier reviews stay readable.
-
-#### Project preparation
+#### Guided projects
 
 - Prepare a guided project after each generated challenge. Grill Me freezes the
   specification, then scaffolds separate files for source, configuration,
@@ -64,6 +42,30 @@
   Retry reuses the saved specification in a new folder, and Fresh starts a new
   folder even when the journal is corrupt. Earlier attempts and files are
   preserved.
+
+#### Challenge review
+
+- Review an attempt against the challenge's own completion criteria. The review
+  reads the workspace, marks every criterion pass, partial, or fail with the
+  file and line that shows why, lists up to three things done right and three to
+  fix first, and gives one next step. It never runs the submitted code, and
+  earlier reviews stay readable.
+
+#### Agent runs and permissions
+
+- Add a durable transcript for every agent run. Generation notifications, the
+  challenge Runs tab, and the project preparation panel show turns, tool calls,
+  approvals, token usage, and stop or retry controls.
+- Add one app-wide agent permission mode in Settings → Advanced: approval
+  required, auto-accept edits, auto, or full access. The mode applies to the
+  next turn, and pending approvals stay pending.
+
+#### Challenge generation
+
+- Let challenge and quiz generation inspect pasted context in a temporary
+  research workspace. Public links and image URLs can be fetched and viewed,
+  files can be read and written, and shell commands can process downloads
+  before the result is written.
 
 #### Developer tools
 
@@ -111,6 +113,12 @@
   workspace folders, so writes stay inside the selected real parent.
 - Keep proposed setup, check, and run commands visible after other commands run,
   so setup no longer hides the remaining instructions.
+
+#### Database upgrade
+
+- Upgrade an existing practice database when the platform defaults SQLite to
+  legacy table renames, so older databases open with their saved data instead of
+  failing at startup.
 
 #### Quiz flow
 
