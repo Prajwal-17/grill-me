@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createSqliteDatabase } from "@repo/backend/shared/database/db.sqlite";
+import { archiveLegacyTables } from "@repo/backend/shared/database/legacy-migrations";
 import { backupBeforeMigration } from "@repo/backend/local/backup";
 
 const schema = await readFile(
@@ -510,6 +511,45 @@ test("a current database without a Drizzle journal is stamped without rewriting 
     await reopened.close();
   } finally {
     await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("legacy table renames survive a platform default of legacy alter behavior", () => {
+  const db = new Database(":memory:");
+  try {
+    db.exec(`
+      CREATE TABLE generation_counters (
+        profile_id text NOT NULL,
+        kind text NOT NULL,
+        value integer NOT NULL,
+        PRIMARY KEY(profile_id, kind),
+        CONSTRAINT "generation_counters_value_check" CHECK("generation_counters"."value" > 0)
+      );
+      INSERT INTO generation_counters VALUES ('owner-a','challenge',1);
+    `);
+    for (const table of [
+      "projects",
+      "submissions",
+      "review_jobs",
+      "verification_runs",
+      "ai_logs",
+      "ai_log_events",
+      "agent_runs",
+      "agent_run_events",
+    ])
+      db.exec(`CREATE TABLE ${table} (id text PRIMARY KEY NOT NULL);`);
+    // macOS builds default to this legacy behavior, which used to break the
+    // rename on table-qualified CHECK constraints.
+    db.exec("PRAGMA legacy_alter_table = ON;");
+    archiveLegacyTables(db);
+    expect(db.query("PRAGMA legacy_alter_table").get()).toEqual({
+      legacy_alter_table: 1,
+    });
+    expect(
+      db.query("SELECT value FROM generation_counters_legacy").get(),
+    ).toEqual({ value: 1 });
+  } finally {
+    db.close();
   }
 });
 

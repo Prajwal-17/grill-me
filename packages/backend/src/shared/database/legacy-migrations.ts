@@ -180,8 +180,10 @@ function migrateV8(sqlite: Database) {
     if (duplicates.count)
       throw new Error("Legacy practice data contains duplicate numbers.");
   }
-  for (const [from, to] of LEGACY_RENAMES)
-    sqlite.exec(`ALTER TABLE ${from} RENAME TO ${to};`);
+  // Some platform builds default `legacy_alter_table` to ON, which makes the
+  // rename fail on table-qualified CHECK constraints. Modern behavior rewrites
+  // those references, so force it for the archive renames only.
+  archiveLegacyTables(sqlite);
   for (const [table, column] of [
     ["challenges", "challenge_number"],
     ["quizzes", "quiz_number"],
@@ -189,6 +191,28 @@ function migrateV8(sqlite: Database) {
     sqlite.exec(`CREATE TRIGGER IF NOT EXISTS ${table}_immutable_number BEFORE UPDATE OF profile_id, ${column} ON ${table}
         WHEN NEW.profile_id != OLD.profile_id OR NEW.${column} != OLD.${column}
         BEGIN SELECT RAISE(ABORT, 'Generation numbers and profiles are immutable'); END;`);
+  }
+}
+
+/**
+ * Archive retired tables under their `*_legacy` names. Some platform builds
+ * default `legacy_alter_table` to ON, which makes the rename fail on
+ * table-qualified CHECK constraints, so force modern rename semantics.
+ */
+export function archiveLegacyTables(sqlite: Database) {
+  const previousAlterTable = (
+    sqlite.query("PRAGMA legacy_alter_table").get() as {
+      legacy_alter_table: number;
+    }
+  ).legacy_alter_table;
+  try {
+    sqlite.exec("PRAGMA legacy_alter_table = OFF;");
+    for (const [from, to] of LEGACY_RENAMES)
+      sqlite.exec(`ALTER TABLE ${from} RENAME TO ${to};`);
+  } finally {
+    sqlite.exec(
+      `PRAGMA legacy_alter_table = ${previousAlterTable ? "ON" : "OFF"};`,
+    );
   }
 }
 
