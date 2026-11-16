@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## desktop-v0.3.0 - 17 Nov 2026
+
+This release refreshes the challenge workspace with focused tabs, a full-width
+read-only code viewer, and a calmer Activity transcript.
 
 ### Added
 
