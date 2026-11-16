@@ -41,16 +41,28 @@ export function useProjectPreparation(
     },
     refetchIntervalInBackground: false,
   });
+  const refreshActivity = () => {
+    void queries.invalidateQueries({ queryKey: ["harness-threads"] });
+  };
   const apply = (data: Awaited<ReturnType<typeof getProjectPreparation>>) => {
     queries.setQueryData(key, data);
+    refreshActivity();
+  };
+  /** The harness thread is created just after the attempt row starts running. */
+  const applyAfterRunStart = (
+    data: Awaited<ReturnType<typeof getProjectPreparation>>,
+  ) => {
+    apply(data);
+    window.setTimeout(refreshActivity, 1_000);
   };
   const refreshAfterError = () => {
     void queries.invalidateQueries({ queryKey: key });
+    refreshActivity();
   };
   const start = useMutation({
     mutationFn: (selection?: ModelSelection) =>
       startProjectPreparation(profileId, challengeId, selection),
-    onSuccess: apply,
+    onSuccess: applyAfterRunStart,
     onError: refreshAfterError,
   });
   const cancel = useMutation({
@@ -60,17 +72,17 @@ export function useProjectPreparation(
   });
   const retry = useMutation({
     mutationFn: () => retryProjectPreparation(profileId, challengeId),
-    onSuccess: apply,
+    onSuccess: applyAfterRunStart,
     onError: refreshAfterError,
   });
   const resume = useMutation({
     mutationFn: () => resumeProjectPreparation(profileId, challengeId),
-    onSuccess: apply,
+    onSuccess: applyAfterRunStart,
     onError: refreshAfterError,
   });
   const fresh = useMutation({
     mutationFn: () => startFreshProjectPreparation(profileId, challengeId),
-    onSuccess: apply,
+    onSuccess: applyAfterRunStart,
     onError: refreshAfterError,
   });
   const approve = useMutation({

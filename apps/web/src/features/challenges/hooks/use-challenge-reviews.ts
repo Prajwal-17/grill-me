@@ -26,7 +26,7 @@ export function useChallengeReviews(
       queries.setQueryData(key, (current: ChallengeReview[] | undefined) =>
         [review, ...(current ?? [])].slice(0, 20),
       );
-      // The review is also a durable harness run, so refresh the Runs tab.
+      // The review is also durable harness activity, so refresh Activity.
       void queries.invalidateQueries({ queryKey: ["harness-threads"] });
     },
     onError: () => {

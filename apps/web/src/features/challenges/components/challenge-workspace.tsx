@@ -130,7 +130,7 @@ function workspaceStatus(
     return {
       label: "Project not prepared",
       tone: "muted",
-      detail: "Prepare the project files, TODOs, and checks from Runs.",
+      detail: "Open Activity to prepare the project files, TODOs, and checks.",
       action: "Set up",
     };
   return {
@@ -159,11 +159,11 @@ function WorkspaceLoading() {
 export function ChallengeWorkspaceBar({
   profileId,
   challenge,
-  onReviewRuns,
+  onOpenActivity,
 }: {
   profileId: string;
   challenge: Challenge;
-  onReviewRuns: () => void;
+  onOpenActivity: () => void;
 }) {
   const {
     workspace,
@@ -292,7 +292,7 @@ export function ChallengeWorkspaceBar({
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
           {status.action && (
-            <Button size="sm" variant="ghost" onClick={onReviewRuns}>
+            <Button size="sm" variant="ghost" onClick={onOpenActivity}>
               {status.action}
             </Button>
           )}

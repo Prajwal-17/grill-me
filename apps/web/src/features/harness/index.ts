@@ -14,5 +14,5 @@ export {
   useRetryHarnessThread,
   useStopHarnessThread,
 } from "./hooks/use-harness";
-export { HarnessRunsWorkspace } from "./components/harness-runs";
+export { HarnessActivity } from "./components/harness-activity";
 export { HarnessTranscript } from "./components/harness-transcript";

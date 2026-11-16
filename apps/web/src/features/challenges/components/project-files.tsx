@@ -505,8 +505,8 @@ export function ProjectFilesPanel({
           <FolderOpen size={22} className="text-muted" aria-hidden="true" />
           <p className="mt-3 text-ui font-medium">No project files yet</p>
           <p className="mt-1 max-w-sm text-metadata leading-5 text-muted">
-            Prepare the project from Runs, then open Files again to browse its
-            source.
+            Prepare the project from Activity, then open Files again to browse
+            its source.
           </p>
         </div>
       ) : (

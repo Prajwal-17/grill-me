@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Activity,
   LoaderCircle,
   Lightbulb,
   Pause,
@@ -14,7 +15,6 @@ import {
   FolderTree,
   ListChecks,
   CircleAlert,
-  History,
 } from "lucide-react";
 import type { Challenge, Profile } from "@/shared/types/api";
 import { AppShell } from "@/shared/components/layout/app-shell";
@@ -40,7 +40,12 @@ import {
   TabsContent,
 } from "@/shared/components/ui/tabs";
 import { QuizWorkspace } from "@/features/quizzes/components/quiz-workspace";
-import { HarnessRunsWorkspace } from "@/features/harness";
+import { HarnessActivity } from "@/features/harness";
+import {
+  activityCategory,
+  activityCategoryKeys,
+  type ActivityCategory,
+} from "@/features/harness/lib/activity";
 import { useWideWorkspace } from "../hooks/use-wide-workspace";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
 import { useProjectPreparation } from "@/features/challenges/hooks/use-project-preparation";
@@ -61,25 +66,46 @@ export function PracticeWorkspace({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
-  const tab =
-    requestedTab === "review" ||
-    requestedTab === "quizzes" ||
-    requestedTab === "runs"
+  const activityParam = searchParams.get("activity");
+  const activityRequested =
+    requestedTab === "runs" ||
+    requestedTab === "activity" ||
+    activityParam !== null;
+  const tab = activityRequested
+    ? "activity"
+    : requestedTab === "review" || requestedTab === "quizzes"
       ? requestedTab
       : "overview";
+  const selectedActivityCategory =
+    activityParam &&
+    activityCategoryKeys.includes(activityParam as ActivityCategory)
+      ? (activityParam as ActivityCategory)
+      : "preparation";
+  const selectedRunId = searchParams.get("run") ?? undefined;
+  const updateParams = (update: (params: URLSearchParams) => void) => {
+    const url = new URL(window.location.href);
+    const before = url.search;
+    update(url.searchParams);
+    if (url.search === before) return;
+    void navigate(url.pathname + url.search + url.hash, {
+      preventScrollReset: true,
+    });
+  };
   const setTab = (value: string) => {
     if (
       value !== "overview" &&
       value !== "review" &&
-      value !== "runs" &&
+      value !== "activity" &&
       value !== "quizzes"
     )
       return;
-    const url = new URL(window.location.href);
-    if (url.searchParams.get("tab") === value) return;
-    url.searchParams.set("tab", value);
-    void navigate(url.pathname + url.search + url.hash, {
-      preventScrollReset: true,
+    updateParams((params) => {
+      if (params.get("tab") === value) return;
+      params.set("tab", value);
+      if (value !== "activity") {
+        params.delete("activity");
+        params.delete("run");
+      }
     });
   };
   const [reply, setReply] = useState("");
@@ -88,8 +114,8 @@ export function PracticeWorkspace({
   const wide = useWideWorkspace();
   const filesToggle = useRef<HTMLButtonElement>(null);
   const filesExpandToggle = useRef<HTMLButtonElement>(null);
-  const filesEntry = tab === "overview" || tab === "runs" || filesOpen;
-  const filesOverlay = filesOpen && filesExpanded && wide;
+  const filesShown = filesOpen;
+  const filesOverlay = filesShown && filesExpanded && wide;
   const closeFiles = () => {
     setFilesOpen(false);
     setFilesExpanded(false);
@@ -97,7 +123,32 @@ export function PracticeWorkspace({
   };
   const openFiles = () => {
     setFilesOpen(true);
-    setFilesExpanded(false);
+  };
+  const openActivity = (category?: ActivityCategory) => {
+    updateParams((params) => {
+      params.set("tab", "activity");
+      if (category) params.set("activity", category);
+      params.delete("run");
+    });
+  };
+  const selectActivityCategory = (category: ActivityCategory) => {
+    updateParams((params) => {
+      params.set("tab", "activity");
+      params.set("activity", category);
+      params.delete("run");
+    });
+  };
+  const selectActivityRun = (thread: { id: string; kind: string }) => {
+    const url = new URL(window.location.href);
+    const before = url.search;
+    url.searchParams.set("tab", "activity");
+    url.searchParams.set("activity", activityCategory(thread.kind));
+    url.searchParams.set("run", thread.id);
+    if (url.search === before) return;
+    void navigate(url.pathname + url.search + url.hash, {
+      preventScrollReset: true,
+      replace: true,
+    });
   };
   const toggleFilesExpanded = () => {
     setFilesExpanded((expanded) => {
@@ -156,14 +207,14 @@ export function PracticeWorkspace({
     ? projectPreparationView(project.preparation.data)
     : null;
   const projectAttention =
-    tab !== "runs" &&
     tab !== "overview" &&
+    tab !== "activity" &&
     active &&
     Boolean(
       projectView?.recovery?.needsReview || projectView?.awaitingApproval,
     );
   const reviewProject = () => {
-    setTab("runs");
+    openActivity("preparation");
   };
   const error = lifecycle.error ?? hint.error;
   const savedHints = messages.data?.filter((m) => m.mode === "hint") ?? [];
@@ -230,9 +281,12 @@ export function PracticeWorkspace({
                     <ClipboardCheck size={14} className="hidden sm:block" />
                     Review
                   </TabsTrigger>
-                  <TabsTrigger value="runs" className="flex-none gap-2 px-3">
-                    <History size={14} className="hidden sm:block" />
-                    Runs
+                  <TabsTrigger
+                    value="activity"
+                    className="flex-none gap-2 px-3"
+                  >
+                    <Activity size={14} className="hidden sm:block" />
+                    Activity
                   </TabsTrigger>
                   <TabsTrigger value="quizzes" className="flex-none gap-2 px-3">
                     <ListChecks size={14} className="hidden sm:block" />
@@ -302,20 +356,18 @@ export function PracticeWorkspace({
                     Mark completed
                   </Button>
                 )}
-                {filesEntry && (
-                  <Button
-                    ref={filesToggle}
-                    size="sm"
-                    variant={filesOpen ? "secondary" : "ghost"}
-                    aria-expanded={filesOpen}
-                    aria-controls={filesOpen ? "project-files" : undefined}
-                    title="Browse the prepared project's files"
-                    onClick={() => (filesOpen ? closeFiles() : openFiles())}
-                  >
-                    <FolderTree size={14} />
-                    {filesOpen ? "Hide files" : "Files"}
-                  </Button>
-                )}
+                <Button
+                  ref={filesToggle}
+                  size="sm"
+                  variant={filesShown ? "secondary" : "ghost"}
+                  aria-expanded={filesShown}
+                  aria-controls={filesShown ? "project-files" : undefined}
+                  title="Browse the prepared project's files"
+                  onClick={() => (filesShown ? closeFiles() : openFiles())}
+                >
+                  <FolderTree size={14} />
+                  {filesShown ? "Hide files" : "Files"}
+                </Button>
               </div>
             </div>
             <TabsContent
@@ -339,7 +391,7 @@ export function PracticeWorkspace({
                   <ChallengeWorkspaceBar
                     profileId={profile.id}
                     challenge={challenge}
-                    onReviewRuns={reviewProject}
+                    onOpenActivity={reviewProject}
                   />
                   {active && (
                     <div className="flex gap-2">
@@ -419,12 +471,16 @@ export function PracticeWorkspace({
               </div>
             </TabsContent>
             <TabsContent
-              value="runs"
-              className="min-h-0 flex-1 overflow-hidden p-4 md:p-6"
+              value="activity"
+              className="min-h-0 flex-1 overflow-hidden"
             >
-              <HarnessRunsWorkspace
+              <HarnessActivity
                 profileId={profile.id}
                 challengeId={challenge.id}
+                category={selectedActivityCategory}
+                selectedRunId={selectedRunId}
+                onSelectCategory={selectActivityCategory}
+                onSelectRun={selectActivityRun}
                 prelude={
                   <ProjectPreparationActions
                     profileId={profile.id}
@@ -445,7 +501,7 @@ export function PracticeWorkspace({
             </TabsContent>
           </Tabs>
         </div>
-        {filesOpen && wide && (
+        {filesShown && wide && (
           <aside
             id="project-files"
             aria-label={
@@ -474,7 +530,7 @@ export function PracticeWorkspace({
           </aside>
         )}
         <Sheet
-          open={filesOpen && !wide}
+          open={filesShown && !wide}
           onOpenChange={(open) => {
             if (!open) closeFiles();
           }}

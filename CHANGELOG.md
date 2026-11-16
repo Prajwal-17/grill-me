@@ -4,11 +4,12 @@
 
 ### Added
 
-- Browse the prepared project's files from the Files button in Overview or
-  Runs. A read-only side panel or drawer shows the project tree and highlighted
-  source with loading, empty, binary, oversized, and error states. File access
-  is profile-scoped, stays inside the current challenge project, rejects
-  symlinks and credential or dependency folders, and never executes code.
+- Browse the prepared project's files from the Files button in the challenge
+  toolbar. A read-only side panel or drawer shows the project tree and
+  highlighted source with loading, empty, binary, oversized, and error states.
+  File access is profile-scoped, stays inside the current challenge project,
+  rejects symlinks and credential or dependency folders, and never executes
+  code.
 - Expand the Files viewer to fill the challenge workspace, then restore it or
   press Escape to return to the side panel without losing the selected file,
   tree state, or scroll position. The viewer shows the active file path and a
@@ -17,16 +18,16 @@
 
 ### Changed
 
-- Split challenge work into Overview, Review, Runs, and Quizzes tabs. Overview
-  leads with the brief and one compact workspace control, Review holds the
-  review and submission actions, and Runs is one continuous agent transcript.
-  Preparation status summaries, project inventories, command history, and
-  generation details no longer take up space above Runs; only an action appears
-  there when preparation needs a start, cancellation, recovery choice, or
-  command approval. The workspace control's editor menu offers detected Cursor,
-  Zed, and VS Code installs, selects an editor without launching it, remembers
-  that choice across visits and restarts, and its main button opens the selected
-  editor. Each choice shows the editor's product mark.
+- Split challenge work into Overview, Review, Activity, and Quizzes tabs.
+  Overview leads with the brief and one compact workspace control, Review holds
+  the review and submission actions, and Activity uses the full workspace width
+  for preparation status, project inventories, command history, and generation
+  details. It shows an action only when preparation needs a start, cancellation,
+  recovery choice, or command approval. The workspace
+  control's editor menu offers detected Cursor, Zed, and VS Code installs,
+  selects an editor without launching it, remembers that choice across visits
+  and restarts, and its main button opens the selected editor. Each choice shows
+  the editor's product mark.
 - Collapse challenge questions and follow-ups under "Ask about this challenge"
   until opened, keeping saved history and the clarify composer intact.
 - Simplify Settings → About: releases appear as one list with a version index
@@ -35,16 +36,21 @@
 - Reasoning menus list only the efforts the selected model supports. The
   "Provider default" choice is gone from connection settings and the composer;
   an unset effort shows as "Not set".
-- Rework challenge Runs into a run list beside a full agent transcript, with
-  user and agent messages, grouped tool rows that expand to their output,
-  collapsible reasoning, and per-turn status. Project preparation no longer
-  prints the agent's whole summary or embeds the transcript in Overview.
+- Move the challenge agent transcript out of a cramped side panel and into a
+  dedicated full-width Activity tab beside Overview, Review, and Quizzes,
+  grouped by Preparation, Reviews, Discussion, Hints, and Other. Every thread
+  keeps its full call order, with user and agent messages, grouped tool rows
+  that expand to inputs, output, and commands, collapsible reasoning, approvals,
+  errors, and per-turn status. Existing run links open the matching Activity
+  category, older preparation sessions remain selectable, and preparation
+  attempts now use one durable transcript with readable resume markers while
+  keeping every attempt row.
 - Read challenge briefs in a wider, calmer column that uses the Overview width,
   with softer body text, clearer section headings, and better paragraph, list,
   inline code, table, and long-token wrapping on narrow screens.
 - Hide visible scrollbar tracks and thumbs across challenge tab scroll panes,
-  Runs, and the Files viewer while keeping wheel, trackpad, touch, and keyboard
-  scrolling available.
+  Activity, and the Files viewer while keeping wheel, trackpad, touch, and
+  keyboard scrolling available.
 
 ### Fixed
 
@@ -59,7 +65,7 @@
 
 - Remove the duplicate challenge reference side panel and its Show task/Hide
   task controls from challenge tabs. Overview remains the brief, while Review,
-  Runs, and Quizzes use the full workspace width.
+  Activity, and Quizzes use the full workspace width.
 - Remove the legacy AI request Logs page from the app and its sidebar entry.
   Stored legacy log rows are unchanged, but the app no longer shows them.
 

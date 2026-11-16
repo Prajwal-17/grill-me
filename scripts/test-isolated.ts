@@ -28,6 +28,7 @@ async function runSqliteTests() {
         "./apps/web/src/shared/lib/clipboard.test.ts",
         "./apps/web/src/features/challenges/lib/project-preparation-view.test.ts",
         "./apps/web/src/features/challenges/lib/workspace-editor-selection.test.ts",
+        "./apps/web/src/features/harness/lib/activity.test.ts",
         "./apps/web/src/features/settings/release-history.test.ts",
         "./packages/backend/test/resume.test.ts",
         "./packages/backend/test/project-folders.test.ts",

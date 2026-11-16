@@ -38,7 +38,7 @@ export function createHarnessRoutes(profiles: ProfileService) {
       z.object({
         kind: z.string().trim().min(1).max(64).optional(),
         challengeId: z.string().uuid().optional(),
-        limit: z.coerce.number().int().min(1).max(200).default(50),
+        limit: z.coerce.number().int().min(1).max(1_000).default(50),
       }),
       c.req.query(),
     );

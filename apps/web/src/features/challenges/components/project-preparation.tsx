@@ -21,7 +21,7 @@ function ActionError({ messages }: { messages: (Error | null)[] }) {
 
 /**
  * Only the project preparation controls that need a decision or a transition.
- * Report details, files, checks, commands, and activity stay out of Runs; they
+ * Report details, files, checks, commands, and activity stay in Activity; they
  * belong to the transcript and the file viewer.
  */
 export function ProjectPreparationActions({
@@ -240,7 +240,8 @@ export function ProjectPreparationActions({
             <span className="font-medium text-foreground">
               Project not prepared.
             </span>{" "}
-            {view.startExplanation ?? "Start project preparation from Runs."}
+            {view.startExplanation ??
+              "Start project preparation from Activity."}
           </p>
           <Button
             size="sm"

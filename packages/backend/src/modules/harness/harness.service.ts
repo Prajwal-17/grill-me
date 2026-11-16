@@ -422,6 +422,20 @@ export function createHarnessService() {
     return threadValue(row);
   }
 
+  /** Read-only lookup used by features that own one durable transcript. */
+  async function findThread(input: {
+    profileId: string;
+    challengeId: string;
+    kind: string;
+  }) {
+    const row = await harnessModel.findThreadForChallenge(
+      input.profileId,
+      input.challengeId,
+      input.kind,
+    );
+    return row ? threadValue(row) : null;
+  }
+
   async function appendTurn(
     threadId: string,
     input: {
@@ -824,7 +838,7 @@ export function createHarnessService() {
   ): Promise<HarnessThreadSummary[]> {
     const rows = await harnessModel.listThreads(profileId, {
       ...filter,
-      limit: Math.min(filter.limit ?? 50, 200),
+      limit: Math.min(filter.limit ?? 50, 1_000),
     });
     const counts = await harnessModel.countsForThreads(
       rows.map((row) => row.id),
@@ -928,6 +942,7 @@ export function createHarnessService() {
 
   return {
     createThread,
+    findThread,
     appendTurn,
     begin,
     beginAutomatic,

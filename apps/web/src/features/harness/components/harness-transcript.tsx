@@ -530,13 +530,17 @@ function Turn({
   turn: HarnessThreadDetail["turns"][number];
   profileId: string;
 }) {
+  const turnLabel =
+    detail.thread.kind === "project_scaffold" ? "Attempt" : "Turn";
   return (
     <section
-      aria-label={`Turn ${turn.ordinal}`}
+      aria-label={`${turnLabel} ${turn.ordinal}`}
       className="border-t border-line pt-4 first:border-t-0 first:pt-0"
     >
       <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
-        <span className="font-medium text-foreground">Turn {turn.ordinal}</span>
+        <span className="font-medium text-foreground">
+          {turnLabel} {turn.ordinal}
+        </span>
         <HarnessStatus status={turn.status} label />
         <span aria-hidden="true" className="hidden sm:inline">
           ·

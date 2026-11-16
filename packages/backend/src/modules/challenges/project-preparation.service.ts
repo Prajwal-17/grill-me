@@ -472,6 +472,26 @@ export function createProjectPreparationService(dependencies: {
       activity.splice(0, activity.length - maxActivityEntries);
   }
 
+  /**
+   * One readable marker per attempt. It becomes the transcript's user message,
+   * so resumes remain distinguishable without splitting the preparation thread.
+   */
+  function preparationTurnText(
+    row: ProjectPreparationRow,
+    previous: ProjectPreparationRow | undefined,
+  ) {
+    const from = previous?.attempt ?? Math.max(1, row.attempt - 1);
+    const action =
+      row.mode === "resume"
+        ? `Resumed from attempt ${from}`
+        : row.mode === "retry"
+          ? `Retry after attempt ${from}`
+          : row.mode === "fresh"
+            ? `Fresh project folder after attempt ${from}`
+            : "Initial preparation";
+    return `Attempt ${row.attempt} · ${action} · Prepare ${row.specification.title}`;
+  }
+
   async function runPreparation(input: {
     row: ProjectPreparationRow;
     runToken: string;
@@ -507,16 +527,27 @@ export function createProjectPreparationService(dependencies: {
           "This model does not support project scaffolding.",
           503,
         );
-      const thread = await harnessService.createThread({
+      // Preparation attempts are durable rows, but their conversation is one
+      // challenge-owned transcript. Reuse the latest existing thread so every
+      // resume appends instead of creating another indistinguishable run.
+      const existing = await harnessService.findThread({
         profileId: row.profileId,
-        kind: "project_scaffold",
-        title: specification.title,
         challengeId: row.challengeId,
-        transport: "api",
-        model: input.selection?.model ?? specification.model.label ?? "auto",
+        kind: "project_scaffold",
       });
+      const thread =
+        existing ??
+        (await harnessService.createThread({
+          profileId: row.profileId,
+          kind: "project_scaffold",
+          title: specification.title,
+          challengeId: row.challengeId,
+          transport: "api",
+          model: input.selection?.model ?? specification.model.label ?? "auto",
+        }));
       const turn = await harnessService.appendTurn(thread.id, {
-        inputText: `Prepare ${specification.title}`,
+        inputText: preparationTurnText(row, previous),
+        model: input.selection?.model ?? specification.model.label ?? "auto",
       });
       const reported = await llm.scaffoldProject({
         profileId: row.profileId,
