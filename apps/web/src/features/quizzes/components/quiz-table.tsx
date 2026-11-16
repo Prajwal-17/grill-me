@@ -450,7 +450,7 @@ export function QuizTable({
         }}
       >
         {loading ? (
-          <CollectionSkeleton kind="quizzes" />
+          <CollectionSkeleton />
         ) : visible.length ? (
           <>
             <Table className="hidden w-full table-fixed text-left text-ui @[640px]/quiz-list:table">

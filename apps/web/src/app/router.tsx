@@ -47,13 +47,6 @@ export const router = createBrowserRouter([
             .PreferencesPage,
         }),
       },
-      {
-        path: "logs",
-        lazy: async () => ({
-          Component: (await import("@/features/logs/pages/logs-page")).LogsPage,
-        }),
-      },
-      { path: "logs/:id", lazy: () => import("./routes/log-detail-route") },
       { path: "*", Component: NotFoundPage },
     ],
   },

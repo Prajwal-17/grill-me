@@ -2,52 +2,27 @@ import { Skeleton, LoadingRegion } from "./skeleton";
 
 const rows = [0, 1, 2, 3];
 
-export function CollectionSkeleton({ kind }: { kind: "quizzes" | "logs" }) {
-  const quiz = kind === "quizzes";
-  const columns = quiz
-    ? [
-        "",
-        "w-20",
-        "w-32",
-        "w-16",
-        "hidden w-20 @[850px]/quiz-list:table-column",
-        "w-28",
-      ]
-    : [
-        "w-[34%]",
-        "w-[19%]",
-        "w-[92px]",
-        "w-[82px]",
-        "hidden w-[82px] lg:table-column",
-        "w-[82px]",
-        "hidden w-[138px] xl:table-column",
-      ];
-  const labels = quiz
-    ? ["Quiz", "Difficulty", "Progress", "Score", "Created", ""]
-    : ["Request", "Model", "Status", "Tokens", "Cost", "Latency", "Started"];
+export function CollectionSkeleton() {
+  const columns = [
+    "",
+    "w-20",
+    "w-32",
+    "w-16",
+    "hidden w-20 @[850px]/quiz-list:table-column",
+    "w-28",
+  ];
+  const labels = ["Quiz", "Difficulty", "Progress", "Score", "Created", ""];
   const cellClass = (i: number) =>
-    quiz
-      ? i === 4
-        ? "hidden @[850px]/quiz-list:table-cell"
-        : ""
-      : i === 4
-        ? "hidden lg:table-cell"
-        : i === 6
-          ? "hidden xl:table-cell"
-          : "";
+    i === 4 ? "hidden @[850px]/quiz-list:table-cell" : "";
   return (
     <LoadingRegion
-      label={`Loading ${kind}…`}
-      layout={kind}
+      label="Loading quizzes…"
+      layout="quizzes"
       className="min-w-0 overflow-auto bg-surface"
     >
       <table
         aria-hidden="true"
-        className={
-          quiz
-            ? "hidden w-full table-fixed @[640px]/quiz-list:table"
-            : "w-full min-w-[680px] table-fixed"
-        }
+        className="hidden w-full table-fixed @[640px]/quiz-list:table"
       >
         <colgroup>
           {columns.map((column, i) => (
@@ -72,9 +47,7 @@ export function CollectionSkeleton({ kind }: { kind: "quizzes" | "logs" }) {
                     <Skeleton
                       className={`h-4 ${i === 0 ? (row % 2 ? "w-3/5" : "w-4/5") : "w-3/4"}`}
                     />
-                    {(i === 0 || (!quiz && i === 1)) && (
-                      <Skeleton className="h-3 w-1/2" />
-                    )}
+                    {i === 0 && <Skeleton className="h-3 w-1/2" />}
                   </div>
                 </td>
               ))}
@@ -82,20 +55,18 @@ export function CollectionSkeleton({ kind }: { kind: "quizzes" | "logs" }) {
           ))}
         </tbody>
       </table>
-      {quiz && (
-        <div className="divide-y divide-line @[640px]/quiz-list:hidden">
-          {rows.map((row) => (
-            <div key={row} className="space-y-3 p-3">
-              <Skeleton className="h-5 w-4/5" />
-              <Skeleton className="h-3 w-1/2" />
-              <div className="flex justify-between">
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-4 w-16" />
-              </div>
+      <div className="divide-y divide-line @[640px]/quiz-list:hidden">
+        {rows.map((row) => (
+          <div key={row} className="space-y-3 p-3">
+            <Skeleton className="h-5 w-4/5" />
+            <Skeleton className="h-3 w-1/2" />
+            <div className="flex justify-between">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-16" />
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
     </LoadingRegion>
   );
 }
