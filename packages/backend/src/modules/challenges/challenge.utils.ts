@@ -1,9 +1,9 @@
 import { AppError } from "../../shared/errors/app-error";
 import type { ChallengeRow } from "./challenge.model";
-import { challengeSchema, type Challenge } from "./challenge.schema";
+import { storedChallengeSchema, type Challenge } from "./challenge.schema";
 
 export function toChallenge(row: ChallengeRow): Challenge {
-  return challengeSchema.parse({
+  return storedChallengeSchema.parse({
     ...row,
     durationEstimate: {
       minMinutes: row.durationMinMinutes,

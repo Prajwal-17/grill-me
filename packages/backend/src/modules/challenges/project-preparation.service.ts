@@ -8,6 +8,8 @@ import type {
   ProjectPreparationActivity,
   ProjectPreparationError,
   ProjectPreparationMode,
+  ProjectFileContent,
+  ProjectFilesView,
   ProjectPreparationRecovery,
   ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
@@ -52,6 +54,7 @@ import {
 } from "./project-preparation.recovery";
 import type { ChallengeWorkspaceService } from "./workspace";
 import { harnessService } from "../harness/harness.service";
+import { listProjectFiles, readProjectFile } from "./project-files";
 
 const maxActivityEntries = 200;
 const settlingTimeoutMs = 5_000;
@@ -437,6 +440,18 @@ export function createProjectPreparationService(dependencies: {
   async function owned(profileId: string, challengeId: string) {
     await profiles.assertExists(profileId);
     return requireChallenge(await challenges.findOwned(challengeId, profileId));
+  }
+
+  async function projectFilesLayout(profileId: string, challengeId: string) {
+    await owned(profileId, challengeId);
+    const row = await projectPreparationModel.latest(challengeId);
+    if (!row)
+      throw new AppError(
+        "PROJECT_NOT_FOUND",
+        "This challenge does not have a prepared project folder yet.",
+        404,
+      );
+    return recordedProjectLayout(row);
   }
 
   async function detail(profileId: string, challengeId: string) {
@@ -1184,6 +1199,28 @@ export function createProjectPreparationService(dependencies: {
     },
 
     get: detail,
+
+    async files(
+      profileId: string,
+      challengeId: string,
+    ): Promise<ProjectFilesView> {
+      const layout = await projectFilesLayout(profileId, challengeId);
+      const result = await listProjectFiles(layout);
+      return {
+        projectDirectory: layout.projectDirectory,
+        projectPath: layout.projectRoot,
+        ...result,
+      };
+    },
+
+    async file(
+      profileId: string,
+      challengeId: string,
+      path: string,
+    ): Promise<ProjectFileContent> {
+      const layout = await projectFilesLayout(profileId, challengeId);
+      return readProjectFile(layout, path);
+    },
 
     start(
       profileId: string,

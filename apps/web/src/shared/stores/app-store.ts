@@ -1,5 +1,9 @@
 import { env } from "@/shared/config/env";
 
+import {
+  workspaceEditorSchema,
+  type WorkspaceEditor,
+} from "@repo/backend/shared/contracts";
 import type { ModelSelection, Profile } from "@/shared/types/api";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -12,12 +16,14 @@ type AppStore = {
   sidebarCollapsed: boolean;
   hydrated: boolean;
   composerModel: ModelSelection | null;
+  preferredWorkspaceEditor: WorkspaceEditor | null;
   setProfile: (profile: Profile) => void;
   clearProfile: () => void;
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setHydrated: (hydrated: boolean) => void;
   setComposerModel: (selection: ModelSelection | null) => void;
+  setPreferredWorkspaceEditor: (editor: WorkspaceEditor) => void;
 };
 
 const APP_ENV = env.appEnv;
@@ -57,6 +63,10 @@ function isModelSelection(value: unknown): value is ModelSelection {
   );
 }
 
+function isWorkspaceEditor(value: unknown): value is WorkspaceEditor {
+  return workspaceEditorSchema.safeParse(value).success;
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set) => ({
@@ -65,6 +75,7 @@ export const useAppStore = create<AppStore>()(
       sidebarCollapsed: false,
       hydrated: false,
       composerModel: null,
+      preferredWorkspaceEditor: null,
       setProfile: (profile) => set({ profile }),
       clearProfile: () => set({ profile: null }),
       setTheme: (theme) => set({ theme }),
@@ -72,15 +83,24 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
       setHydrated: (hydrated) => set({ hydrated }),
       setComposerModel: (composerModel) => set({ composerModel }),
+      setPreferredWorkspaceEditor: (preferredWorkspaceEditor) =>
+        set({ preferredWorkspaceEditor }),
     }),
     {
       name: APP_STORAGE_KEY,
       skipHydration: true,
-      partialize: ({ profile, theme, sidebarCollapsed, composerModel }) => ({
+      partialize: ({
         profile,
         theme,
         sidebarCollapsed,
         composerModel,
+        preferredWorkspaceEditor,
+      }) => ({
+        profile,
+        theme,
+        sidebarCollapsed,
+        composerModel,
+        preferredWorkspaceEditor,
       }),
       merge: (persisted, current) => {
         const saved = persisted as Partial<AppStore> | undefined;
@@ -91,6 +111,11 @@ export const useAppStore = create<AppStore>()(
           sidebarCollapsed: saved?.sidebarCollapsed === true,
           composerModel: isModelSelection(saved?.composerModel)
             ? saved.composerModel
+            : null,
+          preferredWorkspaceEditor: isWorkspaceEditor(
+            saved?.preferredWorkspaceEditor,
+          )
+            ? saved.preferredWorkspaceEditor
             : null,
         };
       },

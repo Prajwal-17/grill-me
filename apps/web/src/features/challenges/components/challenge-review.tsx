@@ -91,7 +91,7 @@ function Findings({ review }: { review: ChallengeReview }) {
   return (
     <div className="mt-4 grid gap-4 border-t border-line pt-4 md:grid-cols-2">
       <div>
-        <h3 className="text-metadata font-medium text-muted">Done right</h3>
+        <p className="text-metadata font-medium text-muted">Done right</p>
         {strengths.length ? (
           <ul className="mt-1.5 space-y-1 text-supporting">
             {strengths.map((strength) => (
@@ -103,7 +103,7 @@ function Findings({ review }: { review: ChallengeReview }) {
         )}
       </div>
       <div>
-        <h3 className="text-metadata font-medium text-muted">Fix first</h3>
+        <p className="text-metadata font-medium text-muted">Fix first</p>
         {improvements.length ? (
           <ul className="mt-1.5 space-y-2 text-supporting">
             {improvements.map((finding) => (
@@ -192,7 +192,7 @@ export function ChallengeReviewSection({
       )}
 
       {latest && (
-        <article className="rounded-md border border-line bg-panel p-4">
+        <article className="border-t border-line pt-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div className="flex items-baseline gap-2">
               <Verdict review={latest} />

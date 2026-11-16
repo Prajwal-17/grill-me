@@ -53,8 +53,11 @@ Each challenge gets a local workspace folder. New challenges save a specificatio
 then preparation creates separate source, configuration, migration, fixture, test,
 and documentation files in `project/`, leaving the exercise's core logic as TODOs.
 Setup and checks pause for your command approval; listing commands in a README
-does not count as running them. Editor and folder actions open the current project
-when one exists. Older starter files and previous project attempts remain untouched.
+does not count as running them. A single workspace control opens the current
+project in a detected editor or its folder, or copies the path. Runs shows the
+agent transcript, and the Files button opens a read-only project tree and source
+viewer without leaving the challenge. Older starter files and previous project
+attempts remain untouched.
 Choose the workspace root in **Settings → Advanced → Challenge workspace**.
 
 ## Development and production

@@ -62,6 +62,15 @@ Package-level checks are available with `bun run lint` and
   or `.impeccable/review/`.
 - Do not use real Codex/OpenCode accounts, paid inference, production data, or
   production credentials for development or tests.
+- Run development, debugging, and UI verification only in the development edition
+  with a development-scoped database, data root, Electron session partition,
+  renderer storage, and credential namespace. Prefer an isolated temporary
+  development root with fake seed data. Never launch or use the production app
+  for development; never read, copy, migrate, or write the production database,
+  data directory, or credentials; never point a development process at
+  production paths. Production and release packaging run only when separately
+  and explicitly requested, with the production identity invariant in
+  Architecture and security rules intact.
 - Update the relevant docs and `CHANGELOG.md` when behavior changes. If a native
   packaging or platform check was not run, say so instead of claiming success.
 
@@ -189,6 +198,10 @@ columns, tables, indexes, IDs, timestamps, profiles, and migration history.
 - Add focused tests beside the module or in the matching workspace test folder.
   Use temporary data roots and fake providers; never use real Codex/OpenCode
   accounts, paid inference, production databases, or production credentials.
+- Capture screenshots and other UI evidence from the development edition running
+  with development configuration. A "DEV" badge alone is not proof: confirm the
+  session, data directory, and database actually belong to development. Do not
+  launch the production app to obtain them.
 - Run `bun run check` and `bun run test:desktop` before handoff. Browser/Electron
   E2E and Playwright suites are intentionally absent; do not add them.
 - Packaging must run on the matching native OS/arch and rebuilds the selected

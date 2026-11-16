@@ -10,8 +10,9 @@ import {
   Archive,
   ArchiveRestore,
   BookOpen,
+  ClipboardCheck,
+  FolderTree,
   ListChecks,
-  PanelRight,
   CircleAlert,
   History,
 } from "lucide-react";
@@ -20,7 +21,7 @@ import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
 import { Markdown } from "@/shared/components/markdown";
 import { ChallengeCard } from "@/features/challenges/components/challenge-card";
-import { ChallengeWorkspaceSection } from "@/features/challenges/components/challenge-workspace";
+import { ChallengeWorkspaceBar } from "@/features/challenges/components/challenge-workspace";
 import { ChallengeReviewSection } from "@/features/challenges/components/challenge-review";
 import { CopyButton } from "@/shared/components/ui/copy-button";
 import { statementMarkdown } from "@/features/challenges/lib/challenge-statement";
@@ -39,12 +40,13 @@ import {
   TabsContent,
 } from "@/shared/components/ui/tabs";
 import { QuizWorkspace } from "@/features/quizzes/components/quiz-workspace";
-import { HarnessThreadPanel } from "@/features/harness";
-import { ChallengeReference } from "./challenge-reference";
+import { HarnessRunsWorkspace } from "@/features/harness";
 import { useWideWorkspace } from "../hooks/use-wide-workspace";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
 import { useProjectPreparation } from "@/features/challenges/hooks/use-project-preparation";
 import { projectPreparationView } from "@/features/challenges/lib/project-preparation-view";
+import { ProjectPreparationActions } from "@/features/challenges/components/project-preparation";
+import { ProjectFilesPanel } from "@/features/challenges/components/project-files";
 
 export function PracticeWorkspace({
   profile,
@@ -58,15 +60,21 @@ export function PracticeWorkspace({
   const queries = useQueryClient();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [focusProject, setFocusProject] = useState(false);
   const requestedTab = searchParams.get("tab");
   const tab =
-    requestedTab === "quizzes" || requestedTab === "runs"
+    requestedTab === "review" ||
+    requestedTab === "quizzes" ||
+    requestedTab === "runs"
       ? requestedTab
       : "overview";
   const setTab = (value: string) => {
-    if (value !== "overview" && value !== "runs" && value !== "quizzes") return;
-    if (value !== "overview") setFocusProject(false);
+    if (
+      value !== "overview" &&
+      value !== "review" &&
+      value !== "runs" &&
+      value !== "quizzes"
+    )
+      return;
     const url = new URL(window.location.href);
     if (url.searchParams.get("tab") === value) return;
     url.searchParams.set("tab", value);
@@ -75,13 +83,29 @@ export function PracticeWorkspace({
     });
   };
   const [reply, setReply] = useState("");
-  const [sidePanel, setSidePanel] = useState<"task" | null>(null);
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [filesExpanded, setFilesExpanded] = useState(false);
   const wide = useWideWorkspace();
-  const taskToggle = useRef<HTMLButtonElement>(null);
-  const referenceOpen = sidePanel === "task" && tab !== "overview";
-  const closeReference = () => {
-    setSidePanel(null);
-    taskToggle.current?.focus();
+  const filesToggle = useRef<HTMLButtonElement>(null);
+  const filesExpandToggle = useRef<HTMLButtonElement>(null);
+  const filesEntry = tab === "overview" || tab === "runs" || filesOpen;
+  const filesOverlay = filesOpen && filesExpanded && wide;
+  const closeFiles = () => {
+    setFilesOpen(false);
+    setFilesExpanded(false);
+    window.requestAnimationFrame(() => filesToggle.current?.focus());
+  };
+  const openFiles = () => {
+    setFilesOpen(true);
+    setFilesExpanded(false);
+  };
+  const toggleFilesExpanded = () => {
+    setFilesExpanded((expanded) => {
+      if (expanded) {
+        window.requestAnimationFrame(() => filesExpandToggle.current?.focus());
+      }
+      return !expanded;
+    });
   };
   const refresh = async () => {
     await Promise.all([
@@ -132,14 +156,14 @@ export function PracticeWorkspace({
     ? projectPreparationView(project.preparation.data)
     : null;
   const projectAttention =
+    tab !== "runs" &&
     tab !== "overview" &&
     active &&
     Boolean(
       projectView?.recovery?.needsReview || projectView?.awaitingApproval,
     );
   const reviewProject = () => {
-    setTab("overview");
-    setFocusProject(true);
+    setTab("runs");
   };
   const error = lifecycle.error ?? hint.error;
   const savedHints = messages.data?.filter((m) => m.mode === "hint") ?? [];
@@ -151,7 +175,11 @@ export function PracticeWorkspace({
       contentScrollable={false}
     >
       <main className="relative flex h-full min-h-0 overflow-hidden">
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          className="flex min-w-0 flex-1 flex-col"
+          inert={filesOverlay}
+          aria-hidden={filesOverlay || undefined}
+        >
           {error && (
             <p
               role="alert"
@@ -185,7 +213,7 @@ export function PracticeWorkspace({
             className="min-h-0 flex-1 gap-0 overflow-hidden"
           >
             <div className="practice-workspace-navigation flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b border-line bg-panel/60 px-2 md:px-5">
-              <div className="min-w-0 overflow-x-auto">
+              <div className="scrollbar-quiet min-w-0 overflow-x-auto">
                 <TabsList
                   variant="line"
                   className="h-11 min-w-max justify-start"
@@ -197,6 +225,10 @@ export function PracticeWorkspace({
                   >
                     <BookOpen size={14} className="hidden sm:block" />
                     Overview
+                  </TabsTrigger>
+                  <TabsTrigger value="review" className="flex-none gap-2 px-3">
+                    <ClipboardCheck size={14} className="hidden sm:block" />
+                    Review
                   </TabsTrigger>
                   <TabsTrigger value="runs" className="flex-none gap-2 px-3">
                     <History size={14} className="hidden sm:block" />
@@ -270,26 +302,25 @@ export function PracticeWorkspace({
                     Mark completed
                   </Button>
                 )}
-                {tab !== "overview" && (
+                {filesEntry && (
                   <Button
-                    ref={taskToggle}
+                    ref={filesToggle}
                     size="sm"
-                    variant={referenceOpen ? "secondary" : "ghost"}
-                    aria-expanded={referenceOpen}
-                    aria-controls={
-                      referenceOpen ? "challenge-reference" : undefined
-                    }
-                    onClick={() => setSidePanel(referenceOpen ? null : "task")}
+                    variant={filesOpen ? "secondary" : "ghost"}
+                    aria-expanded={filesOpen}
+                    aria-controls={filesOpen ? "project-files" : undefined}
+                    title="Browse the prepared project's files"
+                    onClick={() => (filesOpen ? closeFiles() : openFiles())}
                   >
-                    <PanelRight size={14} />
-                    {referenceOpen ? "Hide task" : "Show task"}
+                    <FolderTree size={14} />
+                    {filesOpen ? "Hide files" : "Files"}
                   </Button>
                 )}
               </div>
             </div>
             <TabsContent
               value="overview"
-              className="min-h-0 flex-1 overflow-y-auto"
+              className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto"
             >
               <div className="px-4 py-6 md:px-8">
                 <div className="mx-auto max-w-[880px] space-y-6">
@@ -297,6 +328,7 @@ export function PracticeWorkspace({
                     challenge={challenge}
                     className="max-w-none"
                     showTitle={false}
+                    reading
                     headerAction={
                       <CopyButton
                         text={statementMarkdown(challenge)}
@@ -304,16 +336,10 @@ export function PracticeWorkspace({
                       />
                     }
                   />
-                  <ChallengeWorkspaceSection
+                  <ChallengeWorkspaceBar
                     profileId={profile.id}
                     challenge={challenge}
-                    focusProject={focusProject}
-                    onProjectFocus={() => setFocusProject(false)}
-                  />
-                  <ChallengeReviewSection
-                    profileId={profile.id}
-                    challenge={challenge}
-                    enabled={!archived}
+                    onReviewRuns={reviewProject}
                   />
                   {active && (
                     <div className="flex gap-2">
@@ -349,11 +375,18 @@ export function PracticeWorkspace({
                       )}
                     </section>
                   )}
-                  <ChallengeDiscussion
-                    profileId={profile.id}
-                    challengeId={challenge.id}
-                    active={active}
-                  />
+                  <details className="border-t border-line pt-5">
+                    <summary className="cursor-pointer text-ui font-medium">
+                      Ask about this challenge
+                    </summary>
+                    <div className="mt-4">
+                      <ChallengeDiscussion
+                        profileId={profile.id}
+                        challengeId={challenge.id}
+                        active={active}
+                      />
+                    </div>
+                  </details>
                   {!!savedHints.length && (
                     <details className="border-t border-line pt-4 text-ui">
                       <summary className="cursor-pointer text-muted">
@@ -368,65 +401,42 @@ export function PracticeWorkspace({
                       </div>
                     </details>
                   )}
-                  {challenge.contextSnapshot && (
-                    <details className="text-metadata text-muted">
-                      <summary className="cursor-pointer">
-                        Generation details
-                      </summary>
-                      <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded border border-line p-3">
-                        {JSON.stringify(challenge.contextSnapshot, null, 2)}
-                      </pre>
-                    </details>
-                  )}
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent
+              value="review"
+              className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto"
+            >
+              <div className="px-4 py-6 md:px-8">
+                <div className="mx-auto max-w-[880px]">
+                  <ChallengeReviewSection
+                    profileId={profile.id}
+                    challenge={challenge}
+                    enabled={!archived}
+                  />
                 </div>
               </div>
             </TabsContent>
             <TabsContent
               value="runs"
-              className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
+              className="min-h-0 flex-1 overflow-hidden p-4 md:p-6"
             >
-              <div className="mx-auto max-w-[880px] space-y-6">
-                <section aria-labelledby="project-runs-title">
-                  <h2
-                    id="project-runs-title"
-                    className="mb-2 text-ui font-medium"
-                  >
-                    Project preparation
-                  </h2>
-                  <HarnessThreadPanel
+              <HarnessRunsWorkspace
+                profileId={profile.id}
+                challengeId={challenge.id}
+                prelude={
+                  <ProjectPreparationActions
                     profileId={profile.id}
-                    kind="project_scaffold"
                     challengeId={challenge.id}
-                    empty="No project preparation runs yet."
+                    active={active}
                   />
-                </section>
-                <section aria-labelledby="chat-runs-title">
-                  <h2 id="chat-runs-title" className="mb-2 text-ui font-medium">
-                    Discussions
-                  </h2>
-                  <HarnessThreadPanel
-                    profileId={profile.id}
-                    kind="chat"
-                    challengeId={challenge.id}
-                    empty="No discussions recorded yet."
-                  />
-                </section>
-                <section aria-labelledby="hint-runs-title">
-                  <h2 id="hint-runs-title" className="mb-2 text-ui font-medium">
-                    Hints
-                  </h2>
-                  <HarnessThreadPanel
-                    profileId={profile.id}
-                    kind="hint"
-                    challengeId={challenge.id}
-                    empty="No hints recorded yet."
-                  />
-                </section>
-              </div>
+                }
+              />
             </TabsContent>
             <TabsContent
               value="quizzes"
-              className="min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
+              className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
             >
               <QuizWorkspace
                 profileId={profile.id}
@@ -435,44 +445,68 @@ export function PracticeWorkspace({
             </TabsContent>
           </Tabs>
         </div>
-        {referenceOpen && wide && (
+        {filesOpen && wide && (
           <aside
-            id="challenge-reference"
-            aria-label="Challenge reference"
-            className="w-[340px] min-w-[300px] max-w-[35%] shrink-0 border-l border-line bg-panel"
+            id="project-files"
+            aria-label={
+              filesExpanded ? "Project files, expanded" : "Project files"
+            }
+            className={
+              filesExpanded
+                ? "absolute inset-0 z-20 flex w-full min-w-0 flex-col bg-panel"
+                : "w-[56%] min-w-[520px] max-w-[920px] shrink-0 border-l border-line bg-panel"
+            }
             onKeyDown={(event) => {
-              if (event.key === "Escape") {
+              if (event.key === "Escape" && !filesExpanded) {
                 event.stopPropagation();
-                closeReference();
+                closeFiles();
               }
             }}
           >
-            <ChallengeReference
-              challenge={challenge}
-              onClose={closeReference}
+            <ProjectFilesPanel
+              profileId={profile.id}
+              challengeId={challenge.id}
+              onClose={closeFiles}
+              expanded={filesExpanded}
+              onToggleExpanded={toggleFilesExpanded}
+              expandButtonRef={filesExpandToggle}
             />
           </aside>
         )}
         <Sheet
-          open={referenceOpen && !wide}
+          open={filesOpen && !wide}
           onOpenChange={(open) => {
-            if (!open) closeReference();
+            if (!open) closeFiles();
           }}
         >
           <SheetContent
-            id="challenge-reference"
-            className="w-[min(100%,440px)] gap-0 p-0 sm:max-w-[440px]"
+            id="project-files"
+            className={
+              filesExpanded
+                ? "w-screen max-w-none gap-0 p-0 sm:max-w-none"
+                : "w-[min(100%,780px)] gap-0 p-0 sm:max-w-[780px]"
+            }
             showCloseButton={false}
             aria-describedby={undefined}
+            onEscapeKeyDown={(event) => {
+              if (!filesExpanded) return;
+              event.preventDefault();
+              toggleFilesExpanded();
+            }}
             onCloseAutoFocus={(event) => {
               event.preventDefault();
-              taskToggle.current?.focus();
+              filesToggle.current?.focus();
             }}
           >
-            <SheetTitle className="sr-only">Challenge reference</SheetTitle>
-            <ChallengeReference
-              challenge={challenge}
-              onClose={closeReference}
+            <SheetTitle className="sr-only">Project files</SheetTitle>
+            <ProjectFilesPanel
+              profileId={profile.id}
+              challengeId={challenge.id}
+              onClose={closeFiles}
+              defaultTreeOpen={false}
+              expanded={filesExpanded}
+              onToggleExpanded={toggleFilesExpanded}
+              expandButtonRef={filesExpandToggle}
             />
           </SheetContent>
         </Sheet>

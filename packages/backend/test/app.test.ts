@@ -1466,6 +1466,27 @@ describe("build quality pipeline", () => {
     expect((await json<{ data: Challenge }>(persisted)).data.number).toBe(2);
   });
 
+  test("reads stored challenges that exceed the current brief limits", async () => {
+    const app = createApp({ llm: new FakeModel() });
+    const profile = await startProfile(
+      app,
+      `stored-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, profile.id);
+    const longStatement = "Stored brief paragraph. ".repeat(400);
+    await fixtureSql(
+      "UPDATE challenges SET problem_statement = $1 WHERE id = $2",
+      [longStatement, challenge.id],
+    );
+
+    const active = await request(app, "/challenges/active", profile.id);
+    expect(active.status).toBe(200);
+    const stored = (await json<{ data: Challenge[] }>(active)).data.find(
+      (item) => item.id === challenge.id,
+    );
+    expect(stored?.problemStatement).toBe(longStatement);
+  });
+
   test("saves nothing when the generation fails", async () => {
     const model = new FakeModel();
     model.generationError = new AppError(
