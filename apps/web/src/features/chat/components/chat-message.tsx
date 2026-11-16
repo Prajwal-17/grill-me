@@ -8,6 +8,7 @@ import { Button } from "@/shared/components/ui/button";
 import { BrandMark } from "@/shared/components/brand";
 import { StreamingText } from "@/shared/components/ai/streaming-text";
 import { cn } from "@/shared/lib/cn";
+import { writeClipboardText } from "@/shared/lib/clipboard";
 export function ChatMessage({
   role,
   mode,
@@ -34,7 +35,7 @@ export function ChatMessage({
   const label = user ? "You" : mode === "hint" ? "Hint" : "Grill Me";
   async function copy() {
     try {
-      await navigator.clipboard.writeText(content);
+      await writeClipboardText(content);
       setCopied(true);
       setCopyError(false);
       if (timer.current) clearTimeout(timer.current);

@@ -31,6 +31,8 @@ const bridge: DesktopBridge = {
   selectWorkspaceFolder: (currentPath) =>
     ipcRenderer.invoke("desktop:select-workspace-folder", currentPath),
   getWorkspaceEditors: () => ipcRenderer.invoke("desktop:workspace-editors"),
+  writeClipboardText: (input) =>
+    ipcRenderer.invoke("desktop:clipboard-write", input),
   openWorkspaceInEditor: (input) =>
     ipcRenderer.invoke("desktop:open-workspace", input),
   onWindowState: (listener) => {

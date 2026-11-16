@@ -469,6 +469,26 @@ export const challengeWorkspaceSchema = z.object({
   starterFile: z.string().min(1).max(255).nullable(),
 });
 export type ChallengeWorkspace = z.infer<typeof challengeWorkspaceSchema>;
+export const projectFileEntrySchema = z.object({
+  path: z.string().min(1).max(512),
+  bytes: z.number().int().nonnegative(),
+});
+export type ProjectFileEntry = z.infer<typeof projectFileEntrySchema>;
+export const projectFilesViewSchema = z.object({
+  projectDirectory: z.string().min(1).max(64),
+  projectPath: z.string().min(1).max(4096),
+  files: z.array(projectFileEntrySchema).max(2_000),
+  truncated: z.boolean(),
+});
+export type ProjectFilesView = z.infer<typeof projectFilesViewSchema>;
+export const projectFileContentSchema = z.object({
+  path: z.string().min(1).max(512),
+  bytes: z.number().int().nonnegative(),
+  content: z.string().max(2_100_000).nullable(),
+  binary: z.boolean(),
+  tooLarge: z.boolean(),
+});
+export type ProjectFileContent = z.infer<typeof projectFileContentSchema>;
 export const projectCommandPurposeSchema = z.enum([
   "setup",
   "check",
@@ -865,6 +885,17 @@ export const windowSettingsSchema = z.object({
   zoom: z.number().min(0.5).max(2).default(1),
 });
 export type WindowSettings = z.infer<typeof windowSettingsSchema>;
+/** Bounded text for the native clipboard. The desktop main process only writes. */
+export const desktopClipboardWriteSchema = z
+  .object({
+    text: z
+      .string()
+      .min(1)
+      .max(2_000_000)
+      .refine((value) => !value.includes("\0"), "Clipboard text is invalid."),
+  })
+  .strict();
+export type DesktopClipboardWrite = z.infer<typeof desktopClipboardWriteSchema>;
 export type DesktopState = WindowSettings & {
   fullscreen: boolean;
   maximized: boolean;
@@ -958,6 +989,7 @@ export interface DesktopBridge {
   selectWorkspaceFolder(currentPath?: string): Promise<string | null>;
   getWorkspaceEditors(): Promise<WorkspaceEditorOption[]>;
   openWorkspaceInEditor(input: WorkspaceLaunch): Promise<void>;
+  writeClipboardText(input: DesktopClipboardWrite): Promise<void>;
 }
 export const apiCallSchema = z.object({
   path: z
