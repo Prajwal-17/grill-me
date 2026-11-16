@@ -4,6 +4,8 @@ import type {
   ProjectCheckProposal,
   ProjectCheckResult,
   ProjectCommandProposal,
+  ProjectFileContent,
+  ProjectFilesView,
   ProjectPreparation,
   ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
@@ -14,6 +16,8 @@ export type {
   ProjectCheckProposal,
   ProjectCheckResult,
   ProjectCommandProposal,
+  ProjectFileContent,
+  ProjectFilesView,
   ProjectPreparation,
   ProjectScaffoldReport,
 };

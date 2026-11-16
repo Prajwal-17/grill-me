@@ -65,6 +65,24 @@ export const harnessModel = {
     );
   },
 
+  /** Latest durable thread for one challenge-owned feature transcript. */
+  findThreadForChallenge(profileId: string, challengeId: string, kind: string) {
+    return first(
+      db
+        .select()
+        .from(harnessThreads)
+        .where(
+          and(
+            eq(harnessThreads.profileId, profileId),
+            eq(harnessThreads.challengeId, challengeId),
+            eq(harnessThreads.kind, kind),
+          ),
+        )
+        .orderBy(desc(harnessThreads.updatedAt))
+        .limit(1),
+    );
+  },
+
   updateThread(
     id: string,
     patch: Partial<

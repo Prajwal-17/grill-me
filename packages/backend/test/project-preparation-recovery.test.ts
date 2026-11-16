@@ -35,12 +35,15 @@ import type {
   ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
 import {
+  db,
   migrateDatabase,
   sqliteDatabase,
 } from "@repo/backend/shared/database/db";
+import { projectPreparations } from "@repo/backend/shared/database/schema";
+import { eq } from "drizzle-orm";
 
 await migrateDatabase();
-const { setHarnessPermissionModeProvider } =
+const { harnessService, setHarnessPermissionModeProvider } =
   await import("@repo/backend/modules/harness/harness.service");
 setHarnessPermissionModeProvider(() => "auto-accept-edits");
 
@@ -383,6 +386,45 @@ async function preparation(
   return (await json<{ data: ProjectPreparation }>(response)).data;
 }
 
+async function harnessThreads(
+  app: TestApp,
+  profileId: string,
+  challengeId: string,
+) {
+  const response = await request(
+    app,
+    `/harness?challengeId=${challengeId}&kind=project_scaffold&limit=200`,
+    profileId,
+  );
+  expect(response.status).toBe(200);
+  return (
+    await json<{
+      data: Array<{ id: string; createdAt: string; updatedAt: string }>;
+    }>(response)
+  ).data;
+}
+
+async function harnessThread(
+  app: TestApp,
+  profileId: string,
+  threadId: string,
+) {
+  const response = await request(app, `/harness/${threadId}`, profileId);
+  expect(response.status).toBe(200);
+  return (
+    await json<{
+      data: {
+        thread: { id: string; createdAt: string };
+        turns: Array<{
+          id: string;
+          inputText: string;
+          items: Array<{ id: string; type: string }>;
+        }>;
+      };
+    }>(response)
+  ).data;
+}
+
 async function waitForStatus(
   app: TestApp,
   profileId: string,
@@ -697,6 +739,148 @@ describe("project preparation recovery", () => {
     expect(
       await readFile(join(first.projectPath!, "src", "main.ts"), "utf8"),
     ).toContain("TODO");
+  });
+
+  test("repeated resumes append to one preparation transcript without losing attempts", async () => {
+    const root = await tempRoot();
+    const { model, app, owner, challenge } = await recoveredChallenge(
+      failAfterFiles,
+      root,
+    );
+    const initialThreads = await harnessThreads(app, owner.id, challenge.id);
+    expect(initialThreads).toHaveLength(1);
+    const threadId = initialThreads[0]!.id;
+    const first = await harnessThread(app, owner.id, threadId);
+    expect(first.turns).toHaveLength(1);
+    expect(first.turns[0]!.inputText).toContain(
+      "Attempt 1 · Initial preparation",
+    );
+    const firstTurnIds = first.turns.map((turn) => turn.id);
+    const firstItems = first.turns.flatMap((turn) => turn.items);
+
+    model.handler = async () => {
+      throw new Error("The provider stopped before the resumed turn wrote.");
+    };
+    const failedResume = await request(
+      app,
+      `/challenges/${challenge.id}/project-preparation/resume`,
+      owner.id,
+      {},
+    );
+    expect(failedResume.status).toBe(202);
+    const secondAttempt = await waitForStatus(
+      app,
+      owner.id,
+      challenge.id,
+      ["failed"],
+      undefined,
+    );
+    expect(secondAttempt.attempt).toBe(2);
+    expect(secondAttempt.mode).toBe("resume");
+    const afterSecond = await harnessThreads(app, owner.id, challenge.id);
+    expect(afterSecond.map((thread) => thread.id)).toEqual([threadId]);
+
+    model.handler = async (input) =>
+      completeFromDisk(input, "Resumed the same project transcript.");
+    const resumed = await request(
+      app,
+      `/challenges/${challenge.id}/project-preparation/resume`,
+      owner.id,
+      {},
+    );
+    expect(resumed.status).toBe(202);
+    const ready = await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+    expect(ready.attempt).toBe(3);
+    expect(ready.mode).toBe("resume");
+
+    const finalThreads = await harnessThreads(app, owner.id, challenge.id);
+    expect(finalThreads.map((thread) => thread.id)).toEqual([threadId]);
+    const final = await harnessThread(app, owner.id, threadId);
+    expect(final.turns).toHaveLength(3);
+    expect(final.turns.map((turn) => turn.inputText)).toEqual([
+      expect.stringContaining("Attempt 1 · Initial preparation"),
+      expect.stringContaining("Attempt 2 · Resumed from attempt 1"),
+      expect.stringContaining("Attempt 3 · Resumed from attempt 2"),
+    ]);
+    const finalItems = final.turns.flatMap((turn) => turn.items);
+    expect(new Set(finalItems.map((item) => item.id)).size).toBe(
+      finalItems.length,
+    );
+    for (const item of firstItems)
+      expect(finalItems.some((entry) => entry.id === item.id)).toBe(true);
+    expect(new Set(final.turns.map((turn) => turn.id)).size).toBe(3);
+    for (const turnId of firstTurnIds)
+      expect(final.turns.some((turn) => turn.id === turnId)).toBe(true);
+
+    const attemptRows = await db
+      .select({ attempt: projectPreparations.attempt })
+      .from(projectPreparations)
+      .where(eq(projectPreparations.challengeId, challenge.id))
+      .orderBy(projectPreparations.attempt);
+    expect(attemptRows.map((row) => row.attempt)).toEqual([1, 2, 3]);
+
+    const stranger = await startProfile(
+      app,
+      `recovery-transcript-stranger-${crypto.randomUUID()}@test.dev`,
+    );
+    expect(await harnessThreads(app, stranger.id, challenge.id)).toEqual([]);
+    expect(
+      (await request(app, `/harness/${threadId}`, stranger.id)).status,
+    ).toBe(404);
+  });
+
+  test("legacy multiple preparation threads stay readable and resume extends the latest", async () => {
+    const root = await tempRoot();
+    const { model, app, owner, challenge } = await recoveredChallenge(
+      failAfterFiles,
+      root,
+    );
+    const initial = await harnessThreads(app, owner.id, challenge.id);
+    expect(initial).toHaveLength(1);
+    const original = initial[0]!;
+    await Bun.sleep(5);
+    const legacy = await harnessService.createThread({
+      profileId: owner.id,
+      challengeId: challenge.id,
+      kind: "project_scaffold",
+      title: "Earlier preparation session",
+      model: "fixture-model",
+    });
+    const legacyTurn = await harnessService.appendTurn(legacy.id, {
+      inputText: "Legacy preparation attempt",
+    });
+    await harnessService.appendItem(legacy.id, legacyTurn.id, {
+      type: "system_notice",
+      text: "Legacy session item remains readable.",
+    });
+
+    model.handler = async (input) =>
+      completeFromDisk(input, "Resumed the latest legacy transcript.");
+    const resumed = await request(
+      app,
+      `/challenges/${challenge.id}/project-preparation/resume`,
+      owner.id,
+      {},
+    );
+    expect(resumed.status).toBe(202);
+    await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+
+    const history = await harnessThreads(app, owner.id, challenge.id);
+    expect(history.map((thread) => thread.id).sort()).toEqual(
+      [original.id, legacy.id].sort(),
+    );
+    const untouched = await harnessThread(app, owner.id, original.id);
+    expect(untouched.thread.createdAt).toBe(original.createdAt);
+    expect(untouched.turns).toHaveLength(1);
+    expect(untouched.turns[0]!.inputText).toContain(
+      "Attempt 1 · Initial preparation",
+    );
+    const extended = await harnessThread(app, owner.id, legacy.id);
+    expect(extended.turns).toHaveLength(2);
+    expect(extended.turns[0]!.items[0]?.type).toBe("system_notice");
+    expect(extended.turns[1]!.inputText).toContain(
+      "Attempt 2 · Resumed from attempt 1",
+    );
   });
 
   test("a user edit blocks resume with a specific path and fresh keeps the edit", async () => {

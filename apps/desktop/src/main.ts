@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   Menu,
   shell,
@@ -19,6 +20,7 @@ import { realpath } from "node:fs/promises";
 import { backendEnvironment } from "./config";
 import { windowSettingsStore } from "./window-settings";
 import {
+  desktopClipboardWriteSchema,
   setupFolderChoiceSchema,
   windowSettingsSchema,
   type DesktopSetupState,
@@ -760,6 +762,10 @@ async function startApplication(
   ipcMain.handle("desktop:workspace-editors", (event) => {
     trusted(event);
     return availableWorkspaceEditors();
+  });
+  ipcMain.handle("desktop:clipboard-write", (event, input: unknown) => {
+    trusted(event);
+    clipboard.writeText(desktopClipboardWriteSchema.parse(input).text);
   });
   ipcMain.handle("desktop:open-workspace", async (event, input: unknown) => {
     trusted(event);

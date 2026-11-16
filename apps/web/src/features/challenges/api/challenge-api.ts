@@ -6,6 +6,8 @@ import type {
   ChallengeWorkspace,
   GenerateBuildRequest,
   ModelSelection,
+  ProjectFileContent,
+  ProjectFilesView,
   ProjectPreparation,
 } from "@/shared/types/api";
 
@@ -23,6 +25,10 @@ export const challengeKeys = {
     ["challenges", "workspace", profileId, challengeId] as const,
   projectPreparation: (profileId?: string, challengeId?: string) =>
     ["project-preparation", profileId, challengeId] as const,
+  projectFiles: (profileId?: string, challengeId?: string) =>
+    ["project-files", profileId, challengeId] as const,
+  projectFile: (profileId?: string, challengeId?: string, path?: string) =>
+    ["project-file", profileId, challengeId, path] as const,
   reviews: (profileId?: string, challengeId?: string) =>
     ["challenge-reviews", profileId, challengeId] as const,
 };
@@ -66,6 +72,26 @@ export function createChallengeReview(profileId: string, challengeId: string) {
   return apiRequest<ChallengeReview>(
     `/challenges/${challengeId}/review`,
     { method: "POST" },
+    profileId,
+  );
+}
+
+export function getProjectFiles(profileId: string, challengeId: string) {
+  return apiRequest<ProjectFilesView>(
+    `/challenges/${challengeId}/project-files`,
+    {},
+    profileId,
+  );
+}
+
+export function getProjectFile(
+  profileId: string,
+  challengeId: string,
+  path: string,
+) {
+  return apiRequest<ProjectFileContent>(
+    `/challenges/${challengeId}/project-files/file?path=${encodeURIComponent(path)}`,
+    {},
     profileId,
   );
 }

@@ -87,6 +87,7 @@ export function useChallengeWorkspace(profileId: string, challengeId: string) {
     relink,
     destinationPath,
     projectDirectory,
+    preparation: project,
     projectLoading: project.isPending,
     desktop: Boolean(bridge),
   };

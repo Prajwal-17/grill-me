@@ -5,6 +5,8 @@ export function createProjectPreparationRoutes(
   controller: ProjectPreparationController,
 ) {
   const routes = new Hono();
+  routes.get("/:id/project-files", controller.files);
+  routes.get("/:id/project-files/file", controller.file);
   routes.get("/:id/project-preparation", controller.get);
   routes.post("/:id/project-preparation/start", controller.start);
   routes.post("/:id/project-preparation/retry", controller.retry);

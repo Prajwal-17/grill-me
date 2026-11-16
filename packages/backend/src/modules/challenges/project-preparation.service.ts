@@ -8,6 +8,8 @@ import type {
   ProjectPreparationActivity,
   ProjectPreparationError,
   ProjectPreparationMode,
+  ProjectFileContent,
+  ProjectFilesView,
   ProjectPreparationRecovery,
   ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
@@ -52,6 +54,7 @@ import {
 } from "./project-preparation.recovery";
 import type { ChallengeWorkspaceService } from "./workspace";
 import { harnessService } from "../harness/harness.service";
+import { listProjectFiles, readProjectFile } from "./project-files";
 
 const maxActivityEntries = 200;
 const settlingTimeoutMs = 5_000;
@@ -439,6 +442,18 @@ export function createProjectPreparationService(dependencies: {
     return requireChallenge(await challenges.findOwned(challengeId, profileId));
   }
 
+  async function projectFilesLayout(profileId: string, challengeId: string) {
+    await owned(profileId, challengeId);
+    const row = await projectPreparationModel.latest(challengeId);
+    if (!row)
+      throw new AppError(
+        "PROJECT_NOT_FOUND",
+        "This challenge does not have a prepared project folder yet.",
+        404,
+      );
+    return recordedProjectLayout(row);
+  }
+
   async function detail(profileId: string, challengeId: string) {
     await owned(profileId, challengeId);
     const row = await projectPreparationModel.latest(challengeId);
@@ -455,6 +470,26 @@ export function createProjectPreparationService(dependencies: {
     activity.push(entry);
     if (activity.length > maxActivityEntries)
       activity.splice(0, activity.length - maxActivityEntries);
+  }
+
+  /**
+   * One readable marker per attempt. It becomes the transcript's user message,
+   * so resumes remain distinguishable without splitting the preparation thread.
+   */
+  function preparationTurnText(
+    row: ProjectPreparationRow,
+    previous: ProjectPreparationRow | undefined,
+  ) {
+    const from = previous?.attempt ?? Math.max(1, row.attempt - 1);
+    const action =
+      row.mode === "resume"
+        ? `Resumed from attempt ${from}`
+        : row.mode === "retry"
+          ? `Retry after attempt ${from}`
+          : row.mode === "fresh"
+            ? `Fresh project folder after attempt ${from}`
+            : "Initial preparation";
+    return `Attempt ${row.attempt} · ${action} · Prepare ${row.specification.title}`;
   }
 
   async function runPreparation(input: {
@@ -492,16 +527,27 @@ export function createProjectPreparationService(dependencies: {
           "This model does not support project scaffolding.",
           503,
         );
-      const thread = await harnessService.createThread({
+      // Preparation attempts are durable rows, but their conversation is one
+      // challenge-owned transcript. Reuse the latest existing thread so every
+      // resume appends instead of creating another indistinguishable run.
+      const existing = await harnessService.findThread({
         profileId: row.profileId,
-        kind: "project_scaffold",
-        title: specification.title,
         challengeId: row.challengeId,
-        transport: "api",
-        model: input.selection?.model ?? specification.model.label ?? "auto",
+        kind: "project_scaffold",
       });
+      const thread =
+        existing ??
+        (await harnessService.createThread({
+          profileId: row.profileId,
+          kind: "project_scaffold",
+          title: specification.title,
+          challengeId: row.challengeId,
+          transport: "api",
+          model: input.selection?.model ?? specification.model.label ?? "auto",
+        }));
       const turn = await harnessService.appendTurn(thread.id, {
-        inputText: `Prepare ${specification.title}`,
+        inputText: preparationTurnText(row, previous),
+        model: input.selection?.model ?? specification.model.label ?? "auto",
       });
       const reported = await llm.scaffoldProject({
         profileId: row.profileId,
@@ -1184,6 +1230,28 @@ export function createProjectPreparationService(dependencies: {
     },
 
     get: detail,
+
+    async files(
+      profileId: string,
+      challengeId: string,
+    ): Promise<ProjectFilesView> {
+      const layout = await projectFilesLayout(profileId, challengeId);
+      const result = await listProjectFiles(layout);
+      return {
+        projectDirectory: layout.projectDirectory,
+        projectPath: layout.projectRoot,
+        ...result,
+      };
+    },
+
+    async file(
+      profileId: string,
+      challengeId: string,
+      path: string,
+    ): Promise<ProjectFileContent> {
+      const layout = await projectFilesLayout(profileId, challengeId);
+      return readProjectFile(layout, path);
+    },
 
     start(
       profileId: string,

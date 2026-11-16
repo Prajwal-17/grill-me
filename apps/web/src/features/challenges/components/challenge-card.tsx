@@ -12,12 +12,14 @@ export function ChallengeCard({
   headingPrefix,
   headerAction,
   showTitle = true,
+  reading = false,
 }: {
   challenge: Challenge;
   className?: string;
   headingPrefix?: string;
   headerAction?: ReactNode;
   showTitle?: boolean;
+  reading?: boolean;
 }) {
   const Icon =
     challenge.scope === "system"
@@ -26,7 +28,13 @@ export function ChallengeCard({
         ? Blocks
         : Target;
   return (
-    <article className={cn("mx-auto w-full min-w-0 max-w-[70ch]", className)}>
+    <article
+      className={cn(
+        "mx-auto w-full min-w-0",
+        reading ? "max-w-none" : "max-w-[70ch]",
+        className,
+      )}
+    >
       <header className="mb-8">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-2">
@@ -45,7 +53,10 @@ export function ChallengeCard({
         )}
       </header>
       <div className="text-reading [overflow-wrap:anywhere]">
-        <Markdown headingPrefix={headingPrefix}>
+        <Markdown
+          headingPrefix={headingPrefix}
+          variant={reading ? "reading" : "default"}
+        >
           {statementBody(challenge)}
         </Markdown>
       </div>

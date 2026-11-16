@@ -137,6 +137,7 @@ export function AppShell({
           id="app-content"
           tabIndex={-1}
           data-slot="app-content"
+          data-scrollable={contentScrollable || undefined}
           className={cn(
             "relative min-h-0 flex-1 outline-none",
             contentScrollable

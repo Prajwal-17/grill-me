@@ -110,6 +110,28 @@ export const challengeSchema = challengeContentSchema.extend({
   archivedAt: z.string().nullable().default(null),
 });
 
+/**
+ * Reads keep the shape strict but not the brief content limits. Rows written by
+ * older builds, imports, or hand-edited folders can exceed today's generation
+ * limits, and stored practice must stay readable instead of failing the request.
+ * New content is still constrained by the generation schemas above.
+ */
+export const storedChallengeSchema = challengeSchema.extend({
+  title: z.string().min(1),
+  topic: z.string().nullable(),
+  implementationBoundary: z.string().nullable(),
+  difficultyReason: z.string().nullable(),
+  problemStatement: z.string().min(1),
+  expectedOutcome: z.string(),
+  completionCriteria: z.array(z.string()).min(1),
+  implementationMilestones: z.array(z.string()),
+  estimatedDifficultyScore: z.number().int().nullable().default(null),
+  durationEstimate: z.object({
+    minMinutes: z.number().int(),
+    maxMinutes: z.number().int(),
+  }),
+});
+
 const buildRequestSchema = z.object({
   ...learningContextSchema.shape,
   prompt: z.string().trim().min(3).max(4_000),

@@ -1,6 +1,7 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/shared/components/ui/button";
+import { writeClipboardText } from "@/shared/lib/clipboard";
 
 export function CopyButton({
   text,
@@ -25,7 +26,7 @@ export function CopyButton({
         aria-label={ariaLabel}
         onClick={async () => {
           try {
-            await navigator.clipboard.writeText(text);
+            await writeClipboardText(text);
             setState("copied");
           } catch {
             setState("error");

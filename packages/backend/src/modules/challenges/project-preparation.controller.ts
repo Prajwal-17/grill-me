@@ -13,6 +13,10 @@ const startProjectPreparationSchema = z.object({
 
 const recoveryAttemptSchema = z.strictObject({});
 
+const projectFileQuerySchema = z.object({
+  path: z.string().min(1).max(512),
+});
+
 const commandParamsSchema = challengeParamsSchema.extend({
   commandId: z.string().uuid(),
 });
@@ -61,6 +65,18 @@ export function createProjectPreparationController(
   return {
     get: async (c: Context) =>
       c.json({ data: await service.get(profileId(c), challengeId(c)) }),
+
+    files: async (c: Context) =>
+      c.json({
+        data: await service.files(profileId(c), challengeId(c)),
+      }),
+
+    file: async (c: Context) => {
+      const { path } = parseInput(projectFileQuerySchema, c.req.query());
+      return c.json({
+        data: await service.file(profileId(c), challengeId(c), path),
+      });
+    },
 
     start: async (c: Context) => {
       const input = parseInput(

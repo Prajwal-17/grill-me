@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowDownToLine, LoaderCircle, RefreshCw } from "lucide-react";
+import {
+  ArrowDownToLine,
+  LoaderCircle,
+  MoreHorizontal,
+  RefreshCw,
+} from "lucide-react";
 import type { DesktopUpdateState } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -51,7 +62,11 @@ export function UpdateIndicator() {
     </Button>
   );
 }
-export function DesktopUpdatesSettings() {
+export function DesktopUpdatesSettings({
+  versionLabel,
+}: {
+  versionLabel?: string | null;
+}) {
   const state = useDesktopUpdates();
   const queries = useQueryClient();
   const bridge = window.desktopBridge;
@@ -71,29 +86,65 @@ export function DesktopUpdatesSettings() {
     action.isPending ||
     data?.phase === "checking" ||
     data?.phase === "installing";
+  const statusText = data?.phase === "error" ? undefined : data?.message;
   return (
-    <section aria-labelledby="updates-heading" className="mb-8">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h3 id="updates-heading" className="text-ui font-semibold">
-          Updates
-        </h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          disabled={
-            working ||
-            !data?.authorized ||
-            !data.enabled ||
-            data.phase === "downloading"
-          }
-          onClick={() => action.mutate(() => bridge.checkForUpdates())}
-        >
-          <RefreshCw size={14} />
-          Check for updates
-        </Button>
+    <section aria-label="Updates" className="py-4">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="min-w-0 text-supporting text-muted">
+          {versionLabel && (
+            <span className="font-medium tabular-nums text-foreground">
+              {versionLabel}
+            </span>
+          )}
+          {versionLabel && statusText && <span aria-hidden="true"> · </span>}
+          {statusText && <span>{statusText}</span>}
+        </p>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={
+              working ||
+              !data?.authorized ||
+              !data.enabled ||
+              data.phase === "downloading"
+            }
+            onClick={() => action.mutate(() => bridge.checkForUpdates())}
+          >
+            {data?.phase === "checking" ? (
+              <LoaderCircle size={14} className="animate-spin" />
+            ) : (
+              <RefreshCw size={14} />
+            )}
+            Check for updates
+          </Button>
+          {data?.authorized && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Update options"
+                >
+                  <MoreHorizontal size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={working || data.phase === "downloading"}
+                  onSelect={() =>
+                    action.mutate(() => bridge.forgetUpdateToken())
+                  }
+                >
+                  Disconnect private updates
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
       {state.isPending && (
-        <p role="status" className="text-supporting text-muted">
+        <p role="status" className="mt-2 text-supporting text-muted">
           Checking update access…
         </p>
       )}
@@ -106,33 +157,8 @@ export function DesktopUpdatesSettings() {
       />
       {data && (
         <>
-          {data.phase !== "error" && (
-            <p role="status" className="mb-3 text-supporting text-muted">
-              {data.message}
-            </p>
-          )}
-          {data.authorized && (
-            <div className="mb-4 flex flex-wrap items-center gap-3 text-supporting">
-              <span>
-                {data.authSource === "owner-cli"
-                  ? "Owner · GitHub CLI"
-                  : data.authSource === "session-token"
-                    ? "Token connected for this session"
-                    : "Token saved securely"}
-                {data.email ? ` · ${data.email}` : ""}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={working || data.phase === "downloading"}
-                onClick={() => action.mutate(() => bridge.forgetUpdateToken())}
-              >
-                Disconnect updates
-              </Button>
-            </div>
-          )}
           {data.phase === "downloading" && (
-            <div className="mb-4 space-y-2">
+            <div className="mt-3 space-y-2">
               <progress
                 className="h-2 w-full accent-foreground"
                 value={data.progress ?? 0}
@@ -157,6 +183,7 @@ export function DesktopUpdatesSettings() {
             ["available", "error"].includes(data.phase) &&
             data.progress !== 100 && (
               <Button
+                className="mt-3"
                 variant="primary"
                 disabled={working || !data.authorized}
                 onClick={() => action.mutate(() => bridge.downloadUpdate())}
@@ -168,6 +195,7 @@ export function DesktopUpdatesSettings() {
           {(data.phase === "downloaded" ||
             (data.phase === "error" && data.progress === 100)) && (
             <Button
+              className="mt-3"
               variant="primary"
               disabled={working}
               onClick={() => setConfirm(true)}

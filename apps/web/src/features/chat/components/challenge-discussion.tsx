@@ -77,13 +77,7 @@ export function ChallengeDiscussion({
   const inFlight =
     send.isPending || history.some((m) => m.status === "streaming");
   return (
-    <section
-      className="border-t border-line pt-6"
-      aria-labelledby="discussion-title"
-    >
-      <h2 id="discussion-title" className="text-ui font-semibold">
-        Questions & follow-ups
-      </h2>
+    <section className="space-y-3" aria-label="Ask about this challenge">
       {messages.error && (
         <p role="alert" className="mt-3 text-supporting text-destructive">
           Could not load the discussion.{" "}

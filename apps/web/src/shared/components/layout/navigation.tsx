@@ -2,7 +2,6 @@ import { Link, useLocation } from "react-router";
 import {
   BookOpen,
   ListChecks,
-  ScrollText,
   House,
   Plus,
   Settings2,
@@ -57,12 +56,6 @@ export function Navigation({
       label: "Settings",
       icon: Settings2,
       active: pathname === "/settings",
-    },
-    {
-      href: "/logs",
-      label: "Logs",
-      icon: ScrollText,
-      active: pathname === "/logs" || pathname.startsWith("/logs/"),
     },
   ];
   const renderLink = ({

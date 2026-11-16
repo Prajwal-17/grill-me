@@ -71,6 +71,8 @@
   --text-metadata--line-height: 1.5;
   --text-reading: 1rem;
   --text-reading--line-height: 1.75;
+  --text-prose: 1.0625rem;
+  --text-prose--line-height: 1.7;
   --text-question: 1.125rem;
   --text-question--line-height: 1.5556;
   --text-section: 1.25rem;
@@ -98,6 +100,7 @@
   --foreground: #202020;
   --elevated: #ededed;
   --muted: #666666;
+  --prose-ink: #2f2f2f;
   --line: #e2e2e2;
   --line-strong: #929292;
   --control-border: #d4d4d4;
@@ -130,6 +133,7 @@
   --foreground: #f2f2f2;
   --elevated: #292929;
   --muted: #aaaaaa;
+  --prose-ink: #d6d6d6;
   --line: #383838;
   --line-strong: #7d7d7d;
   --control-border: #414141;
@@ -473,6 +477,18 @@
 
 /* Difficulty remains labeled and icon-coded; hue reinforces the level. */
 @layer utilities {
+  /* Hide scrollbar chrome inside dense workspace panes while keeping wheel,
+     trackpad, touch, and keyboard scrolling available. */
+  .scrollbar-quiet {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-quiet::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
   [data-difficulty][data-difficulty="easy"] {
     color: var(--success);
   }
@@ -514,6 +530,24 @@
   }
   .markdown :is(h1, h2, h3, h4) {
     letter-spacing: -0.015em;
+  }
+  /* Long-form challenge briefs read at their own size, not at the denser
+     interface size used by badges and controls. */
+  .markdown.markdown-reading {
+    width: 100%;
+    max-width: 75ch;
+    color: var(--prose-ink);
+    font-size: var(--text-prose);
+    line-height: var(--text-prose--line-height);
+    overflow-wrap: anywhere;
+  }
+  .markdown-reading :not(pre) > code {
+    box-decoration-break: clone;
+    overflow-wrap: anywhere;
+    -webkit-box-decoration-break: clone;
+  }
+  .markdown-reading :is(td, th) {
+    overflow-wrap: anywhere;
   }
 }
 /* Preserve readable touch inputs and avoid iOS focus zoom, including caller overrides. */
@@ -633,7 +667,7 @@ html[data-desktop="true"] [data-slot="header-actions"] * {
 html[data-desktop="true"] [data-slot="page-header"] {
   background: var(--canvas);
 }
-html[data-desktop="true"] #app-content {
+html[data-desktop="true"] #app-content[data-scrollable] {
   scrollbar-gutter: stable;
 }
 @media (prefers-reduced-motion: reduce) {

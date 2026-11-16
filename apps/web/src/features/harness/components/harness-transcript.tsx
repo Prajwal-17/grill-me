@@ -1,16 +1,24 @@
 import { useState } from "react";
 import {
+  Brain,
   CheckCircle2,
   ChevronRight,
   CircleAlert,
   CircleHelp,
-  FileCode2,
+  CircleSlash,
+  Clock3,
+  FilePenLine,
   FileSearch,
+  FileText,
+  Globe,
+  Info,
   LoaderCircle,
-  Search,
-  ShieldQuestion,
+  MessageCircleQuestion,
+  RotateCcw,
+  ShieldAlert,
   Square,
   Terminal,
+  Wrench,
 } from "lucide-react";
 import type {
   HarnessItem,
@@ -18,16 +26,17 @@ import type {
   HarnessThreadDetail,
 } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { Markdown } from "@/shared/components/markdown";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/cn";
 import {
   useHarnessDecision,
   useHarnessThread,
-  useHarnessThreads,
   useRetryHarnessThread,
   useStopHarnessThread,
 } from "../hooks/use-harness";
+import { runKindMeta } from "../lib/run-kinds";
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -37,94 +46,318 @@ function numberValue(value: unknown) {
   return typeof value === "number" ? value : null;
 }
 
-const toolIcons: Partial<Record<HarnessItemType, typeof Terminal>> = {
-  command_execution: Terminal,
-  file_change: FileCode2,
-  file_read: FileCode2,
-  file_search: FileSearch,
-  web_search: Search,
-  tool_call: Square,
-};
-
-function StatusDot({ status }: { status: string }) {
-  if (status === "running")
-    return (
-      <LoaderCircle
-        size={13}
-        aria-label="Running"
-        className="animate-spin text-warning motion-reduce:animate-none"
-      />
-    );
-  if (status === "completed")
-    return (
-      <CheckCircle2 size={13} aria-label="Completed" className="text-success" />
-    );
-  if (status === "failed")
-    return (
-      <CircleAlert size={13} aria-label="Failed" className="text-destructive" />
-    );
-  if (status === "cancelled")
-    return <Square size={12} aria-label="Cancelled" className="text-muted" />;
-  return <CircleHelp size={13} aria-label={status} className="text-muted" />;
+function formatDuration(ms: number) {
+  const seconds = ms / 1000;
+  return seconds >= 10 ? `${Math.round(seconds)}s` : `${seconds.toFixed(1)}s`;
 }
 
-function toolSummary(item: HarnessItem) {
-  const payload = item.payload;
-  if (item.type === "command_execution")
-    return (
-      stringValue(payload.input ?? payload.command) || item.title || "Command"
-    );
-  if (
-    item.type === "file_change" ||
-    item.type === "file_read" ||
-    item.type === "file_search"
-  )
-    return (
-      stringValue(payload.path) ||
-      stringValue(
-        (payload.input as Record<string, unknown> | undefined)?.path,
-      ) ||
-      item.title ||
-      "File"
-    );
-  return item.title ?? item.type.replaceAll("_", " ");
+function prettyJson(text: string) {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return text;
+  try {
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
+  } catch {
+    return text;
+  }
 }
 
-function ToolItem({ item }: { item: HarnessItem }) {
-  const Icon = toolIcons[item.type] ?? Square;
-  const output = stringValue(item.payload.output);
-  const input = item.payload.input;
-  const exitCode = numberValue(item.payload.exitCode);
+function payloadOutput(payload: Record<string, unknown>) {
+  const output = payload.output;
+  if (typeof output === "string") return prettyJson(output);
+  if (!output || typeof output !== "object") return "";
+  const content = (output as { content?: unknown }).content;
+  if (!Array.isArray(content)) return JSON.stringify(output, null, 2);
+  return content
+    .map((part) => {
+      if (typeof part === "string") return part;
+      if (part && typeof part === "object") {
+        const value = (part as { text?: unknown }).text;
+        if (typeof value === "string") return prettyJson(value);
+      }
+      return JSON.stringify(part, null, 2);
+    })
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function commandResult(payload: Record<string, unknown>) {
+  const output = payload.output;
+  let text = "";
+  if (typeof output === "string") text = output;
+  else if (output && typeof output === "object") {
+    const content = (output as { content?: unknown }).content;
+    if (Array.isArray(content)) {
+      const first = content[0] as { text?: unknown } | undefined;
+      if (typeof first?.text === "string") text = first.text;
+    }
+  }
+  if (!text.trim()) return null;
+  try {
+    const report = JSON.parse(text) as {
+      result?: {
+        output?: unknown;
+        exitCode?: unknown;
+        durationMs?: unknown;
+        status?: unknown;
+      };
+    };
+    const result = report.result;
+    if (!result || typeof result !== "object") return null;
+    return {
+      output: typeof result.output === "string" ? result.output.trimEnd() : "",
+      exitCode: typeof result.exitCode === "number" ? result.exitCode : null,
+      durationMs:
+        typeof result.durationMs === "number" ? result.durationMs : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const statusMeta = {
+  queued: { label: "Queued", icon: Clock3, tone: "muted" },
+  pending: { label: "Pending", icon: Clock3, tone: "muted" },
+  running: { label: "Running", icon: LoaderCircle, tone: "warning" },
+  waiting: { label: "Waiting", icon: CircleHelp, tone: "warning" },
+  completed: { label: "Completed", icon: CheckCircle2, tone: "success" },
+  failed: { label: "Failed", icon: CircleAlert, tone: "destructive" },
+  cancelled: { label: "Cancelled", icon: Square, tone: "muted" },
+  interrupted: { label: "Interrupted", icon: CircleSlash, tone: "warning" },
+} as const;
+
+const toneClass = {
+  success: "text-success",
+  destructive: "text-destructive",
+  warning: "text-warning",
+  muted: "text-muted",
+} as const;
+
+export function HarnessStatus({
+  status,
+  label = false,
+}: {
+  status: string;
+  label?: boolean;
+}) {
+  const meta =
+    statusMeta[status as keyof typeof statusMeta] ?? statusMeta.interrupted;
+  const Icon = meta.icon;
+  const spinning = status === "running";
   return (
-    <li className="py-1.5">
-      <details>
-        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 rounded-sm text-metadata text-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-          <ChevronRight size={12} className="shrink-0" aria-hidden="true" />
-          <Icon size={13} className="shrink-0" aria-hidden="true" />
-          <span className="break-all text-foreground">{toolSummary(item)}</span>
-          {exitCode !== null && <span>exit {exitCode}</span>}
-          <StatusDot status={item.status} />
-        </summary>
-        <div className="ml-6 mt-1 space-y-1.5">
-          {input !== undefined && (
-            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-line bg-canvas px-2 py-1.5 font-mono text-code">
-              {typeof input === "string"
-                ? input
-                : JSON.stringify(input, null, 2)}
-            </pre>
-          )}
-          {output && (
-            <pre className="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded border border-line bg-canvas px-2 py-1.5 font-mono text-code text-muted">
-              {output}
-            </pre>
-          )}
-        </div>
-      </details>
-    </li>
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 text-metadata",
+        toneClass[meta.tone],
+      )}
+    >
+      <Icon
+        size={13}
+        aria-hidden="true"
+        className={cn(
+          "shrink-0",
+          spinning && "animate-spin motion-reduce:animate-none",
+        )}
+      />
+      {label ? (
+        <span className="truncate">{meta.label}</span>
+      ) : (
+        <span className="sr-only">{meta.label}</span>
+      )}
+    </span>
   );
 }
 
-function RequestItem({
+const runDate = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+export function formatRunDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : runDate.format(date);
+}
+
+function formatTokens(value: number) {
+  return value.toLocaleString();
+}
+
+const rowClass =
+  "flex cursor-pointer list-none items-center gap-2 rounded-md px-1.5 py-1 text-metadata text-muted outline-none transition-colors hover:bg-elevated/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden";
+
+const chevronClass =
+  "size-3 shrink-0 text-muted transition-transform duration-150 group-open:rotate-90";
+
+const toolIcons: Partial<Record<HarnessItemType, typeof Terminal>> = {
+  command_execution: Terminal,
+  file_change: FilePenLine,
+  file_read: FileText,
+  file_search: FileSearch,
+  web_search: Globe,
+  tool_call: Wrench,
+};
+
+const toolTypes = new Set<HarnessItemType>([
+  "command_execution",
+  "file_change",
+  "file_read",
+  "file_search",
+  "web_search",
+  "tool_call",
+]);
+
+function toolLabel(item: HarnessItem) {
+  const payload = item.payload;
+  const input = payload.input as Record<string, unknown> | undefined;
+  const inputPath = stringValue(input?.path) || stringValue(payload.path);
+  const path = inputPath || item.title || "";
+  const title = item.title ?? "";
+  if (item.type === "command_execution") {
+    const command =
+      typeof payload.input === "string"
+        ? payload.input
+        : stringValue(input?.command) || stringValue(payload.command);
+    return { prefix: "", text: command || "Command", mono: true };
+  }
+  if (title === "list_project_files")
+    return { prefix: "Listed", text: inputPath || "project files" };
+  if (title === "search_project_files")
+    return {
+      prefix: "Searched",
+      text:
+        stringValue(input?.query) ||
+        stringValue(payload.query) ||
+        "project files",
+    };
+  if (title === "read_project_file")
+    return { prefix: "Read", text: inputPath || "file" };
+  if (item.type === "file_change") return { prefix: "Edited", text: path };
+  if (item.type === "file_read") return { prefix: "Read", text: path };
+  if (item.type === "file_search")
+    return {
+      prefix: "Searched",
+      text: stringValue(payload.query) || path,
+    };
+  if (item.type === "web_search")
+    return {
+      prefix: "Web search",
+      text: stringValue(payload.query) || item.title || "",
+    };
+  return {
+    prefix: "",
+    text: title ? title.replaceAll("_", " ") : item.type.replaceAll("_", " "),
+  };
+}
+
+function PreBlock({ children }: { children: string }) {
+  return (
+    <pre className="scrollbar-quiet max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-canvas px-2.5 py-2 font-mono text-code leading-relaxed text-muted select-text">
+      {children}
+    </pre>
+  );
+}
+
+function ToolRow({ item }: { item: HarnessItem }) {
+  const payload = item.payload;
+  const Icon = toolIcons[item.type] ?? Wrench;
+  const { prefix, text, mono } = toolLabel(item);
+  const command =
+    item.type === "command_execution" ? commandResult(payload) : null;
+  const output = command ? command.output : payloadOutput(payload);
+  const rawInput = payload.input;
+  const input =
+    item.type === "tool_call" && rawInput !== undefined
+      ? typeof rawInput === "string"
+        ? rawInput
+        : JSON.stringify(rawInput, null, 2)
+      : "";
+  const exitCode = command?.exitCode ?? numberValue(payload.exitCode);
+  const failed = item.status === "failed";
+  const expandable = Boolean(output || input);
+  const summary = (
+    <span className="flex min-w-0 flex-1 items-center gap-2 text-left">
+      <Icon
+        size={14}
+        className={cn("shrink-0", failed ? "text-destructive" : "text-muted")}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1 truncate">
+        {prefix && <span className="text-foreground/80">{prefix} </span>}
+        <span className={cn(mono && "font-mono")}>{text}</span>
+      </span>
+      {exitCode !== null && (
+        <span className="shrink-0 tabular-nums text-muted">
+          exit {exitCode}
+          {command?.durationMs
+            ? ` · ${formatDuration(command.durationMs)}`
+            : ""}
+        </span>
+      )}
+      {item.status !== "completed" && <HarnessStatus status={item.status} />}
+      {expandable && (
+        <ChevronRight size={13} className={chevronClass} aria-hidden="true" />
+      )}
+    </span>
+  );
+  if (!expandable)
+    return (
+      <div className="rounded-md px-1.5 py-1 text-metadata">{summary}</div>
+    );
+  return (
+    <details className="group">
+      <summary className={rowClass}>{summary}</summary>
+      <div className="mt-1 mb-2 ml-6 space-y-2">
+        {input && <PreBlock>{input}</PreBlock>}
+        {output && <PreBlock>{output}</PreBlock>}
+      </div>
+    </details>
+  );
+}
+
+function ReasoningRow({ text }: { text: string }) {
+  const preview = text.trim().split("\n")[0]?.trim() ?? "";
+  return (
+    <details className="group">
+      <summary
+        className={rowClass}
+        aria-label={`Reasoning${preview ? `: ${preview}` : ""}`}
+      >
+        <Brain size={14} className="shrink-0 text-muted" aria-hidden="true" />
+        <span className="min-w-0 flex-1 truncate">
+          <span className="text-foreground/80">Reasoning</span>
+          {preview && <span className="text-muted"> · {preview}</span>}
+        </span>
+        <ChevronRight size={13} className={chevronClass} aria-hidden="true" />
+      </summary>
+      <div className="scrollbar-quiet mt-1 mb-2 ml-6 max-h-80 overflow-y-auto border-l border-line pl-3 text-metadata leading-5 text-muted">
+        <p className="whitespace-pre-wrap break-words select-text">{text}</p>
+      </div>
+    </details>
+  );
+}
+
+function UserMessage({ text }: { text: string }) {
+  return (
+    <div className="flex justify-end">
+      <h4 className="sr-only">You</h4>
+      <div className="max-w-[85%] rounded-xl bg-elevated px-3.5 py-2.5 text-supporting leading-6">
+        <Markdown>{text}</Markdown>
+      </div>
+    </div>
+  );
+}
+
+function AssistantMessage({ text }: { text: string }) {
+  return (
+    <div className="min-w-0 text-supporting leading-6">
+      <h4 className="sr-only">Agent</h4>
+      <Markdown>{text}</Markdown>
+    </div>
+  );
+}
+
+function RequestCard({
   item,
   profileId,
   threadId,
@@ -146,92 +379,87 @@ function RequestItem({
   const pending = item.status === "pending";
   const isQuestion = item.type === "user_input_request";
   return (
-    <li
+    <div
       className={cn(
-        "my-2 rounded-md border px-3 py-2.5",
-        pending ? "border-warning/50 bg-warning/5" : "border-line bg-panel",
+        "rounded-lg border px-3 py-2.5",
+        pending ? "border-warning/40 bg-warning/5" : "border-line bg-panel",
       )}
     >
-      <div className="flex items-start gap-2">
-        <ShieldQuestion
-          size={15}
-          aria-hidden="true"
-          className="mt-0.5 shrink-0 text-warning"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="text-metadata font-medium text-foreground">
-            {isQuestion ? "The agent needs an answer" : "Approval required"}
-          </p>
-          <p className="mt-1 break-words text-supporting text-foreground">
-            {prompt}
-          </p>
-          {isQuestion && !!options.length && (
-            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-metadata text-muted">
-              {options.map((option) => (
-                <li key={option}>{option}</li>
-              ))}
-            </ul>
+      <p className="flex items-center gap-1.5 text-metadata font-medium text-warning">
+        {isQuestion ? (
+          <MessageCircleQuestion size={14} aria-hidden="true" />
+        ) : (
+          <ShieldAlert size={14} aria-hidden="true" />
+        )}
+        {isQuestion ? "The agent needs an answer" : "Approval needed"}
+      </p>
+      <p className="mt-1.5 break-words text-supporting leading-5 text-foreground">
+        {prompt}
+      </p>
+      {isQuestion && !!options.length && (
+        <ul className="mt-1.5 list-disc space-y-0.5 pl-4 text-metadata text-muted">
+          {options.map((option) => (
+            <li key={option}>{option}</li>
+          ))}
+        </ul>
+      )}
+      {pending && requestId ? (
+        <div className="mt-2.5 space-y-2">
+          {isQuestion && (
+            <Textarea
+              value={answer}
+              onChange={(event) => setAnswer(event.target.value)}
+              aria-label="Answer"
+              placeholder="Type your answer"
+              rows={2}
+            />
           )}
-          {pending && requestId && (
-            <div className="mt-2 space-y-2">
-              {isQuestion && (
-                <Textarea
-                  value={answer}
-                  onChange={(event) => setAnswer(event.target.value)}
-                  aria-label="Answer"
-                  placeholder="Type your answer"
-                  rows={2}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={decide.isPending || (isQuestion && !answer.trim())}
+              onClick={() =>
+                decide.mutate({
+                  requestId,
+                  decision: {
+                    decision: "allow",
+                    ...(answer.trim() ? { answer: answer.trim() } : {}),
+                  },
+                })
+              }
+            >
+              {decide.isPending && (
+                <LoaderCircle
+                  size={13}
+                  className="animate-spin motion-reduce:animate-none"
                 />
               )}
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={decide.isPending || (isQuestion && !answer.trim())}
-                  onClick={() =>
-                    decide.mutate({
-                      requestId,
-                      decision: {
-                        decision: "allow",
-                        ...(answer.trim() ? { answer: answer.trim() } : {}),
-                      },
-                    })
-                  }
-                >
-                  {decide.isPending ? (
-                    <LoaderCircle
-                      size={14}
-                      className="animate-spin motion-reduce:animate-none"
-                    />
-                  ) : null}
-                  {isQuestion ? "Send answer" : "Allow"}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={decide.isPending}
-                  onClick={() =>
-                    decide.mutate({ requestId, decision: { decision: "deny" } })
-                  }
-                >
-                  {isQuestion ? "Skip" : "Deny"}
-                </Button>
-              </div>
-              {decide.error && (
-                <p role="alert" className="text-metadata text-destructive">
-                  {decide.error.message}
-                </p>
-              )}
-            </div>
-          )}
-          {!pending && (
-            <p className="mt-1 text-metadata text-muted">
-              Decision: {stringValue(payload.decision) || "answered"}
+              {isQuestion ? "Send answer" : "Allow"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={decide.isPending}
+              onClick={() =>
+                decide.mutate({ requestId, decision: { decision: "deny" } })
+              }
+            >
+              {isQuestion ? "Skip" : "Deny"}
+            </Button>
+          </div>
+          {decide.error && (
+            <p role="alert" className="text-metadata text-destructive">
+              {decide.error.message}
             </p>
           )}
         </div>
-      </div>
-    </li>
+      ) : (
+        <p className="mt-1.5 text-metadata text-muted">
+          {stringValue(payload.decision) || "Answered"}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -245,55 +473,55 @@ function Item({
   threadId: string;
 }) {
   if (item.type === "user_message")
-    return (
-      <li className="py-2">
-        <p className="text-metadata text-muted">You</p>
-        <div className="mt-0.5 text-supporting">
-          <Markdown>{item.text ?? ""}</Markdown>
-        </div>
-      </li>
-    );
+    return item.text?.trim() ? <UserMessage text={item.text} /> : null;
   if (item.type === "assistant_message")
-    return (
-      <li className="py-2">
-        <p className="text-metadata text-muted">Agent</p>
-        <div className="mt-0.5 text-supporting">
-          <Markdown>{item.text ?? ""}</Markdown>
-        </div>
-      </li>
-    );
+    return item.text?.trim() ? <AssistantMessage text={item.text} /> : null;
   if (item.type === "reasoning")
-    return (
-      <li className="py-1">
-        <details>
-          <summary className="cursor-pointer text-metadata text-muted hover:text-foreground">
-            Reasoning
-          </summary>
-          <p className="mt-1 whitespace-pre-wrap break-words text-metadata text-muted">
-            {item.text}
-          </p>
-        </details>
-      </li>
-    );
+    return item.text?.trim() ? <ReasoningRow text={item.text} /> : null;
   if (item.type === "approval_request" || item.type === "user_input_request")
     return (
-      <RequestItem item={item} profileId={profileId} threadId={threadId} />
+      <RequestCard item={item} profileId={profileId} threadId={threadId} />
     );
   if (item.type === "error")
     return (
-      <li
+      <div
         role="alert"
-        className="my-1 rounded border border-destructive/40 bg-destructive/5 px-2.5 py-1.5 text-metadata text-destructive"
+        className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-2 text-metadata text-destructive"
       >
-        {item.text ?? item.title ?? "The run failed."}
-      </li>
+        <CircleAlert size={14} className="mt-px shrink-0" aria-hidden="true" />
+        <span className="min-w-0 break-words">
+          {item.text ?? item.title ?? "The run failed."}
+        </span>
+      </div>
     );
   if (item.type === "system_notice")
-    return <li className="py-1 text-metadata text-muted">{item.text}</li>;
-  return <ToolItem item={item} />;
+    return (
+      <p className="flex items-center gap-1.5 py-0.5 text-metadata text-muted">
+        <Info size={13} className="shrink-0" aria-hidden="true" />
+        <span className="min-w-0 break-words">{item.text}</span>
+      </p>
+    );
+  return <ToolRow item={item} />;
 }
 
-function ThreadTurn({
+type Block =
+  { kind: "tools"; items: HarnessItem[] } | { kind: "item"; item: HarnessItem };
+
+function itemBlocks(items: HarnessItem[]) {
+  const blocks: Block[] = [];
+  for (const item of items) {
+    if (!toolTypes.has(item.type)) {
+      blocks.push({ kind: "item", item });
+      continue;
+    }
+    const last = blocks.at(-1);
+    if (last?.kind === "tools") last.items.push(item);
+    else blocks.push({ kind: "tools", items: [item] });
+  }
+  return blocks;
+}
+
+function Turn({
   detail,
   turn,
   profileId,
@@ -302,28 +530,65 @@ function ThreadTurn({
   turn: HarnessThreadDetail["turns"][number];
   profileId: string;
 }) {
+  const turnLabel =
+    detail.thread.kind === "project_scaffold" ? "Attempt" : "Turn";
   return (
-    <section className="border-t border-line pt-2 first:border-t-0 first:pt-0">
-      <div className="flex flex-wrap items-center gap-2 text-metadata text-muted">
-        <span className="font-medium text-foreground">Turn {turn.ordinal}</span>
-        <StatusDot status={turn.status} />
-        <span>{turn.model}</span>
-        <span>{turn.runtimeMode}</span>
+    <section
+      aria-label={`${turnLabel} ${turn.ordinal}`}
+      className="border-t border-line pt-4 first:border-t-0 first:pt-0"
+    >
+      <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
+        <span className="font-medium text-foreground">
+          {turnLabel} {turn.ordinal}
+        </span>
+        <HarnessStatus status={turn.status} label />
+        <span aria-hidden="true" className="hidden sm:inline">
+          ·
+        </span>
+        <span className="hidden font-mono sm:inline">{turn.model}</span>
         {turn.totalTokens !== null && (
-          <span>{turn.totalTokens.toLocaleString()} tokens</span>
+          <>
+            <span aria-hidden="true">·</span>
+            <span className="tabular-nums">
+              {formatTokens(turn.totalTokens)} tokens
+            </span>
+          </>
         )}
       </div>
-      <ul className="mt-1 divide-y divide-line">
-        {turn.items.map((item) => (
-          <Item
-            key={item.id}
-            item={item}
-            profileId={profileId}
-            threadId={detail.thread.id}
-          />
-        ))}
-      </ul>
+      <div className="space-y-3">
+        {itemBlocks(turn.items).map((block, index) =>
+          block.kind === "tools" ? (
+            <div key={`tools-${index}`} className="space-y-0.5">
+              {block.items.map((item) => (
+                <ToolRow key={item.id} item={item} />
+              ))}
+            </div>
+          ) : (
+            <Item
+              key={block.item.id}
+              item={block.item}
+              profileId={profileId}
+              threadId={detail.thread.id}
+            />
+          ),
+        )}
+      </div>
     </section>
+  );
+}
+
+function TranscriptSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-label="Loading run transcript"
+      className="space-y-3"
+    >
+      <Skeleton className="h-4 w-2/5" />
+      <Skeleton className="h-16 w-full" />
+      <Skeleton className="h-4 w-3/5" />
+      <Skeleton className="h-10 w-full" />
+    </div>
   );
 }
 
@@ -339,19 +604,14 @@ export function HarnessTranscript({
   const query = useHarnessThread(profileId, threadId);
   const stop = useStopHarnessThread(profileId);
   const retry = useRetryHarnessThread(profileId);
-  if (query.isPending)
-    return (
-      <p role="status" className="text-metadata text-muted">
-        Loading run transcript…
-      </p>
-    );
+  if (query.isPending) return <TranscriptSkeleton />;
   if (query.error)
     return (
       <div className="flex flex-wrap items-center gap-2">
         <p role="alert" className="text-metadata text-destructive">
           {query.error.message}
         </p>
-        <Button size="sm" onClick={() => void query.refetch()}>
+        <Button size="sm" variant="ghost" onClick={() => void query.refetch()}>
           Retry
         </Button>
       </div>
@@ -361,59 +621,106 @@ export function HarnessTranscript({
   const active = ["queued", "running", "waiting"].includes(
     detail.thread.status,
   );
+  const retryable = ["failed", "cancelled", "interrupted"].includes(
+    detail.thread.status,
+  );
+  const kind = runKindMeta(detail.thread.kind);
+  const KindIcon = kind.icon;
   return (
-    <div className={cn("min-w-0", className)}>
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="min-w-0 flex-1 break-words text-metadata text-muted">
-          {detail.thread.title}
-        </p>
-        <StatusDot status={detail.thread.status} />
-        <span className="text-metadata text-muted">{detail.thread.status}</span>
-        {active && (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={stop.isPending}
-            onClick={() => stop.mutate(detail.thread.id)}
-          >
-            {stop.isPending ? (
-              <LoaderCircle
-                size={13}
-                className="animate-spin motion-reduce:animate-none"
-              />
-            ) : (
-              <Square size={11} />
+    <article aria-label="Run transcript" className={cn("min-w-0", className)}>
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-line pb-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <KindIcon
+              size={15}
+              className="shrink-0 text-muted"
+              aria-hidden="true"
+            />
+            <h3 className="min-w-0 flex-1 truncate text-ui font-medium">
+              {detail.thread.title}
+            </h3>
+            <HarnessStatus status={detail.thread.status} label />
+          </div>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[23px] text-metadata text-muted">
+            <span>{kind.label}</span>
+            <span aria-hidden="true">·</span>
+            <span>{formatRunDate(detail.thread.createdAt)}</span>
+            <span aria-hidden="true" className="hidden sm:inline">
+              ·
+            </span>
+            <span className="hidden font-mono sm:inline">
+              {detail.thread.model}
+            </span>
+            <span aria-hidden="true" className="hidden sm:inline">
+              ·
+            </span>
+            <span className="hidden sm:inline">
+              {detail.thread.runtimeMode}
+            </span>
+          </p>
+        </div>
+        {(active || retryable) && (
+          <div className="flex items-center gap-1">
+            {active && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={stop.isPending}
+                onClick={() => stop.mutate(detail.thread.id)}
+              >
+                {stop.isPending ? (
+                  <LoaderCircle
+                    size={13}
+                    className="animate-spin motion-reduce:animate-none"
+                  />
+                ) : (
+                  <Square size={11} />
+                )}
+                Stop
+              </Button>
             )}
-            Stop
-          </Button>
+            {retryable && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={retry.isPending}
+                onClick={() => retry.mutate(detail.thread.id)}
+              >
+                {retry.isPending ? (
+                  <LoaderCircle
+                    size={13}
+                    className="animate-spin motion-reduce:animate-none"
+                  />
+                ) : (
+                  <RotateCcw size={13} />
+                )}
+                Retry
+              </Button>
+            )}
+          </div>
         )}
-        {["failed", "cancelled", "interrupted"].includes(
-          detail.thread.status,
-        ) && (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={retry.isPending}
-            onClick={() => retry.mutate(detail.thread.id)}
-          >
-            {retry.isPending ? "Retrying…" : "Retry run"}
-          </Button>
-        )}
-      </div>
+      </header>
       {(stop.error || retry.error) && (
-        <p role="alert" className="mt-1 text-metadata text-destructive">
+        <p role="alert" className="mt-2 text-metadata text-destructive">
           {(stop.error ?? retry.error)?.message}
         </p>
       )}
       {detail.thread.errorMessage && (
-        <p className="mt-1 break-words text-metadata text-destructive">
-          {detail.thread.errorMessage}
+        <p className="mt-2 flex items-start gap-1.5 text-metadata text-destructive">
+          <CircleAlert
+            size={13}
+            className="mt-0.5 shrink-0"
+            aria-hidden="true"
+          />
+          <span className="min-w-0 break-words">
+            {detail.thread.errorMessage}
+          </span>
         </p>
       )}
-      <div className="mt-2 space-y-3">
+      <div className="mt-5 space-y-6">
         {detail.turns.length ? (
           detail.turns.map((turn) => (
-            <ThreadTurn
+            <Turn
               key={turn.id}
               detail={detail}
               turn={turn}
@@ -421,70 +728,9 @@ export function HarnessTranscript({
             />
           ))
         ) : (
-          <p className="text-metadata text-muted">No turns recorded yet.</p>
+          <p className="text-supporting text-muted">No turns recorded yet.</p>
         )}
       </div>
-    </div>
-  );
-}
-
-export function HarnessThreadPanel({
-  profileId,
-  kind,
-  challengeId,
-  empty = "No runs recorded yet.",
-}: {
-  profileId: string;
-  kind: string;
-  challengeId?: string;
-  empty?: string;
-}) {
-  const threads = useHarnessThreads(profileId, {
-    kind,
-    challengeId,
-    limit: 20,
-  });
-  const [selected, setSelected] = useState<string>("");
-  if (threads.isPending)
-    return (
-      <p role="status" className="text-metadata text-muted">
-        Loading runs…
-      </p>
-    );
-  if (threads.error)
-    return (
-      <p role="alert" className="text-metadata text-destructive">
-        {threads.error.message}
-      </p>
-    );
-  const items = threads.data ?? [];
-  if (!items.length) return <p className="text-metadata text-muted">{empty}</p>;
-  const activeId =
-    selected ||
-    items.find((thread) =>
-      ["queued", "running", "waiting"].includes(thread.status),
-    )?.id ||
-    items[0]!.id;
-  return (
-    <div className="space-y-2">
-      {items.length > 1 && (
-        <label className="flex flex-wrap items-center gap-2 text-metadata text-muted">
-          Run
-          <select
-            className="min-w-0 flex-1 rounded-md border border-line bg-canvas px-2 py-1 text-metadata text-foreground"
-            value={activeId}
-            onChange={(event) => setSelected(event.target.value)}
-          >
-            {items.map((thread) => (
-              <option key={thread.id} value={thread.id}>
-                {new Date(thread.createdAt).toLocaleString()} · {thread.status}{" "}
-                · {thread.title}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <HarnessTranscript profileId={profileId} threadId={activeId} />
-    </div>
+    </article>
   );
 }
