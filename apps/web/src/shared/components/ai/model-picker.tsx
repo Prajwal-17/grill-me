@@ -96,18 +96,14 @@ export function ModelPicker({
   const state = useComposerModel();
   const [open, setOpen] = useState(false);
   if (!state.connections.length) return null;
-  const reasoningOptions = [
-    { id: "default", label: "Provider default" },
-    ...reasoningEffortSchema.options
-      .filter(
-        (effort) =>
-          effort === "none" || state.reasoningEfforts.includes(effort),
-      )
-      .map((effort) => ({
-        id: effort,
-        label: effortLabels[effort] ?? effort,
-      })),
-  ];
+  const reasoningOptions = reasoningEffortSchema.options
+    .filter(
+      (effort) => effort === "none" || state.reasoningEfforts.includes(effort),
+    )
+    .map((effort) => ({
+      id: effort,
+      label: effortLabels[effort] ?? effort,
+    }));
   return (
     <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
       <Popover open={open} onOpenChange={setOpen}>
@@ -185,7 +181,7 @@ export function ModelPicker({
               value={
                 state.reasoning
                   ? (effortLabels[state.reasoning] ?? state.reasoning)
-                  : "Provider default"
+                  : "Not set"
               }
               disabled={disabled}
               ariaLabel="Reasoning effort"
@@ -200,7 +196,7 @@ export function ModelPicker({
             className="w-[min(15rem,calc(100vw-32px))] p-1.5"
           >
             {reasoningOptions.map((option) => {
-              const active = (state.reasoning ?? "default") === option.id;
+              const active = state.reasoning === option.id;
               return (
                 <DropdownMenuItem
                   key={option.id}
@@ -209,9 +205,7 @@ export function ModelPicker({
                       providerId: state.selection!.providerId,
                       model: state.selection!.model,
                       reasoningEffort:
-                        option.id === "default"
-                          ? null
-                          : (option.id as ModelSelection["reasoningEffort"]),
+                        option.id as ModelSelection["reasoningEffort"],
                     })
                   }
                   className="items-center gap-2.5"

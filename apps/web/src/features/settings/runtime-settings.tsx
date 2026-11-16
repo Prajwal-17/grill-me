@@ -6,6 +6,7 @@ import type {
   RuntimeSettings,
 } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
+import { ChoiceSelect } from "@/shared/components/ui/choice-select";
 import { Input } from "@/shared/components/ui/input";
 import {
   SettingsFeedback,
@@ -14,6 +15,13 @@ import {
 } from "./settings-layout";
 import { useSettingsMutation } from "./use-settings-mutation";
 import { WorkspaceSettingsPanel } from "./workspace-settings";
+
+const PERMISSION_OPTIONS = [
+  { id: "approval-required", label: "Approval required" },
+  { id: "auto-accept-edits", label: "Auto-accept edits" },
+  { id: "auto", label: "Auto" },
+  { id: "full-access", label: "Full access" },
+] as const;
 
 const PERMISSION_DESCRIPTIONS: Record<
   RuntimeSettings["agentPermissions"],
@@ -56,22 +64,19 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
         <fieldset disabled={save.isPending} className="min-w-0">
           <SettingsRow label="Agent permissions" htmlFor="agent-permissions">
             <div className="max-w-md space-y-2">
-              <select
+              <ChoiceSelect
                 id="agent-permissions"
+                label="Agent permissions"
                 value={runtime.agentPermissions}
-                onChange={(e) =>
+                onChange={(value) =>
                   update({
-                    agentPermissions: e.target
-                      .value as RuntimeSettings["agentPermissions"],
+                    agentPermissions:
+                      value as RuntimeSettings["agentPermissions"],
                   })
                 }
-                className="h-9 w-full rounded-md border border-line bg-canvas px-2.5 text-ui text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="approval-required">Approval required</option>
-                <option value="auto-accept-edits">Auto-accept edits</option>
-                <option value="auto">Auto</option>
-                <option value="full-access">Full access</option>
-              </select>
+                options={PERMISSION_OPTIONS}
+                disabled={save.isPending}
+              />
               <p className="text-supporting text-muted">
                 {PERMISSION_DESCRIPTIONS[runtime.agentPermissions]}
               </p>

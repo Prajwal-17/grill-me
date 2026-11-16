@@ -76,7 +76,7 @@ function LocalSettingsPanel() {
         <AppearanceSettings />
       </div>
       <div hidden={active !== "about"}>
-        {window.desktopBridge && <AboutSettings />}
+        {window.desktopBridge && <AboutSettings active={active === "about"} />}
       </div>
       {active !== "appearance" && active !== "about" && settings.isPending && (
         <SettingsLoading />

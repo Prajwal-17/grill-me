@@ -15,6 +15,13 @@ import { Button } from "@/shared/components/ui/button";
 import { ChoiceSelect } from "@/shared/components/ui/choice-select";
 import { Input } from "@/shared/components/ui/input";
 import { SearchSelect } from "@/shared/components/ui/search-select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
 import { apiRequest } from "@/shared/lib/api-client";
 import { SettingsFeedback } from "./settings-layout";
 import { Field } from "./settings-field";
@@ -93,6 +100,10 @@ export function ConnectionForm({
     selectedModel?.capabilities?.reasoningEfforts ??
     selectedModel?.reasoningEfforts ??
     (usesCatalog ? [] : (values.capabilities?.reasoningEfforts ?? []));
+  const reasoningOptions = reasoningEfforts.map((effort) => ({
+    id: effort,
+    label: effortLabels[effort] ?? effort,
+  }));
   const update = (patch: Partial<ProviderInput>) =>
     setValues((current) => ({ ...current, ...patch }));
   const updateCapabilities = (patch: Partial<ModelCapabilities>) =>
@@ -341,26 +352,32 @@ export function ConnectionForm({
             )}
           </Field>
           <Field label="Reasoning effort" htmlFor={`effort-${values.id}`}>
-            <ChoiceSelect
-              id={`effort-${values.id}`}
-              label="Reasoning effort"
-              value={values.reasoningEffort ?? "default"}
-              onChange={(value) =>
-                update({
-                  reasoningEffort:
-                    value === "default"
-                      ? undefined
-                      : (value as ReasoningEffort),
-                })
+            <Select
+              value={values.reasoningEffort ?? ""}
+              onValueChange={(value) =>
+                update({ reasoningEffort: value as ReasoningEffort })
               }
-              options={[
-                { id: "default", label: "Provider default" },
-                ...reasoningEfforts.map((effort) => ({
-                  id: effort,
-                  label: effortLabels[effort] ?? effort,
-                })),
-              ]}
-            />
+              disabled={busy || reasoningOptions.length === 0}
+            >
+              <SelectTrigger
+                id={`effort-${values.id}`}
+                aria-label="Reasoning effort"
+                className="w-full bg-surface shadow-none"
+              >
+                <SelectValue
+                  placeholder={
+                    reasoningOptions.length ? "Not set" : "Not available"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent position="popper" sideOffset={5}>
+                {reasoningOptions.map((option) => (
+                  <SelectItem key={option.id} value={option.id}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </div>
         {!isBuiltIn && (
@@ -396,8 +413,7 @@ export function ConnectionForm({
           !values.capabilities?.reasoning && (
             <p role="alert" className="text-supporting text-destructive">
               This connection has a saved reasoning effort but reasoning
-              controls are disabled. Enable reasoning above or choose Provider
-              default.
+              controls are disabled. Enable Reasoning controls above to use it.
             </p>
           )}
         <SettingsFeedback error={change.error} />
