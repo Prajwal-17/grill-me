@@ -1,6 +1,0 @@
-Alex Rivera
-Built a cache service using TypeScript and PostgreSQL.
-Languages: TypeScript, Python
-Technologies: Node.js, PostgreSQL, Astro
-Project: Cache service
-Implemented expiry and cache invalidation.
