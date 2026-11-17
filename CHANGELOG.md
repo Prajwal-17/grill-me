@@ -37,146 +37,70 @@ full-width transcript.
 
 ## desktop-v0.2.0 - 15 Nov 2026
 
-This release adds challenge workspaces, guided project preparation, review
-against completion criteria, and a durable transcript for every AI run.
+Challenge workspaces, guided project preparation, reviews, and a durable
+transcript for every AI run.
 
 ### Added
 
-#### Challenge workspaces
-
-- Give every challenge a local workspace folder for code, notes, artifacts, and
-  subfolders. New challenges seed a brief and starter code once, existing files
-  are never replaced, older challenges get a folder when opened, and a moved
-  workspace root is relinked without moving user files.
-- Open a challenge workspace in the file manager or an installed editor such as
-  Zed, VS Code, Cursor, or a JetBrains IDE. Choose the workspace root in
-  Settings → Advanced.
-- Ask where Grill Me keeps app data and challenge workspaces during first-run
-  setup, with labelled defaults, native folder selection, and a skip action.
-  Custom parents get edition-specific child folders, the choice is remembered,
-  and existing installations keep their data where it is.
-
-#### Guided projects
-
-- Prepare a guided project after each generated challenge. Grill Me freezes the
-  specification, then scaffolds separate files for source, configuration,
-  migrations, fixtures, documentation, a rubric, milestones, and a failing TODO
-  exercise. Core logic stays unfinished, only one scaffold writes per challenge,
-  partial files survive failures and cancellation, and existing files and
-  earlier attempts are never replaced.
-- Let project scaffolding request dependency setup and check commands with
-  explicit install and network disclosures. Commands wait for individual or
-  attempt-wide approval, rejected or stale requests never run, cancellation
-  stops them, and a restart never replays them. Reported results must match real
-  command outcomes, and a failed check does not block prepared files from being
-  ready.
-- Recover interrupted project preparation with Resume, Retry, and Fresh. Resume
-  continues the existing folder only when the journal is valid and unchanged,
-  Retry reuses the saved specification in a new folder, and Fresh starts a new
-  folder even when the journal is corrupt. Earlier attempts and files are
-  preserved.
-
-#### Challenge review
-
-- Review an attempt against the challenge's own completion criteria. The review
-  reads the workspace, marks every criterion pass, partial, or fail with the
-  file and line that shows why, lists up to three things done right and three to
-  fix first, and gives one next step. It never runs the submitted code, and
-  earlier reviews stay readable.
-
-#### Agent runs and permissions
-
-- Add a durable transcript for every agent run. Generation notifications, the
-  challenge Runs tab, and the project preparation panel show turns, tool calls,
-  approvals, token usage, and stop or retry controls.
-- Add one app-wide agent permission mode in Settings → Advanced: approval
-  required, auto-accept edits, auto, or full access. The mode applies to the
-  next turn, and pending approvals stay pending.
-
-#### Challenge generation
-
-- Let challenge and quiz generation inspect pasted context in a temporary
-  research workspace. Public links and image URLs can be fetched and viewed,
-  files can be read and written, and shell commands can process downloads
-  before the result is written.
-
-#### Developer tools
-
-- Add `bun run db:studio:dev` and `bun run db:studio:prod` to open the matching
-  SQLite database in Drizzle Studio. Both use the saved data folder and honor
-  `GRILL_ME_SQLITE_PATH`.
+- Give every challenge a local folder for code, notes, and artifacts, seeded
+  once with the brief and starter code.
+- Open a challenge workspace in the file manager, Cursor, Zed, VS Code, or a
+  JetBrains IDE.
+- Ask where app data and workspaces live during first-run setup, with sensible
+  defaults.
+- Prepare a guided project from a generated challenge, with separate source,
+  configuration, tests, docs, and a failing TODO exercise.
+- Let preparation request setup and check commands, each with explicit
+  approval.
+- Recover interrupted preparation with Resume, Retry, or Fresh without losing
+  earlier files.
+- Review an attempt against its completion criteria, marking each one pass,
+  partial, or fail with the file and line that proves it.
+- Show a durable transcript for every agent run, with tool calls, approvals,
+  token usage, and stop or retry.
+- Add one app-wide agent permission mode: approval required, auto-accept edits,
+  auto, or full access.
+- Let challenge and quiz generation inspect pasted context, links, and images
+  in a temporary workspace.
+- Add `bun run db:studio:dev` and `bun run db:studio:prod` for Drizzle Studio.
 
 ### Changed
 
-#### Database and migrations
-
-- Use generated Drizzle migrations as the only schema source. Fresh installs
-  apply the current schema, existing databases keep their data and upgrade once,
-  and future changes use `bun run db:generate`.
+- Use generated Drizzle migrations as the only schema source; existing
+  databases upgrade once and keep their data.
 - Allocate challenge and quiz numbers from stored rows instead of a counter
-  table. Existing numbers stay unchanged, and the migration stops if an old
-  counter disagrees with the stored maximum.
-- Create only active tables on a fresh install. Upgraded databases keep retired
-  data under `*_legacy` names, and new installs never create those tables.
-- Remove five unused challenge fields: constraints, starter code, completion
-  source, calibration version, and contract version. Saved constraints and
-  starter code move into the challenge text, version stamps move into the saved
-  context, and existing challenges still read the same.
-
-#### Project preparation
-
-- Require prepared projects to include a TODO in generated source,
-  stack-appropriate configuration and documentation, a generated test, a real
-  failing exercise test, and a migration when persistent storage is required.
-  Reject single-file projects when a multi-file project is requested, and reject
-  manual or always-failing exercise checks.
+  table.
+- Create only active tables on fresh installs; upgraded databases keep retired
+  data under `*_legacy` names.
+- Remove five unused challenge fields, folding their saved values into the
+  challenge text and saved context.
+- Require prepared projects to include a TODO, real tests, configuration, docs,
+  and a migration when storage is needed.
 
 ### Fixed
 
-#### Challenge workspaces and preparation
-
-- Generate challenge specifications separately from project files, so new
-  projects are no longer bundled into one starter file.
+- Generate challenge specifications separately from project files.
 - Open the actual project folder from workspace actions.
 - Keep existing challenge files untouched when a workspace is added or opened.
-- Allow safe `.env.example` templates while still blocking real `.env` files.
+- Allow `.env.example` while still blocking real `.env` files.
+- Refuse symbolic links for workspace metadata and app-owned folders.
 - Honor the milestones requested in the generated challenge.
 - Require setup and check approval before preparation completes.
-- Refuse symbolic links for workspace metadata and for app-owned data and
-  workspace folders, so writes stay inside the selected real parent.
-- Keep proposed setup, check, and run commands visible after other commands run,
-  so setup no longer hides the remaining instructions.
-
-#### Database upgrade
-
-- Upgrade an existing practice database when the platform defaults SQLite to
-  legacy table renames, so older databases open with their saved data instead of
-  failing at startup.
-
-#### Quiz flow
-
-- Keep model and reasoning lists scrollable in creation composers and the
-  Generate quiz dialog.
-- Always include a no-reasoning option next to the model's supported reasoning
-  levels.
-- Stop the Generate quiz dialog and backdrop from replaying their entrance
-  animation when typing is followed by a click inside the dialog.
-- Remove the redundant quiz-type subtitle and the Cancel label from the Generate
-  quiz dialog, and use an icon-only close button.
-- Show a standalone quiz's original prompt on its start screen and while
-  answering questions.
-- Regenerate quiz titles with the selected model instead of the provider
-  default, so accounts are not denied access to a model they chose.
+- Keep proposed setup, check, and run commands visible after other commands run.
+- Upgrade existing databases that hit legacy table renames at startup.
+- Keep model and reasoning lists scrollable in composers and the quiz dialog.
+- Always offer a no-reasoning option next to supported reasoning levels.
+- Stop the Generate quiz dialog from replaying its entrance animation.
+- Simplify the Generate quiz dialog: no quiz-type subtitle, icon-only close.
+- Show a standalone quiz's prompt on its start screen and while answering.
+- Regenerate quiz titles with the selected model.
 
 ### Removed
 
-- Remove solution reviews and verification. Their routes, services, prompts,
-  and UI are gone. Existing submissions, review jobs, and verification rows stay
-  stored as legacy data and are not shown.
-- Stop writing AI request logs. The Logs page is read-only, shows a legacy
-  banner, still lists old requests, and has an empty state on fresh installs.
-- Remove the standalone History page and its practice-progress summary.
-  Completed and stopped builds remain in Challenges → Completed.
+- Remove solution reviews and verification; existing rows stay as legacy data.
+- Stop writing AI request logs; the Logs page is read-only with a legacy
+  banner.
+- Remove the standalone History page; completed builds stay under Challenges.
 
 ## desktop-v0.1.13 - 11 Nov 2026
 
