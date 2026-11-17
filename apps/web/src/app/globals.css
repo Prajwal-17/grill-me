@@ -489,6 +489,12 @@
     height: 0;
     display: none;
   }
+  /* Long transcripts keep a draggable scrollbar for quick travel. */
+  .scrollbar-visible {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    scrollbar-gutter: stable;
+  }
   [data-difficulty][data-difficulty="easy"] {
     color: var(--success);
   }

@@ -8,6 +8,7 @@ import {
   stopHarnessThread,
   type HarnessThreadFilter,
 } from "../api/harness-api";
+import { isActiveThreadStatus } from "../lib/status";
 
 export const harnessKeys = {
   all: (profileId?: string) => ["harness-threads", profileId] as const,
@@ -26,9 +27,7 @@ export function useHarnessThreads(
     queryFn: ({ signal }) => listHarnessThreads(profileId!, filter, signal),
     enabled: Boolean(profileId),
     refetchInterval: (query) =>
-      query.state.data?.some((thread) =>
-        ["queued", "running", "waiting"].includes(thread.status),
-      )
+      query.state.data?.some((thread) => isActiveThreadStatus(thread.status))
         ? 1000
         : false,
   });
@@ -44,9 +43,7 @@ export function useHarnessThread(
     enabled: Boolean(profileId && threadId),
     refetchInterval: (query) => {
       const status = query.state.data?.thread.status;
-      return status && ["queued", "running", "waiting"].includes(status)
-        ? 1000
-        : false;
+      return status && isActiveThreadStatus(status) ? 1000 : false;
     },
   });
 }

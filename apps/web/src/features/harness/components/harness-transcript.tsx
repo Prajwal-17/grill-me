@@ -37,6 +37,7 @@ import {
   useStopHarnessThread,
 } from "../hooks/use-harness";
 import { runKindMeta } from "../lib/run-kinds";
+import { isActiveThreadStatus } from "../lib/status";
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -181,6 +182,23 @@ export function formatRunDate(value: string) {
 
 function formatTokens(value: number) {
   return value.toLocaleString();
+}
+
+function normalizedText(value: string | null) {
+  return value?.replace(/\s+/g, " ").trim() ?? "";
+}
+
+/** A failed run often records the same reason as a transcript error item. */
+function transcriptHasError(
+  turns: HarnessThreadDetail["turns"],
+  message: string,
+) {
+  const target = normalizedText(message);
+  return turns.some((turn) =>
+    turn.items.some(
+      (item) => item.type === "error" && normalizedText(item.text) === target,
+    ),
+  );
 }
 
 const rowClass =
@@ -618,14 +636,16 @@ export function HarnessTranscript({
     );
   if (!query.data) return null;
   const detail = query.data;
-  const active = ["queued", "running", "waiting"].includes(
-    detail.thread.status,
-  );
+  const active = isActiveThreadStatus(detail.thread.status);
   const retryable = ["failed", "cancelled", "interrupted"].includes(
     detail.thread.status,
   );
   const kind = runKindMeta(detail.thread.kind);
   const KindIcon = kind.icon;
+  const threadError = detail.thread.errorMessage;
+  const showThreadError = Boolean(
+    threadError && !transcriptHasError(detail.turns, threadError),
+  );
   return (
     <article aria-label="Run transcript" className={cn("min-w-0", className)}>
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-line pb-3">
@@ -705,18 +725,6 @@ export function HarnessTranscript({
           {(stop.error ?? retry.error)?.message}
         </p>
       )}
-      {detail.thread.errorMessage && (
-        <p className="mt-2 flex items-start gap-1.5 text-metadata text-destructive">
-          <CircleAlert
-            size={13}
-            className="mt-0.5 shrink-0"
-            aria-hidden="true"
-          />
-          <span className="min-w-0 break-words">
-            {detail.thread.errorMessage}
-          </span>
-        </p>
-      )}
       <div className="mt-5 space-y-6">
         {detail.turns.length ? (
           detail.turns.map((turn) => (
@@ -731,6 +739,36 @@ export function HarnessTranscript({
           <p className="text-supporting text-muted">No turns recorded yet.</p>
         )}
       </div>
+      {active && (
+        <p
+          role="status"
+          className="mt-5 flex items-center gap-2 text-metadata text-muted"
+        >
+          <LoaderCircle
+            size={13}
+            className="animate-spin motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+          {detail.thread.status === "queued"
+            ? "Waiting for the agent to start…"
+            : detail.thread.status === "waiting"
+              ? "Waiting for your response…"
+              : "The agent is working…"}
+        </p>
+      )}
+      {showThreadError && (
+        <div
+          role="alert"
+          className="mt-5 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-2 text-metadata text-destructive"
+        >
+          <CircleAlert
+            size={14}
+            className="mt-px shrink-0"
+            aria-hidden="true"
+          />
+          <span className="min-w-0 break-words">{threadError}</span>
+        </div>
+      )}
     </article>
   );
 }

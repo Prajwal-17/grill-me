@@ -1,5 +1,5 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { History, LoaderCircle } from "lucide-react";
+import type { ReactNode } from "react";
+import { ArrowDown, History, LoaderCircle } from "lucide-react";
 import type { HarnessThreadSummary } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -11,6 +11,7 @@ import {
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/cn";
 import { useHarnessThreads } from "../hooks/use-harness";
+import { useFollowActivity } from "../hooks/use-follow-activity";
 import {
   activityCategory,
   activityCategoryMeta,
@@ -18,6 +19,7 @@ import {
   groupActivityThreads,
   type ActivityCategory,
 } from "../lib/activity";
+import { isActiveThreadStatus } from "../lib/status";
 import {
   formatRunDate,
   HarnessStatus,
@@ -106,7 +108,6 @@ export function HarnessActivity({
   onSelectCategory: (category: ActivityCategory) => void;
 }) {
   const threads = useHarnessThreads(profileId, { challengeId, limit: 1_000 });
-  const pane = useRef<HTMLDivElement>(null);
   const items = threads.data ?? [];
   const groups = groupActivityThreads(items);
   const requested = selectedRunId
@@ -122,10 +123,16 @@ export function HarnessActivity({
     categoryThreads.some((thread) => thread.id === selectedRunId)
       ? selectedRunId
       : undefined) ?? categoryThreads[0]?.id;
-
-  useEffect(() => {
-    pane.current?.scrollTo({ top: 0 });
-  }, [activeId, activeCategory]);
+  const activeThread = categoryThreads.find((thread) => thread.id === activeId);
+  const runActive = Boolean(
+    activeThread && isActiveThreadStatus(activeThread.status),
+  );
+  const { paneRef, contentRef, following, onScroll, jumpToLatest } =
+    useFollowActivity({
+      active: runActive,
+      ready: !threads.isPending && !threads.error,
+      resetKey: `${activeCategory}:${activeId ?? ""}`,
+    });
 
   if (threads.isPending) {
     return (
@@ -170,7 +177,7 @@ export function HarnessActivity({
   return (
     <section
       aria-label="Activity"
-      className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
+      className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
     >
       <Tabs
         value={activeCategory}
@@ -204,10 +211,14 @@ export function HarnessActivity({
           className="flex min-h-0 flex-1 flex-col"
         >
           <div
-            ref={pane}
-            className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto overscroll-contain"
+            ref={paneRef}
+            onScroll={onScroll}
+            className="scrollbar-visible min-h-0 flex-1 overflow-y-auto overscroll-contain"
           >
-            <div className="mx-auto w-full max-w-[980px] px-4 py-4 md:px-6 md:py-5">
+            <div
+              ref={contentRef}
+              className="mx-auto w-full max-w-[980px] px-4 py-4 md:px-6 md:py-5"
+            >
               {activeCategory === "preparation" && prelude && (
                 <div className="mb-4">{prelude}</div>
               )}
@@ -232,6 +243,19 @@ export function HarnessActivity({
           </div>
         </TabsContent>
       </Tabs>
+      {runActive && !following && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 z-10 flex justify-center px-4">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="pointer-events-auto h-11 md:h-8"
+            onClick={jumpToLatest}
+          >
+            <ArrowDown size={13} aria-hidden="true" />
+            Jump to latest
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

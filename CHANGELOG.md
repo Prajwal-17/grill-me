@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Show a draggable scrollbar in Activity so long transcripts and session
+  histories can be traversed quickly.
+
+### Fixed
+
+- Keep the Activity transcript on the newest agent activity when a run is
+  active instead of opening at the top of its history. Scrolling up pauses the
+  follow and a "Jump to latest" button returns to the live end.
+- Show a stopped run's error at the end of its transcript so the failure is
+  visible where the run ended.
+
 ## desktop-v0.3.1 - 17 Nov 2026
 
 ### Fixed
