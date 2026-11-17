@@ -74,10 +74,9 @@ export const messageModel = {
         id: item.id,
         challengeId,
         role: item.type === "user_message" ? "user" : "assistant",
-        mode:
-          thread.kind === "hint" && item.type === "assistant_message"
-            ? "hint"
-            : "clarify",
+        // Both sides belong to the hint conversation. Its request must not
+        // appear as a standalone discussion message reading only "Hint".
+        mode: thread.kind === "hint" ? "hint" : "clarify",
         content: item.text ?? "",
         attachments: [],
         createdAt: item.createdAt,

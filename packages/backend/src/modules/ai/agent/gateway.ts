@@ -1,3 +1,4 @@
+import { removedHelpFeature } from "../../messages/removed-help";
 import type {
   BuildModelInput,
   ModelGateway,
@@ -7,13 +8,10 @@ import type {
 } from "../model-gateway";
 import { createAgentExecutor } from "./execute";
 import { createLimiter, createResourceLocks } from "./limiter";
-import { conversationMessages } from "./messages";
 import type { AgentRuntime } from "./types";
 import {
-  conversationTask,
   enhancementTask,
   generationTask,
-  hintTask,
   preparationTask,
   projectScaffoldTask,
   quizTask,
@@ -210,39 +208,12 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
       >;
     },
 
-    respond(input) {
-      return executor.text(
-        {
-          profileId: input.learner.profileId,
-          operation: input.mode,
-          challengeId: input.challenge.id,
-          resourceKind: "conversation",
-          resourceId: input.challenge.id,
-          preview: input.content || input.challenge.title,
-          selection: input.selection,
-          signal: input.signal,
-          harness: input.harness,
-        },
-        conversationTask(input),
-        conversationMessages(input.messages),
-      );
+    // Compatibility stubs for integrations compiled against the old gateway.
+    async *respond() {
+      yield removedHelpFeature();
     },
-
-    generateHint(input) {
-      return executor.text(
-        {
-          profileId: input.learner.profileId,
-          operation: "hint",
-          challengeId: input.challenge.id,
-          resourceKind: "conversation",
-          resourceId: input.challenge.id,
-          preview: input.challenge.title,
-          selection: input.selection,
-          harness: input.harness,
-        },
-        hintTask(input),
-        conversationMessages(input.messages),
-      );
+    async *generateHint() {
+      yield removedHelpFeature();
     },
   };
 }

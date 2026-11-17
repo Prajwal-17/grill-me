@@ -232,25 +232,13 @@ export function resolveAgentModel(
       `Enter ${connection.name}'s API key in Settings → Providers.`,
       503,
     );
-  let modelId = (selection?.model ?? connection.model).trim();
-  const builtIn = ["openrouter", "opencode-go", "openai"].includes(
-    connection.preset,
-  );
-  if (!modelId || modelId === "auto") {
-    if (!builtIn)
-      throw new AppError(
-        "PROVIDER_MODEL_REQUIRED",
-        "Choose an exact model for this API connection in Settings → Providers.",
-        503,
-      );
-    modelId = builtInProvider(connection)?.[0]?.id ?? "";
-    if (!modelId)
-      throw new AppError(
-        "PROVIDER_MODEL_UNAVAILABLE",
-        `${connection.name} did not return a model catalog. Choose an exact model in Settings → Providers.`,
-        503,
-      );
-  }
+  const modelId = (selection?.model ?? connection.model).trim();
+  if (!modelId || modelId === "auto")
+    throw new AppError(
+      "PROVIDER_MODEL_REQUIRED",
+      "Choose an exact model for this API connection in Settings → Providers. Automatic selection is disabled to avoid using an unintended model.",
+      503,
+    );
   const endpoint = connection.endpoint?.replace(/\/+$/, "");
   const baseUrl =
     connection.preset === "opencode-go"

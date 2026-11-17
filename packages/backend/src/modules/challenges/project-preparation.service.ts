@@ -472,24 +472,12 @@ export function createProjectPreparationService(dependencies: {
       activity.splice(0, activity.length - maxActivityEntries);
   }
 
-  /**
-   * One readable marker per attempt. It becomes the transcript's user message,
-   * so resumes remain distinguishable without splitting the preparation thread.
-   */
-  function preparationTurnText(
-    row: ProjectPreparationRow,
-    previous: ProjectPreparationRow | undefined,
-  ) {
-    const from = previous?.attempt ?? Math.max(1, row.attempt - 1);
-    const action =
-      row.mode === "resume"
-        ? `Resumed from attempt ${from}`
-        : row.mode === "retry"
-          ? `Retry after attempt ${from}`
-          : row.mode === "fresh"
-            ? `Fresh project folder after attempt ${from}`
-            : "Initial preparation";
-    return `Attempt ${row.attempt} · ${action} · Prepare ${row.specification.title}`;
+  /** Setup actions are chat messages in the same conversation. */
+  function preparationTurnText(row: ProjectPreparationRow) {
+    if (row.mode === "resume") return "Continue setting up the codebase.";
+    if (row.mode === "retry") return "Retry the codebase setup.";
+    if (row.mode === "fresh") return "Set up the codebase in a new folder.";
+    return `Set up the codebase for ${row.specification.title}.`;
   }
 
   async function runPreparation(input: {
@@ -546,7 +534,7 @@ export function createProjectPreparationService(dependencies: {
           model: input.selection?.model ?? specification.model.label ?? "auto",
         }));
       const turn = await harnessService.appendTurn(thread.id, {
-        inputText: preparationTurnText(row, previous),
+        inputText: preparationTurnText(row),
         model: input.selection?.model ?? specification.model.label ?? "auto",
       });
       const reported = await llm.scaffoldProject({
@@ -596,7 +584,10 @@ export function createProjectPreparationService(dependencies: {
         commands: await commandSession.results(),
       });
       validatedReport = validated;
-      if (validated.problems.length) {
+      // Older reports used problems for blockers. New reports distinguish
+      // scaffold defects from expected exercise gaps and informational notes.
+      const blockers = validated.blockingProblems ?? validated.problems;
+      if (blockers.length) {
         await projectPreparationModel.finish({
           id: row.id,
           runToken,
@@ -607,7 +598,7 @@ export function createProjectPreparationService(dependencies: {
             message:
               "Project preparation finished with unresolved problems. Partial files are preserved.",
             retryable: true,
-            details: { problems: validated.problems.slice(0, 20) },
+            details: { problems: blockers.slice(0, 20) },
           },
           activity: row.activity,
           at: now(),

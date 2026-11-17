@@ -10,6 +10,7 @@ import {
 } from "@repo/backend/modules/reviews/review.schema";
 import type { ChallengeReviewResult } from "@repo/backend/shared/contracts";
 import { fixtureSql } from "./fixture-sql";
+import { harnessService } from "@repo/backend/modules/harness/harness.service";
 
 const roots: string[] = [];
 async function tempRoot() {
@@ -121,6 +122,86 @@ function toolText(result: unknown) {
   return content.map((item) => item.text ?? "").join("\n");
 }
 
+describe("retired hints and discussions", () => {
+  test("blocks generation and retry while preserving owned archived records", async () => {
+    const { profileId, challengeId } = await seed();
+    let calls = 0;
+    const llm = fakeModel(async () => result());
+    llm.respond = async function* () {
+      calls++;
+      yield "Must not run";
+    };
+    llm.generateHint = async function* () {
+      calls++;
+      yield "Must not run";
+    };
+    const app = createApp({ llm });
+    const thread = await harnessService.createThread({
+      profileId,
+      challengeId,
+      kind: "hint",
+      title: "Archived hint",
+      model: "fixture",
+    });
+    const run = await harnessService.begin({
+      threadId: thread.id,
+      inputText: "Hint",
+    });
+    await run.recorder.append({
+      type: "assistant_message",
+      text: "Keep this archived hint.",
+    });
+    await run.recorder.finish({ status: "failed" });
+    for (const path of [
+      `/challenges/${challengeId}/hint`,
+      `/challenges/${challengeId}/messages`,
+      `/challenges/${challengeId}/messages/${crypto.randomUUID()}/retry`,
+      `/harness/${thread.id}/retry`,
+      `/harness/${thread.id}/turns`,
+    ]) {
+      const response = await http(app, path, profileId, "POST");
+      expect(response.status).toBe(410);
+      expect((await response.json()).error.code).toBe("FEATURE_REMOVED");
+    }
+    expect(calls).toBe(0);
+    const archived = await http(
+      app,
+      `/challenges/${challengeId}/messages`,
+      profileId,
+    );
+    expect(archived.status).toBe(200);
+    expect(
+      (await archived.json()).data.some(
+        (row: { content: string }) =>
+          row.content === "Keep this archived hint.",
+      ),
+    ).toBe(true);
+    const detail = await harnessService.detail(thread.id, profileId);
+    expect(detail.turns).toHaveLength(1);
+    expect(detail.thread.status).toBe("failed");
+    const stranger = await seed();
+    expect(
+      (
+        await http(
+          app,
+          `/challenges/${challengeId}/messages`,
+          stranger.profileId,
+        )
+      ).status,
+    ).toBe(404);
+    expect(
+      (
+        await http(
+          app,
+          `/harness/${thread.id}/retry`,
+          stranger.profileId,
+          "POST",
+        )
+      ).status,
+    ).toBe(404);
+  });
+});
+
 function http(
   app: ReturnType<typeof createApp>,
   path: string,
@@ -193,20 +274,51 @@ describe("challenge review", () => {
       "export const group = () => ({});\n",
     );
     const { profileId, challengeId } = await seed({ workspace: root });
-    let attempt = 0;
+    const inspected: string[] = [];
+    // Failed runs keep their place in Activity's attempt numbering.
+    const failedThread = await harnessService.createThread({
+      profileId,
+      challengeId,
+      kind: "review",
+      title: "Earlier failed review",
+      model: "deepseek-v4.1-flash",
+    });
+    const failedRun = await harnessService.begin({
+      threadId: failedThread.id,
+      inputText: "Review",
+    });
+    await failedRun.recorder.finish({ status: "failed" });
     const app = createApp({
-      llm: fakeModel(async () =>
-        attempt++ === 0
-          ? result()
-          : result({
+      llm: fakeModel(async () => {
+        const read = createReviewTools(root).find(
+          (tool) => tool.name === "read_workspace_file",
+        )!;
+        const source = toolText(
+          await read.execute("read", { path: "solution.ts" }, undefined),
+        );
+        inspected.push(source);
+        return source.includes("return buckets")
+          ? result({
               criteria: result().criteria.map((entry) => ({
                 ...entry,
                 status: "pass" as const,
               })),
-            }),
-      ),
+            })
+          : result();
+      }),
     });
-    await http(app, `/challenges/${challengeId}/review`, profileId, "POST");
+    const initial = await http(
+      app,
+      `/challenges/${challengeId}/review`,
+      profileId,
+      "POST",
+    );
+    const first = (await initial.json()).data;
+    expect(first.reviewNumber).toBe(2);
+    await writeFile(
+      join(root, "solution.ts"),
+      "export function group(words) { const buckets = {}; for (const word of words) (buckets[word[0]] ??= []).push(word); return buckets; }\n",
+    );
     await http(app, `/challenges/${challengeId}/review`, profileId, "POST");
     const listed = await http(
       app,
@@ -216,7 +328,12 @@ describe("challenge review", () => {
     const reviews = (await listed.json()).data;
     expect(reviews).toHaveLength(2);
     expect(reviews[0].verdict).toBe("meets");
+    expect(reviews[0].reviewNumber).toBe(3);
     expect(reviews[1].verdict).toBe("partly_meets");
+    expect(reviews[1]).toEqual(first);
+    expect(reviews[0].threadId).not.toBe(reviews[1].threadId);
+    expect(inspected[0]).not.toContain("return buckets");
+    expect(inspected[1]).toContain("return buckets");
   });
 
   test("refuses reviews without a usable workspace", async () => {

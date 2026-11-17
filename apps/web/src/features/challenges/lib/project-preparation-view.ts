@@ -540,9 +540,7 @@ function recoveryView(
   if (status !== "failed" && status !== "cancelled" && status !== "interrupted")
     return null;
   const recovery = preparation.recovery;
-  const attempt = preparation.attempt
-    ? ` Files from attempt ${preparation.attempt} are preserved.`
-    : " Partial files are preserved.";
+  const attempt = " Your project files are preserved.";
   const code = preparation.error?.code;
   const conflictPath =
     recovery.conflictPath ??
@@ -570,11 +568,9 @@ function recoveryView(
   const actions: ProjectRecoveryActionView[] = [
     {
       action: "resume",
-      label: preparation.attempt
-        ? `Resume attempt ${preparation.attempt}`
-        : "Resume this project",
+      label: "Continue setup",
       description:
-        "Keeps this folder and starts a new run that reads the existing journaled files. Changed tracked files are never overwritten.",
+        "Continues setting up this folder. Changed tracked files are never overwritten.",
       enabled: recovery.canResume,
       primary: recovery.canResume,
     },
@@ -582,7 +578,7 @@ function recoveryView(
       action: "retry",
       label: "Retry in a new folder",
       description:
-        "Creates a new folder from the saved frozen specification and previous attempt notes. Your edits here are not copied.",
+        "Continues the setup conversation in a new folder using the saved specification and earlier setup notes. Your edits here are not copied.",
       enabled: recovery.canRetry,
       primary: !recovery.canResume && recovery.canRetry,
     },
@@ -621,8 +617,8 @@ function previousAttemptLabel(preparation: ProjectPreparation) {
     preparation.mode === "resume" &&
     previous.projectDirectory === preparation.projectDirectory
   )
-    return `Resumed attempt ${previous.attempt} in the same folder (${previous.projectDirectory}).`;
-  return `Previous attempt ${previous.attempt}: ${outcome} (${previous.projectDirectory})`;
+    return `Continued setup in the same folder (${previous.projectDirectory}).`;
+  return `Earlier setup: ${outcome} (${previous.projectDirectory})`;
 }
 
 function projectWorkspacePath(preparation: ProjectPreparation) {

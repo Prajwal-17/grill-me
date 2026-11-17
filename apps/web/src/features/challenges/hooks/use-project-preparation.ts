@@ -42,7 +42,11 @@ export function useProjectPreparation(
     refetchIntervalInBackground: false,
   });
   const refreshActivity = () => {
-    void queries.invalidateQueries({ queryKey: ["harness-threads"] });
+    void queries.invalidateQueries({
+      queryKey: ["harness-threads", profileId],
+    });
+    // Setup reuses its thread, so the mounted transcript must be refreshed too.
+    void queries.invalidateQueries({ queryKey: ["harness-thread", profileId] });
   };
   const apply = (data: Awaited<ReturnType<typeof getProjectPreparation>>) => {
     queries.setQueryData(key, data);

@@ -4,87 +4,145 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type KeyboardEvent,
+  type PointerEvent,
+  type WheelEvent,
 } from "react";
+import { createActivityScroller } from "../lib/activity-scroll";
 
-/** How close to the end the pane must be to keep following new activity. */
 const followThreshold = 32;
 
-/**
- * Keeps a scrollable transcript pane on its newest content while a run is
- * active. Opening an active run lands at the bottom, history-only sessions
- * open at the top, and scrolling away stops the follow until the reader
- * returns to the end.
- */
+/** Follow new messages without taking control away from someone reading history. */
 export function useFollowActivity({
   active,
   ready,
   resetKey,
 }: {
-  /** The rendered thread is still producing content. */
   active: boolean;
-  /** The pane is mounted with its thread loaded. */
   ready: boolean;
-  /** Changes when the selected session or category changes. */
   resetKey: string;
 }) {
   const paneRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const followingRef = useRef(active);
   const lastResetKey = useRef<string | null>(null);
+  const lastScrollTop = useRef(0);
   const [following, setFollowing] = useState(active);
-
-  const setFollow = useCallback((next: boolean) => {
-    if (followingRef.current === next) return;
-    followingRef.current = next;
-    setFollowing(next);
+  const scrollerRef = useRef<ReturnType<typeof createActivityScroller> | null>(
+    null,
+  );
+  const getScroller = useCallback(() => {
+    if (!scrollerRef.current)
+      scrollerRef.current = createActivityScroller({
+        pane: () => paneRef.current,
+        request: (frame) => requestAnimationFrame(frame),
+        cancel: (id) => cancelAnimationFrame(id),
+        reducedMotion: () =>
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+      });
+    return scrollerRef.current;
   }, []);
 
-  const scrollToBottom = useCallback(() => {
-    const pane = paneRef.current;
-    if (pane) pane.scrollTop = pane.scrollHeight;
-  }, []);
+  const setFollow = useCallback(
+    (next: boolean) => {
+      if (followingRef.current === next) return;
+      followingRef.current = next;
+      setFollowing(next);
+    },
+    [setFollowing],
+  );
 
-  const scrollToTop = useCallback(() => {
-    const pane = paneRef.current;
-    if (pane) pane.scrollTop = 0;
-  }, []);
+  const pause = useCallback(() => {
+    getScroller().cancel();
+    setFollow(false);
+  }, [getScroller, setFollow]);
 
   const onScroll = useCallback(() => {
     const pane = paneRef.current;
     if (!pane) return;
-    const remaining = pane.scrollHeight - pane.scrollTop - pane.clientHeight;
-    setFollow(remaining <= followThreshold);
-  }, [setFollow]);
+    const scroller = getScroller();
+    const movedUp = pane.scrollTop < lastScrollTop.current - 1;
+    lastScrollTop.current = pane.scrollTop;
+    if (movedUp && scroller.animating) pause();
+    if (scroller.animating) return;
+    setFollow(
+      pane.scrollHeight - pane.scrollTop - pane.clientHeight <=
+        (followingRef.current ? followThreshold : 1),
+    );
+  }, [pause, getScroller, setFollow]);
+
+  const onWheel = useCallback(
+    (event: WheelEvent) => {
+      if (event.deltaY < 0) pause();
+    },
+    [pause],
+  );
+  const onPointerDown = useCallback(
+    (event: PointerEvent<HTMLDivElement>) => {
+      // Scrollbar dragging and opening tool details are deliberate reading actions.
+      if (
+        event.target === event.currentTarget ||
+        (event.target as Element).closest("summary")
+      )
+        pause();
+    },
+    [pause],
+  );
+  const onKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      if (target.closest("input, textarea, [contenteditable='true']")) return;
+      if (
+        ["ArrowUp", "PageUp", "Home"].includes(event.key) ||
+        (event.key === " " && event.shiftKey) ||
+        (target.closest("summary") && ["Enter", " "].includes(event.key))
+      )
+        pause();
+    },
+    [pause],
+  );
 
   const jumpToLatest = useCallback(() => {
     setFollow(true);
-    scrollToBottom();
-  }, [scrollToBottom, setFollow]);
+    getScroller().follow();
+  }, [getScroller, setFollow]);
 
   useLayoutEffect(() => {
-    if (!ready) return;
-    const switched = lastResetKey.current !== resetKey;
+    const scroller = getScroller();
+    if (lastResetKey.current !== resetKey) scroller.cancel();
+    if (!ready || lastResetKey.current === resetKey) return;
     lastResetKey.current = resetKey;
-    if (active) {
-      setFollow(true);
-      scrollToBottom();
-      return;
-    }
-    // A running session that finishes stays where the reader left it.
-    if (!switched) return;
-    setFollow(false);
-    scrollToTop();
-  }, [active, ready, resetKey, scrollToBottom, scrollToTop, setFollow]);
+    setFollow(active);
+    // Position once before loaded messages paint, never on a run-state change.
+    scroller.align(active ? "end" : "start");
+    lastScrollTop.current = paneRef.current?.scrollTop ?? 0;
+  }, [active, ready, resetKey, getScroller, setFollow]);
 
   useEffect(() => {
     const content = contentRef.current;
-    if (!content) return;
+    if (!ready || !content) return;
+    const scroller = getScroller();
     const observer = new ResizeObserver(() => {
-      if (followingRef.current) scrollToBottom();
+      if (followingRef.current) scroller.follow();
     });
     observer.observe(content);
     return () => observer.disconnect();
-  }, [ready, resetKey, scrollToBottom]);
+  }, [ready, resetKey, getScroller]);
 
-  return { paneRef, contentRef, following, onScroll, jumpToLatest };
+  useEffect(() => {
+    const scroller = getScroller();
+    return () => scroller.cancel();
+  }, [getScroller]);
+
+  return {
+    paneRef,
+    contentRef,
+    following,
+    onScroll,
+    onWheel,
+    onPointerDown,
+    onKeyDown,
+    onTouchStart: pause,
+    jumpToLatest,
+  };
 }

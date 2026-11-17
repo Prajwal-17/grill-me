@@ -3,8 +3,6 @@ import type { HarnessThreadSummary } from "@repo/backend/shared/contracts";
 export const activityCategoryKeys = [
   "preparation",
   "reviews",
-  "discussion",
-  "hints",
   "other",
 ] as const;
 
@@ -22,14 +20,6 @@ export const activityCategoryMeta: Record<
     label: "Reviews",
     empty: "No review activity yet.",
   },
-  discussion: {
-    label: "Discussion",
-    empty: "No discussion activity yet.",
-  },
-  hints: {
-    label: "Hints",
-    empty: "No hint activity yet.",
-  },
   other: {
     label: "Other",
     empty: "No other agent activity yet.",
@@ -39,9 +29,11 @@ export const activityCategoryMeta: Record<
 const kindCategories: Record<string, ActivityCategory> = {
   project_scaffold: "preparation",
   review: "reviews",
-  chat: "discussion",
-  hint: "hints",
 };
+
+export function isVisibleActivityKind(kind: string) {
+  return !["chat", "hint", "clarify", "discussion"].includes(kind);
+}
 
 export function activityCategory(kind: string): ActivityCategory {
   return kindCategories[kind] ?? "other";
@@ -58,6 +50,7 @@ export function groupActivityThreads(
 ): ActivityGroup[] {
   const groups = new Map<ActivityCategory, HarnessThreadSummary[]>();
   for (const thread of threads) {
+    if (!isVisibleActivityKind(thread.kind)) continue;
     const key = activityCategory(thread.kind);
     groups.set(key, [...(groups.get(key) ?? []), thread]);
   }
@@ -66,13 +59,34 @@ export function groupActivityThreads(
     .map((key) => ({
       key,
       label: activityCategoryMeta[key].label,
-      threads: [...(groups.get(key) ?? [])].sort((left, right) =>
-        right.createdAt.localeCompare(left.createdAt),
+      threads: [...(groups.get(key) ?? [])].sort(
+        (left, right) =>
+          right.createdAt.localeCompare(left.createdAt) ||
+          right.id.localeCompare(left.id),
       ),
     }));
 }
 
 /** Chronological session number for a newest-first list. */
-export function activitySessionNumber(index: number, total: number) {
-  return `Session ${total - index}`;
+export function activitySessionNumber(
+  index: number,
+  total: number,
+  kind?: string,
+) {
+  return `${kind === "review" ? "Review" : "Session"} ${total - index}`;
+}
+
+/** Present legacy setup markers as ordinary messages without altering history. */
+export function setupMessageText(text: string | null) {
+  if (!text) return text;
+  const marker = text.match(
+    /^Attempt \d+ · (Initial preparation|Resumed from attempt \d+|Retry after attempt \d+|Fresh project folder after attempt \d+) · Prepare (.+)$/s,
+  );
+  if (!marker) return text;
+  if (marker[1]!.startsWith("Resumed"))
+    return "Continue setting up the codebase.";
+  if (marker[1]!.startsWith("Retry")) return "Retry the codebase setup.";
+  if (marker[1]!.startsWith("Fresh"))
+    return "Set up the codebase in a new folder.";
+  return `Set up the codebase for ${marker[2]}.`;
 }

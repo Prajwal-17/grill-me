@@ -2,18 +2,47 @@
 
 ## Unreleased
 
+## desktop-v0.3.2 - 18 Nov 2026
+
+### Added
+
+- Show elapsed work time in Activity, with live timing during runs and expandable
+  timestamps and command counts.
+
 ### Changed
 
-- Show a draggable scrollbar in Activity so long transcripts and session
-  histories can be traversed quickly.
+- Use one focused layout for standalone and challenge quizzes: compact headers,
+  full-width questions, fixed bottom navigation, comfortable typography, and an
+  optional View prompt action.
+- Select saved reviews from compact history menus in Review and Activity.
+- Open projects through a compact split editor button beside challenge actions,
+  without a project status bar or file and TODO counts.
+- Show codebase setup, resume, retry, and fresh setup as one continuous
+  conversation without numbered attempts or session dividers.
+- Show compact thinking, working, and waiting indicators, and a draggable
+  Activity scrollbar for navigating long transcripts.
+- Keep quiz controls available while a title regenerates.
 
 ### Fixed
 
-- Keep the Activity transcript on the newest agent activity when a run is
-  active instead of opening at the top of its history. Scrolling up pauses the
-  follow and a "Jump to latest" button returns to the live end.
-- Show a stopped run's error at the end of its transcript so the failure is
-  visible where the run ended.
+- Preserve your reading position in Activity, follow new messages smoothly at
+  the end, and respect reduced-motion preferences.
+- Stop completed tool steps from spinning after runs end, including older
+  transcripts affected by out-of-order saves.
+- Keep independently saved, numbered review scorecards and reassess current
+  files on each new review.
+- Require an explicit API model so requests cannot silently use another model.
+- Distinguish unfinished exercise TODOs and expected failing tests from actual
+  project preparation blockers, and honor challenge-specific storage restrictions.
+- Show stopped-run errors at the end of their transcripts.
+- Allow page titles and breadcrumbs to be selected and copied.
+- Remove stray Activity tab counts, whole-quiz focus borders, and duplicate
+  question indicators during keyboard navigation.
+
+### Removed
+
+- Remove hints and discussions, including their controls and Activity tabs.
+  Existing saved data is retained.
 
 ## desktop-v0.3.1 - 17 Nov 2026
 

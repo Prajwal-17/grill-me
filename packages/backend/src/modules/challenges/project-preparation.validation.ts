@@ -99,18 +99,18 @@ function requestsMultipleFiles(specification: ProjectFrozenSpecification) {
 }
 
 function requiresMigration(specification: ProjectFrozenSpecification) {
-  const text = specificationText(specification).replace(
-    /\b(?:no|not|never|without|avoid)\b[^.\n]{0,100}\b(?:migrations?|database|databases|sql|sqlite|postgres(?:ql)?|mysql|mariadb|mongo(?:db)?|dynamodb|persistent storage|data store)\b/gi,
-    "",
-  );
-  const stack = [
-    ...specification.stack.languages,
-    ...specification.stack.stack,
-    specification.stack.currentFocus ?? "",
-  ].join(" ");
+  // Profile technologies describe the learner, not this project's requirements.
+  // In particular, an in-memory exercise must not inherit SQLite/SQL/Prisma
+  // requirements from a broad profile. Excluded features are not requirements.
+  const text = specificationText(specification)
+    .replace(/\b(?:out of scope|not in scope|non-goals?)\s*:[^\n]*/gi, "")
+    .replace(
+      /\b(?:no|not|never|without|avoid)\b[^.\n]{0,100}\b(?:migrations?|database|databases|sql|sqlite|postgres(?:ql)?|mysql|mariadb|mongo(?:db)?|dynamodb|persist(?:ence|ent|ed|ing)?|persistent storage|data store)\b/gi,
+      "",
+    );
   const dataSignal =
     /\b(?:migrations?|database|databases|sql|sqlite|postgres(?:ql)?|mysql|mariadb|mongo(?:db)?|dynamodb|prisma|drizzle|sequelize|typeorm|knex|persist(?:ence|ent|ed|ing)?|data store|storage (?:layer|boundary)|url shortener|short link|link shortener)\b/i;
-  return dataSignal.test(text) || dataSignal.test(stack);
+  return dataSignal.test(text);
 }
 
 function triviallyFailing(command: string) {
@@ -193,6 +193,12 @@ export async function validateProjectScaffoldReport(
       z.prettifyError(parsed.error).split("\n").filter(Boolean).slice(0, 40),
     );
   const report = parsed.data;
+  // Keep blockers visible to existing report readers and resume context, which
+  // already display problems, without using informational notes as status gates.
+  if (report.blockingProblems)
+    report.problems = [
+      ...new Set([...report.blockingProblems, ...report.problems]),
+    ].slice(0, 20);
   const { layout, specification } = context;
 
   const root = await canonicalPath(layout.projectRoot).catch(() => {
@@ -357,7 +363,7 @@ export async function validateProjectScaffoldReport(
     );
   if (requiresMigration(specification) && !rolePaths("migration").length)
     throw invalid(
-      "The frozen specification or stack requires persistent storage, so the completion report needs a generated migration or schema file.",
+      "The frozen challenge requires persistent storage, so the completion report needs a generated migration or schema file.",
     );
 
   const todoKeys = new Set<string>();

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { Context } from "hono";
 import { AppError } from "../../shared/errors/app-error";
-import { streamNdjson } from "../../shared/http/ndjson-stream";
+import { removedHelpFeature } from "../messages/removed-help";
 import { parseInput, readJson } from "../../shared/http/validation";
 import { profileIdSchema } from "../profiles/profile.schema";
 import type { ChallengeService } from "./challenge.service";
@@ -106,16 +106,10 @@ export function createChallengeController(service: ChallengeService) {
         data: await service.setStatus(challengeId(c), profileId(c), status),
       });
     },
-    hint: (c: Context) =>
-      streamNdjson(c, (onDelta) =>
-        service.generateHint(
-          challengeId(c),
-          profileId(c),
-          onDelta,
-          c.req.query("kind") === "approach" ? "approach" : "hint",
-        ),
-      ),
+    hint: async (c: Context) => {
+      await service.owned(challengeId(c), profileId(c));
+      return removedHelpFeature();
+    },
   };
 }
-
 export type ChallengeController = ReturnType<typeof createChallengeController>;

@@ -200,7 +200,7 @@ export function ProjectPreparationActions({
                   size="sm"
                   variant="secondary"
                   disabled={commandPending}
-                  title="Allow the remaining setup and check commands for this attempt."
+                  title="Allow the remaining commands in this codebase setup run."
                   onClick={() =>
                     authorize.mutate({
                       install: command.install,
@@ -208,7 +208,7 @@ export function ProjectPreparationActions({
                     })
                   }
                 >
-                  Allow attempt
+                  Allow setup commands
                 </Button>
                 <Button
                   size="sm"

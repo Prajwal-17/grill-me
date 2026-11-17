@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { formatWorkDuration, workDuration } from "../lib/work-duration";
 import {
   Brain,
   CheckCircle2,
@@ -37,7 +38,9 @@ import {
   useStopHarnessThread,
 } from "../hooks/use-harness";
 import { runKindMeta } from "../lib/run-kinds";
-import { isActiveThreadStatus } from "../lib/status";
+import { activityWorkingLabel, isActiveThreadStatus } from "../lib/status";
+import { AgentActivityStatus } from "@/shared/components/ai/agent-activity-status";
+import { setupMessageText } from "../lib/activity";
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -539,6 +542,43 @@ function itemBlocks(items: HarnessItem[]) {
   return blocks;
 }
 
+function WorkSummary({ turn }: { turn: HarnessThreadDetail["turns"][number] }) {
+  const active = isActiveThreadStatus(turn.status);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!active || !turn.startedAt || turn.completedAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [active, turn.startedAt, turn.completedAt]);
+  const duration = workDuration(turn.startedAt, turn.completedAt, active, now);
+  if (duration === null) return null;
+  const commands = turn.items.filter(
+    (item) =>
+      item.type === "command_execution" &&
+      (item.status === "completed" || item.status === "failed"),
+  ).length;
+  return (
+    <details className="group mt-3 text-metadata text-muted">
+      <summary className={rowClass}>
+        <span className="tabular-nums">
+          {active ? "Working for" : "Worked for"} {formatWorkDuration(duration)}
+        </span>
+        <ChevronRight aria-hidden="true" className={chevronClass} />
+      </summary>
+      <div className="mt-1 space-y-1 border-t border-line px-1.5 pt-2">
+        {commands > 0 && (
+          <p className="flex items-center gap-2">
+            <Terminal size={14} aria-hidden="true" />
+            Ran {commands} {commands === 1 ? "command" : "commands"}
+          </p>
+        )}
+        <p>Started {formatRunDate(turn.startedAt!)}</p>
+        {turn.completedAt && <p>Finished {formatRunDate(turn.completedAt)}</p>}
+      </div>
+    </details>
+  );
+}
+
 function Turn({
   detail,
   turn,
@@ -548,31 +588,37 @@ function Turn({
   turn: HarnessThreadDetail["turns"][number];
   profileId: string;
 }) {
-  const turnLabel =
-    detail.thread.kind === "project_scaffold" ? "Attempt" : "Turn";
+  const conversation = detail.thread.kind === "project_scaffold";
+  const turnLabel = "Turn";
   return (
-    <section
-      aria-label={`${turnLabel} ${turn.ordinal}`}
-      className="border-t border-line pt-4 first:border-t-0 first:pt-0"
+    <div
+      aria-label={conversation ? undefined : `${turnLabel} ${turn.ordinal}`}
+      className={
+        conversation
+          ? undefined
+          : "border-t border-line pt-4 first:border-t-0 first:pt-0"
+      }
     >
-      <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
-        <span className="font-medium text-foreground">
-          {turnLabel} {turn.ordinal}
-        </span>
-        <HarnessStatus status={turn.status} label />
-        <span aria-hidden="true" className="hidden sm:inline">
-          ·
-        </span>
-        <span className="hidden font-mono sm:inline">{turn.model}</span>
-        {turn.totalTokens !== null && (
-          <>
-            <span aria-hidden="true">·</span>
-            <span className="tabular-nums">
-              {formatTokens(turn.totalTokens)} tokens
-            </span>
-          </>
-        )}
-      </div>
+      {!conversation && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
+          <span className="font-medium text-foreground">
+            {turnLabel} {turn.ordinal}
+          </span>
+          <HarnessStatus status={turn.status} label />
+          <span aria-hidden="true" className="hidden sm:inline">
+            ·
+          </span>
+          <span className="hidden font-mono sm:inline">{turn.model}</span>
+          {turn.totalTokens !== null && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="tabular-nums">
+                {formatTokens(turn.totalTokens)} tokens
+              </span>
+            </>
+          )}
+        </div>
+      )}
       <div className="space-y-3">
         {itemBlocks(turn.items).map((block, index) =>
           block.kind === "tools" ? (
@@ -584,14 +630,19 @@ function Turn({
           ) : (
             <Item
               key={block.item.id}
-              item={block.item}
+              item={
+                conversation && block.item.type === "user_message"
+                  ? { ...block.item, text: setupMessageText(block.item.text) }
+                  : block.item
+              }
               profileId={profileId}
               threadId={detail.thread.id}
             />
           ),
         )}
       </div>
-    </section>
+      <WorkSummary turn={turn} />
+    </div>
   );
 }
 
@@ -620,8 +671,6 @@ export function HarnessTranscript({
   className?: string;
 }) {
   const query = useHarnessThread(profileId, threadId);
-  const stop = useStopHarnessThread(profileId);
-  const retry = useRetryHarnessThread(profileId);
   if (query.isPending) return <TranscriptSkeleton />;
   if (query.error)
     return (
@@ -635,8 +684,32 @@ export function HarnessTranscript({
       </div>
     );
   if (!query.data) return null;
-  const detail = query.data;
+  return (
+    <HarnessTranscriptContent
+      profileId={profileId}
+      detail={query.data}
+      className={className}
+    />
+  );
+}
+
+export function HarnessTranscriptContent({
+  profileId,
+  detail,
+  className,
+}: {
+  profileId: string;
+  detail: HarnessThreadDetail;
+  className?: string;
+}) {
+  const stop = useStopHarnessThread(profileId);
+  const retry = useRetryHarnessThread(profileId);
+  const conversation = detail.thread.kind === "project_scaffold";
   const active = isActiveThreadStatus(detail.thread.status);
+  const activityLabel = activityWorkingLabel(
+    detail.thread.status,
+    detail.turns.at(-1)?.items ?? [],
+  );
   const retryable = ["failed", "cancelled", "interrupted"].includes(
     detail.thread.status,
   );
@@ -647,85 +720,90 @@ export function HarnessTranscript({
     threadError && !transcriptHasError(detail.turns, threadError),
   );
   return (
-    <article aria-label="Run transcript" className={cn("min-w-0", className)}>
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-line pb-3">
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <KindIcon
-              size={15}
-              className="shrink-0 text-muted"
-              aria-hidden="true"
-            />
-            <h3 className="min-w-0 flex-1 truncate text-ui font-medium">
-              {detail.thread.title}
-            </h3>
-            <HarnessStatus status={detail.thread.status} label />
+    <article
+      aria-label={conversation ? "Codebase setup messages" : "Run transcript"}
+      className={cn("min-w-0", className)}
+    >
+      {!conversation && (
+        <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-line pb-3">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <KindIcon
+                size={15}
+                className="shrink-0 text-muted"
+                aria-hidden="true"
+              />
+              <h3 className="min-w-0 flex-1 truncate text-ui font-medium">
+                {detail.thread.title}
+              </h3>
+              <HarnessStatus status={detail.thread.status} label />
+            </div>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[23px] text-metadata text-muted">
+              <span>{kind.label}</span>
+              <span aria-hidden="true">·</span>
+              <span>{formatRunDate(detail.thread.createdAt)}</span>
+              <span aria-hidden="true" className="hidden sm:inline">
+                ·
+              </span>
+              <span className="hidden font-mono sm:inline">
+                {detail.thread.model}
+              </span>
+              <span aria-hidden="true" className="hidden sm:inline">
+                ·
+              </span>
+              <span className="hidden sm:inline">
+                {detail.thread.runtimeMode}
+              </span>
+            </p>
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[23px] text-metadata text-muted">
-            <span>{kind.label}</span>
-            <span aria-hidden="true">·</span>
-            <span>{formatRunDate(detail.thread.createdAt)}</span>
-            <span aria-hidden="true" className="hidden sm:inline">
-              ·
-            </span>
-            <span className="hidden font-mono sm:inline">
-              {detail.thread.model}
-            </span>
-            <span aria-hidden="true" className="hidden sm:inline">
-              ·
-            </span>
-            <span className="hidden sm:inline">
-              {detail.thread.runtimeMode}
-            </span>
-          </p>
-        </div>
-        {(active || retryable) && (
-          <div className="flex items-center gap-1">
-            {active && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={stop.isPending}
-                onClick={() => stop.mutate(detail.thread.id)}
-              >
-                {stop.isPending ? (
-                  <LoaderCircle
-                    size={13}
-                    className="animate-spin motion-reduce:animate-none"
-                  />
-                ) : (
-                  <Square size={11} />
-                )}
-                Stop
-              </Button>
-            )}
-            {retryable && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={retry.isPending}
-                onClick={() => retry.mutate(detail.thread.id)}
-              >
-                {retry.isPending ? (
-                  <LoaderCircle
-                    size={13}
-                    className="animate-spin motion-reduce:animate-none"
-                  />
-                ) : (
-                  <RotateCcw size={13} />
-                )}
-                Retry
-              </Button>
-            )}
-          </div>
-        )}
-      </header>
+          {(active || retryable) && (
+            <div className="flex items-center gap-1">
+              {active && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={stop.isPending}
+                  onClick={() => stop.mutate(detail.thread.id)}
+                >
+                  {stop.isPending ? (
+                    <LoaderCircle
+                      size={13}
+                      className="animate-spin motion-reduce:animate-none"
+                    />
+                  ) : (
+                    <Square size={11} />
+                  )}
+                  Stop
+                </Button>
+              )}
+              {retryable && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={retry.isPending}
+                  onClick={() => retry.mutate(detail.thread.id)}
+                >
+                  {retry.isPending ? (
+                    <LoaderCircle
+                      size={13}
+                      className="animate-spin motion-reduce:animate-none"
+                    />
+                  ) : (
+                    <RotateCcw size={13} />
+                  )}
+                  Retry
+                </Button>
+              )}
+            </div>
+          )}
+        </header>
+      )}
       {(stop.error || retry.error) && (
         <p role="alert" className="mt-2 text-metadata text-destructive">
           {(stop.error ?? retry.error)?.message}
         </p>
       )}
-      <div className="mt-5 space-y-6">
+      <div className={conversation ? "space-y-3" : "mt-5 space-y-6"}>
         {detail.turns.length ? (
           detail.turns.map((turn) => (
             <Turn
@@ -736,25 +814,15 @@ export function HarnessTranscript({
             />
           ))
         ) : (
-          <p className="text-supporting text-muted">No turns recorded yet.</p>
+          <p className="text-supporting text-muted">
+            {conversation ? "No setup messages yet." : "No turns recorded yet."}
+          </p>
         )}
       </div>
-      {active && (
-        <p
-          role="status"
-          className="mt-5 flex items-center gap-2 text-metadata text-muted"
-        >
-          <LoaderCircle
-            size={13}
-            className="animate-spin motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-          {detail.thread.status === "queued"
-            ? "Waiting for the agent to start…"
-            : detail.thread.status === "waiting"
-              ? "Waiting for your response…"
-              : "The agent is working…"}
-        </p>
+      {activityLabel && (
+        <div className="mt-4">
+          <AgentActivityStatus label={activityLabel} />
+        </div>
       )}
       {showThreadError && (
         <div

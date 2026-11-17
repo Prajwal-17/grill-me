@@ -98,19 +98,12 @@ export async function testConnection(
     }
     const catalog = builtInProvider(connection) ?? [];
     const configured = connection.model.trim();
-    const automatic = !configured || configured === "auto";
-    const selected = automatic
-      ? catalog[0]
-      : catalog.find((model) => model.id === configured);
-    const resolved = resolveAgentModel(connection);
+    const selected = catalog.find((model) => model.id === configured);
+    resolveAgentModel(connection);
     return {
       ok: Boolean(selected),
       message: selected
-        ? `Connection successful. ${
-            automatic
-              ? `Using ${resolved.model.name || resolved.model.id} automatically. `
-              : ""
-          }Model access is checked when making a request.`
+        ? "Connection successful. Model access is checked when making a request."
         : "The saved model is unavailable. Choose an available model in Settings.",
       ...(selected ? {} : { code: "PROVIDER_MODEL_UNAVAILABLE" }),
     };

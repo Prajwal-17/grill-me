@@ -10,6 +10,12 @@ import { parseInput, readJson } from "../../shared/http/validation";
 import { profileIdSchema } from "../profiles/profile.schema";
 import type { ProfileService } from "../profiles/profile.service";
 import { harnessService } from "./harness.service";
+import { removedHelpFeature } from "../messages/removed-help";
+
+function assertAvailable(kind: string) {
+  if (["chat", "hint", "clarify", "discussion"].includes(kind))
+    removedHelpFeature();
+}
 
 function profile(c: Context) {
   const header = c.req.header("X-Profile-Id");
@@ -51,6 +57,7 @@ export function createHarnessRoutes(profiles: ProfileService) {
       harnessThreadCreateSchema,
       await readJson(c.req.raw),
     );
+    assertAvailable(input.kind);
     const thread = await harnessService.createThread({
       profileId: id,
       ...input,
@@ -69,6 +76,7 @@ export function createHarnessRoutes(profiles: ProfileService) {
     const id = profile(c);
     await profiles.assertExists(id);
     const thread = await harnessService.detail(threadId(c), id);
+    assertAvailable(thread.thread.kind);
     const input = parseInput(
       harnessTurnCreateSchema,
       await readJson(c.req.raw),
@@ -79,12 +87,18 @@ export function createHarnessRoutes(profiles: ProfileService) {
   routes.post("/:id/stop", async (c) => {
     const id = profile(c);
     await profiles.assertExists(id);
-    return c.json({ data: await harnessService.stop(threadId(c), id) });
+    const runId = threadId(c);
+    const stopped = await harnessService.stop(runId, id);
+    return c.json({ data: stopped });
   });
   routes.post("/:id/retry", async (c) => {
     const id = profile(c);
     await profiles.assertExists(id);
-    return c.json({ data: await harnessService.retry(threadId(c), id) }, 202);
+    const runId = threadId(c);
+    const detail = await harnessService.detail(runId, id);
+    assertAvailable(detail.thread.kind);
+    const turn = await harnessService.retry(runId, id);
+    return c.json({ data: turn }, 202);
   });
   routes.post("/:id/requests/:requestId", async (c) => {
     const id = profile(c);

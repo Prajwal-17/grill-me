@@ -208,29 +208,28 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     }),
   ).toMatchObject({ displayName: null });
 
-  faux.setResponses([fauxAssistantMessage("A focused hint.")]);
-  const hint: string[] = [];
-  for await (const delta of gateway.generateHint({
-    challenge,
-    messages: [],
-    learner,
-    selection,
-  }))
-    hint.push(delta);
-  expect(hint.join("")).toBe("A focused hint.");
-
-  faux.setResponses([fauxAssistantMessage("A useful discussion reply.")]);
-  const reply: string[] = [];
-  for await (const delta of gateway.respond({
-    challenge,
-    messages: [],
-    content: "How should I approach this?",
-    mode: "clarify",
-    attachments: [],
-    learner,
-    selection,
-  }))
-    reply.push(delta);
-  expect(reply.join("")).toBe("A useful discussion reply.");
-  expect(seen).toEqual(Array(9).fill("fixture-model"));
+  async function consume(stream: AsyncIterable<string>) {
+    for await (const _delta of stream) {
+      /* Retired operations must reject. */
+    }
+  }
+  await expect(
+    consume(
+      gateway.generateHint({ challenge, messages: [], learner, selection }),
+    ),
+  ).rejects.toMatchObject({ code: "FEATURE_REMOVED", status: 410 });
+  await expect(
+    consume(
+      gateway.respond({
+        challenge,
+        messages: [],
+        content: "Question",
+        mode: "clarify",
+        attachments: [],
+        learner,
+        selection,
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "FEATURE_REMOVED", status: 410 });
+  expect(seen).toEqual(Array(7).fill("fixture-model"));
 });

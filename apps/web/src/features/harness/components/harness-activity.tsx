@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { HistoryPicker } from "@/shared/components/history/history-picker";
 import { ArrowDown, History, LoaderCircle } from "lucide-react";
 import type { HarnessThreadSummary } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
@@ -10,20 +11,21 @@ import {
   TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { cn } from "@/shared/lib/cn";
-import { useHarnessThreads } from "../hooks/use-harness";
+import { useHarnessThreads, useHarnessTranscripts } from "../hooks/use-harness";
 import { useFollowActivity } from "../hooks/use-follow-activity";
 import {
   activityCategory,
   activityCategoryMeta,
   activitySessionNumber,
   groupActivityThreads,
+  isVisibleActivityKind,
   type ActivityCategory,
 } from "../lib/activity";
 import { isActiveThreadStatus } from "../lib/status";
 import {
   formatRunDate,
   HarnessStatus,
-  HarnessTranscript,
+  HarnessTranscriptContent,
 } from "./harness-transcript";
 
 function SessionSwitcher({
@@ -39,40 +41,24 @@ function SessionSwitcher({
 }) {
   if (threads.length < 2) return null;
   return (
-    <div
-      role="group"
-      aria-label={`${label} sessions`}
-      className="mb-4 flex min-w-0 items-center gap-2 border-b border-line pb-3"
-    >
-      <span className="shrink-0 text-metadata text-muted">Sessions</span>
-      <ul className="scrollbar-quiet flex min-w-0 flex-1 gap-1 overflow-x-auto">
-        {threads.map((thread, index) => (
-          <li key={thread.id} className="shrink-0">
-            <button
-              type="button"
-              onClick={() => onSelect(thread)}
-              aria-current={thread.id === activeId ? "true" : undefined}
-              aria-label={`${activitySessionNumber(index, threads.length)}, ${formatRunDate(thread.createdAt)}`}
-              title={thread.title}
-              className={cn(
-                "flex min-h-11 items-center gap-1.5 rounded-full border px-2.5 text-metadata transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:min-h-8",
-                thread.id === activeId
-                  ? "border-line bg-elevated text-foreground"
-                  : "border-line/70 text-muted hover:bg-elevated/50 hover:text-foreground",
-              )}
-            >
-              <span className="tabular-nums">
-                {activitySessionNumber(index, threads.length)}
-              </span>
-              <span className="text-muted">
-                {formatRunDate(thread.createdAt)}
-              </span>
-              <HarnessStatus status={thread.status} />
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <HistoryPicker
+      label={`${label} history`}
+      value={activeId ?? threads[0]!.id}
+      entries={threads.map((thread, index) => ({
+        id: thread.id,
+        label: activitySessionNumber(index, threads.length, thread.kind),
+        detail: (
+          <>
+            <span>{formatRunDate(thread.createdAt)}</span>
+            <HarnessStatus status={thread.status} label />
+          </>
+        ),
+      }))}
+      onSelect={(id) => {
+        const thread = threads.find((entry) => entry.id === id);
+        if (thread) onSelect(thread);
+      }}
+    />
   );
 }
 
@@ -108,7 +94,9 @@ export function HarnessActivity({
   onSelectCategory: (category: ActivityCategory) => void;
 }) {
   const threads = useHarnessThreads(profileId, { challengeId, limit: 1_000 });
-  const items = threads.data ?? [];
+  const items = (threads.data ?? []).filter((thread) =>
+    isVisibleActivityKind(thread.kind),
+  );
   const groups = groupActivityThreads(items);
   const requested = selectedRunId
     ? items.find((thread) => thread.id === selectedRunId)
@@ -124,15 +112,40 @@ export function HarnessActivity({
       ? selectedRunId
       : undefined) ?? categoryThreads[0]?.id;
   const activeThread = categoryThreads.find((thread) => thread.id === activeId);
-  const runActive = Boolean(
-    activeThread && isActiveThreadStatus(activeThread.status),
+  const preparation = activeCategory === "preparation";
+  // Old versions could save several setup threads. Read them chronologically
+  // as one conversation while preserving every stored row and identifier.
+  const visibleThreads = preparation
+    ? [...categoryThreads].reverse()
+    : activeThread
+      ? [activeThread]
+      : [];
+  const transcripts = useHarnessTranscripts(
+    profileId,
+    visibleThreads.map((thread) => thread.id),
   );
-  const { paneRef, contentRef, following, onScroll, jumpToLatest } =
-    useFollowActivity({
-      active: runActive,
-      ready: !threads.isPending && !threads.error,
-      resetKey: `${activeCategory}:${activeId ?? ""}`,
-    });
+  const runActive = visibleThreads.some((thread) =>
+    isActiveThreadStatus(thread.status),
+  );
+  const {
+    paneRef,
+    contentRef,
+    following,
+    onScroll,
+    onWheel,
+    onPointerDown,
+    onKeyDown,
+    onTouchStart,
+    jumpToLatest,
+  } = useFollowActivity({
+    active: runActive,
+    ready:
+      !threads.isPending &&
+      !threads.error &&
+      visibleThreads.length > 0 &&
+      transcripts.every((query) => !query.isPending),
+    resetKey: `${profileId}:${challengeId}:${preparation ? "preparation" : `${activeCategory}:${activeId ?? ""}`}`,
+  });
 
   if (threads.isPending) {
     return (
@@ -184,8 +197,8 @@ export function HarnessActivity({
         onValueChange={(value) => onSelectCategory(value as ActivityCategory)}
         className="min-h-0 flex-1 gap-0"
       >
-        <div className="shrink-0 border-b border-line px-2 md:px-5">
-          <div className="scrollbar-quiet overflow-x-auto">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line px-2 md:px-5">
+          <div className="scrollbar-quiet min-w-0 overflow-x-auto">
             <TabsList
               variant="line"
               className="h-10 min-w-max justify-start"
@@ -195,16 +208,21 @@ export function HarnessActivity({
                 <TabsTrigger
                   key={entry.key}
                   value={entry.key}
-                  className="flex-none gap-1.5 px-2 text-metadata"
+                  className="flex-none px-2.5 text-metadata"
                 >
                   {entry.label}
-                  <span className="tabular-nums text-muted">
-                    {entry.threads.length}
-                  </span>
                 </TabsTrigger>
               ))}
             </TabsList>
           </div>
+          {!preparation && (
+            <SessionSwitcher
+              label={group?.label ?? activityCategoryMeta[activeCategory].label}
+              threads={categoryThreads}
+              activeId={activeId}
+              onSelect={onSelectRun}
+            />
+          )}
         </div>
         <TabsContent
           value={activeCategory}
@@ -213,7 +231,13 @@ export function HarnessActivity({
           <div
             ref={paneRef}
             onScroll={onScroll}
-            className="scrollbar-visible min-h-0 flex-1 overflow-y-auto overscroll-contain"
+            onWheel={onWheel}
+            onPointerDown={onPointerDown}
+            onKeyDown={onKeyDown}
+            onTouchStart={onTouchStart}
+            tabIndex={0}
+            aria-label="Activity messages"
+            className="scrollbar-visible min-h-0 flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           >
             <div
               ref={contentRef}
@@ -222,20 +246,41 @@ export function HarnessActivity({
               {activeCategory === "preparation" && prelude && (
                 <div className="mb-4">{prelude}</div>
               )}
-              <SessionSwitcher
-                label={
-                  group?.label ?? activityCategoryMeta[activeCategory].label
-                }
-                threads={categoryThreads}
-                activeId={activeId}
-                onSelect={onSelectRun}
-              />
-              {activeId ? (
-                <HarnessTranscript
-                  key={activeId}
-                  profileId={profileId}
-                  threadId={activeId}
-                />
+              {visibleThreads.length ? (
+                <div className="space-y-3">
+                  {transcripts.map((query, index) => (
+                    <div key={visibleThreads[index]!.id}>
+                      {query.isPending ? (
+                        <Skeleton
+                          role="status"
+                          aria-label="Loading activity messages"
+                          className="h-20 w-full"
+                        />
+                      ) : query.error ? (
+                        <div className="space-y-2">
+                          <p
+                            role="alert"
+                            className="text-supporting text-destructive"
+                          >
+                            {query.error.message}
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => void query.refetch()}
+                          >
+                            Retry loading messages
+                          </Button>
+                        </div>
+                      ) : query.data ? (
+                        <HarnessTranscriptContent
+                          profileId={profileId}
+                          detail={query.data}
+                        />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <EmptyActivity category={activeCategory} />
               )}

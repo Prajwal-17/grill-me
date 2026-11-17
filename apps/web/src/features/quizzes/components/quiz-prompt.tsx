@@ -1,31 +1,28 @@
-import { ChevronRight } from "lucide-react";
-import { cn } from "@/shared/lib/cn";
+import { FileText } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/shared/components/ui/dialog";
 
-export function QuizPrompt({
-  prompt,
-  className,
-  defaultOpen = false,
-}: {
-  prompt: string;
-  className?: string;
-  defaultOpen?: boolean;
-}) {
+/** Secondary reference material stays outside the question's reading flow. */
+export function QuizPrompt({ prompt }: { prompt: string }) {
   return (
-    <details
-      open={defaultOpen || undefined}
-      className={cn("group text-ui", className)}
-    >
-      <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 text-muted transition-colors duration-100 hover:text-foreground">
-        <ChevronRight
-          size={14}
-          aria-hidden="true"
-          className="motion-chevron shrink-0 group-open:rotate-90"
-        />
-        Original prompt
-      </summary>
-      <div className="mt-2 max-h-40 overflow-y-auto overscroll-contain whitespace-pre-wrap break-words rounded-md border border-line bg-canvas/60 px-3 py-2.5 text-supporting leading-6 text-muted">
-        {prompt}
-      </div>
-    </details>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="ghost" className="text-muted">
+          <FileText size={14} aria-hidden="true" />
+          View prompt
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="flex max-h-[80vh] flex-col sm:max-w-xl">
+        <DialogTitle>Original prompt</DialogTitle>
+        <div className="min-h-0 overflow-y-auto overscroll-contain whitespace-pre-wrap break-words text-reading">
+          {prompt}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

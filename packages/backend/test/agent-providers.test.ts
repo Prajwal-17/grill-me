@@ -45,7 +45,7 @@ test("custom API capabilities map declared reasoning levels and reject unsupport
   );
 });
 
-test("built-in API connections can start from the first catalog model while custom endpoints require an exact model", async () => {
+test("API connections require an exact model and never choose the first catalog entry", async () => {
   const base: AgentConnection = {
     id: crypto.randomUUID(),
     name: "OpenRouter fixture",
@@ -59,18 +59,35 @@ test("built-in API connections can start from the first catalog model while cust
     model: "auto",
     apiKey: "fixture-key",
   };
-  const resolved = resolveAgentModel(base);
-  expect(resolved.model.id).not.toBe("auto");
-  expect(resolved.model.id.length).toBeGreaterThan(0);
-  expect(await testConnection(base)).toMatchObject({ ok: true });
-  expect(() =>
-    resolveAgentModel({
-      ...base,
-      preset: "custom",
-      endpoint: "http://127.0.0.1:1/v1",
-      model: "auto",
-    }),
-  ).toThrow(AppError);
+  for (const preset of [
+    "openrouter",
+    "opencode-go",
+    "openai",
+    "custom",
+  ] as const)
+    for (const model of ["auto", "", "  "]) {
+      const connection = {
+        ...base,
+        preset,
+        endpoint: "http://127.0.0.1:1/v1",
+        model,
+      };
+      expect(() => resolveAgentModel(connection)).toThrow(
+        "Choose an exact model",
+      );
+      if (preset !== "custom")
+        expect(await testConnection(connection)).toMatchObject({
+          ok: false,
+          code: "PROVIDER_MODEL_REQUIRED",
+        });
+    }
+  const deepseek = {
+    ...base,
+    preset: "opencode-go" as const,
+    model: "deepseek-v4.1-flash",
+  };
+  expect(resolveAgentModel(deepseek).model.id).toBe("deepseek-v4.1-flash");
+  expect(await testConnection(deepseek)).toMatchObject({ ok: true });
 });
 
 test("legacy CLI connections cannot resolve or run through the production gateway", async () => {

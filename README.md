@@ -24,6 +24,9 @@ Use your installed Codex or OpenCode CLI, or an OmniRoute endpoint, in
 requests. Grill Me does not install Codex or OpenCode; configure the installed
 CLI or endpoint in Settings → Providers.
 
+API connections require an explicit model in Settings → Providers. An unset or
+`auto` model blocks requests instead of selecting another catalog model.
+
 ## First launch and storage
 
 A fresh installation opens a setup window before the database or backend starts.
@@ -52,14 +55,28 @@ sources.
 Each challenge gets a local workspace folder. New challenges save a specification,
 then preparation creates separate source, configuration, migration, fixture, test,
 and documentation files in `project/`, leaving the exercise's core logic as TODOs.
+Preparation follows the challenge's file and dependency restrictions; database
+technologies in your profile do not require migrations for an in-memory exercise.
+Rubrics and milestones go in the README when the challenge restricts extra files.
+Expected failing exercise tests and core TODOs do not block preparation readiness.
+Completion reports distinguish informational caveats from actual scaffold blockers;
+older reports retain their original interpretation and saved status.
+Reviews reassess the current workspace on each request and preserve earlier
+scorecards. Select a numbered review to reopen its full evidence and feedback;
+Activity labels review runs by number and records the actual model used.
+Hints and discussions are no longer part of the application. Existing conversation
+records remain stored and available through the read-only compatibility API;
+retired generation and send endpoints return `410 FEATURE_REMOVED` without
+calling a provider. No database reset or migration is needed.
 Setup and checks pause for your command approval; listing commands in a README
 does not count as running them. A single workspace control opens the current
 project in a detected editor or its folder, or copies the path. Activity is a
-dedicated full-width tab with categorized preparation, reviews, discussion,
-hints, and every recorded tool call; the Files button opens a read-only project
+dedicated full-width tab with preparation, reviews, and every recorded tool call; the Files button opens a read-only project
 tree and source viewer without leaving the challenge. Preparation attempts keep
-their durable rows, while initial preparation and every resume stay in one
-transcript with a readable attempt marker. Older starter files and previous
+their durable rows, while initial preparation, resume, retry, and fresh setup stay in one
+continuous chat without numbered attempt headers or session dividers. Older split
+setup histories remain readable in that same conversation. Activity follows new
+messages smoothly, pauses when you read history, and respects reduced motion. Older starter files and previous
 project attempts remain untouched.
 Choose the workspace root in **Settings → Advanced → Challenge workspace**.
 

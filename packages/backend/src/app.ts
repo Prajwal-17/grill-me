@@ -88,7 +88,6 @@ export function createApp({
     challenges: challengeModel,
     messages: messageModel,
     profiles: profileService,
-    llm,
   });
 
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));

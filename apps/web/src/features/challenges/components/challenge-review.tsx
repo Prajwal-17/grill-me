@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { HistoryPicker } from "@/shared/components/history/history-picker";
 import {
   CheckCircle2,
   CircleDot,
@@ -143,8 +145,13 @@ export function ChallengeReviewSection({
   const { reviews, create } = useChallengeReviews(profileId, challenge.id, {
     enabled,
   });
-  const latest = reviews.data?.[0];
-  const previous = reviews.data?.slice(1) ?? [];
+  const [selectedId, setSelectedId] = useState<string>();
+  const history = reviews.data ?? [];
+  const latest =
+    history.find((review) => review.id === selectedId) ?? history[0];
+  const reviewNumber = latest
+    ? (latest.reviewNumber ?? history.length - history.indexOf(latest))
+    : null;
   const pending = create.isPending;
   return (
     <section
@@ -152,27 +159,68 @@ export function ChallengeReviewSection({
       className="space-y-3 rounded-lg border border-line bg-surface p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-ui font-medium">
-          <ClipboardCheck size={15} className="text-muted" aria-hidden="true" />
-          Review
+        <div className="flex flex-wrap items-center gap-2">
+          {history.length > 1 && latest ? (
+            <HistoryPicker
+              label="Review history"
+              value={latest.id}
+              onSelect={setSelectedId}
+              entries={history.map((review, index) => ({
+                id: review.id,
+                label: `Review ${review.reviewNumber ?? history.length - index}`,
+                detail: (
+                  <>
+                    <span>
+                      {review.criteriaMet}/{review.criteriaTotal} criteria met
+                    </span>
+                    <span>{formatDate(review.createdAt)}</span>
+                  </>
+                ),
+              }))}
+            />
+          ) : (
+            <h2 className="flex items-center gap-2 text-ui font-medium">
+              <ClipboardCheck
+                size={15}
+                className="text-muted"
+                aria-hidden="true"
+              />
+              {reviewNumber ? `Review ${reviewNumber}` : "Review"}
+            </h2>
+          )}
           {latest && (
-            <span className="text-metadata font-normal text-muted">
+            <span className="text-metadata text-muted">
               {latest.criteriaMet}/{latest.criteriaTotal} criteria met
             </span>
           )}
-        </h2>
+        </div>
         <Button
           size="sm"
           variant={latest ? "secondary" : "default"}
           disabled={pending || !enabled}
-          onClick={() => create.mutate()}
+          onClick={() =>
+            create.mutate(undefined, {
+              onSuccess: (review) => setSelectedId(review.id),
+            })
+          }
         >
           {pending && <LoaderCircle size={14} className="animate-spin" />}
           {latest ? "Review again" : "Review attempt"}
         </Button>
       </div>
 
-      {!latest && !pending && (
+      {reviews.isLoading && (
+        <p role="status" className="text-supporting text-muted">
+          Loading reviews…
+        </p>
+      )}
+      {reviews.error && (
+        <p role="alert" className="text-supporting text-destructive">
+          {reviews.error.message}
+        </p>
+      )}
+
+      {!latest && !pending && !reviews.isLoading && !reviews.error && (
         <p className="text-supporting text-muted">
           Score this attempt against the challenge's completion criteria. The
           review reads your workspace and never runs the code.
@@ -192,7 +240,10 @@ export function ChallengeReviewSection({
       )}
 
       {latest && (
-        <article className="border-t border-line pt-3">
+        <article
+          aria-label={`Review ${reviewNumber} scorecard`}
+          className="border-t border-line pt-3"
+        >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div className="flex items-baseline gap-2">
               <Verdict review={latest} />
@@ -205,30 +256,6 @@ export function ChallengeReviewSection({
           <Evidence review={latest} />
           <Findings review={latest} />
         </article>
-      )}
-
-      {previous.length > 0 && (
-        <details className="text-supporting">
-          <summary className="cursor-pointer text-muted">
-            Previous reviews ({previous.length})
-          </summary>
-          <ul className="mt-2 space-y-1">
-            {previous.map((review) => (
-              <li
-                key={review.id}
-                className="flex flex-wrap items-baseline gap-2 text-metadata"
-              >
-                <span className="text-muted">
-                  {formatDate(review.createdAt)}
-                </span>
-                <Verdict review={review} />
-                <span className="text-muted">
-                  {review.criteriaMet}/{review.criteriaTotal} criteria met
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
       )}
     </section>
   );

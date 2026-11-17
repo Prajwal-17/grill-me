@@ -1,10 +1,9 @@
 import { useNavigate, useSearchParams } from "react-router";
 import { useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   LoaderCircle,
-  Lightbulb,
   Pause,
   Play,
   Check,
@@ -19,20 +18,16 @@ import {
 import type { Challenge, Profile } from "@/shared/types/api";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
-import { Markdown } from "@/shared/components/markdown";
 import { ChallengeCard } from "@/features/challenges/components/challenge-card";
-import { ChallengeWorkspaceBar } from "@/features/challenges/components/challenge-workspace";
+import { ChallengeWorkspaceMenu } from "@/features/challenges/components/challenge-workspace";
 import { ChallengeReviewSection } from "@/features/challenges/components/challenge-review";
 import { CopyButton } from "@/shared/components/ui/copy-button";
 import { statementMarkdown } from "@/features/challenges/lib/challenge-statement";
 import {
-  challengeKeys,
   completeChallenge,
   setChallengeArchived,
   setChallengeStatus,
 } from "@/features/challenges/api/challenge-api";
-import { getHint, getMessages } from "@/features/chat/api/message-api";
-import { ChallengeDiscussion } from "./challenge-discussion";
 import {
   Tabs,
   TabsList,
@@ -108,7 +103,6 @@ export function PracticeWorkspace({
       }
     });
   };
-  const [reply, setReply] = useState("");
   const [filesOpen, setFilesOpen] = useState(false);
   const [filesExpanded, setFilesExpanded] = useState(false);
   const wide = useWideWorkspace();
@@ -162,16 +156,9 @@ export function PracticeWorkspace({
     await Promise.all([
       queries.invalidateQueries({ queryKey: ["challenges"] }),
       queries.invalidateQueries({ queryKey: ["progress"] }),
-      queries.invalidateQueries({
-        queryKey: challengeKeys.messages(challenge.id),
-      }),
       queries.invalidateQueries({ queryKey: ["harness-threads"] }),
     ]);
   };
-  const messages = useQuery({
-    queryKey: challengeKeys.messages(challenge.id),
-    queryFn: () => getMessages(profile.id, challenge.id),
-  });
   const lifecycle = useMutation({
     mutationFn: (
       status: "active" | "paused" | "archived" | "restored" | "completed",
@@ -186,17 +173,7 @@ export function PracticeWorkspace({
       if (status === "archived") navigate("/challenges?status=archived");
     },
   });
-  const hint = useMutation({
-    mutationFn: async () => {
-      setReply("");
-      const delta = (text: string) => setReply((current) => current + text);
-      return getHint(profile.id, challenge.id, delta);
-    },
-    onSuccess: async () => {
-      await refresh();
-    },
-  });
-  const busy = hint.isPending || lifecycle.isPending;
+  const busy = lifecycle.isPending;
   const archived =
     Boolean(challenge.archivedAt) || challenge.status === "saved";
   const active = challenge.status === "active" && !archived;
@@ -216,8 +193,7 @@ export function PracticeWorkspace({
   const reviewProject = () => {
     openActivity("preparation");
   };
-  const error = lifecycle.error ?? hint.error;
-  const savedHints = messages.data?.filter((m) => m.mode === "hint") ?? [];
+  const error = lifecycle.error;
   return (
     <AppShell
       profile={profile}
@@ -356,6 +332,10 @@ export function PracticeWorkspace({
                     Mark completed
                   </Button>
                 )}
+                <ChallengeWorkspaceMenu
+                  profileId={profile.id}
+                  challengeId={challenge.id}
+                />
                 <Button
                   ref={filesToggle}
                   size="sm"
@@ -388,71 +368,6 @@ export function PracticeWorkspace({
                       />
                     }
                   />
-                  <ChallengeWorkspaceBar
-                    profileId={profile.id}
-                    challenge={challenge}
-                    onOpenActivity={reviewProject}
-                  />
-                  {active && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        disabled={busy}
-                        onClick={() => hint.mutate()}
-                      >
-                        {hint.isPending ? (
-                          <LoaderCircle size={14} className="animate-spin" />
-                        ) : (
-                          <Lightbulb size={14} />
-                        )}
-                        Hint
-                      </Button>
-                    </div>
-                  )}
-                  {(reply || hint.isPending) && active && (
-                    <section
-                      className="rounded-lg border border-line bg-panel p-4"
-                      aria-label="Challenge hint"
-                      aria-live="polite"
-                    >
-                      {reply && (
-                        <div className="text-ui leading-6">
-                          <Markdown>{reply}</Markdown>
-                        </div>
-                      )}
-                      {hint.isPending && !reply && (
-                        <p role="status" className="text-metadata text-muted">
-                          Preparing a hint…
-                        </p>
-                      )}
-                    </section>
-                  )}
-                  <details className="border-t border-line pt-5">
-                    <summary className="cursor-pointer text-ui font-medium">
-                      Ask about this challenge
-                    </summary>
-                    <div className="mt-4">
-                      <ChallengeDiscussion
-                        profileId={profile.id}
-                        challengeId={challenge.id}
-                        active={active}
-                      />
-                    </div>
-                  </details>
-                  {!!savedHints.length && (
-                    <details className="border-t border-line pt-4 text-ui">
-                      <summary className="cursor-pointer text-muted">
-                        Previous hints ({savedHints.length})
-                      </summary>
-                      <div className="mt-4 space-y-5">
-                        {savedHints.map((m) => (
-                          <div key={m.id}>
-                            <Markdown>{m.content}</Markdown>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
                 </div>
               </div>
             </TabsContent>
@@ -492,7 +407,7 @@ export function PracticeWorkspace({
             </TabsContent>
             <TabsContent
               value="quizzes"
-              className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto p-4 md:p-6"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 md:p-5"
             >
               <QuizWorkspace
                 profileId={profile.id}

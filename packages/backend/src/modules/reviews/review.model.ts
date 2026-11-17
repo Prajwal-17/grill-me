@@ -1,11 +1,25 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "../../shared/database/db";
-import { challengeReviews } from "../../shared/database/schema";
+import { challengeReviews, harnessThreads } from "../../shared/database/schema";
 import type { ChallengeReviewResult } from "@repo/backend/shared/contracts";
 
 export type ChallengeReviewRow = typeof challengeReviews.$inferSelect;
 
 export const reviewModel = {
+  async attemptNumbers(profileId: string, challengeId: string) {
+    const threads = await db
+      .select({ id: harnessThreads.id })
+      .from(harnessThreads)
+      .where(
+        and(
+          eq(harnessThreads.profileId, profileId),
+          eq(harnessThreads.challengeId, challengeId),
+          eq(harnessThreads.kind, "review"),
+        ),
+      )
+      .orderBy(asc(harnessThreads.createdAt), asc(harnessThreads.id));
+    return new Map(threads.map((thread, index) => [thread.id, index + 1]));
+  },
   list(profileId: string, challengeId: string) {
     return db
       .select()

@@ -884,10 +884,10 @@ describe("command tool isolation", () => {
       ),
       fauxAssistantMessage(
         [
-          fauxToolCall(
-            "complete_project_scaffold",
-            report(checkCommand, "passed"),
-          ),
+          fauxToolCall("complete_project_scaffold", {
+            ...report(checkCommand, "passed"),
+            blockingProblems: [],
+          }),
         ],
         { stopReason: "toolUse" },
       ),

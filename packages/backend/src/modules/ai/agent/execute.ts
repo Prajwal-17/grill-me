@@ -81,6 +81,9 @@ export function createAgentExecutor(input: {
         threadId: target.harness.threadId,
         turnId: target.harness.turnId,
         inputText: target.harness.inputText,
+        model: resolved.model.id,
+        connectionId: resolved.connection.id,
+        reasoningEffort: resolved.requestedReasoning,
       });
       return run.recorder;
     }

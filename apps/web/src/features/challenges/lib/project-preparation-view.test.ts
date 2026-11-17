@@ -584,7 +584,7 @@ test("labels resumed attempts and their same-folder history honestly", () => {
   assert.equal(view.modeLabel, "Resumed");
   assert.equal(
     view.previousAttempt,
-    "Resumed attempt 1 in the same folder (project).",
+    "Continued setup in the same folder (project).",
   );
 });
 

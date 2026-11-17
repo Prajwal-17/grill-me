@@ -8,7 +8,6 @@ import type { ModelSelection } from "@repo/backend/shared/contracts";
 import { AppError } from "../../shared/errors/app-error";
 import type { BuildModelInput, ModelGateway } from "../ai/model-gateway";
 import type { MessageModel } from "../messages/message.model";
-import { toMessage } from "../messages/message.utils";
 import type { ProfileService } from "../profiles/profile.service";
 import type { ChallengeModel } from "./challenge.model";
 import type { GenerationRun } from "../generations/generation.schema";
@@ -28,7 +27,6 @@ import {
 } from "./challenge.utils";
 import type { ChallengeWorkspaceService } from "./workspace";
 import type { ProjectPreparationService } from "./project-preparation.service";
-import { harnessService } from "../harness/harness.service";
 
 export function createChallengeService(dependencies: {
   challenges: ChallengeModel;
@@ -38,8 +36,7 @@ export function createChallengeService(dependencies: {
   workspaces: ChallengeWorkspaceService;
   preparations?: ProjectPreparationService;
 }) {
-  const { challenges, messages, profiles, llm, workspaces, preparations } =
-    dependencies;
+  const { challenges, profiles, llm, workspaces, preparations } = dependencies;
   // Remember valid essential questions so a client cannot skip one after preparation.
   // Bounded to avoid retaining abandoned requests indefinitely in this local server.
   const pendingQuestions = new Map<
@@ -334,43 +331,6 @@ export function createChallengeService(dependencies: {
           409,
         );
       return toChallenge((await challenges.setStatus(id, status))!);
-    },
-
-    async generateHint(
-      id: string,
-      profileId: string,
-      onDelta: (delta: string) => Promise<void>,
-      helpKind: "hint" | "approach" = "hint",
-    ) {
-      const row = requireActiveChallenge(await owned(id, profileId));
-      let hint = "";
-      const thread = await harnessService.createThread({
-        profileId,
-        kind: "hint",
-        title: row.title,
-        challengeId: row.id,
-        transport: "api",
-        model: process.env.LLM_MODEL ?? "auto",
-      });
-      const turn = await harnessService.appendTurn(thread.id, {
-        inputText: helpKind === "approach" ? "High-level approach" : "Hint",
-      });
-      for await (const delta of llm.generateHint({
-        helpKind,
-        challenge: toChallenge(row),
-        messages: (await messages.findRowsByChallenge(row.id)).map(toMessage),
-        learner: await learnerContext(profileId),
-        harness: {
-          threadId: thread.id,
-          turnId: turn.id,
-          inputText: turn.inputText,
-        },
-      })) {
-        hint += delta;
-        await onDelta(delta);
-      }
-
-      return toChallenge((await challenges.saveHint(row.id, hint))!);
     },
 
     owned,

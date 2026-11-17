@@ -36,6 +36,8 @@ import {
 } from "@repo/backend/modules/challenges/project-preparation.spec";
 import { resolvedModel } from "./fixtures/agent-fixtures";
 import { setHarnessPermissionModeProvider } from "@repo/backend/modules/harness/harness.service";
+import { validateProjectScaffoldReport } from "@repo/backend/modules/challenges/project-preparation.validation";
+import { projectScaffoldTask } from "@repo/backend/modules/ai/agent/tasks/project";
 
 const roots: string[] = [];
 setHarnessPermissionModeProvider(() => "auto-accept-edits");
@@ -226,6 +228,7 @@ function successfulScaffold(): {
         { checkId: "todo-tests", status: "not_run", detail: null },
       ],
       problems: [],
+      blockingProblems: [],
     },
   };
 }
@@ -251,6 +254,7 @@ class FakeScaffoldModel implements ModelGateway {
   aborted = false;
   partialWritten = false;
   behavior: "success" | "fail" | "fraud" | "slow" = "success";
+  reportOverride: Partial<ProjectScaffoldReport> = {};
 
   async prepareBuild(): Promise<ChallengePreparation> {
     return { question: null, options: [] };
@@ -343,7 +347,10 @@ class FakeScaffoldModel implements ModelGateway {
     this.scaffoldInputs.push(input);
     if (this.behavior === "success") {
       await this.writeFiles(input);
-      return this.executeReport(input, successfulScaffold().report);
+      return this.executeReport(input, {
+        ...successfulScaffold().report,
+        ...this.reportOverride,
+      });
     }
     if (this.behavior === "fraud")
       return {
@@ -504,6 +511,61 @@ function appWith(model: FakeScaffoldModel, root: string) {
 }
 
 describe("challenge project preparation", () => {
+  test.each([
+    {
+      name: "expected exercise failures and informational caveats",
+      problems: [
+        "The exercise core is intentionally TODO and its tests fail as expected.",
+        "The proposed long-running development server was not started.",
+      ],
+      blockingProblems: [],
+      status: "ready",
+    },
+    {
+      name: "a real scaffold blocker",
+      problems: ["The exercise is intentionally TODO."],
+      blockingProblems: ["Required supporting wiring is incomplete."],
+      status: "failed",
+    },
+    {
+      name: "a legacy report with unresolved problems",
+      problems: ["Required supporting wiring is incomplete."],
+      blockingProblems: undefined,
+      status: "failed",
+    },
+  ])("handles $name", async ({ problems, blockingProblems, status }) => {
+    const root = await tempRoot();
+    const model = new FakeScaffoldModel();
+    model.reportOverride = {
+      problems: [...problems],
+      blockingProblems: blockingProblems ? [...blockingProblems] : undefined,
+    };
+    const app = appWith(model, root);
+    const owner = await startProfile(
+      app,
+      `project-readiness-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id);
+    const result = await waitForStatus(app, owner.id, challenge.id, [
+      "ready",
+      "failed",
+    ]);
+    expect(result.status).toBe(status);
+    expect(result.report?.problems).toEqual([
+      ...new Set([...(blockingProblems ?? []), ...problems]),
+    ]);
+    expect(
+      result.report?.results.find((check) => check.checkId === "todo-tests")
+        ?.status,
+    ).toBe("failed");
+    if (status === "failed") {
+      expect(result.error?.code).toBe("PROJECT_SCAFFOLD_INCOMPLETE");
+      expect(result.error).toMatchObject({
+        details: { problems: [...(blockingProblems ?? problems)] },
+      });
+    } else expect(result.error).toBeNull();
+  });
+
   test("automatically freezes the specification and scaffolds a multi-file URL shortener", async () => {
     const root = await tempRoot();
     const model = new FakeScaffoldModel();
@@ -738,6 +800,69 @@ describe("challenge project preparation", () => {
   });
 });
 
+describe("project-specific storage requirements", () => {
+  test.each([false, true])(
+    "requires migrations only for a challenge that requests persistence (%s)",
+    async (persistent) => {
+      const root = await tempRoot();
+      const { layout } = await createProjectWorkspace({ root });
+      const specification: ProjectFrozenSpecification = {
+        version: 1,
+        challengeId: crypto.randomUUID(),
+        profileId: crypto.randomUUID(),
+        challengeNumber: 40,
+        title: "Token-bucket rate limiter middleware for Bun.serve",
+        request: "Create a Bun + TypeScript token-bucket middleware exercise.",
+        scope: "feature",
+        difficulty: "medium",
+        problemStatement: persistent
+          ? "Persist token buckets in a SQLite database."
+          : "In-memory only, no external dependencies. Keep the core as TODO.",
+        expectedOutcome: "A practice scaffold with unfinished core behavior.",
+        implementationBoundary: persistent
+          ? "Implement persistent token buckets."
+          : "Out of scope: persistence, distributed/Redis limiting, extra routes.",
+        objectives: ["Practice token-bucket middleware."],
+        acceptanceCriteria: ["Return 429 when the bucket is empty."],
+        durationEstimate: { minMinutes: 30, maxMinutes: 60 },
+        stack: {
+          experienceLevel: null,
+          languages: ["TypeScript", "SQL"],
+          stack: ["Bun", "PostgreSQL", "SQLite", "Prisma", "Drizzle ORM"],
+          currentFocus: null,
+        },
+        model: { selection: null, label: "fake" },
+        frozenAt: new Date().toISOString(),
+      };
+      await writeFrozenSpecification(layout, specification);
+      const fixture = successfulScaffold();
+      const files = fixture.files.filter((file) => file.role !== "migration");
+      const create = createProjectTools({
+        root: layout.projectRoot,
+        journal: projectToolJournalContext(layout),
+      }).find((tool) => tool.name === "create_project_file")!;
+      for (const file of files)
+        await create.execute(
+          "create",
+          { path: file.path, content: file.content },
+          undefined,
+        );
+      const validation = validateProjectScaffoldReport(
+        {
+          ...fixture.report,
+          files: fixture.report.files.filter(
+            (file) => file.role !== "migration",
+          ),
+        },
+        { layout, specification },
+      );
+      if (persistent)
+        await expect(validation).rejects.toThrow("requires persistent storage");
+      else expect((await validation).blockingProblems).toEqual([]);
+    },
+  );
+});
+
 describe("Pi project-scaffold gateway", () => {
   test("writes real files with project tools and skips diagnostic run logs", async () => {
     const root = await tempRoot();
@@ -795,6 +920,21 @@ describe("Pi project-scaffold gateway", () => {
     });
     await writeFrozenSpecification(created.layout, specification);
     const fixture = successfulScaffold();
+    const task = projectScaffoldTask({
+      profileId: challenge.profileId,
+      challengeId: challenge.id,
+      specification,
+      layout: created.layout,
+      previousAttempt: null,
+    });
+    expect(task.completion.schema).toMatchObject({
+      required: expect.arrayContaining(["blockingProblems"]),
+    });
+    const { blockingProblems: _blockers, ...legacyReport } = fixture.report;
+    await expect(task.completion.validate(legacyReport)).rejects.toMatchObject({
+      code: "PROJECT_SCAFFOLD_INVALID",
+      message: expect.stringContaining("blockingProblems"),
+    });
     const { faux, resolved } = resolvedModel();
     faux.setResponses([
       fauxAssistantMessage(

@@ -1,4 +1,5 @@
 import type {
+  ChallengeReview,
   ChallengeWorkspace,
   ModelSelection,
   ProjectCheckProposal,
@@ -11,6 +12,7 @@ import type {
 } from "@repo/backend/shared/contracts";
 import type { GuidedPreferences } from "@repo/backend/shared/preferences";
 export type {
+  ChallengeReview,
   ChallengeWorkspace,
   ModelSelection,
   ProjectCheckProposal,
@@ -91,19 +93,6 @@ export type ChallengeReviewResult = {
   strengths: string[];
   improvements: ReviewFinding[];
   nextStep: string;
-};
-
-export type ChallengeReview = {
-  id: string;
-  profileId: string;
-  challengeId: string;
-  verdict: ChallengeReviewVerdict;
-  criteriaMet: number;
-  criteriaTotal: number;
-  result: ChallengeReviewResult;
-  model: string;
-  threadId: string | null;
-  createdAt: string;
 };
 
 export type MessageMode = "generate" | "clarify" | "review" | "hint";

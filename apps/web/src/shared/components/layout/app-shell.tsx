@@ -102,6 +102,7 @@ export function AppShell({
                   >
                     <Link
                       to={href}
+                      data-slot="page-breadcrumb-link"
                       className="truncate rounded-sm text-muted transition-colors duration-100 hover:text-foreground"
                     >
                       {label}
@@ -115,7 +116,8 @@ export function AppShell({
                 ))}
                 <li className="min-w-0 flex-1" aria-current="page">
                   <h1
-                    className="truncate font-medium tracking-[-0.01em]"
+                    data-slot="page-title"
+                    className="w-fit max-w-full truncate font-medium tracking-[-0.01em]"
                     title={title}
                   >
                     {title}

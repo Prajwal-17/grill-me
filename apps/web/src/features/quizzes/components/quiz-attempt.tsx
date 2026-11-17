@@ -5,7 +5,6 @@ import { Markdown } from "@/shared/components/markdown";
 import { cn } from "@/shared/lib/cn";
 import { useQuizAnswers } from "../hooks/use-quiz-answers";
 import type { Quiz, QuizAttempt as Attempt } from "../types";
-import { QuizPrompt } from "./quiz-prompt";
 
 export function QuizAttempt({
   profileId,
@@ -30,6 +29,7 @@ export function QuizAttempt({
     readOnly,
   });
   const workspaceRef = useRef<HTMLDivElement>(null);
+  const questionRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(() =>
     Math.max(
       0,
@@ -52,7 +52,7 @@ export function QuizAttempt({
   }, [submitted]);
 
   useEffect(() => {
-    if (workspaceRef.current) workspaceRef.current.scrollTop = 0;
+    questionRef.current?.scrollTo({ top: 0 });
   }, [index]);
 
   useEffect(() => {
@@ -67,8 +67,8 @@ export function QuizAttempt({
       aria-label="Quiz attempt"
       aria-describedby={`quiz-keys-${attempt.id}`}
       aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown"
-      tabIndex={0}
-      className="group/attempt min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-md outline-none"
+      tabIndex={-1}
+      className="group/attempt flex min-h-0 flex-1 flex-col overflow-hidden rounded-md outline-none"
       onKeyDown={(event) => {
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)
           return;
@@ -121,27 +121,29 @@ export function QuizAttempt({
           ? "Left and right arrows move between questions."
           : "Left and right arrows change questions. Up and down arrows select an answer. Answers save automatically."}
       </p>
-      {quiz.prompt && <QuizPrompt prompt={quiz.prompt} className="mb-4" />}
-      <div className="mb-3 flex items-center justify-between gap-4 text-ui">
-        <p
-          className="font-medium group-focus-visible/attempt:underline group-focus-visible/attempt:underline-offset-4"
-          aria-live="polite"
-        >
+      <div className="mb-3 flex shrink-0 items-center justify-between gap-4 text-ui">
+        <p className="font-medium" aria-live="polite">
           Question {index + 1} of {quiz.questionCount}
         </p>
-        {!submitted && (
-          <p className="text-muted tabular-nums">
-            {answered}/{quiz.questionCount} answered
-          </p>
-        )}
+        <p className="text-metadata text-muted tabular-nums">
+          {submitted
+            ? `${correctCount} correct · ${incorrectCount} incorrect`
+            : `${answered}/${quiz.questionCount} answered`}
+        </p>
       </div>
-      <div className="grid min-w-0 items-start gap-5 @[850px]/quiz:grid-cols-[minmax(0,74ch)_180px] @[850px]/quiz:gap-6">
-        <div className="min-w-0">
+      <div className="min-h-0 min-w-0 flex-1">
+        <div
+          ref={questionRef}
+          role="region"
+          aria-label="Question and answers"
+          tabIndex={0}
+          className="h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain pr-3 pb-4 [scrollbar-gutter:stable] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
           <fieldset
             disabled={submitted || readOnly || state.submitting}
             className="min-w-0 space-y-3"
           >
-            <legend className="mb-4 w-full text-question font-semibold tracking-[-0.01em]">
+            <legend className="mb-4 w-full text-question font-medium leading-relaxed">
               <Markdown>{question.question}</Markdown>
             </legend>
             {question.options.map((option, optionIndex) => {
@@ -224,113 +226,97 @@ export function QuizAttempt({
               </div>
             </section>
           )}
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                disabled={index === 0}
-                onClick={() => setIndex(index - 1)}
-              >
-                <ArrowLeft size={15} />
-                Previous
-              </Button>
-              <Button
-                size="sm"
-                variant={submitted ? "primary" : "secondary"}
-                disabled={index === quiz.questions.length - 1}
-                onClick={() => setIndex(index + 1)}
-              >
-                Next
-                <ArrowRight size={15} />
-              </Button>
-            </div>
-            {!submitted && !readOnly && (
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={answered !== quiz.questionCount || state.submitting}
-                onClick={() => {
-                  void state.submit();
-                }}
-              >
-                {state.submitting ? "Submitting…" : "Submit quiz"}
-              </Button>
-            )}
-          </div>
         </div>
-        <aside
-          aria-label="Question overview"
-          className="border-t border-line pt-4 @[850px]/quiz:border-t-0 @[850px]/quiz:border-l @[850px]/quiz:pt-0 @[850px]/quiz:pl-5"
-        >
-          <div className="mb-3 flex items-center justify-between gap-2 @[850px]/quiz:block">
-            <h3 className="text-ui font-semibold">Answer overview</h3>
-            <p className="text-metadata leading-5 text-muted tabular-nums @[850px]/quiz:mt-1">
-              {submitted
-                ? `${correctCount} correct · ${incorrectCount} incorrect`
-                : `${answered}/${quiz.questionCount} answered`}
-            </p>
-          </div>
-          <nav
-            aria-label="Quiz questions"
-            className="grid grid-cols-5 gap-2 sm:grid-cols-10 @[850px]/quiz:grid-cols-3"
+      </div>
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-line pt-2">
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            aria-label="Previous question"
+            disabled={index === 0}
+            onClick={() => setIndex(index - 1)}
           >
-            {quiz.questions.map((q, i) => {
-              const questionResult = submitted
-                ? attempt.results?.find((item) => item.questionId === q.id)
-                : undefined;
-              const correct =
-                questionResult &&
-                questionResult.chosenOption === questionResult.correctOption;
-              const isAnswered = state.answers[q.id] !== undefined;
-              return (
-                <Button
-                  key={q.id}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label={`Question ${i + 1}, ${questionResult ? (correct ? "correct" : "incorrect") : isAnswered ? "answered" : "unanswered"}`}
-                  aria-current={index === i ? "step" : undefined}
-                  onClick={() => setIndex(i)}
-                  className={cn(
-                    "relative h-9 w-full min-w-0 justify-center rounded-md border px-0 text-ui font-medium tabular-nums shadow-none",
-                    questionResult
-                      ? correct
-                        ? "border-success/60 bg-success/10 text-success hover:bg-success/15"
-                        : "border-destructive/60 bg-destructive/10 text-destructive hover:bg-destructive/15"
-                      : isAnswered
-                        ? "border-line-strong bg-elevated text-foreground"
-                        : "border-line text-muted hover:bg-elevated",
-                    index === i &&
-                      (questionResult
-                        ? "outline-2 outline-offset-3 outline-ring"
-                        : "border-brand bg-brand-soft text-brand"),
-                  )}
-                >
-                  <span>{i + 1}</span>
-                  {questionResult ? (
-                    correct ? (
-                      <Check size={15} strokeWidth={2.5} aria-hidden="true" />
-                    ) : (
-                      <X size={15} strokeWidth={2.5} aria-hidden="true" />
-                    )
+            <ArrowLeft size={15} />
+            <span className="hidden sm:inline">Previous</span>
+          </Button>
+          <Button
+            size="sm"
+            variant={submitted ? "primary" : "secondary"}
+            aria-label="Next question"
+            disabled={index === quiz.questions.length - 1}
+            onClick={() => setIndex(index + 1)}
+          >
+            <span className="hidden sm:inline">Next</span>
+            <ArrowRight size={15} />
+          </Button>
+        </div>
+        <nav
+          aria-label="Quiz questions"
+          className="scrollbar-quiet flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 py-1"
+        >
+          {quiz.questions.map((q, i) => {
+            const questionResult = submitted
+              ? attempt.results?.find((item) => item.questionId === q.id)
+              : undefined;
+            const correct =
+              questionResult &&
+              questionResult.chosenOption === questionResult.correctOption;
+            const isAnswered = state.answers[q.id] !== undefined;
+            return (
+              <Button
+                key={q.id}
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label={`Question ${i + 1}, ${questionResult ? (correct ? "correct" : "incorrect") : isAnswered ? "answered" : "unanswered"}`}
+                aria-current={index === i ? "step" : undefined}
+                onClick={() => setIndex(i)}
+                className={cn(
+                  "relative h-9 w-10 shrink-0 justify-center rounded-md border px-0 text-ui font-medium tabular-nums shadow-none",
+                  questionResult
+                    ? correct
+                      ? "border-success/60 bg-success/10 text-success hover:bg-success/15"
+                      : "border-destructive/60 bg-destructive/10 text-destructive hover:bg-destructive/15"
+                    : isAnswered
+                      ? "border-line-strong bg-elevated text-foreground"
+                      : "border-line text-muted hover:bg-elevated",
+                  index === i && "font-semibold",
+                  index === i &&
+                    !questionResult &&
+                    "bg-elevated text-foreground",
+                )}
+              >
+                <span>{i + 1}</span>
+                {questionResult ? (
+                  correct ? (
+                    <Check size={15} strokeWidth={2.5} aria-hidden="true" />
                   ) : (
-                    isAnswered && (
-                      <span
-                        aria-hidden="true"
-                        className="absolute bottom-1 h-0.5 w-3 rounded-full bg-foreground"
-                      />
-                    )
-                  )}
-                </Button>
-              );
-            })}
-          </nav>
-          {!submitted && (
-            <p className="mt-3 hidden text-metadata leading-5 text-muted @[850px]/quiz:block">
-              ← → questions · ↑ ↓ choose · Answers save automatically
-            </p>
-          )}
-        </aside>
+                    <X size={15} strokeWidth={2.5} aria-hidden="true" />
+                  )
+                ) : (
+                  (isAnswered || index === i) && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-1 h-0.5 w-3 rounded-full bg-foreground"
+                    />
+                  )
+                )}
+              </Button>
+            );
+          })}
+        </nav>
+        {!submitted && !readOnly && (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={answered !== quiz.questionCount || state.submitting}
+            onClick={() => {
+              void state.submit();
+            }}
+          >
+            {state.submitting ? "Submitting…" : "Submit quiz"}
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  queryOptions,
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import type { HarnessRequestDecision } from "@repo/backend/shared/contracts";
 import {
   decideHarnessRequest,
@@ -37,7 +43,14 @@ export function useHarnessThread(
   profileId: string | undefined,
   threadId: string | undefined,
 ) {
-  return useQuery({
+  return useQuery(threadOptions(profileId, threadId));
+}
+
+function threadOptions(
+  profileId: string | undefined,
+  threadId: string | undefined,
+) {
+  return queryOptions({
     queryKey: harnessKeys.detail(profileId ?? "", threadId ?? ""),
     queryFn: ({ signal }) => getHarnessThread(profileId!, threadId!, signal),
     enabled: Boolean(profileId && threadId),
@@ -45,6 +58,12 @@ export function useHarnessThread(
       const status = query.state.data?.thread.status;
       return status && isActiveThreadStatus(status) ? 1000 : false;
     },
+  });
+}
+
+export function useHarnessTranscripts(profileId: string, threadIds: string[]) {
+  return useQueries({
+    queries: threadIds.map((id) => threadOptions(profileId, id)),
   });
 }
 

@@ -712,6 +712,7 @@ export const challengeReviewResultSchema = z.object({
 });
 export type ChallengeReviewResult = z.infer<typeof challengeReviewResultSchema>;
 export const challengeReviewSchema = z.object({
+  reviewNumber: z.number().int().positive().optional(),
   id: z.string().uuid(),
   profileId: z.string().uuid(),
   challengeId: z.string().uuid(),
@@ -795,6 +796,13 @@ export const projectScaffoldReportSchema = z.strictObject({
   checks: z.array(projectCheckProposalSchema).min(1).max(40),
   results: z.array(projectCheckResultSchema).min(1).max(40),
   problems: z.array(z.string().trim().min(1).max(500)).max(20),
+  blockingProblems: z
+    .array(z.string().trim().min(1).max(500))
+    .max(20)
+    .describe(
+      "Actual defects preventing the surrounding scaffold from being ready. Exclude intentional exercise TODOs, expected todo_exercise failures, proposed servers that were not started, and informational limitations. Return [] when preparation is ready for the learner.",
+    )
+    .optional(),
 });
 export type ProjectScaffoldReport = z.infer<typeof projectScaffoldReportSchema>;
 export const projectPreparationErrorSchema = z.object({

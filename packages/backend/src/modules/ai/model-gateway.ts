@@ -195,6 +195,7 @@ export interface ModelGateway {
     learner: LearnerContext;
   }): AsyncIterable<string>;
   generateHint(input: {
+    signal?: AbortSignal;
     helpKind?: "hint" | "approach";
     selection?: ModelSelection;
     harness?: HarnessRunRequest;

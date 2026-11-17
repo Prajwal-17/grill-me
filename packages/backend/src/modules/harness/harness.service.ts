@@ -200,6 +200,7 @@ class Recorder {
   readonly turnId: string;
   readonly attemptId: string;
   private toolItems = new Map<string, string>();
+  private eventQueue: Promise<void> = Promise.resolve();
 
   constructor(input: { threadId: string; turnId: string; attemptId: string }) {
     this.threadId = input.threadId;
@@ -246,7 +247,15 @@ class Recorder {
     return row ? itemValue(row) : null;
   }
 
-  async event(event: StableAgentEvent) {
+  event(event: StableAgentEvent) {
+    // Agent subscriptions do not await database writes. Preserve emission order
+    // so a fast tool's finish cannot overtake its asynchronously saved start.
+    const saved = this.eventQueue.then(() => this.recordEvent(event));
+    this.eventQueue = saved.catch(() => {});
+    return saved;
+  }
+
+  private async recordEvent(event: StableAgentEvent) {
     if (event.type === "tool_started") {
       const item = await this.append({
         type: itemTypeForTool(event.toolName),
@@ -318,6 +327,7 @@ class Recorder {
     usage?: HarnessUsage;
     error?: { code: string; message: string };
   }) {
+    await this.eventQueue;
     const at = new Date();
     if (input.error)
       await this.append({
@@ -467,6 +477,9 @@ export function createHarnessService() {
     turnId?: string;
     inputText: string;
     runtimeMode?: AgentPermissionMode;
+    model?: string;
+    connectionId?: string;
+    reasoningEffort?: string | null;
   }) {
     const thread = await harnessModel.findThread(input.threadId);
     if (!thread) throw new AppError("HARNESS_NOT_FOUND", "Run not found.", 404);
@@ -504,7 +517,15 @@ export function createHarnessService() {
       input.runtimeMode ??
       (turn.status === "queued" ? mode() : turn.runtimeMode);
     const at = new Date();
+    const resolved = input.model
+      ? {
+          model: input.model,
+          connectionId: input.connectionId ?? thread.connectionId,
+          reasoningEffort: input.reasoningEffort ?? null,
+        }
+      : {};
     await harnessModel.updateThread(thread.id, {
+      ...resolved,
       status: "running",
       runtimeMode,
       errorCode: null,
@@ -512,6 +533,7 @@ export function createHarnessService() {
       completedAt: null,
     });
     await harnessModel.updateTurn(turn.id, {
+      ...resolved,
       status: "running",
       runtimeMode,
       startedAt: at,
@@ -800,9 +822,30 @@ export function createHarnessService() {
       turns.map((turn) => harnessModel.findAttempts(turn.id)),
     );
     const itemsByTurn = new Map<string, HarnessItem[]>();
+    const turnsById = new Map(turns.map((turn) => [turn.id, turn]));
     for (const item of items) {
       const key = item.turnId ?? "";
-      itemsByTurn.set(key, [...(itemsByTurn.get(key) ?? []), itemValue(item)]);
+      const value = itemValue(item);
+      const turn = item.turnId ? turnsById.get(item.turnId) : undefined;
+      // Older transcripts may have lost a tool-finished update. A terminal
+      // turn cannot still have live tools; project the status without rewriting
+      // saved history or pretending an unfinished non-completion tool succeeded.
+      if (
+        turn &&
+        ["completed", "failed", "cancelled", "interrupted"].includes(
+          turn.status,
+        ) &&
+        (value.status === "running" || value.status === "pending")
+      ) {
+        value.status =
+          turn.status === "completed" && value.title?.startsWith("complete_")
+            ? "completed"
+            : turn.status === "failed"
+              ? "failed"
+              : "cancelled";
+        value.completedAt = iso(turn.completedAt);
+      }
+      itemsByTurn.set(key, [...(itemsByTurn.get(key) ?? []), value]);
     }
     return {
       thread: threadValue(thread),

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { db, migrateDatabase } from "@repo/backend/shared/database/db";
-import { challenges, profiles } from "@repo/backend/shared/database/schema";
+import {
+  challenges,
+  profiles,
+  harnessItems,
+} from "@repo/backend/shared/database/schema";
+import { eq } from "drizzle-orm";
 import {
   harnessService,
   setHarnessPermissionModeProvider,
@@ -86,20 +91,20 @@ describe("harness transcripts", () => {
       threadId: created.id,
       inputText: "List files",
     });
-    await run.recorder.event({
+    const started = run.recorder.event({
       type: "tool_started",
       toolCallId: "call-1",
       toolName: "list_project_files",
       args: { path: "." },
     });
-    await run.recorder.event({
+    const finished = run.recorder.event({
       type: "tool_finished",
       toolCallId: "call-1",
       toolName: "list_project_files",
       isError: false,
       result: { output: "src/app.ts" },
     });
-    await run.recorder.event({
+    const message = run.recorder.event({
       type: "message_completed",
       reasoning: "The project has one file.",
       message: {
@@ -108,6 +113,14 @@ describe("harness transcripts", () => {
       },
     });
     await run.recorder.finish({ status: "completed" });
+    await Promise.all([started, finished, message]);
+    const stored = await db
+      .select()
+      .from(harnessItems)
+      .where(eq(harnessItems.turnId, run.turn.id));
+    expect(
+      stored.find((item) => item.title === "list_project_files")?.status,
+    ).toBe("completed");
     const detail = await harnessService.detail(created.id, profileId);
     const items = detail.turns[0]!.items;
     expect(items.map((item) => item.type)).toEqual([
@@ -121,6 +134,39 @@ describe("harness transcripts", () => {
       output: "src/app.ts",
     });
     expect(items[2]!.text).toContain("one file");
+  });
+
+  test("settles old stale tool rows when reading a completed turn", async () => {
+    const { profileId, challengeId } = await fixture();
+    const created = await thread(profileId, challengeId);
+    const run = await harnessService.begin({
+      threadId: created.id,
+      inputText: "Review the current files",
+      model: "deepseek-v4.1-flash",
+    });
+    await run.recorder.append({
+      type: "tool_call",
+      title: "complete_review",
+      status: "running",
+    });
+    await run.recorder.append({
+      type: "file_read",
+      title: "read_workspace_file",
+      status: "running",
+    });
+    await run.recorder.finish({ status: "completed" });
+    const detail = await harnessService.detail(created.id, profileId);
+    expect(detail.thread.model).toBe("deepseek-v4.1-flash");
+    expect(detail.turns[0]!.model).toBe("deepseek-v4.1-flash");
+    expect(
+      detail.turns[0]!.items.find((item) => item.title === "complete_review")
+        ?.status,
+    ).toBe("completed");
+    expect(
+      detail.turns[0]!.items.find(
+        (item) => item.title === "read_workspace_file",
+      )?.status,
+    ).toBe("cancelled");
   });
 
   test("stops a run, resolves approvals, and supports retry", async () => {

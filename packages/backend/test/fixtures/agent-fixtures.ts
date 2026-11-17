@@ -12,14 +12,17 @@ if (!databasePath)
 await initializeDatabase({ dialect: "sqlite", path: databasePath });
 await migrateDatabase();
 
-export function resolvedModel(reasoning = false): {
+export function resolvedModel(
+  reasoning = false,
+  modelId = "fixture",
+): {
   resolved: ResolvedAgentModel;
   faux: ReturnType<typeof fauxProvider>;
 } {
-  const faux = fauxProvider({ models: [{ id: "fixture", reasoning }] });
+  const faux = fauxProvider({ models: [{ id: modelId, reasoning }] });
   const models = createModels();
   models.setProvider(faux.provider);
-  const model = faux.getModel("fixture")!;
+  const model = faux.getModel(modelId)!;
   return {
     faux,
     resolved: {

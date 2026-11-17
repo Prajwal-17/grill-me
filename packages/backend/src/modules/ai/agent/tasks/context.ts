@@ -1,7 +1,5 @@
 import type { BuildModelInput, LearnerContext } from "../../model-gateway";
-import type { Challenge } from "../../../challenges/challenge.schema";
 import { projectDeveloperContext } from "../../../profiles/developer-context";
-import { contextBlock } from "../messages";
 
 export function withoutHistory<
   T extends { contextSnapshot?: Record<string, unknown> | null },
@@ -29,19 +27,4 @@ export function buildOptions(
     familiarity: input.familiarity ?? null,
     emphasis: input.emphasis ?? null,
   };
-}
-
-export function conversationContext(input: {
-  challenge: Challenge;
-  learner: LearnerContext;
-}) {
-  return contextBlock(
-    "challenge",
-    {
-      ...withoutHistory(input.challenge),
-      developerContext:
-        input.challenge.contextSnapshot?.developerContext ?? null,
-    },
-    { untrusted: true },
-  );
 }

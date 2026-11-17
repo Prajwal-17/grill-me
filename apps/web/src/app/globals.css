@@ -670,6 +670,17 @@ html[data-desktop="true"] [data-slot="header-actions"],
 html[data-desktop="true"] [data-slot="header-actions"] * {
   -webkit-app-region: no-drag;
 }
+/* Titles and breadcrumb labels stay readable and copyable. Only the empty
+   chrome around them starts a native window drag. */
+html[data-desktop="true"]
+  [data-slot="page-header"]
+  :is([data-slot="page-title"], [data-slot="page-breadcrumb-link"]) {
+  -webkit-app-region: no-drag;
+  user-select: text;
+}
+html[data-desktop="true"] [data-slot="page-title"] {
+  cursor: text;
+}
 html[data-desktop="true"] [data-slot="page-header"] {
   background: var(--canvas);
 }

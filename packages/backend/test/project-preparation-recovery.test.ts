@@ -752,9 +752,7 @@ describe("project preparation recovery", () => {
     const threadId = initialThreads[0]!.id;
     const first = await harnessThread(app, owner.id, threadId);
     expect(first.turns).toHaveLength(1);
-    expect(first.turns[0]!.inputText).toContain(
-      "Attempt 1 · Initial preparation",
-    );
+    expect(first.turns[0]!.inputText).toContain("Set up the codebase for");
     const firstTurnIds = first.turns.map((turn) => turn.id);
     const firstItems = first.turns.flatMap((turn) => turn.items);
 
@@ -798,9 +796,9 @@ describe("project preparation recovery", () => {
     const final = await harnessThread(app, owner.id, threadId);
     expect(final.turns).toHaveLength(3);
     expect(final.turns.map((turn) => turn.inputText)).toEqual([
-      expect.stringContaining("Attempt 1 · Initial preparation"),
-      expect.stringContaining("Attempt 2 · Resumed from attempt 1"),
-      expect.stringContaining("Attempt 3 · Resumed from attempt 2"),
+      expect.stringContaining("Set up the codebase for"),
+      expect.stringContaining("Continue setting up the codebase."),
+      expect.stringContaining("Continue setting up the codebase."),
     ]);
     const finalItems = final.turns.flatMap((turn) => turn.items);
     expect(new Set(finalItems.map((item) => item.id)).size).toBe(
@@ -872,16 +870,50 @@ describe("project preparation recovery", () => {
     const untouched = await harnessThread(app, owner.id, original.id);
     expect(untouched.thread.createdAt).toBe(original.createdAt);
     expect(untouched.turns).toHaveLength(1);
-    expect(untouched.turns[0]!.inputText).toContain(
-      "Attempt 1 · Initial preparation",
-    );
+    expect(untouched.turns[0]!.inputText).toContain("Set up the codebase for");
     const extended = await harnessThread(app, owner.id, legacy.id);
     expect(extended.turns).toHaveLength(2);
     expect(extended.turns[0]!.items[0]?.type).toBe("system_notice");
     expect(extended.turns[1]!.inputText).toContain(
-      "Attempt 2 · Resumed from attempt 1",
+      "Continue setting up the codebase.",
     );
   });
+
+  test.each(["retry", "fresh"] as const)(
+    "%s continues the same setup conversation",
+    async (action) => {
+      const root = await tempRoot();
+      const { model, app, owner, challenge } = await recoveredChallenge(
+        failAfterFiles,
+        root,
+      );
+      const original = (await harnessThreads(app, owner.id, challenge.id))[0]!;
+      model.handler = async (input) => {
+        await writeProjectFiles(input, projectFiles);
+        return completeFromDisk(input, "Codebase setup is ready.");
+      };
+      const response = await request(
+        app,
+        `/challenges/${challenge.id}/project-preparation/${action}`,
+        owner.id,
+        {},
+      );
+      expect(response.status).toBe(202);
+      await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+      const threads = await harnessThreads(app, owner.id, challenge.id);
+      expect(threads.map((thread) => thread.id)).toEqual([original.id]);
+      const detail = await harnessThread(app, owner.id, original.id);
+      expect(detail.turns).toHaveLength(2);
+      expect(detail.turns[1]!.inputText).toBe(
+        action === "retry"
+          ? "Retry the codebase setup."
+          : "Set up the codebase in a new folder.",
+      );
+      expect(
+        detail.turns.every((turn) => !turn.inputText.startsWith("Attempt ")),
+      ).toBe(true);
+    },
+  );
 
   test("a user edit blocks resume with a specific path and fresh keeps the edit", async () => {
     const root = await tempRoot();

@@ -9,8 +9,12 @@ import type { ReviewModel } from "./review.model";
 import { deriveReviewVerdict } from "./review.schema";
 import type { ChallengeReviewRow } from "./review.model";
 
-function toReview(row: ChallengeReviewRow): ChallengeReview {
+function toReview(
+  row: ChallengeReviewRow,
+  reviewNumber?: number,
+): ChallengeReview {
   return {
+    ...(reviewNumber ? { reviewNumber } : {}),
     id: row.id,
     profileId: row.profileId,
     challengeId: row.challengeId,
@@ -51,7 +55,14 @@ export function createReviewService({
     async list(challengeId: string, profileId: string) {
       await owned(challengeId, profileId);
       const rows = await reviews.list(profileId, challengeId);
-      return rows.map(toReview);
+      const numbers = await reviews.attemptNumbers(profileId, challengeId);
+      return rows.map((row, index) =>
+        toReview(
+          row,
+          (row.threadId ? numbers.get(row.threadId) : undefined) ??
+            rows.length - index,
+        ),
+      );
     },
 
     async create(challengeId: string, profileId: string) {
@@ -103,6 +114,7 @@ export function createReviewService({
       const criteriaMet = result.criteria.filter(
         (criterion) => criterion.status === "pass",
       ).length;
+      const recorded = await harnessService.detail(thread.id, profileId);
       const created = await reviews.create({
         profileId,
         challengeId: row.id,
@@ -110,10 +122,11 @@ export function createReviewService({
         criteriaMet,
         criteriaTotal: result.criteria.length,
         result,
-        model: process.env.LLM_MODEL ?? "auto",
+        model: recorded.thread.model,
         threadId: turn.threadId,
       });
-      return toReview(created);
+      const numbers = await reviews.attemptNumbers(profileId, challengeId);
+      return toReview(created, numbers.get(thread.id));
     },
   };
 }

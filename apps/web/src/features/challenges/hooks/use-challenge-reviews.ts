@@ -23,9 +23,10 @@ export function useChallengeReviews(
   const create = useMutation({
     mutationFn: () => createChallengeReview(profileId, challengeId),
     onSuccess: (review) => {
-      queries.setQueryData(key, (current: ChallengeReview[] | undefined) =>
-        [review, ...(current ?? [])].slice(0, 20),
-      );
+      queries.setQueryData(key, (current: ChallengeReview[] | undefined) => [
+        review,
+        ...(current ?? []).filter((entry) => entry.id !== review.id),
+      ]);
       // The review is also durable harness activity, so refresh Activity.
       void queries.invalidateQueries({ queryKey: ["harness-threads"] });
     },
