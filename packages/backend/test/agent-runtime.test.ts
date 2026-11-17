@@ -191,6 +191,59 @@ test("structured runs bound output repair and tool calls, and stop on cancellati
   await expect(pending).rejects.toMatchObject({ code: "REQUEST_CANCELLED" });
 });
 
+test("completion rejections show the validator's specific issues, not a generic message", async () => {
+  const { faux, resolved } = resolvedModel();
+  const issues = [
+    "files[2].purpose: Required",
+    "check-results[0].status: Invalid enum value",
+  ];
+  const rejecting = {
+    ...completeThing,
+    validate: (): { value: string } => {
+      throw new AppError(
+        "PROJECT_SCAFFOLD_INVALID",
+        "The completion report does not match the required contract.",
+        502,
+        true,
+        { issues },
+      );
+    },
+  };
+  const seen: string[] = [];
+  faux.setResponses(
+    Array.from({ length: 3 }, (_, index) =>
+      fauxAssistantMessage(
+        [
+          fauxToolCall(
+            "complete_thing",
+            { value: "x" },
+            { id: `call-${index}` },
+          ),
+        ],
+        { stopReason: "toolUse" },
+      ),
+    ),
+  );
+  const error = (await runStructured({
+    resolved,
+    instructions: "Complete.",
+    context: "Fixture",
+    userText: "Complete.",
+    completion: rejecting,
+    allowSnapshot: false,
+    onEvent(event) {
+      if (event.type === "tool_finished") seen.push(JSON.stringify(event));
+    },
+  }).catch((failure: unknown) => failure)) as AppError;
+  expect(error).toBeInstanceOf(AppError);
+  expect(error.code).toBe("MODEL_OUTPUT_INVALID");
+  for (const issue of issues) expect(error.message).toContain(issue);
+  expect(error.details?.issues).toEqual(issues);
+  // The model saw the same specifics in each rejected tool result.
+  expect(seen).toHaveLength(3);
+  for (const issue of issues) expect(seen.join("\n")).toContain(issue);
+});
+
 test("current attachments remain native user content and are labelled as untrusted data", async () => {
   const { faux, resolved } = resolvedModel();
   let seen = "";

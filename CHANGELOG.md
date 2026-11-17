@@ -1,5 +1,18 @@
 # Changelog
 
+## desktop-v0.4.0 - 17 Nov 2026
+
+### Fixed
+
+- Show the exact problem when an AI run's final result is rejected, so the model
+  can correct it and a failed preparation explains itself instead of repeating a
+  generic message.
+
+### Changed
+
+- Allow project preparation more turns and commands so a complete practice
+  project can finish within the run budget.
+
 ## desktop-v0.3.0 - 17 Nov 2026
 
 A refreshed challenge workspace with focused tabs, a file viewer, and one

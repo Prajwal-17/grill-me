@@ -78,8 +78,10 @@ export function projectScaffoldTask(
     allowSnapshot: false,
     allowResearch: false,
     limits: {
-      maxTurns: 40,
-      maxToolCalls: 120,
+      // A full practice project needs many create, install, and check turns.
+      // The operation timeout still bounds the run.
+      maxTurns: 60,
+      maxToolCalls: 180,
       maxTextChars: 32_000,
     },
   };
