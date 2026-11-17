@@ -27,16 +27,25 @@ jobs:
             arch: x64
             command: deb
             extension: deb
+            label: deb
+          - runner: ubuntu-24.04
+            platform: linux
+            arch: x64
+            command: appimage
+            extension: AppImage
+            label: appimage
           - runner: macos-15
             platform: darwin
             arch: arm64
             command: dmg:arm64
             extension: dmg
+            label: dmg-arm64
           - runner: macos-15-intel
             platform: darwin
             arch: x64
             command: dmg:x64
             extension: dmg
+            label: dmg-x64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
@@ -67,7 +76,7 @@ jobs:
         id: installer
         uses: actions/upload-artifact@v7
         with:
-          name: grill-me-dev-${{ matrix.platform }}-${{ matrix.arch }}
+          name: grill-me-dev-${{ matrix.platform }}-${{ matrix.arch }}-${{ matrix.label }}
           archive: false
           if-no-files-found: error
           retention-days: 14
