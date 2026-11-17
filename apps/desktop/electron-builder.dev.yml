@@ -10,10 +10,17 @@ extraMetadata:
   desktopName: grill-me-dev.desktop
 linux:
   artifactName: grill-me-dev-${version}-${arch}.${ext}
+  target:
+    - deb
+    - appimage
   desktop:
     entry:
       StartupWMClass: grill-me-dev
 deb:
   packageName: grill-me-dev
+appImage:
+  artifactName: grill-me-dev-${version}-${arch}.${ext}
+  # AppRun adds --no-sandbox itself only when user namespaces are unavailable.
+  executableArgs: []
 mac:
   artifactName: grill-me-dev-${version}-mac-${arch}.${ext}

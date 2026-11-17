@@ -91,6 +91,7 @@ Advanced provider settings when you need a separate account.
 
 ```sh
 bun run desktop:deb:dev  # development Debian package
+bun run desktop:appimage:dev  # development AppImage (Linux x64)
 bun run desktop:deb      # production Debian package
 bun run desktop:dmg:arm64:dev  # Apple Silicon development DMG
 bun run desktop:dmg:arm64      # Apple Silicon production DMG

@@ -24,6 +24,7 @@
     "web:build": "bun run --cwd apps/web build",
     "desktop:build:dev": "bun run --cwd apps/desktop build:dev",
     "desktop:deb:dev": "bun run --cwd apps/desktop package:deb:dev",
+    "desktop:appimage:dev": "bun run --cwd apps/desktop package:appimage:dev",
     "desktop:dmg:arm64": "bun run --cwd apps/desktop package:dmg:arm64",
     "desktop:dmg:arm64:dev": "bun run --cwd apps/desktop package:dmg:arm64:dev",
     "desktop:dmg:x64": "bun run --cwd apps/desktop package:dmg:x64",

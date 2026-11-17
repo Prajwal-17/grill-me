@@ -2,10 +2,16 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { buildTarget } from "../src/build-target";
 import { desktopIdentity } from "../src/identity";
-const [platform, arch, channel] = process.argv.slice(2);
+const [platform, arch, channel, requestedTarget] = process.argv.slice(2);
 if (channel !== "development" && channel !== "production")
   throw new Error("Choose development or production packaging.");
 buildTarget(platform ?? "", arch ?? "");
+const target = requestedTarget ?? (platform === "darwin" ? "dmg" : "deb");
+const supportedTargets = platform === "darwin" ? ["dmg"] : ["deb", "appimage"];
+if (!supportedTargets.includes(target))
+  throw new Error(
+    `Unsupported ${platform} package target ${target}. Use ${supportedTargets.join(", ")}.`,
+  );
 async function run(args: string[]) {
   const child = Bun.spawn(args, {
     cwd: fileURLToPath(new URL("..", import.meta.url)),
@@ -28,7 +34,7 @@ await run([
   "--no-install",
   "electron-builder",
   platform === "darwin" ? "--mac" : "--linux",
-  platform === "darwin" ? "dmg" : "deb",
+  target,
   `--${arch}`,
   "--config",
   channel === "development"
