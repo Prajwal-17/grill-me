@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import {
   providerInputSchema,
+  modelSelectionSchema,
   runtimeSettingsSchema,
   workspacePreferenceSchema,
   credentialStorageSchema,
@@ -112,6 +113,15 @@ export function settingsRoutes(service: SettingsService) {
       await readJson(c.req.raw),
     );
     return c.json({ data: await service.activateProvider(input.id) });
+  });
+  routes.post("/default-selection", async (c) => {
+    const input = parseInput(
+      z.object({ selection: modelSelectionSchema.nullable() }),
+      await readJson(c.req.raw),
+    );
+    return c.json({
+      data: await service.saveDefaultSelection(input.selection),
+    });
   });
   routes.post("/runtime", async (c) =>
     c.json({

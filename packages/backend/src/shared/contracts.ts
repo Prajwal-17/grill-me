@@ -70,6 +70,8 @@ export type ModelCatalogConnection = {
 export type ModelCatalog = {
   connections: ModelCatalogConnection[];
   activeConnectionId: string | null;
+  /** Selection used when an AI action runs without an explicit user choice. */
+  defaultSelection: ModelSelection | null;
 };
 /** Call-time tool facts captured with the system prompt for run inspection. */
 export type AgentToolSnapshot = {
@@ -272,6 +274,8 @@ export type LocalSettings = {
   providerDefaults: ReturnType<typeof defaultProviderSettings>;
   providers: SavedProvider[];
   activeProviderId: string | null;
+  /** Model and reasoning effort for AI actions that start without a pick. */
+  defaultSelection: ModelSelection | null;
   runtime: RuntimeSettings;
   workspace: { root: string; defaultRoot: string };
   keyring: { available: boolean; message: string };
@@ -1086,6 +1090,7 @@ export interface SettingsApi {
   saveProvider(input: ProviderInput): Promise<LocalSettings>;
   removeProvider(id: string): Promise<LocalSettings>;
   activateProvider(id: string | null): Promise<LocalSettings>;
+  saveDefaultSelection(input: ModelSelection | null): Promise<LocalSettings>;
   saveRuntime(input: RuntimeSettings): Promise<LocalSettings>;
   saveWorkspace(input: WorkspacePreference): Promise<LocalSettings>;
   testProvider(id: string): Promise<ProviderHealth>;

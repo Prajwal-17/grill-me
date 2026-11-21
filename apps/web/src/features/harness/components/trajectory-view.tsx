@@ -763,85 +763,87 @@ export function HarnessTrajectoryContent({
     <section
       aria-label="Run trajectory"
       className={cn(
-        "relative flex min-h-0 flex-col overflow-clip bg-surface",
+        "relative flex min-h-0 overflow-clip bg-surface",
         className,
       )}
     >
-      <RunSummary model={model} active={active} now={now} />
-      <Toolbar
-        allFolded={allFolded}
-        onToggleAllFolded={toggleAllTurns}
-        showReasoning={showReasoning}
-        onToggleReasoning={() => setShowReasoning((value) => !value)}
-        showContext={showContext}
-        onToggleContext={() => setShowContext((value) => !value)}
-        query={query}
-        onQueryChange={setQuery}
-        records={filtered.matchCount}
-        calls={callCount}
-      />
-      <div className="flex min-h-0 flex-1">
-        <div
-          ref={paneRef}
-          onScroll={onScroll}
-          onWheel={onWheel}
-          onPointerDown={onPointerDown}
-          onKeyDown={onKeyDown}
-          onTouchStart={onTouchStart}
-          tabIndex={0}
-          aria-label="Run trajectory records"
-          className="scrollbar-visible min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
-        >
-          <div ref={contentRef}>
-            {!model.setup && filtered.turns.length > 0 && (
-              <p className="border-b border-line bg-canvas/40 px-3 py-2 text-metadata text-muted">
-                The run setup was not recorded. Runs created before trajectory
-                capture started do not store the system prompt, tools, or
-                context.
-              </p>
-            )}
-            {filtered.turns.length ? (
-              filtered.turns.map((turn) => (
-                <TurnSection
-                  key={turn.id}
-                  turn={turn}
-                  folded={folded.has(turn.id)}
-                  onToggle={() => toggleTurn(turn.id)}
-                  selectedId={selectedId}
-                  onSelectRow={selectRow}
-                  query={deferredQuery}
+      <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <RunSummary model={model} active={active} now={now} />
+          <Toolbar
+            allFolded={allFolded}
+            onToggleAllFolded={toggleAllTurns}
+            showReasoning={showReasoning}
+            onToggleReasoning={() => setShowReasoning((value) => !value)}
+            showContext={showContext}
+            onToggleContext={() => setShowContext((value) => !value)}
+            query={query}
+            onQueryChange={setQuery}
+            records={filtered.matchCount}
+            calls={callCount}
+          />
+          <div
+            ref={paneRef}
+            onScroll={onScroll}
+            onWheel={onWheel}
+            onPointerDown={onPointerDown}
+            onKeyDown={onKeyDown}
+            onTouchStart={onTouchStart}
+            tabIndex={0}
+            aria-label="Run trajectory records"
+            className="scrollbar-visible min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+          >
+            <div ref={contentRef}>
+              {!model.setup && filtered.turns.length > 0 && (
+                <p className="border-b border-line bg-canvas/40 px-3 py-2 text-metadata text-muted">
+                  The run setup was not recorded. Runs created before trajectory
+                  capture started do not store the system prompt, tools, or
+                  context.
+                </p>
+              )}
+              {filtered.turns.length ? (
+                filtered.turns.map((turn) => (
+                  <TurnSection
+                    key={turn.id}
+                    turn={turn}
+                    folded={folded.has(turn.id)}
+                    onToggle={() => toggleTurn(turn.id)}
+                    selectedId={selectedId}
+                    onSelectRow={selectRow}
+                    query={deferredQuery}
+                    active={active}
+                    now={now}
+                    register={registerRow}
+                  />
+                ))
+              ) : (
+                <EmptyLedger
+                  hasFilters={hasFilters}
                   active={active}
-                  now={now}
-                  register={registerRow}
+                  onClear={clearFilters}
                 />
-              ))
-            ) : (
-              <EmptyLedger
-                hasFilters={hasFilters}
-                active={active}
-                onClear={clearFilters}
-              />
-            )}
-            {activityLabel && (
-              <div className="px-3 py-3">
-                <AgentActivityStatus label={activityLabel} />
-              </div>
-            )}
-            {showThreadError && (
-              <div
-                role="alert"
-                className="m-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-2 text-metadata text-destructive"
-              >
-                <CircleAlert
-                  size={14}
-                  className="mt-px shrink-0"
-                  aria-hidden="true"
-                />
-                <span className="min-w-0 break-words">
-                  {detail.thread.errorMessage}
-                </span>
-              </div>
-            )}
+              )}
+              {activityLabel && (
+                <div className="px-3 py-3">
+                  <AgentActivityStatus label={activityLabel} />
+                </div>
+              )}
+              {showThreadError && (
+                <div
+                  role="alert"
+                  className="m-3 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-2 text-metadata text-destructive"
+                >
+                  <CircleAlert
+                    size={14}
+                    className="mt-px shrink-0"
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 break-words">
+                    {detail.thread.errorMessage}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         {inlineInspector && inspector && (
@@ -865,7 +867,7 @@ export function HarnessTrajectoryContent({
           <aside
             aria-label="Record inspector"
             style={{ width: inspectorWidth }}
-            className="flex min-w-[320px] shrink-0 flex-col"
+            className="flex h-full min-w-[320px] shrink-0 flex-col"
           >
             {inspector}
           </aside>

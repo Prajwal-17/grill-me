@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Maximize2, Wrench } from "lucide-react";
+import { ChevronRight, Maximize2, Wrench, X } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { CopyButton } from "@/shared/components/ui/copy-button";
 import {
@@ -30,50 +30,136 @@ export const trajectoryTagClass: Record<TrajectoryKind, string> = {
   error: "bg-destructive/10 text-destructive",
 };
 
-const jsonTokenPattern =
-  /("(?:\\.|[^"\\])*")(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|[{}[\],:]/g;
-
-/**
- * Colors JSON records (keys, strings, numbers, keywords) with the app
- * palette; non-JSON content such as prompts and command output stays plain.
- */
-function highlightJson(text: string): ReactNode | null {
+/** Parses displayed text as JSON; prompts and plain output return null. */
+function jsonValueFor(text: string): unknown | null {
   const trimmed = text.trimStart();
   if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return null;
-  if (parseTrajectoryJson(trimmed) === null) return null;
-  const nodes: ReactNode[] = [];
-  const pattern = new RegExp(jsonTokenPattern.source, "g");
-  let cursor = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-  const push = (content: string, className?: string) => {
-    if (!content) return;
-    nodes.push(
-      className ? (
-        <span key={key++} className={className}>
-          {content}
-        </span>
-      ) : (
-        content
-      ),
+  return parseTrajectoryJson(trimmed);
+}
+
+function JsonScalar({ value }: { value: unknown }) {
+  if (value === null) return <span className="text-destructive">null</span>;
+  if (typeof value === "boolean") {
+    return (
+      <span className={value ? "text-success" : "text-destructive"}>
+        {value ? "true" : "false"}
+      </span>
     );
-  };
-  while ((match = pattern.exec(text))) {
-    push(text.slice(cursor, match.index));
-    cursor = match.index + match[0].length;
-    const [token, quoted, colon] = match;
-    if (quoted) {
-      push(token, colon ? "text-brand" : "text-success");
-    } else if (token === "true" || token === "false" || token === "null") {
-      push(token, token === "true" ? "text-success" : "text-destructive");
-    } else if (/^-?\d/.test(token)) {
-      push(token, "text-warning");
-    } else {
-      push(token, "text-muted");
-    }
   }
-  push(text.slice(cursor));
-  return nodes;
+  if (typeof value === "number") {
+    return <span className="tabular-nums text-warning">{String(value)}</span>;
+  }
+  if (typeof value !== "string") return <span className="text-muted">—</span>;
+  return (
+    <span className="whitespace-pre-wrap break-words text-success">
+      "{value}"
+    </span>
+  );
+}
+
+function describeNode(value: object) {
+  const count = Array.isArray(value) ? value.length : Object.keys(value).length;
+  const noun = Array.isArray(value) ? "item" : "key";
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+/** One JSON property or entry; objects and arrays fold into a one-line summary. */
+function JsonNode({
+  name,
+  value,
+  comma,
+}: {
+  name?: string;
+  value: unknown;
+  comma: boolean;
+}) {
+  const [open, setOpen] = useState(true);
+  if (value === null || typeof value !== "object") {
+    return (
+      <div className="flex items-baseline gap-2 rounded-sm px-1 py-px hover:bg-elevated/30">
+        {name !== undefined && <span className="text-brand">{name}:</span>}
+        <JsonScalar value={value} />
+        {comma && <span className="text-muted">,</span>}
+      </div>
+    );
+  }
+
+  const entries: [string, unknown][] = Array.isArray(value)
+    ? value.map((item, index) => [String(index), item])
+    : Object.entries(value);
+  const openBracket = Array.isArray(value) ? "[" : "{";
+  const closeBracket = Array.isArray(value) ? "]" : "}";
+  const empty = entries.length === 0;
+  const folded = !open && !empty;
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 rounded-sm px-1 py-px hover:bg-elevated/30">
+        {!empty && (
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={name === undefined ? "Toggle value" : `Toggle ${name}`}
+            onClick={() => setOpen((current) => !current)}
+            className="flex size-4 shrink-0 items-center justify-center rounded-xs text-muted transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            <ChevronRight
+              size={11}
+              aria-hidden="true"
+              className={cn(
+                "transition-transform duration-150",
+                open && "rotate-90",
+              )}
+            />
+          </button>
+        )}
+        {name !== undefined && <span className="text-brand">{name}:</span>}
+        <span className="text-muted">{openBracket}</span>
+        {empty ? (
+          <span className="text-muted">{closeBracket}</span>
+        ) : (
+          folded && (
+            <>
+              <span aria-hidden="true" className="text-muted">
+                …
+              </span>
+              <span className="text-muted">{closeBracket}</span>
+              <span className="text-metadata text-muted">
+                {describeNode(value)}
+              </span>
+            </>
+          )
+        )}
+        {(empty || folded) && comma && <span className="text-muted">,</span>}
+      </div>
+      {open && !empty && (
+        <>
+          <div className="ml-2 min-w-0 border-l border-line/60 pl-4">
+            {entries.map(([key, entry], index) => (
+              <JsonNode
+                key={key}
+                name={key}
+                value={entry}
+                comma={index < entries.length - 1}
+              />
+            ))}
+          </div>
+          <div className="px-1 text-muted">
+            {closeBracket}
+            {comma && ","}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Interactive JSON reader: depth guides, palette colors, foldable nodes. */
+export function JsonTree({ value }: { value: unknown }) {
+  return (
+    <div className="min-w-0 px-3 py-2.5 font-mono text-code leading-relaxed text-foreground select-text">
+      <JsonNode value={value} comma={false} />
+    </div>
+  );
 }
 
 export function CodeBlock({
@@ -85,16 +171,23 @@ export function CodeBlock({
   maxHeight?: string;
   className?: string;
 }) {
+  const parsed = jsonValueFor(text);
   return (
-    <pre
+    <div
       className={cn(
-        "scrollbar-quiet select-text overflow-auto rounded-md border border-line bg-canvas px-3 py-2.5 font-mono text-code leading-relaxed break-words whitespace-pre-wrap text-foreground",
+        "scrollbar-quiet select-text overflow-auto rounded-md border border-line bg-canvas",
         maxHeight,
         className,
       )}
     >
-      {highlightJson(text) ?? text}
-    </pre>
+      {parsed !== null ? (
+        <JsonTree value={parsed} />
+      ) : (
+        <pre className="px-3 py-2.5 font-mono text-code leading-relaxed break-words whitespace-pre-wrap text-foreground">
+          {text}
+        </pre>
+      )}
+    </div>
   );
 }
 
@@ -109,34 +202,47 @@ export function EnlargedCodeDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const parsed = jsonValueFor(text);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
         aria-describedby={undefined}
-        className="flex h-[min(90dvh,900px)] w-[min(96vw,1240px)] max-w-none flex-col gap-0 overflow-hidden p-0"
+        className="flex h-[min(88dvh,900px)] w-[min(90vw,1150px)] max-w-none flex-col gap-0 overflow-hidden rounded-lg p-0 sm:max-w-none"
       >
         <DialogTitle className="sr-only">{label}</DialogTitle>
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line px-3 py-2">
-          <h4 className="text-metadata font-medium tracking-wide text-muted uppercase">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line px-3 py-1.5">
+          <h4 className="truncate text-metadata font-medium tracking-wide text-muted uppercase">
             {label}
           </h4>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <CopyButton
               text={text}
               label="Copy"
               ariaLabel={`Copy ${label.toLowerCase()}`}
+              iconOnly
             />
             <DialogClose asChild>
-              <Button size="sm" variant="ghost" title="Close (Escape)">
-                Close
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                title="Close (Escape)"
+                aria-label="Close"
+              >
+                <X size={14} aria-hidden="true" />
               </Button>
             </DialogClose>
           </div>
         </div>
-        <pre className="scrollbar-visible min-h-0 flex-1 select-text overflow-auto bg-canvas px-4 py-3 font-mono text-code leading-relaxed whitespace-pre-wrap break-words text-foreground">
-          {highlightJson(text) ?? text}
-        </pre>
+        <div className="scrollbar-visible min-h-0 min-w-0 flex-1 select-text overflow-auto bg-canvas">
+          {parsed !== null ? (
+            <JsonTree value={parsed} />
+          ) : (
+            <pre className="px-3 py-2.5 font-mono text-code leading-relaxed break-words whitespace-pre-wrap text-foreground">
+              {text}
+            </pre>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
@@ -161,9 +267,9 @@ export function CodeSection({
         <h4 className="text-metadata font-medium tracking-wide text-muted uppercase">
           {label}
         </h4>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Button
-            size="sm"
+            size="icon-sm"
             variant="ghost"
             title="Enlarge"
             aria-label={`Enlarge ${label.toLowerCase()}`}
@@ -175,6 +281,7 @@ export function CodeSection({
             text={text}
             label="Copy"
             ariaLabel={`Copy ${label.toLowerCase()}`}
+            iconOnly
           />
         </div>
       </div>
@@ -200,9 +307,9 @@ function ToolParameters({ tool }: { tool: TrajectoryToolSnapshot }) {
             <h5 className="text-metadata font-medium tracking-wide text-muted uppercase">
               Parameters
             </h5>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               <Button
-                size="sm"
+                size="icon-sm"
                 variant="ghost"
                 title="Enlarge"
                 aria-label={`Enlarge ${tool.name} parameters`}
@@ -214,6 +321,7 @@ function ToolParameters({ tool }: { tool: TrajectoryToolSnapshot }) {
                 text={text}
                 label="Copy"
                 ariaLabel={`Copy ${tool.name} parameters`}
+                iconOnly
               />
             </div>
           </div>
@@ -244,24 +352,25 @@ export function ToolCatalog({ tools }: { tools: TrajectoryToolSnapshot[] }) {
         >
           <summary className="flex cursor-pointer list-none items-start gap-2 px-2.5 py-2 [&::-webkit-details-marker]:hidden">
             <Wrench
-              size={14}
+              size={13}
               aria-hidden="true"
-              className="mt-0.5 shrink-0 text-muted"
+              className="mt-0.5 shrink-0 text-warning"
             />
             <span className="min-w-0 flex-1">
-              <span className="font-mono text-supporting">{tool.name}</span>
+              <span className="font-mono text-supporting text-foreground">
+                {tool.name}
+              </span>
               {tool.description && (
-                <span className="mt-0.5 block text-metadata text-muted">
+                <span className="mt-1 block text-metadata text-muted">
                   {tool.description}
                 </span>
               )}
             </span>
-            <span
+            <ChevronRight
+              size={13}
               aria-hidden="true"
-              className="mt-0.5 text-muted transition-transform group-open:rotate-90"
-            >
-              ›
-            </span>
+              className="mt-0.5 shrink-0 text-muted transition-transform group-open:rotate-90"
+            />
           </summary>
           <ToolParameters tool={tool} />
         </details>

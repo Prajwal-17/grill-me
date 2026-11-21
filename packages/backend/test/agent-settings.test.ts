@@ -11,6 +11,101 @@ import {
   initializeDatabase,
 } from "@repo/backend/shared/database/db";
 
+test("default model and effort drive AI requests without an explicit selection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "grill-default-selection-"));
+  try {
+    const settings = createSettingsService(root, {
+      keyring: memorySecretStore(),
+    });
+    try {
+      const first = crypto.randomUUID();
+      await settings.saveProvider({
+        id: first,
+        name: "Fixture API",
+        endpoint: "http://127.0.0.1:1/v1",
+        model: "fixture-a",
+        apiKey: "fixture-api-key",
+        storage: "keyring",
+      });
+      const second = crypto.randomUUID();
+      await settings.saveProvider({
+        id: second,
+        name: "Fixture B",
+        endpoint: "http://127.0.0.1:1/v1",
+        model: "fixture-b",
+        apiKey: "fixture-api-key-b",
+        storage: "keyring",
+      });
+      await settings.activateProvider(second);
+
+      // No default yet: the active connection's own model is used.
+      expect(await settings.resolveSelection()).toMatchObject({
+        id: second,
+        model: "fixture-b",
+      });
+
+      await settings.saveDefaultSelection({
+        providerId: first,
+        model: "fixture-a",
+        reasoningEffort: "low",
+      });
+      expect((await settings.get()).defaultSelection).toMatchObject({
+        providerId: first,
+        model: "fixture-a",
+      });
+      expect((await settings.catalog()).defaultSelection).toMatchObject({
+        providerId: first,
+      });
+      expect(await settings.resolveSelection()).toMatchObject({
+        id: first,
+        model: "fixture-a",
+        reasoningEffort: "low",
+      });
+      // An explicit selection still wins.
+      expect(
+        await settings.resolveSelection({
+          providerId: second,
+          model: "fixture-b",
+          reasoningEffort: null,
+        }),
+      ).toMatchObject({ id: second, model: "fixture-b" });
+
+      // Clearing falls back to the active connection again.
+      await settings.saveDefaultSelection(null);
+      expect((await settings.get()).defaultSelection).toBeNull();
+      expect(await settings.resolveSelection()).toMatchObject({
+        id: second,
+        model: "fixture-b",
+      });
+
+      // Removing the referenced provider clears the stale default.
+      await settings.saveDefaultSelection({
+        providerId: first,
+        model: "fixture-a",
+        reasoningEffort: null,
+      });
+      await settings.removeProvider(first);
+      expect((await settings.get()).defaultSelection).toBeNull();
+      expect(await settings.resolveSelection()).toMatchObject({
+        id: second,
+        model: "fixture-b",
+      });
+
+      // Unknown or disabled providers are rejected.
+      await expect(
+        settings.saveDefaultSelection({
+          providerId: crypto.randomUUID(),
+          model: "fixture-a",
+        }),
+      ).rejects.toMatchObject({ code: "PROVIDER_NOT_FOUND" });
+    } finally {
+      settings.close();
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("settings keep API defaults and keys in SecretStore without exposing them", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-settings-api-"));
   try {

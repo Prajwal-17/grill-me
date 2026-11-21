@@ -7,10 +7,13 @@ export function CopyButton({
   text,
   label = "Copy",
   ariaLabel = label,
+  iconOnly = false,
 }: {
   text: string;
   label?: string;
   ariaLabel?: string;
+  /** Render the icon alone; the label stays as tooltip and accessible name. */
+  iconOnly?: boolean;
 }) {
   const [state, setState] = useState<"idle" | "copied" | "error">("idle");
   useEffect(() => {
@@ -21,9 +24,10 @@ export function CopyButton({
   return (
     <span className="inline-flex flex-col items-end">
       <Button
-        size="sm"
+        size={iconOnly ? "icon-sm" : "sm"}
         variant="ghost"
         aria-label={ariaLabel}
+        title={iconOnly ? label : undefined}
         onClick={async () => {
           try {
             await writeClipboardText(text);
@@ -38,25 +42,27 @@ export function CopyButton({
         ) : (
           <Copy size={14} />
         )}
-        <span className="grid" aria-live="polite">
-          {/* Reserve label width so acknowledgement never moves adjacent actions. */}
-          {(["idle", "copied", "error"] as const).map((value) => (
-            <span
-              key={value}
-              className={`col-start-1 row-start-1 ${state === value ? "" : "invisible"}`}
-              aria-hidden={state !== value}
-            >
-              {value === "idle"
-                ? label
-                : value === "copied"
-                  ? "Copied"
-                  : "Retry copy"}
-            </span>
-          ))}
-        </span>
+        {!iconOnly && (
+          <span className="grid" aria-live="polite">
+            {/* Reserve label width so acknowledgement never moves adjacent actions. */}
+            {(["idle", "copied", "error"] as const).map((value) => (
+              <span
+                key={value}
+                className={`col-start-1 row-start-1 ${state === value ? "" : "invisible"}`}
+                aria-hidden={state !== value}
+              >
+                {value === "idle"
+                  ? label
+                  : value === "copied"
+                    ? "Copied"
+                    : "Retry copy"}
+              </span>
+            ))}
+          </span>
+        )}
       </Button>
       {state === "error" && (
-        <span role="alert" className="text-metadata text-destructive">
+        <span role="alert" className="max-w-48 text-metadata text-destructive">
           Clipboard unavailable. Select and copy the text.
         </span>
       )}

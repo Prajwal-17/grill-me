@@ -28,13 +28,14 @@ export function createSettingsAgentRuntime(
     models: (provider) => catalogForConnection(provider),
     async catalog() {
       const connections = await settings.apiConnections();
-      const activeProviderId = (await settings.get()).activeProviderId;
+      const current = await settings.get();
       return {
         activeConnectionId: connections.some(
-          (connection) => connection.id === activeProviderId,
+          (connection) => connection.id === current.activeProviderId,
         )
-          ? activeProviderId
+          ? current.activeProviderId
           : null,
+        defaultSelection: current.defaultSelection ?? null,
         connections: await Promise.all(
           connections.map(async (connection) => {
             const models = await catalogForConnection(connection).catch(() => [

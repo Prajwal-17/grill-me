@@ -14,6 +14,7 @@ import { z } from "zod";
 import {
   providerSchema,
   providerInputSchema,
+  modelSelectionSchema,
   runtimeSettingsSchema,
   workspacePreferenceSchema,
   isSelectableWorkspacePath,
@@ -54,6 +55,8 @@ const documentSchema = z.object({
   version: z.literal(1),
   providers: z.array(storedRecordSchema),
   activeProviderId: z.string().uuid().nullable(),
+  /** Model and effort for AI actions that start without an explicit pick. */
+  defaultSelection: modelSelectionSchema.nullable().default(null),
   disconnectedProviders: z.array(z.string().uuid()).default([]),
   runtime: runtimeSettingsSchema,
   workspace: workspacePreferenceSchema.default({ root: "" }),
@@ -120,6 +123,7 @@ export function createSettingsService(
         version: 1,
         providers: [],
         activeProviderId: null,
+        defaultSelection: null,
         disconnectedProviders: [],
         runtime: runtimeSettingsSchema.parse({}),
         workspace: workspacePreferenceSchema.parse({}),
@@ -241,6 +245,7 @@ export function createSettingsService(
       providerDefaults,
       providers,
       activeProviderId: document.activeProviderId,
+      defaultSelection: document.defaultSelection ?? null,
       runtime: document.runtime,
       workspace: {
         root: document.workspace.root || defaultWorkspaceRoot(),
@@ -363,6 +368,10 @@ export function createSettingsService(
           ),
           activeProviderId:
             document.activeProviderId === id ? null : document.activeProviderId,
+          defaultSelection:
+            document.defaultSelection?.providerId === id
+              ? null
+              : (document.defaultSelection ?? null),
         });
         if (previous?.credential)
           await store(previous.storage)
@@ -394,6 +403,33 @@ export function createSettingsService(
             (p) => p !== id,
           ),
         });
+        return get();
+      }),
+    saveDefaultSelection: (input) =>
+      exclusive(async () => {
+        const parsed =
+          input === null ? null : modelSelectionSchema.parse(input);
+        if (parsed) {
+          const selected = document.providers.find(
+            (p) => p.id === parsed.providerId,
+          );
+          if (!selected)
+            throw new AppError(
+              "PROVIDER_NOT_FOUND",
+              "Choose an existing provider.",
+              404,
+            );
+          if (
+            !selected.enabled ||
+            document.disconnectedProviders.includes(selected.id)
+          )
+            throw new AppError(
+              "PROVIDER_DISABLED",
+              "Turn this connection on before using it as the default.",
+              409,
+            );
+        }
+        persist({ ...document, defaultSelection: parsed });
         return get();
       }),
     saveRuntime: (input) =>
@@ -487,6 +523,21 @@ export function createSettingsService(
       return get();
     },
   };
+  /** A saved default is only usable while its connection stays on. */
+  function usableDefaultSelection(): ModelSelection | null {
+    const fallback = document.defaultSelection;
+    if (!fallback) return null;
+    const provider = document.providers.find(
+      (p) => p.id === fallback.providerId,
+    );
+    if (
+      !provider ||
+      !provider.enabled ||
+      document.disconnectedProviders.includes(provider.id)
+    )
+      return null;
+    return fallback;
+  }
   function applyRuntime() {
     const r = document.runtime;
     for (const [k, v] of Object.entries({
@@ -681,20 +732,24 @@ export function createSettingsService(
       }),
     apiConnections,
     async resolveSelection(selection?: ModelSelection) {
-      const value = selection
-        ? await snapshot(selection.providerId)
-        : await snapshot();
+      const fallback = selection ? null : usableDefaultSelection();
+      const value = await snapshot(
+        selection?.providerId ??
+          fallback?.providerId ??
+          document.activeProviderId,
+      );
       if (value.kind !== "openai")
         throw new AppError(
           "API_PROVIDER_REQUIRED",
           "Select an API provider in Settings → Providers. CLI integrations are inactive.",
           503,
         );
+      const source = selection ?? fallback;
       return {
         ...value,
-        model: selection?.model ?? value.model,
-        reasoningEffort: selection
-          ? (selection.reasoningEffort ?? undefined)
+        model: source?.model ?? value.model,
+        reasoningEffort: source
+          ? (source.reasoningEffort ?? undefined)
           : value.reasoningEffort,
       };
     },
@@ -707,6 +762,7 @@ export function createSettingsService(
         )
           ? document.activeProviderId
           : null,
+        defaultSelection: document.defaultSelection ?? null,
         connections: await Promise.all(
           connections.map(async (connection) => {
             const models = [

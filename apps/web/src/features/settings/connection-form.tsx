@@ -8,27 +8,18 @@ import type {
   ProviderHealth,
   ProviderInput,
   ProviderPreset,
-  ReasoningEffort,
   SavedProvider,
 } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
 import { ChoiceSelect } from "@/shared/components/ui/choice-select";
 import { Input } from "@/shared/components/ui/input";
 import { SearchSelect } from "@/shared/components/ui/search-select";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/shared/components/ui/select";
 import { apiRequest } from "@/shared/lib/api-client";
 import { SettingsFeedback } from "./settings-layout";
 import { Field } from "./settings-field";
 import {
   defaultCapabilities,
   defaultInput,
-  effortLabels,
   modelsQuery,
   presetNames,
   presetOptions,
@@ -95,15 +86,6 @@ export function ConnectionForm({
     values.preset === "openai";
   const isBuiltIn =
     values.preset === "openrouter" || values.preset === "opencode-go";
-  const selectedModel = models.data?.find((model) => model.id === values.model);
-  const reasoningEfforts =
-    selectedModel?.capabilities?.reasoningEfforts ??
-    selectedModel?.reasoningEfforts ??
-    (usesCatalog ? [] : (values.capabilities?.reasoningEfforts ?? []));
-  const reasoningOptions = reasoningEfforts.map((effort) => ({
-    id: effort,
-    label: effortLabels[effort] ?? effort,
-  }));
   const update = (patch: Partial<ProviderInput>) =>
     setValues((current) => ({ ...current, ...patch }));
   const updateCapabilities = (patch: Partial<ModelCapabilities>) =>
@@ -120,8 +102,6 @@ export function ConnectionForm({
     description: model.id === model.name ? undefined : model.id,
     keywords: [model.id],
   }));
-  const pickerValue =
-    values.model === "auto" && !usesCatalog ? "" : values.model;
 
   async function runTest() {
     if (!saved) return;
@@ -291,95 +271,55 @@ export function ConnectionForm({
             Remove saved API key
           </label>
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Model"
-            htmlFor={`model-${values.id}`}
-            hint={
-              modelOptions?.length
-                ? "Choose any model this connection offers, or enter an exact custom ID."
-                : usesCatalog
-                  ? "Save the connection to load its catalog, or enter an exact model ID. Automatic uses the first available model."
-                  : "Save the connection to load its catalog, or enter an exact model ID."
-            }
-          >
-            {modelOptions?.length && !models.isError ? (
-              <div className="space-y-2">
-                <SearchSelect
-                  id={`model-${values.id}`}
-                  label="Model"
-                  value={pickerValue}
-                  onChange={(model) => update({ model })}
-                  placeholder="Choose a model"
-                  searchPlaceholder="Search models…"
-                  emptyMessage="No matching models."
-                  options={[
-                    ...(usesCatalog
-                      ? [
-                          {
-                            id: "auto",
-                            label: "Automatic (first available)",
-                            description:
-                              "Uses the connection's first catalog model.",
-                          },
-                        ]
-                      : []),
-                    ...modelOptions,
-                  ]}
-                />
-                <Input
-                  aria-label="Custom model ID"
-                  maxLength={160}
-                  value={values.model === "auto" ? "" : values.model}
-                  onChange={(event) =>
-                    update({ model: event.target.value || "auto" })
-                  }
-                  placeholder="Or enter an exact model ID"
-                  spellCheck={false}
-                />
-              </div>
-            ) : (
-              <Input
-                id={`model-${values.id}`}
-                maxLength={160}
-                value={values.model === "auto" ? "" : values.model}
-                onChange={(event) =>
-                  update({ model: event.target.value || "auto" })
-                }
-                placeholder="provider/model-id (choose after saving)"
-                spellCheck={false}
-              />
-            )}
-          </Field>
-          <Field label="Reasoning effort" htmlFor={`effort-${values.id}`}>
-            <Select
-              value={values.reasoningEffort ?? ""}
-              onValueChange={(value) =>
-                update({ reasoningEffort: value as ReasoningEffort })
+        <Field
+          label="Model"
+          htmlFor={`model-${values.id}`}
+          hint={
+            modelOptions?.length
+              ? "Type an exact model ID, or pick one from this connection's catalog."
+              : usesCatalog
+                ? "Save the connection to load its catalog, or enter an exact model ID. Automatic uses the first available model."
+                : "Save the connection to load its catalog, or enter an exact model ID."
+          }
+        >
+          {modelOptions?.length && !models.isError ? (
+            <SearchSelect
+              id={`model-${values.id}`}
+              label="Model"
+              editable
+              commitOnChange
+              value={values.model}
+              onChange={(model) => update({ model: model.trim() || "auto" })}
+              placeholder="provider/model-id"
+              searchPlaceholder="Search models…"
+              emptyMessage="No matching models. The typed ID is kept."
+              options={[
+                ...(usesCatalog
+                  ? [
+                      {
+                        id: "auto",
+                        label: "Automatic (first available)",
+                        description:
+                          "Uses the connection's first catalog model.",
+                      },
+                    ]
+                  : []),
+                ...modelOptions,
+              ]}
+            />
+          ) : (
+            <Input
+              id={`model-${values.id}`}
+              maxLength={160}
+              value={values.model === "auto" ? "" : values.model}
+              onChange={(event) =>
+                update({ model: event.target.value || "auto" })
               }
-              disabled={busy || reasoningOptions.length === 0}
-            >
-              <SelectTrigger
-                id={`effort-${values.id}`}
-                aria-label="Reasoning effort"
-                className="w-full bg-surface shadow-none"
-              >
-                <SelectValue
-                  placeholder={
-                    reasoningOptions.length ? "Not set" : "Not available"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent position="popper" sideOffset={5}>
-                {reasoningOptions.map((option) => (
-                  <SelectItem key={option.id} value={option.id}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        </div>
+              placeholder="provider/model-id (choose after saving)"
+              spellCheck={false}
+            />
+          )}
+        </Field>
         {!isBuiltIn && (
           <fieldset className="space-y-2">
             <legend className="text-supporting font-medium">
@@ -412,7 +352,7 @@ export function ConnectionForm({
           values.reasoningEffort &&
           !values.capabilities?.reasoning && (
             <p role="alert" className="text-supporting text-destructive">
-              This connection has a saved reasoning effort but reasoning
+              This connection has a saved reasoning effort, but reasoning
               controls are disabled. Enable Reasoning controls above to use it.
             </p>
           )}

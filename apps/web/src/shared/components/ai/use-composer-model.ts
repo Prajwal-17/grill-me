@@ -20,6 +20,13 @@ export function useComposerModel() {
   const stored = useAppStore((state) => state.composerModel);
   const setStored = useAppStore((state) => state.setComposerModel);
   const connections = catalog.data?.connections ?? [];
+  // The saved default drives anything the user has not picked explicitly.
+  const defaultSelection = catalog.data?.defaultSelection ?? null;
+  const defaultConnection = defaultSelection
+    ? connections.find(
+        (connection) => connection.id === defaultSelection.providerId,
+      )
+    : undefined;
   const storedConnection = stored
     ? connections.find((connection) => connection.id === stored.providerId)
     : undefined;
@@ -30,18 +37,35 @@ export function useComposerModel() {
     connections.find(
       (connection) => connection.id === catalog.data?.activeConnectionId,
     ) ?? (connections.length === 1 ? connections[0] : undefined);
-  const connection = stored ? storedConnection : activeConnection;
+  const connection = stored
+    ? storedConnection
+    : (defaultConnection ?? activeConnection);
+  const defaultModel = defaultConnection
+    ? (defaultConnection.models.find(
+        (entry) => entry.id === defaultSelection?.model,
+      ) ??
+      defaultConnection.models.find(
+        (entry) => entry.id === defaultConnection.defaultModel,
+      ) ??
+      defaultConnection.models[0])
+    : undefined;
   const model = stored
     ? storedModel
-    : (connection?.models.find(
-        (entry) => entry.id === connection.defaultModel,
-      ) ?? connection?.models[0]);
+    : defaultConnection
+      ? defaultModel
+      : (connection?.models.find(
+          (entry) => entry.id === connection.defaultModel,
+        ) ?? connection?.models[0]);
   const reasoningEfforts =
     model?.capabilities?.reasoningEfforts ?? model?.reasoningEfforts ?? [];
   const reasoning =
     stored?.reasoningEffort !== undefined
       ? stored.reasoningEffort
-      : connection?.defaultReasoningEffort;
+      : !stored &&
+          defaultConnection &&
+          defaultSelection?.reasoningEffort !== undefined
+        ? defaultSelection.reasoningEffort
+        : connection?.defaultReasoningEffort;
   const selection: ModelSelection | undefined =
     connection && model
       ? {
