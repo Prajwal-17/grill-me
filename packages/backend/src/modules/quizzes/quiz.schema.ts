@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { modelSelectionSchema } from "@repo/backend/shared/contracts";
+import { messageAttachmentSchema } from "../messages/message.schema";
 import { buildDifficultySchema } from "../challenges/challenge.schema";
 
 export const questionCountSchema = z.number().int().min(1).max(30);
@@ -20,6 +21,7 @@ export const generateStandaloneQuizRequestSchema = z
     topic: z.string().trim().min(1).max(200).optional(),
     difficulty: buildDifficultySchema.default("medium"),
     selection: modelSelectionSchema.optional(),
+    attachments: z.array(messageAttachmentSchema).max(5).optional(),
   })
   .refine((input) => input.prompt !== undefined || input.topic !== undefined, {
     message: "Enter a topic or describe the quiz you want.",

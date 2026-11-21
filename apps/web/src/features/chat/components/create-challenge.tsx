@@ -4,6 +4,7 @@ import {
   Component as ComponentIcon,
   LoaderCircle,
   Network,
+  Paperclip,
   Target,
   WandSparkles,
 } from "lucide-react";
@@ -13,6 +14,8 @@ import type { BuildDifficulty, BuildScope, Profile } from "@/shared/types/api";
 import { ClarificationCard } from "@/shared/components/ai/clarification-card";
 import { PromptTextarea } from "@/shared/components/ai/prompt-textarea";
 import { PromptSurface } from "@/shared/components/ai/prompt-surface";
+import { AttachmentChips } from "@/features/chat/components/attachment-chips";
+import { ATTACHMENT_ACCEPT } from "@/features/chat/lib/attachment-utils";
 import { DIFFICULTIES } from "./creation-options";
 import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
 import { useCreateBuild } from "@/features/chat/hooks/use-create-challenge";
@@ -50,13 +53,13 @@ export function GenerationHome({ profile }: { profile: Profile }) {
     <main className="h-full min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-8">
       <div className="mx-auto flex min-h-full w-full max-w-[760px] flex-col justify-center py-12 md:pb-24">
         <Tabs value={mode} onValueChange={setMode} className="gap-4">
-          <TabsList aria-label="Create practice" className="h-11 self-start">
-            <TabsTrigger value="challenge" className="px-4">
-              <BookOpen size={16} />
+          <TabsList aria-label="Create practice" className="h-9 self-start">
+            <TabsTrigger value="challenge" className="px-3">
+              <BookOpen size={15} />
               Challenge
             </TabsTrigger>
-            <TabsTrigger value="quiz" className="px-4">
-              <ListChecks size={16} />
+            <TabsTrigger value="quiz" className="px-3">
+              <ListChecks size={15} />
               Quiz
             </TabsTrigger>
           </TabsList>
@@ -101,8 +104,13 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
     submit,
     answer,
     skipClarification,
+    attachments,
+    addAttachments,
+    setAttachments,
+    attachmentError,
   } = useCreateBuild(profile);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (enhance.isSuccess && !busy)
       textarea.current?.focus({ preventScroll: true });
@@ -168,6 +176,19 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
         ) : (
           <form onSubmit={submit}>
             <div className="relative">
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                tabIndex={-1}
+                className="hidden"
+                accept={ATTACHMENT_ACCEPT}
+                aria-hidden="true"
+                onChange={(event) => {
+                  addAttachments(event.target.files);
+                  event.target.value = "";
+                }}
+              />
               <PromptTextarea
                 ref={textarea}
                 id="build-request"
@@ -175,8 +196,9 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
                 disabled={busy}
                 value={prompt}
                 maxLength={4000}
-                placeholder="Describe a topic or something you want to build… Paste a URL or image link for context."
-                minHeight={180}
+                onAttachFiles={(files) => addAttachments(files)}
+                placeholder="Describe a topic or something you want to build… Paste files or images to attach them."
+                minHeight={104}
                 aria-invalid={Boolean(error)}
                 aria-describedby={error ? "generation-error" : undefined}
                 onChange={(event) => {
@@ -192,8 +214,26 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
               />
             </div>
 
-            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-3 pb-3 pt-1">
-              <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+            <AttachmentChips
+              attachments={attachments}
+              disabled={busy}
+              onAttachmentsChange={setAttachments}
+            />
+
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 px-2.5 pb-2.5 pt-1">
+              <div className="flex min-w-0 items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={busy}
+                  aria-label="Attach files"
+                  title="Attach files"
+                  className="text-foreground/80 hover:bg-elevated hover:text-foreground"
+                  onClick={() => fileInput.current?.click()}
+                >
+                  <Paperclip size={16} />
+                </Button>
                 <BuildOptionMenu
                   label="Build scope"
                   value={scope}
@@ -216,23 +256,24 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
                 />
                 <ModelPicker disabled={busy} />
               </div>
-              <div className="ml-auto flex shrink-0 items-center gap-2">
+              <div className="ml-auto flex shrink-0 items-center gap-1.5">
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="icon-sm"
                   disabled={busy || !prompt.trim()}
                   aria-label={
                     enhance.isPending ? "Enhancing prompt" : "Enhance prompt"
                   }
+                  title={enhance.isPending ? "Enhancing…" : "Enhance"}
                   onClick={() => enhance.mutate(prompt)}
+                  className="text-foreground/80 hover:bg-elevated hover:text-foreground"
                 >
                   {enhance.isPending ? (
-                    <LoaderCircle size={14} className="animate-spin" />
+                    <LoaderCircle size={16} className="animate-spin" />
                   ) : (
-                    <WandSparkles size={14} />
+                    <WandSparkles size={16} />
                   )}
-                  {enhance.isPending ? "Enhancing…" : "Enhance"}
                 </Button>
                 <Button
                   type="submit"
@@ -242,25 +283,34 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
                       ? "Queueing challenge"
                       : "Create challenge"
                   }
+                  title={
+                    generate.isPending
+                      ? "Queueing challenge"
+                      : "Create challenge"
+                  }
                   disabled={
                     busy ||
                     Boolean(clarification?.question) ||
                     prompt.trim().length < 3
                   }
-                  className="shrink-0 rounded-md"
+                  className="size-8 shrink-0 rounded-full p-0 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.16)] hover:scale-[1.06]"
                 >
                   {busy ? (
-                    <LoaderCircle size={16} className="animate-spin" />
+                    <LoaderCircle size={15} className="animate-spin" />
                   ) : (
-                    <ArrowUp size={16} />
+                    <ArrowUp size={15} />
                   )}
-                  {generate.isPending ? "Queueing…" : "Create challenge"}
                 </Button>
               </div>
             </div>
           </form>
         )}
       </PromptSurface>
+      {attachmentError && (
+        <p role="alert" className="mt-2 text-metadata text-destructive">
+          {attachmentError}
+        </p>
+      )}
       {originalPrompt !== null && (
         <div className="mt-2 flex items-center gap-2 text-metadata text-muted">
           <span role="status">Prompt enhanced</span>

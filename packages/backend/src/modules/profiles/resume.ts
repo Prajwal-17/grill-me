@@ -31,6 +31,24 @@ export function extractResumeDocument(
   signal?: AbortSignal,
   options: { deadlineMs?: number; workerUrl?: URL } = {},
 ): Promise<{ text: string; warnings: string[] }> {
+  return extractDocumentText(format, bytes, signal, options).then((result) => ({
+    text: validateResumeText(result.text),
+    warnings: result.warnings,
+  }));
+}
+
+/** Shared PDF/DOCX text extraction worker with resume defaults. */
+export function extractDocumentText(
+  format: "pdf" | "docx",
+  bytes: ArrayBuffer,
+  signal?: AbortSignal,
+  options: {
+    deadlineMs?: number;
+    workerUrl?: URL;
+    maxPages?: number;
+    minChars?: number;
+  } = {},
+): Promise<{ text: string; warnings: string[] }> {
   return new Promise((resolve, reject) => {
     const worker = new Worker(
       options.workerUrl ??
@@ -80,16 +98,11 @@ export function extractResumeDocument(
             400,
           ),
         );
-      else {
-        try {
-          finish(undefined, {
-            text: validateResumeText(event.data.text),
-            warnings: event.data.warnings,
-          });
-        } catch (error) {
-          finish(error as Error);
-        }
-      }
+      else
+        finish(undefined, {
+          text: event.data.text,
+          warnings: event.data.warnings,
+        });
     };
     worker.onerror = (event) => {
       console.error("Resume document worker failed:", event.message);
@@ -97,7 +110,16 @@ export function extractResumeDocument(
     };
     signal?.addEventListener("abort", cancel, { once: true });
     if (signal?.aborted) cancel();
-    else worker.postMessage({ format, bytes }, [bytes]);
+    else
+      worker.postMessage(
+        {
+          format,
+          bytes,
+          maxPages: options.maxPages,
+          minChars: options.minChars,
+        },
+        [bytes],
+      );
   });
 }
 

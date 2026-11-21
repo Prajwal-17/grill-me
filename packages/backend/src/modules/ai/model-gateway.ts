@@ -47,6 +47,7 @@ export type QuizModelInput = {
       difficulty: BuildDifficulty;
       preferences: ProfilePreferences;
       coverage: "topic";
+      attachments?: MessageAttachment[];
     }
 );
 
@@ -86,6 +87,7 @@ export type BuildModelInput = {
   prompt: string;
   scope: BuildScope;
   difficulty: BuildDifficulty;
+  attachments?: MessageAttachment[];
   clarificationContext: ClarificationContext | null;
   learner: LearnerContext;
   clarificationHistory?: ClarificationContext[];

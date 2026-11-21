@@ -205,7 +205,7 @@ function transcriptHasError(
 }
 
 const rowClass =
-  "flex cursor-pointer list-none items-center gap-2 rounded-md px-1.5 py-1 text-metadata text-muted outline-none transition-colors hover:bg-elevated/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden";
+  "flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-1 text-metadata text-muted outline-none transition-colors hover:bg-elevated hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background [&::-webkit-details-marker]:hidden";
 
 const chevronClass =
   "size-3 shrink-0 text-muted transition-transform duration-150 group-open:rotate-90";
@@ -273,7 +273,7 @@ function toolLabel(item: HarnessItem) {
 
 function PreBlock({ children }: { children: string }) {
   return (
-    <pre className="scrollbar-quiet max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-canvas px-2.5 py-2 font-mono text-code leading-relaxed text-muted select-text">
+    <pre className="scrollbar-quiet max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-canvas px-3 py-2.5 font-mono text-code leading-relaxed text-muted select-text">
       {children}
     </pre>
   );
@@ -322,9 +322,7 @@ function ToolRow({ item }: { item: HarnessItem }) {
     </span>
   );
   if (!expandable)
-    return (
-      <div className="rounded-md px-1.5 py-1 text-metadata">{summary}</div>
-    );
+    return <div className="rounded-lg px-2 py-1 text-metadata">{summary}</div>;
   return (
     <details className="group">
       <summary className={rowClass}>{summary}</summary>
@@ -362,7 +360,7 @@ function UserMessage({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
       <h4 className="sr-only">You</h4>
-      <div className="max-w-[85%] rounded-xl bg-elevated px-3.5 py-2.5 text-supporting leading-6">
+      <div className="max-w-[85%] rounded-2xl border border-line/70 bg-elevated px-4 py-3 text-supporting leading-6 [&_code]:bg-canvas">
         <Markdown>{text}</Markdown>
       </div>
     </div>
@@ -402,7 +400,7 @@ function RequestCard({
   return (
     <div
       className={cn(
-        "rounded-lg border px-3 py-2.5",
+        "rounded-xl border px-3.5 py-3",
         pending ? "border-warning/40 bg-warning/5" : "border-line bg-panel",
       )}
     >
@@ -507,7 +505,7 @@ function Item({
     return (
       <div
         role="alert"
-        className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-2 text-metadata text-destructive"
+        className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-metadata text-destructive"
       >
         <CircleAlert size={14} className="mt-px shrink-0" aria-hidden="true" />
         <span className="min-w-0 break-words">
@@ -515,13 +513,21 @@ function Item({
         </span>
       </div>
     );
-  if (item.type === "system_notice")
+  if (item.type === "system_notice") {
+    // Captured prompt facts belong to the trajectory inspector, not the chat
+    // transcript. Older notices keep their existing presentation.
+    if (
+      item.payload.kind === "prompt_snapshot" ||
+      item.payload.kind === "run_context"
+    )
+      return null;
     return (
       <p className="flex items-center gap-1.5 py-0.5 text-metadata text-muted">
         <Info size={13} className="shrink-0" aria-hidden="true" />
         <span className="min-w-0 break-words">{item.text}</span>
       </p>
     );
+  }
   return <ToolRow item={item} />;
 }
 
@@ -583,20 +589,35 @@ function Turn({
   detail,
   turn,
   profileId,
+  repeat,
 }: {
   detail: HarnessThreadDetail;
   turn: HarnessThreadDetail["turns"][number];
   profileId: string;
+  /** The run re-sent the prompt already shown in the previous turn. */
+  repeat: boolean;
 }) {
   const conversation = detail.thread.kind === "project_scaffold";
   const turnLabel = "Turn";
+  const items = repeat
+    ? turn.items.filter(
+        (item, index) =>
+          !(
+            item.type === "user_message" &&
+            item.text?.trim() &&
+            turn.items
+              .slice(0, index)
+              .every((earlier) => earlier.type !== "user_message")
+          ),
+      )
+    : turn.items;
   return (
     <div
       aria-label={conversation ? undefined : `${turnLabel} ${turn.ordinal}`}
       className={
         conversation
           ? undefined
-          : "border-t border-line pt-4 first:border-t-0 first:pt-0"
+          : "border-t border-line/60 pt-5 first:border-t-0 first:pt-0"
       }
     >
       {!conversation && (
@@ -620,7 +641,7 @@ function Turn({
         </div>
       )}
       <div className="space-y-3">
-        {itemBlocks(turn.items).map((block, index) =>
+        {itemBlocks(items).map((block, index) =>
           block.kind === "tools" ? (
             <div key={`tools-${index}`} className="space-y-0.5">
               {block.items.map((item) => (
@@ -697,14 +718,18 @@ export function HarnessTranscriptContent({
   profileId,
   detail,
   className,
+  joined,
 }: {
   profileId: string;
   detail: HarnessThreadDetail;
   className?: string;
+  /** Render without the run header as part of a single continuous flow. */
+  joined?: boolean;
 }) {
   const stop = useStopHarnessThread(profileId);
   const retry = useRetryHarnessThread(profileId);
   const conversation = detail.thread.kind === "project_scaffold";
+  const flow = conversation || joined === true;
   const active = isActiveThreadStatus(detail.thread.status);
   const activityLabel = activityWorkingLabel(
     detail.thread.status,
@@ -713,6 +738,47 @@ export function HarnessTranscriptContent({
   const retryable = ["failed", "cancelled", "interrupted"].includes(
     detail.thread.status,
   );
+  const runControls =
+    active || retryable ? (
+      <div className="flex items-center gap-1">
+        {active && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={stop.isPending}
+            onClick={() => stop.mutate(detail.thread.id)}
+          >
+            {stop.isPending ? (
+              <LoaderCircle
+                size={13}
+                className="animate-spin motion-reduce:animate-none"
+              />
+            ) : (
+              <Square size={11} />
+            )}
+            Stop
+          </Button>
+        )}
+        {retryable && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={retry.isPending}
+            onClick={() => retry.mutate(detail.thread.id)}
+          >
+            {retry.isPending ? (
+              <LoaderCircle
+                size={13}
+                className="animate-spin motion-reduce:animate-none"
+              />
+            ) : (
+              <RotateCcw size={13} />
+            )}
+            Retry
+          </Button>
+        )}
+      </div>
+    ) : null;
   const kind = runKindMeta(detail.thread.kind);
   const KindIcon = kind.icon;
   const threadError = detail.thread.errorMessage;
@@ -724,7 +790,7 @@ export function HarnessTranscriptContent({
       aria-label={conversation ? "Codebase setup messages" : "Run transcript"}
       className={cn("min-w-0", className)}
     >
-      {!conversation && (
+      {!flow && (
         <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-line pb-3">
           <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-2">
@@ -756,46 +822,7 @@ export function HarnessTranscriptContent({
               </span>
             </p>
           </div>
-          {(active || retryable) && (
-            <div className="flex items-center gap-1">
-              {active && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={stop.isPending}
-                  onClick={() => stop.mutate(detail.thread.id)}
-                >
-                  {stop.isPending ? (
-                    <LoaderCircle
-                      size={13}
-                      className="animate-spin motion-reduce:animate-none"
-                    />
-                  ) : (
-                    <Square size={11} />
-                  )}
-                  Stop
-                </Button>
-              )}
-              {retryable && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={retry.isPending}
-                  onClick={() => retry.mutate(detail.thread.id)}
-                >
-                  {retry.isPending ? (
-                    <LoaderCircle
-                      size={13}
-                      className="animate-spin motion-reduce:animate-none"
-                    />
-                  ) : (
-                    <RotateCcw size={13} />
-                  )}
-                  Retry
-                </Button>
-              )}
-            </div>
-          )}
+          {runControls}
         </header>
       )}
       {(stop.error || retry.error) && (
@@ -803,14 +830,26 @@ export function HarnessTranscriptContent({
           {(stop.error ?? retry.error)?.message}
         </p>
       )}
-      <div className={conversation ? "space-y-3" : "mt-5 space-y-6"}>
+      <div className={flow ? "space-y-3" : "mt-5 space-y-6"}>
         {detail.turns.length ? (
-          detail.turns.map((turn) => (
+          detail.turns.map((turn, index) => (
             <Turn
               key={turn.id}
               detail={detail}
               turn={turn}
               profileId={profileId}
+              repeat={
+                index > 0 &&
+                normalizedText(
+                  turn.items.find((item) => item.type === "user_message")
+                    ?.text ?? null,
+                ) ===
+                  normalizedText(
+                    detail.turns[index - 1]!.items.find(
+                      (item) => item.type === "user_message",
+                    )?.text ?? null,
+                  )
+              }
             />
           ))
         ) : (
@@ -819,15 +858,18 @@ export function HarnessTranscriptContent({
           </p>
         )}
       </div>
-      {activityLabel && (
-        <div className="mt-4">
+      {activityLabel ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <AgentActivityStatus label={activityLabel} />
+          {joined && runControls}
         </div>
-      )}
+      ) : joined && runControls ? (
+        <div className="mt-4 flex justify-end">{runControls}</div>
+      ) : null}
       {showThreadError && (
         <div
           role="alert"
-          className="mt-5 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2.5 py-2 text-metadata text-destructive"
+          className="mt-5 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-metadata text-destructive"
         >
           <CircleAlert
             size={14}

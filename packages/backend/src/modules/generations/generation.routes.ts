@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AppError } from "../../shared/errors/app-error";
 import { parseInput, readJson } from "../../shared/http/validation";
 import { profileIdSchema } from "../profiles/profile.schema";
+import { extractAttachmentText, readAttachmentUpload } from "./attachment-text";
 import {
   generationAnswerSchema,
   generationRequestSchema,
@@ -32,6 +33,19 @@ export function createGenerationRoutes(service: GenerationService) {
       await readJson(c.req.raw),
     );
     return c.json({ data: await service.enqueue(profile(c), request) }, 202);
+  });
+  // Multipart upload: extraction returns bounded text the composer then
+  // attaches to the generation request like any other text attachment.
+  routes.post("/attachments", async (c) => {
+    profile(c);
+    const file = await readAttachmentUpload(c.req.raw);
+    return c.json({
+      data: await extractAttachmentText(
+        file.name,
+        file.bytes,
+        c.req.raw.signal,
+      ),
+    });
   });
   routes.get("/:id", async (c) =>
     c.json({ data: await service.detail(id(c), profile(c)) }),

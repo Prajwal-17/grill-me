@@ -32,6 +32,7 @@ export type HarnessItemInput = {
   text?: string | null;
   payload?: Record<string, unknown>;
   startedAt?: Date | null;
+  completedAt?: Date | null;
 };
 
 export type HarnessUsage = {

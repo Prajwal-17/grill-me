@@ -143,6 +143,7 @@ export function useFollowActivity({
     onPointerDown,
     onKeyDown,
     onTouchStart: pause,
+    pause,
     jumpToLatest,
   };
 }

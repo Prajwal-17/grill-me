@@ -2,6 +2,70 @@
 
 ## Unreleased
 
+### Added
+
+- Attach any file to a new challenge or quiz from the composer: a paperclip
+  control opens the file picker without a type filter, pasting a screenshot or
+  a copied file into the composer attaches it like the paperclip does, and
+  removable chips list what is attached. The contents reach the AI as untrusted
+  context when generating. Text files up to 256 KiB attach inline, images up to
+  512 KiB attach as image blocks when the selected model reads images, and PDF,
+  DOCX, or larger text files up to 10 MiB are extracted to bounded text by the
+  backend before the request is queued; up to five files and 700 KiB of
+  extracted content per build.
+- Showcase your original prompt on the challenge Overview: what you asked for
+  appears in its own quoted panel above the generated task, with long prompts
+  collapsed behind a Show more toggle.
+
+### Changed
+
+- Retry a stopped codebase setup by continuing it: when the existing project
+  folder still passes the trust check, Retry resumes that folder instead of
+  creating another numbered copy, and the recovery panel offers only Resume in
+  that case; Retry-in-a-new-folder and Start fresh remain as fallbacks when the
+  folder cannot be trusted.
+- Go from submit to watching the build: submitting on Home opens a live
+  generation page immediately — run transcript, status, and cancel controls —
+  and continues into the challenge's Activity when the build completes
+  (quizzes open the same way), instead of waiting on Home until it is ready.
+- Show the full challenge build in Activity as one flow: the generation run
+  that created the challenge and the project preparation that follows now read
+  as a single continuous transcript under a Build tab, with the preparation
+  actions sitting where setup starts and Reviews kept separate. Older
+  transcripts stay linked automatically.
+- Redesign the home composer as a lifted, layered card: a 16px surface with a
+  hairline outline, inset top highlight, and deep soft shadow replaces the flat
+  12px box, borderless footer chips for scope, difficulty, and model reveal a
+  hover fill, the editor reads at a compact 14px, and the submit action is a
+  round monochrome button that keeps the ember Grill treatment and adds a
+  press-scale response. Selection menus and popovers get the same treatment:
+  8px panels with a hairline border, deeper soft shadow, and a subtle inset
+  highlight, with softer 6px items and roomier padding. Applies to both the
+  Challenge and Quiz tabs.
+- Polish the Activity transcript: the user message becomes a 16px bubble with
+  a hairline outline and inline-code chips that stay readable on the raised
+  surface, tool and reasoning rows get a crisper hover fill with roomier
+  padding, tool input and output blocks gain the 8px radius, turn separators
+  and the run header lighten to hairline contrast with more air, request and
+  error cards move to the 12px radius, and the jump-to-latest control becomes
+  a floating rounded pill with a soft shadow.
+
+### Added
+
+- Inspect AI runs as a trajectory: every message, reasoning step, tool call,
+  result, error, timing, and token count, with the captured system prompt and
+  run context as ledger records, the offered tools in a resizable record
+  inspector, and an enlarged overlay for reading long text. Open it from
+  Review while a review is running or later, and from Activity for any review
+  or codebase preparation run.
+
+### Fixed
+
+- Keep the trajectory record ledger scrollable with a visible, draggable
+  scrollbar, select records without disturbing the surrounding page layout, and
+  prevent clipped shell containers from holding an unrecoverable scroll offset
+  that hid the run summary and controls.
+
 ## desktop-v0.3.2 - 18 Nov 2026
 
 ### Added

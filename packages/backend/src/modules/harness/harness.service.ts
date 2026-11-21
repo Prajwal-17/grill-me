@@ -14,7 +14,11 @@ import type {
 import { db } from "../../shared/database/db";
 import { challenges, harnessItems } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
-import type { StableAgentEvent } from "../ai/agent/events";
+import {
+  boundedHarnessValue,
+  boundedValue,
+  type StableAgentEvent,
+} from "../ai/agent/events";
 import {
   harnessModel,
   type HarnessItemRow,
@@ -104,7 +108,11 @@ function attemptValue(row: HarnessTurnAttemptRow): HarnessTurnAttempt {
   };
 }
 
-function itemValue(row: HarnessItemRow): HarnessItem {
+function itemValue(
+  row: HarnessItemRow,
+  options: { transport?: boolean } = {},
+): HarnessItem {
+  const payload = row.payload ?? {};
   return {
     id: row.id,
     threadId: row.threadId,
@@ -116,7 +124,9 @@ function itemValue(row: HarnessItemRow): HarnessItem {
     status: row.status as HarnessItem["status"],
     title: row.title,
     text: row.text,
-    payload: row.payload ?? {},
+    payload: options.transport
+      ? ((boundedValue(payload) as Record<string, unknown> | null) ?? {})
+      : payload,
     startedAt: iso(row.startedAt),
     completedAt: iso(row.completedAt),
     createdAt: row.createdAt.toISOString(),
@@ -140,6 +150,7 @@ function itemTypeForTool(name: string): HarnessItemType {
     case "read_project_file":
     case "read_file":
     case "read_submission_file":
+    case "read_workspace_file":
       return "file_read";
     case "list_project_files":
     case "search_project_files":
@@ -147,6 +158,7 @@ function itemTypeForTool(name: string): HarnessItemType {
     case "search_files":
     case "list_submission_files":
     case "search_submission":
+    case "list_workspace_files":
       return "file_search";
     case "fetch_url":
       return "web_search";
@@ -155,26 +167,66 @@ function itemTypeForTool(name: string): HarnessItemType {
   }
 }
 
-function resultPayload(result: unknown) {
+/** The model-facing text in a tool result's content array. */
+function contentText(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const content = (value as { content?: unknown }).content;
+  if (!Array.isArray(content)) return null;
+  const parts = content.flatMap((block) => {
+    if (typeof block === "string") return [block];
+    if (
+      block &&
+      typeof block === "object" &&
+      (block as { type?: string }).type === "text" &&
+      typeof (block as { text?: unknown }).text === "string"
+    )
+      return [(block as { text: string }).text];
+    return [];
+  });
+  return parts.length ? parts.join("\n\n") : null;
+}
+
+function resultPayload(result: unknown): {
+  output?: unknown;
+  details?: unknown;
+  exitCode?: number;
+  status?: string;
+  error?: unknown;
+  isError?: boolean;
+} {
+  if (typeof result === "string") return { output: result };
   const value =
     result && typeof result === "object" && !Array.isArray(result)
       ? (result as Record<string, unknown>)
       : {};
+  const content = contentText(result);
   return {
     output:
-      typeof value.output === "string" ? value.output : (result ?? undefined),
+      content ??
+      (typeof value.output === "string"
+        ? value.output
+        : Object.keys(value).length
+          ? value
+          : (result ?? undefined)),
+    details: value.details,
     exitCode: typeof value.exitCode === "number" ? value.exitCode : undefined,
     status: typeof value.status === "string" ? value.status : undefined,
     error:
       typeof value.error === "object" && value.error ? value.error : undefined,
+    ...(value.isError === true ? { isError: true } : {}),
   };
 }
 
+function assistantContent(message: unknown) {
+  if (!message || typeof message !== "object") return null;
+  const content = (message as { content?: unknown }).content;
+  return Array.isArray(content) ? content : null;
+}
+
 function assistantText(message: unknown) {
-  if (!message || typeof message !== "object") return "";
-  const value = message as { role?: string; content?: unknown };
-  if (value.role !== "assistant" || !Array.isArray(value.content)) return "";
-  return value.content
+  const content = assistantContent(message);
+  if (!content) return "";
+  return content
     .flatMap((block) =>
       block &&
       typeof block === "object" &&
@@ -184,6 +236,32 @@ function assistantText(message: unknown) {
         : [],
     )
     .join("");
+}
+
+function assistantUsage(message: unknown) {
+  if (!message || typeof message !== "object") return null;
+  const usage = (message as { usage?: unknown }).usage;
+  return usage && typeof usage === "object"
+    ? (usage as Record<string, unknown>)
+    : null;
+}
+
+function messageValue(message: unknown, key: string) {
+  if (!message || typeof message !== "object") return null;
+  const value = (message as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : null;
+}
+
+function messageTimestamp(message: unknown) {
+  if (!message || typeof message !== "object") return null;
+  const timestamp = (message as { timestamp?: unknown }).timestamp;
+  return typeof timestamp === "number" ? timestamp : null;
+}
+
+function messageDuration(message: unknown) {
+  if (!message || typeof message !== "object") return null;
+  const duration = (message as { durationMs?: unknown }).durationMs;
+  return typeof duration === "number" ? duration : null;
 }
 
 type PendingRequest = {
@@ -201,6 +279,8 @@ class Recorder {
   readonly attemptId: string;
   private toolItems = new Map<string, string>();
   private eventQueue: Promise<void> = Promise.resolve();
+  private messageStartedAt: number | null = null;
+  private userItemId: string | null = null;
 
   constructor(input: { threadId: string; turnId: string; attemptId: string }) {
     this.threadId = input.threadId;
@@ -221,6 +301,7 @@ class Recorder {
       text: input.text ?? null,
       payload: input.payload ?? {},
       startedAt: input.startedAt ?? null,
+      completedAt: input.completedAt ?? null,
     });
     return itemValue(row);
   }
@@ -247,6 +328,11 @@ class Recorder {
     return row ? itemValue(row) : null;
   }
 
+  /** The turn start writes a summary; the prompt snapshot corrects it. */
+  setUserItem(id: string) {
+    this.userItemId = id;
+  }
+
   event(event: StableAgentEvent) {
     // Agent subscriptions do not await database writes. Preserve emission order
     // so a fast tool's finish cannot overtake its asynchronously saved start.
@@ -256,6 +342,54 @@ class Recorder {
   }
 
   private async recordEvent(event: StableAgentEvent) {
+    if (event.type === "prompt_captured") {
+      const at = new Date(event.at);
+      const system = boundedHarnessValue(event.systemPrompt);
+      const userText = boundedHarnessValue(event.userText);
+      const tools = boundedHarnessValue(event.tools);
+      const toolCount = event.tools.length;
+      if (this.userItemId && typeof userText.value === "string") {
+        const current = await harnessModel.findItem(this.userItemId);
+        if (current && current.text !== userText.value)
+          await this.update(this.userItemId, { text: userText.value });
+      }
+      await this.append({
+        type: "system_notice",
+        status: "completed",
+        title: "System prompt and tools",
+        text: `Run configuration · ${toolCount} tool${toolCount === 1 ? "" : "s"} offered.`,
+        payload: {
+          kind: "prompt_snapshot",
+          systemPrompt: system.value,
+          userText: userText.value,
+          tools: tools.value,
+          ...(system.truncated || tools.truncated || userText.truncated
+            ? { _truncated: true }
+            : {}),
+        },
+        startedAt: at,
+      });
+      if (event.context) {
+        const context = boundedHarnessValue(event.context);
+        await this.append({
+          type: "system_notice",
+          status: "completed",
+          title: "Run context",
+          text: "Run context captured.",
+          payload: {
+            kind: "run_context",
+            context: context.value,
+            ...(context.truncated ? { _truncated: true } : {}),
+          },
+          startedAt: at,
+        });
+      }
+      return;
+    }
+    if (event.type === "message_started") {
+      this.messageStartedAt = event.at;
+      return;
+    }
     if (event.type === "tool_started") {
       const item = await this.append({
         type: itemTypeForTool(event.toolName),
@@ -264,6 +398,10 @@ class Recorder {
         payload: {
           callId: event.toolCallId,
           input: event.args,
+          ...(event.toolName.startsWith("complete_")
+            ? { kind: "completion" }
+            : {}),
+          ...(event.argsTruncated ? { _truncated: true } : {}),
           ...(event.toolName === "run_project_command"
             ? {
                 cwd:
@@ -291,6 +429,7 @@ class Recorder {
         payload: {
           ...(current?.payload ?? {}),
           ...(result.output !== undefined ? { output: result.output } : {}),
+          ...(result.details !== undefined ? { details: result.details } : {}),
           ...(result.exitCode !== undefined
             ? { exitCode: result.exitCode }
             : {}),
@@ -299,26 +438,72 @@ class Recorder {
           ...(event.durationMs !== undefined
             ? { durationMs: event.durationMs }
             : {}),
-          ...(event.isError ? { isError: true } : {}),
+          ...(event.isError || result.isError ? { isError: true } : {}),
+          ...(event.resultTruncated ? { _truncated: true } : {}),
         },
         completedAt: new Date(),
       });
       return;
     }
     if (event.type === "message_completed") {
+      const role = messageValue(event.message, "role");
+      if (role !== "assistant") return;
+      const timestamp = messageTimestamp(event.message);
+      const duration = messageDuration(event.message);
+      const startedAt = timestamp
+        ? new Date(timestamp)
+        : this.messageStartedAt
+          ? new Date(this.messageStartedAt)
+          : null;
+      const completedAt =
+        timestamp && duration !== null
+          ? new Date(timestamp + duration)
+          : timestamp
+            ? new Date(timestamp)
+            : new Date();
+      const model = messageValue(event.message, "model");
+      const provider = messageValue(event.message, "provider");
+      const stopReason = messageValue(event.message, "stopReason");
+      const usage = assistantUsage(event.message);
       if (event.reasoning)
         await this.append({
           type: "reasoning",
           text: event.reasoning,
-          payload: {},
+          payload: {
+            ...(model ? { model } : {}),
+            ...(stopReason ? { stopReason } : {}),
+            ...(duration !== null ? { durationMs: duration } : {}),
+          },
+          startedAt,
+          completedAt,
         });
+      const content = assistantContent(event.message);
+      const bounded = content ? boundedHarnessValue(content) : null;
       const text = assistantText(event.message);
-      if (text)
+      const hasToolCalls =
+        content?.some(
+          (block) =>
+            block &&
+            typeof block === "object" &&
+            (block as { type?: string }).type === "toolCall",
+        ) ?? false;
+      if (text || hasToolCalls)
         await this.append({
           type: "assistant_message",
-          text,
-          payload: {},
+          text: text || null,
+          payload: {
+            ...(model ? { model } : {}),
+            ...(provider ? { provider } : {}),
+            ...(stopReason ? { stopReason } : {}),
+            ...(duration !== null ? { durationMs: duration } : {}),
+            ...(usage ? { usage } : {}),
+            ...(bounded ? { content: bounded.value } : {}),
+            ...(bounded?.truncated ? { _truncated: true } : {}),
+          },
+          startedAt,
+          completedAt,
         });
+      this.messageStartedAt = null;
     }
   }
 
@@ -446,6 +631,12 @@ export function createHarnessService() {
     return row ? threadValue(row) : null;
   }
 
+  /** Attach a generation transcript to the challenge it produced. */
+  async function linkChallenge(threadId: string, challengeId: string) {
+    const row = await harnessModel.linkThreadChallenge(threadId, challengeId);
+    return row ? threadValue(row) : null;
+  }
+
   async function appendTurn(
     threadId: string,
     input: {
@@ -548,12 +739,13 @@ export function createHarnessService() {
       turnId: turn.id,
       attemptId: attempt.id,
     });
-    await recorder.append({
+    const userItem = await recorder.append({
       type: "user_message",
       status: "completed",
       text: input.inputText,
       payload: {},
     });
+    recorder.setUserItem(userItem.id);
     return {
       thread: threadValue((await harnessModel.findThread(thread.id))!),
       turn: turnValue((await harnessModel.findTurn(turn.id))!),
@@ -813,6 +1005,16 @@ export function createHarnessService() {
     return itemValue(updated!);
   }
 
+  /** One full record, including payloads trimmed from the thread detail. */
+  async function item(threadId: string, itemId: string, profileId: string) {
+    const thread = await harnessModel.findThreadOwned(threadId, profileId);
+    if (!thread) throw new AppError("HARNESS_NOT_FOUND", "Run not found.", 404);
+    const row = await harnessModel.findItem(itemId);
+    if (!row || row.threadId !== threadId)
+      throw new AppError("HARNESS_ITEM_NOT_FOUND", "Record not found.", 404);
+    return itemValue(row);
+  }
+
   async function detail(threadId: string, profileId: string) {
     const thread = await harnessModel.findThreadOwned(threadId, profileId);
     if (!thread) throw new AppError("HARNESS_NOT_FOUND", "Run not found.", 404);
@@ -825,7 +1027,7 @@ export function createHarnessService() {
     const turnsById = new Map(turns.map((turn) => [turn.id, turn]));
     for (const item of items) {
       const key = item.turnId ?? "";
-      const value = itemValue(item);
+      const value = itemValue(item, { transport: true });
       const turn = item.turnId ? turnsById.get(item.turnId) : undefined;
       // Older transcripts may have lost a tool-finished update. A terminal
       // turn cannot still have live tools; project the status without rewriting
@@ -986,6 +1188,7 @@ export function createHarnessService() {
   return {
     createThread,
     findThread,
+    linkChallenge,
     appendTurn,
     begin,
     beginAutomatic,
@@ -996,6 +1199,7 @@ export function createHarnessService() {
     answerPendingInput,
     appendAssistant,
     resolveRequest,
+    item,
     detail,
     list,
     stop,

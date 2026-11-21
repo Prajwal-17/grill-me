@@ -556,16 +556,21 @@ function recoveryView(
         : code === "PROJECT_FILE_MODIFIED"
           ? "Stopped to preserve your edits"
           : "Preparation stopped";
+  const folderAdvice = recovery.canResume
+    ? " Resume continues this folder."
+    : " Resume continues this folder, or start another folder without touching it.";
   const description =
     status === "interrupted"
-      ? `The app stopped before preparation finished.${attempt} Resume continues this folder, or start another folder without touching it.`
+      ? `The app stopped before preparation finished.${attempt}${folderAdvice}`
       : status === "cancelled"
-        ? `Cancelled before the project was ready.${attempt} Resume continues this folder, or start another folder without touching it.`
+        ? `Cancelled before the project was ready.${attempt}${folderAdvice}`
         : code === "PROJECT_FILE_MODIFIED"
           ? `A generated file changed on disk, so Grill Me did not overwrite it.${attempt} Resume is disabled for this folder; retry or start fresh in a new folder.`
           : `${preparation.error?.message ?? "Project preparation failed."}${attempt}`;
 
-  const actions: ProjectRecoveryActionView[] = [
+  // When the current folder can be trusted, continuing it is the only offered
+  // path; retry and fresh remain fallbacks for folders resume cannot verify.
+  const allActions: ProjectRecoveryActionView[] = [
     {
       action: "resume",
       label: "Continue setup",
@@ -591,6 +596,9 @@ function recoveryView(
       primary: false,
     },
   ];
+  const actions = recovery.canResume
+    ? allActions.filter((action) => action.action === "resume")
+    : allActions.filter((action) => action.action !== "resume");
 
   return {
     title,

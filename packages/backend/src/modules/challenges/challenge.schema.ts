@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { modelSelectionSchema } from "@repo/backend/shared/contracts";
+import { messageAttachmentSchema } from "../messages/message.schema";
 import { requestsImplementation } from "./clarification-policy";
 
 export const buildScopeSchema = z.enum(["focused", "feature", "system"]);
@@ -138,6 +139,7 @@ const buildRequestSchema = z.object({
   scope: buildScopeSchema,
   difficulty: buildDifficultySchema,
   selection: modelSelectionSchema.optional(),
+  attachments: z.array(messageAttachmentSchema).max(5).optional(),
 });
 
 export const prepareChallengeRequestSchema = buildRequestSchema;

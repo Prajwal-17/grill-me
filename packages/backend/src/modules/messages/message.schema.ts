@@ -84,6 +84,11 @@ export function isAcceptedAttachmentName(filename: string) {
   return Boolean(extension && sourceExtensions.has(extension));
 }
 
+/** Text attachments accept any filename; binary content is rejected on read. */
+function trustedAttachmentFilename(filename: string) {
+  return !/[\\/\r\n]/.test(filename) && !filename.includes("\0");
+}
+
 export const messageAttachmentSchema = z
   .object({
     filename: z
@@ -96,10 +101,11 @@ export const messageAttachmentSchema = z
       }),
     text: z
       .string()
-      .default("")
+      .max(1_500_000)
       .refine((value) => !value.includes("\0"), {
         message: "Binary files are not accepted as text.",
-      }),
+      })
+      .default(""),
     /** Supported image attachment data, when the selected model accepts images. */
     mimeType: z
       .string()
@@ -126,12 +132,12 @@ export const messageAttachmentSchema = z
         path: ["filename"],
         message: "Image attachments must use png, jpeg, webp, or gif.",
       });
-    if (!value.data && !isAcceptedAttachmentName(value.filename))
+    if (!value.data && !trustedAttachmentFilename(value.filename))
       context.addIssue({
         code: "custom",
         path: ["filename"],
         message:
-          "Only source-code, plain-text, or supported image files are accepted.",
+          "Attachment filenames cannot contain paths, line breaks, or null bytes.",
       });
   });
 

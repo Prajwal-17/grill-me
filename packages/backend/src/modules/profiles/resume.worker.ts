@@ -5,22 +5,27 @@ declare const self: Worker;
 async function extractDocument(input: {
   format: "pdf" | "docx";
   bytes: ArrayBuffer;
+  /** Optional overrides; resume keeps the defaults when omitted. */
+  maxPages?: number;
+  minChars?: number;
 }) {
   let document: Awaited<ReturnType<typeof getDocumentProxy>> | undefined;
   try {
     const { format, bytes } = input;
+    const maxPages = input.maxPages ?? 30;
+    const minChars = input.minChars ?? 40;
     let text: string;
     const warnings: string[] = [];
     if (format === "pdf") {
       document = await getDocumentProxy(new Uint8Array(bytes));
       if ((await document.getPermissions()) !== null)
         return { error: "RESUME_ENCRYPTED" };
-      if (document.numPages > 30) {
+      if (maxPages > 0 && document.numPages > maxPages) {
         return { error: "RESUME_TOO_MANY_PAGES" };
       }
       const result = await extractText(document, { mergePages: true });
       text = result.text;
-      if (text.trim().length < 40) {
+      if (text.trim().length < minChars) {
         return { error: "RESUME_UNREADABLE_PDF" };
       }
     } else {

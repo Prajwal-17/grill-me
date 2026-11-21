@@ -4,6 +4,7 @@ import {
   activityCategory,
   activitySessionNumber,
   groupActivityThreads,
+  parseActivityCategory,
   setupMessageText,
 } from "./activity";
 import { createActivityScroller } from "./activity-scroll";
@@ -63,7 +64,7 @@ describe("activity categories", () => {
     ] as const)
       expect(activityWorkingLabel(status, [])).toBeNull();
   });
-  test("keeps preparation and reviews while hiding retired help history", () => {
+  test("keeps the build flow and reviews while hiding retired help history", () => {
     const groups = groupActivityThreads([
       thread("hint", "2026-11-16T10:00:00.000Z", "hint-1"),
       thread("project_scaffold", "2026-11-16T09:00:00.000Z", "prep-1"),
@@ -71,10 +72,7 @@ describe("activity categories", () => {
       thread("review", "2026-11-16T12:00:00.000Z"),
       thread("chat", "2026-11-16T13:00:00.000Z"),
     ]);
-    expect(groups.map((group) => group.key)).toEqual([
-      "preparation",
-      "reviews",
-    ]);
+    expect(groups.map((group) => group.key)).toEqual(["build", "reviews"]);
     expect(groups[0]!.threads.map((entry) => entry.id)).toEqual([
       "prep-2",
       "prep-1",
@@ -82,12 +80,38 @@ describe("activity categories", () => {
     expect(groups[1]!.threads).toHaveLength(1);
   });
 
+  test("reads generation and preparation as one build flow", () => {
+    const groups = groupActivityThreads([
+      thread("project_scaffold", "2026-11-16T09:00:00.000Z", "prep-1"),
+      thread("challenge_generation", "2026-11-16T08:00:00.000Z", "gen-1"),
+      thread("quiz_generation", "2026-11-16T12:00:00.000Z", "gen-quiz"),
+      thread("review", "2026-11-16T12:30:00.000Z"),
+    ]);
+    expect(groups.map((group) => group.key)).toEqual(["build", "reviews"]);
+    expect(groups[0]!.threads.map((entry) => entry.id)).toEqual([
+      "gen-quiz",
+      "prep-1",
+      "gen-1",
+    ]);
+    expect(activityCategory("challenge_generation")).toBe("build");
+    expect(activityCategory("quiz_generation")).toBe("build");
+    expect(activityCategory("project_scaffold")).toBe("build");
+  });
+
+  test("maps saved generation and preparation links to the build flow", () => {
+    expect(parseActivityCategory("generation")).toBe("build");
+    expect(parseActivityCategory("preparation")).toBe("build");
+    expect(parseActivityCategory("reviews")).toBe("reviews");
+    expect(parseActivityCategory("unknown")).toBeNull();
+    expect(parseActivityCategory(null)).toBeNull();
+  });
+
   test("does not hide unsupported thread kinds", () => {
     const groups = groupActivityThreads([
       thread("clarification", "2026-11-16T10:00:00.000Z"),
     ]);
     expect(groups.map((group) => group.key)).toEqual([
-      "preparation",
+      "build",
       "reviews",
       "other",
     ]);

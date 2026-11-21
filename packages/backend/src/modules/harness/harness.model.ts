@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   harnessAttachments,
   harnessItems,
@@ -105,6 +105,22 @@ export const harnessModel = {
         .update(harnessThreads)
         .set({ ...patch, updatedAt: now() })
         .where(eq(harnessThreads.id, id))
+        .returning(),
+    );
+  },
+
+  /** Attach a generation transcript to the challenge it produced, once. */
+  linkThreadChallenge(threadId: string, challengeId: string) {
+    return first(
+      db
+        .update(harnessThreads)
+        .set({ challengeId, updatedAt: now() })
+        .where(
+          and(
+            eq(harnessThreads.id, threadId),
+            isNull(harnessThreads.challengeId),
+          ),
+        )
         .returning(),
     );
   },
@@ -328,6 +344,7 @@ export const harnessModel = {
     text: string | null;
     payload: Record<string, unknown>;
     startedAt: Date | null;
+    completedAt?: Date | null;
     at?: Date;
   }) {
     const at = input.at ?? now();
@@ -354,9 +371,10 @@ export const harnessModel = {
           payload: input.payload,
           startedAt: input.startedAt,
           completedAt:
-            input.status === "pending" || input.status === "running"
+            input.completedAt ??
+            (input.status === "pending" || input.status === "running"
               ? null
-              : at,
+              : at),
           createdAt: at,
           updatedAt: at,
         })

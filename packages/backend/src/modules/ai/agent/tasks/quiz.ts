@@ -8,7 +8,7 @@ import {
 import { projectDeveloperContext } from "../../../profiles/developer-context";
 import { quizPrompt } from "../../prompts/generate-quiz";
 import { quizTitlePrompt } from "../../prompts/generate-quiz-title";
-import { contextBlock } from "../messages";
+import { contextBlock, attachmentBlock } from "../messages";
 import { withoutHistory } from "./context";
 import type { StructuredTask } from "./types";
 
@@ -48,6 +48,14 @@ export function quizTask(input: QuizModelInput): StructuredTask<unknown> {
           projectDeveloperContext(input.preferences, input.prompt),
           { untrusted: false },
         ),
+        ...(input.attachments?.length
+          ? [
+              input.attachments
+                .filter((attachment) => attachment.text)
+                .map(attachmentBlock)
+                .join("\n\n"),
+            ]
+          : []),
       ];
   return {
     operation: "quiz_generation",

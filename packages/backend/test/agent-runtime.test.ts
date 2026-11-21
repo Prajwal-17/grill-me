@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
+import type { StableAgentEvent } from "@repo/backend/modules/ai/agent/events";
 import { runStructured, runText } from "@repo/backend/modules/ai/agent/runtime";
 import { AppError } from "@repo/backend/shared/errors/app-error";
 import { completeThing, resolvedModel } from "./fixtures/agent-fixtures";
@@ -92,6 +93,49 @@ test("structured generation runs can write and read their temporary research wor
       message.role === "toolResult" && message.toolName === "read_file",
   );
   expect(JSON.stringify(readResult)).toContain("captured");
+});
+
+test("reports the captured prompt, offered tools, and assistant start to run recorders", async () => {
+  const { faux, resolved } = resolvedModel();
+  faux.setResponses([
+    fauxAssistantMessage(
+      [fauxToolCall("complete_thing", { value: "verified" })],
+      { stopReason: "toolUse" },
+    ),
+  ]);
+  const events: StableAgentEvent[] = [];
+  await runStructured({
+    resolved,
+    instructions: "Capture this prompt.",
+    context: "<context>Fixture</context>",
+    userText: "Complete.",
+    completion: completeThing,
+    allowSnapshot: false,
+    onEvent: (event) => {
+      events.push(event);
+    },
+  });
+  const prompt = events.find((event) => event.type === "prompt_captured");
+  expect(prompt).toMatchObject({
+    systemPrompt: expect.stringContaining("Capture this prompt."),
+    userText: "Complete.",
+    context: "<context>Fixture</context>",
+  });
+  expect(
+    (
+      prompt as Extract<StableAgentEvent, { type: "prompt_captured" }>
+    ).tools.map((tool) => tool.name),
+  ).toContain("complete_thing");
+  expect(events.some((event) => event.type === "message_started")).toBe(true);
+  expect(
+    events.find(
+      (event) =>
+        event.type === "message_completed" &&
+        (event.message as { role?: string }).role === "assistant",
+    ),
+  ).toMatchObject({
+    message: expect.objectContaining({ role: "assistant" }),
+  });
 });
 
 test("structured runs reject duplicate completion values and plain prose", async () => {

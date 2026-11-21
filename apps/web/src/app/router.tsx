@@ -26,6 +26,14 @@ export const router = createBrowserRouter([
       },
       { path: "chat", lazy: () => import("./routes/chat-route") },
       {
+        path: "generations/:id",
+        lazy: async () => ({
+          Component: (
+            await import("@/features/generations/pages/generation-progress-page")
+          ).GenerationProgressPage,
+        }),
+      },
+      {
         path: "challenges",
         lazy: async () => ({
           Component: (

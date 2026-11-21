@@ -1,4 +1,5 @@
 import type { ModelSelection } from "@repo/backend/shared/contracts";
+import type { MessageAttachment } from "@/shared/types/api";
 export type QuestionCount = number;
 export type QuizCoverage = "challenge" | "related" | "mixed";
 export type QuizDifficulty = "easy" | "medium" | "hard" | "grill";
@@ -58,6 +59,7 @@ export type GenerateStandaloneQuizRequest = {
   questionCount: QuestionCount;
   prompt: string;
   difficulty: QuizDifficulty;
+  attachments?: MessageAttachment[];
   selection?: ModelSelection;
 };
 export const COVERAGE_LABELS: Record<QuizCoverage, string> = {

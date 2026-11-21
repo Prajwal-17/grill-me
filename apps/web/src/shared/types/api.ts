@@ -141,6 +141,7 @@ export type GenerateBuildRequest = {
   prompt: string;
   scope: BuildScope;
   difficulty: BuildDifficulty;
+  attachments?: MessageAttachment[];
   clarificationContext: ClarificationContext | null;
   clarificationHistory?: ClarificationContext[];
   selection?: ModelSelection;

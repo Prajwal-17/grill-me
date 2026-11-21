@@ -72,6 +72,14 @@ export function createHarnessRoutes(profiles: ProfileService) {
     await profiles.assertExists(id);
     return c.json({ data: await harnessService.detail(threadId(c), id) });
   });
+  routes.get("/:id/items/:itemId", async (c) => {
+    const id = profile(c);
+    await profiles.assertExists(id);
+    const itemId = parseInput(z.string().uuid(), c.req.param("itemId"));
+    return c.json({
+      data: await harnessService.item(threadId(c), itemId, id),
+    });
+  });
   routes.post("/:id/turns", async (c) => {
     const id = profile(c);
     await profiles.assertExists(id);

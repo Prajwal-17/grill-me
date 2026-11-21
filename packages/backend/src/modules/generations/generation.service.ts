@@ -1,6 +1,16 @@
-import { and, asc, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+} from "drizzle-orm";
 import { db, lockRows } from "../../shared/database/db";
-import { generationJobs } from "../../shared/database/schema";
+import { generationJobs, harnessThreads } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
 import type { ChallengeService } from "../challenges/challenge.service";
 import type { ProfileService } from "../profiles/profile.service";
@@ -285,10 +295,19 @@ export function createGenerationService(dependencies: {
       }
       if (result && job.harnessThreadId) {
         const value = result as {
+          id?: string;
           title?: string | null;
           number?: number;
           problemStatement?: string;
         };
+        // The challenge only exists after generating, so the transcript link
+        // is written here instead of at thread creation.
+        if (job.request.kind === "challenge" && value.id)
+          await harnessService
+            .linkChallenge(job.harnessThreadId, value.id)
+            .catch((error) =>
+              console.error("Generation transcript link failed", error),
+            );
         await harnessService.appendAssistant(
           job.harnessThreadId,
           value.problemStatement
@@ -408,9 +427,54 @@ export function createGenerationService(dependencies: {
       pumping = false;
     }
   }
+  let legacyThreadsLinked = false;
+  /** Generation transcripts created before the challenge link existed. */
+  async function linkLegacyThreads() {
+    if (legacyThreadsLinked) return;
+    try {
+      const threads = await db
+        .select({ id: harnessThreads.id })
+        .from(harnessThreads)
+        .where(
+          and(
+            isNull(harnessThreads.challengeId),
+            eq(harnessThreads.kind, "challenge_generation"),
+          ),
+        );
+      if (!threads.length) {
+        legacyThreadsLinked = true;
+        return;
+      }
+      const jobs = await db
+        .select({
+          threadId: generationJobs.harnessThreadId,
+          challengeId: generationJobs.resultId,
+        })
+        .from(generationJobs)
+        .where(
+          and(
+            inArray(
+              generationJobs.harnessThreadId,
+              threads.map((thread) => thread.id),
+            ),
+            eq(generationJobs.kind, "challenge"),
+            eq(generationJobs.status, "completed"),
+            isNotNull(generationJobs.resultId),
+          ),
+        );
+      for (const job of jobs) {
+        if (!job.threadId || !job.challengeId) continue;
+        await harnessService.linkChallenge(job.threadId, job.challengeId);
+      }
+      legacyThreadsLinked = true;
+    } catch (error) {
+      console.error("Linking generation transcripts failed", error);
+    }
+  }
   return {
     start() {
       if (timer) return;
+      void linkLegacyThreads();
       timer = setInterval(() => void pump(), 1000);
       timer.unref();
       void pump();
@@ -421,6 +485,7 @@ export function createGenerationService(dependencies: {
     },
     processNext,
     recover,
+    linkLegacyThreads,
     async enqueue(profileId: string, request: GenerationRequest) {
       await profiles.assertExists(profileId);
       if (request.kind === "challenge_quiz")

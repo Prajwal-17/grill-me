@@ -1,16 +1,18 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { enhanceBuildPrompt } from "@/features/challenges/api/challenge-api";
 import { useBuildStore } from "@/features/chat/stores/chat-store";
 import { useAppStore } from "@/shared/stores/app-store";
 import { useComposerModel } from "@/shared/components/ai/use-composer-model";
 import { useToast } from "@/shared/components/ui/toast";
-import type { Profile } from "@/shared/types/api";
+import type { MessageAttachment, Profile } from "@/shared/types/api";
+import { readGenerationAttachments } from "@/features/chat/lib/attachment-utils";
 import {
   answerGeneration,
   cancelGeneration,
   enqueueGeneration,
+  extractGenerationAttachment,
   generationKeys,
   getGenerationJob,
   retryGeneration,
@@ -25,6 +27,7 @@ export function useCreateBuild(profile: Profile) {
   const store = useBuildStore();
   const composer = useComposerModel();
   const resetBuild = store.resetBuild;
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const generationId = params.get("generation") ?? "";
   const jobQuery = useQuery({
@@ -39,6 +42,8 @@ export function useCreateBuild(profile: Profile) {
   const [choice, setChoice] = useState("");
   const [custom, setCustom] = useState("");
   const [originalPrompt, setOriginalPrompt] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const mounted = useRef(false);
   const requestRef = useRef<{
     signature: string;
@@ -66,7 +71,7 @@ export function useCreateBuild(profile: Profile) {
     if (useAppStore.getState().profile?.id !== profile.id) return;
     show({
       message: "Challenge queued",
-      description: "You can keep working while it generates.",
+      description: "It opens on its activity as soon as it is ready.",
       scope: `generation:${profile.id}`,
     });
     if (mounted.current) {
@@ -74,8 +79,16 @@ export function useCreateBuild(profile: Profile) {
       setChoice("");
       setCustom("");
       setOriginalPrompt(null);
-      clearSelection();
+      setAttachments([]);
+      setAttachmentError(null);
       requestRef.current = null;
+      // Submitting leaves the composer immediately: the generation progress
+      // page shows the live run and continues into the challenge when it
+      // completes. Navigate last — the composer's own parameter cleanup runs
+      // through navigate too and would otherwise replace this navigation.
+      if (job.kind === "challenge")
+        navigate(`/generations/${encodeURIComponent(job.id)}`);
+      else clearSelection();
     }
   }
   const generate = useMutation({
@@ -100,6 +113,7 @@ export function useCreateBuild(profile: Profile) {
       store.setPrompt(source.prompt);
       store.setScope(source.scope);
       store.setDifficulty(source.difficulty);
+      setAttachments(source.attachments ?? []);
       if (source.selection) composer.setSelection(source.selection);
       clearSelection();
       setChoice("");
@@ -139,6 +153,24 @@ export function useCreateBuild(profile: Profile) {
     requestRef.current = null;
     setOriginalPrompt(null);
   }
+  function addAttachments(files: FileList | readonly File[] | null) {
+    if (!files || !files.length) return;
+    setAttachmentError(null);
+    readGenerationAttachments([...files], attachments, (file) =>
+      extractGenerationAttachment(profile.id, file),
+    )
+      .then((next) => {
+        setAttachments(next);
+        setAttachmentError(null);
+      })
+      .catch((error: unknown) => {
+        setAttachmentError(
+          error instanceof Error
+            ? error.message
+            : "Attachments failed to read.",
+        );
+      });
+  }
   function submit(event?: FormEvent) {
     event?.preventDefault();
     if (busy || clarification || store.prompt.trim().length < 3) return;
@@ -148,6 +180,7 @@ export function useCreateBuild(profile: Profile) {
       difficulty: store.difficulty,
       clarificationContext: null,
       clarificationHistory: [],
+      ...(attachments.length ? { attachments } : {}),
       ...(composer.selection ? { selection: composer.selection } : {}),
     };
     const signature = JSON.stringify(input);
@@ -161,6 +194,14 @@ export function useCreateBuild(profile: Profile) {
   return {
     prompt: clarification && source ? source.prompt : store.prompt,
     setPrompt: store.setPrompt,
+    attachments:
+      clarification && source ? (source.attachments ?? []) : attachments,
+    addAttachments,
+    setAttachments: (next: MessageAttachment[]) => {
+      setAttachmentError(null);
+      setAttachments(next);
+    },
+    attachmentError,
     scope: clarification && source ? source.scope : store.scope,
     setScope: store.setScope,
     difficulty: clarification && source ? source.difficulty : store.difficulty,

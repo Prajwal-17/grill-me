@@ -480,17 +480,13 @@ test("offers explicit recovery actions without claiming an unsafe resume", () =>
       action.primary,
     ]),
     [
-      ["resume", false, false],
       ["retry", true, true],
       ["fresh", true, false],
     ],
   );
+  assert.match(view.recovery?.actions[0]?.description ?? "", /not copied/);
   assert.match(
-    view.recovery?.actions[0]?.description ?? "",
-    /never overwritten/,
-  );
-  assert.match(
-    view.recovery?.actions[2]?.description ?? "",
+    view.recovery?.actions[1]?.description ?? "",
     /without reading this folder's journal/,
   );
   assert.equal(view.canStart, false);
@@ -528,15 +524,11 @@ test("offers resume for an interrupted attempt with valid journal metadata", () 
       action.enabled,
       action.primary,
     ]),
-    [
-      ["resume", true, true],
-      ["retry", true, false],
-      ["fresh", true, false],
-    ],
+    [["resume", true, true]],
   );
   assert.match(
     view.recovery?.description ?? "",
-    /Resume continues this folder/,
+    /Resume continues this folder\./,
   );
 });
 

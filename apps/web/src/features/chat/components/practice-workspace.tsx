@@ -19,6 +19,7 @@ import type { Challenge, Profile } from "@/shared/types/api";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { Button } from "@/shared/components/ui/button";
 import { ChallengeCard } from "@/features/challenges/components/challenge-card";
+import { ChallengePrompt } from "@/features/challenges/components/challenge-prompt";
 import { ChallengeWorkspaceMenu } from "@/features/challenges/components/challenge-workspace";
 import { ChallengeReviewSection } from "@/features/challenges/components/challenge-review";
 import { CopyButton } from "@/shared/components/ui/copy-button";
@@ -38,8 +39,9 @@ import { QuizWorkspace } from "@/features/quizzes/components/quiz-workspace";
 import { HarnessActivity } from "@/features/harness";
 import {
   activityCategory,
-  activityCategoryKeys,
+  parseActivityCategory,
   type ActivityCategory,
+  type ActivityView,
 } from "@/features/harness/lib/activity";
 import { useWideWorkspace } from "../hooks/use-wide-workspace";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
@@ -72,11 +74,10 @@ export function PracticeWorkspace({
       ? requestedTab
       : "overview";
   const selectedActivityCategory =
-    activityParam &&
-    activityCategoryKeys.includes(activityParam as ActivityCategory)
-      ? (activityParam as ActivityCategory)
-      : "preparation";
+    parseActivityCategory(activityParam) ?? "build";
   const selectedRunId = searchParams.get("run") ?? undefined;
+  const activityView: ActivityView =
+    searchParams.get("view") === "trajectory" ? "trajectory" : "transcript";
   const updateParams = (update: (params: URLSearchParams) => void) => {
     const url = new URL(window.location.href);
     const before = url.search;
@@ -130,6 +131,17 @@ export function PracticeWorkspace({
       params.set("tab", "activity");
       params.set("activity", category);
       params.delete("run");
+    });
+  };
+  const selectActivityView = (view: ActivityView) => {
+    updateParams((params) => {
+      if (view === "trajectory") {
+        if (params.get("view") === "trajectory") return;
+        params.set("view", "trajectory");
+      } else {
+        if (!params.get("view")) return;
+        params.delete("view");
+      }
     });
   };
   const selectActivityRun = (thread: { id: string; kind: string }) => {
@@ -191,7 +203,7 @@ export function PracticeWorkspace({
       projectView?.recovery?.needsReview || projectView?.awaitingApproval,
     );
   const reviewProject = () => {
-    openActivity("preparation");
+    openActivity("build");
   };
   const error = lifecycle.error;
   return (
@@ -201,7 +213,7 @@ export function PracticeWorkspace({
       breadcrumbs={[backTo]}
       contentScrollable={false}
     >
-      <main className="relative flex h-full min-h-0 overflow-hidden">
+      <main className="relative flex h-full min-h-0 overflow-clip">
         <div
           className="flex min-w-0 flex-1 flex-col"
           inert={filesOverlay}
@@ -237,7 +249,7 @@ export function PracticeWorkspace({
           <Tabs
             value={tab}
             onValueChange={setTab}
-            className="min-h-0 flex-1 gap-0 overflow-hidden"
+            className="min-h-0 flex-1 gap-0 overflow-clip"
           >
             <div className="practice-workspace-navigation flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b border-line bg-panel/60 px-2 md:px-5">
               <div className="scrollbar-quiet min-w-0 overflow-x-auto">
@@ -356,6 +368,7 @@ export function PracticeWorkspace({
             >
               <div className="px-4 py-6 md:px-8">
                 <div className="mx-auto max-w-[880px] space-y-6">
+                  <ChallengePrompt challenge={challenge} />
                   <ChallengeCard
                     challenge={challenge}
                     className="max-w-none"
@@ -373,29 +386,27 @@ export function PracticeWorkspace({
             </TabsContent>
             <TabsContent
               value="review"
-              className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 md:px-8 md:py-6"
             >
-              <div className="px-4 py-6 md:px-8">
-                <div className="mx-auto max-w-[880px]">
-                  <ChallengeReviewSection
-                    profileId={profile.id}
-                    challenge={challenge}
-                    enabled={!archived}
-                  />
-                </div>
-              </div>
+              <ChallengeReviewSection
+                profileId={profile.id}
+                challenge={challenge}
+                enabled={!archived}
+              />
             </TabsContent>
             <TabsContent
               value="activity"
-              className="min-h-0 flex-1 overflow-hidden"
+              className="min-h-0 flex-1 overflow-clip"
             >
               <HarnessActivity
                 profileId={profile.id}
                 challengeId={challenge.id}
                 category={selectedActivityCategory}
                 selectedRunId={selectedRunId}
+                view={activityView}
                 onSelectCategory={selectActivityCategory}
                 onSelectRun={selectActivityRun}
+                onSelectView={selectActivityView}
                 prelude={
                   <ProjectPreparationActions
                     profileId={profile.id}

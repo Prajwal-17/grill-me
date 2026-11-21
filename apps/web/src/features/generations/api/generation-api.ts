@@ -1,10 +1,38 @@
-import { apiRequest } from "@/shared/lib/api-client";
+import { apiRequest, ApiClientError } from "@/shared/lib/api-client";
 import type { GenerationJob, GenerationRequest } from "../types";
 export const generationKeys = {
   list: (profileId?: string) => ["generation-jobs", profileId] as const,
   detail: (profileId: string, id: string) =>
     ["generation-job", profileId, id] as const,
 };
+/**
+ * Multipart upload: documents (PDF, DOCX) and oversized text files are
+ * extracted to bounded attachment text by the backend, so the queued
+ * generation request only ever carries text and inline images.
+ */
+export function extractGenerationAttachment(
+  profileId: string,
+  file: File,
+  signal?: AbortSignal,
+) {
+  const body = new FormData();
+  body.append("file", file);
+  return apiRequest<{ filename: string; text: string }>(
+    "/generation-jobs/attachments",
+    { method: "POST", body, signal },
+    profileId,
+  ).catch((error: unknown) => {
+    // A missing endpoint means the running backend predates the feature;
+    // send an actionable message instead of the transport red herring.
+    if (error instanceof ApiClientError && error.code === "INVALID_RESPONSE")
+      throw new ApiClientError(
+        "Attachment extraction is unavailable in the running backend. Restart Grill Me and attach the file again.",
+        "EXTRACTION_UNAVAILABLE",
+        false,
+      );
+    throw error;
+  });
+}
 export const getGenerationJobs = (profileId: string, signal?: AbortSignal) =>
   apiRequest<GenerationJob[]>("/generation-jobs", { signal }, profileId);
 export const getGenerationJob = (profileId: string, id: string) =>

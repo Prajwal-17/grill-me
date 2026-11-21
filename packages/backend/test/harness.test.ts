@@ -228,6 +228,153 @@ describe("harness transcripts", () => {
     expect(run.thread.id).toBe(created.id);
   });
 
+  test("captures the run configuration and assistant message facts", async () => {
+    const { profileId, challengeId } = await fixture();
+    const created = await thread(profileId, challengeId);
+    const run = await harnessService.begin({
+      threadId: created.id,
+      inputText: "Inspect the workspace",
+    });
+    const startedAt = Date.now() - 250;
+    await run.recorder.event({
+      type: "prompt_captured",
+      at: startedAt,
+      systemPrompt: "You are the review agent.",
+      userText: "Inspect the workspace in detail.",
+      context: '<context name="challenge">Fixture</context>',
+      tools: [
+        {
+          name: "read_workspace_file",
+          label: "Read workspace file",
+          description: "Read a file.",
+          parameters: {
+            type: "object",
+            properties: { path: { type: "string" } },
+          },
+        },
+      ],
+    });
+    await run.recorder.event({ type: "message_started", at: startedAt });
+    await run.recorder.event({
+      type: "message_completed",
+      reasoning: "The workspace has one file.",
+      message: {
+        role: "assistant",
+        model: "fixture-model",
+        provider: "fixture-provider",
+        stopReason: "toolUse",
+        usage: {
+          input: 120,
+          output: 30,
+          totalTokens: 150,
+          cacheRead: 10,
+          cacheWrite: 0,
+        },
+        content: [
+          { type: "text", text: "Reading the file." },
+          {
+            type: "toolCall",
+            id: "call-1",
+            name: "read_workspace_file",
+            arguments: { path: "src/app.ts" },
+          },
+        ],
+        timestamp: startedAt,
+        durationMs: 250,
+      },
+    });
+    await run.recorder.finish({ status: "completed" });
+    const detail = await harnessService.detail(created.id, profileId);
+    const items = detail.turns[0]!.items;
+    expect(items[0]).toMatchObject({
+      type: "user_message",
+      text: "Inspect the workspace in detail.",
+    });
+    const prompt = items.find(
+      (item) =>
+        item.type === "system_notice" &&
+        (item.payload as { kind?: string }).kind === "prompt_snapshot",
+    )!;
+    const context = items.find(
+      (item) =>
+        item.type === "system_notice" &&
+        (item.payload as { kind?: string }).kind === "run_context",
+    )!;
+    expect(prompt.payload).toMatchObject({
+      kind: "prompt_snapshot",
+      systemPrompt: "You are the review agent.",
+      userText: "Inspect the workspace in detail.",
+    });
+    expect(
+      (prompt.payload as { tools: { name: string }[] }).tools.map(
+        (tool) => tool.name,
+      ),
+    ).toEqual(["read_workspace_file"]);
+    expect(context.payload).toMatchObject({
+      kind: "run_context",
+      context: '<context name="challenge">Fixture</context>',
+    });
+    const assistant = items.find((item) => item.type === "assistant_message")!;
+    expect(assistant.text).toBe("Reading the file.");
+    expect(assistant.payload).toMatchObject({
+      model: "fixture-model",
+      provider: "fixture-provider",
+      stopReason: "toolUse",
+      usage: { input: 120, output: 30, totalTokens: 150 },
+    });
+    expect(assistant.startedAt).not.toBeNull();
+    expect(assistant.completedAt).not.toBeNull();
+    expect(
+      Date.parse(assistant.completedAt!) - Date.parse(assistant.startedAt!),
+    ).toBe(250);
+    const reasoning = items.find((item) => item.type === "reasoning")!;
+    expect(reasoning.payload).toMatchObject({
+      model: "fixture-model",
+      stopReason: "toolUse",
+      durationMs: 250,
+    });
+  });
+
+  test("trims detail payloads and serves the complete record on demand", async () => {
+    const { profileId, challengeId } = await fixture();
+    const other = await fixture();
+    const created = await thread(profileId, challengeId);
+    const run = await harnessService.begin({
+      threadId: created.id,
+      inputText: "Read a large file",
+    });
+    const large = "x".repeat(20_000);
+    await run.recorder.event({
+      type: "tool_started",
+      toolCallId: "call-large",
+      toolName: "read_workspace_file",
+      args: { path: "src/large.ts" },
+    });
+    await run.recorder.event({
+      type: "tool_finished",
+      toolCallId: "call-large",
+      toolName: "read_workspace_file",
+      isError: false,
+      durationMs: 12,
+      result: { output: large },
+    });
+    await run.recorder.finish({ status: "completed" });
+    const detail = await harnessService.detail(created.id, profileId);
+    const item = detail.turns[0]!.items.find(
+      (entry) => entry.title === "read_workspace_file",
+    )!;
+    expect((item.payload.output as string).length).toBe(8_000);
+    const full = await harnessService.item(created.id, item.id, profileId);
+    expect((full.payload.output as string).length).toBe(20_000);
+    await expect(
+      harnessService.item(created.id, item.id, other.profileId),
+    ).rejects.toMatchObject({ code: "HARNESS_NOT_FOUND" });
+    const otherThread = await thread(profileId, challengeId);
+    await expect(
+      harnessService.item(otherThread.id, item.id, profileId),
+    ).rejects.toMatchObject({ code: "HARNESS_ITEM_NOT_FOUND" });
+  });
+
   test("reads the permission mode when a queued turn starts", async () => {
     const { profileId, challengeId } = await fixture();
     setHarnessPermissionModeProvider(() => "approval-required");

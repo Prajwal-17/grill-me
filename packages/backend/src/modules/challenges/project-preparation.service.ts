@@ -739,7 +739,7 @@ export function createProjectPreparationService(dependencies: {
         503,
       );
 
-    const mode = options.mode ?? "start";
+    let mode = options.mode ?? "start";
     const latest = await projectPreparationModel.latest(challengeId);
     if (latest?.status === "running")
       return preparationView(
@@ -794,6 +794,18 @@ export function createProjectPreparationService(dependencies: {
       // the awaited database interrupt.
       commands.deactivate(base.id);
       await commands.interruptPreparation(base.id, "interrupted");
+    }
+
+    if (mode === "retry" && base?.projectPath && base.projectDirectory) {
+      // A retry on a folder the journal can still verify continues that folder
+      // instead of allocating another one. Only a folder that fails the same
+      // trust check resume uses falls back to a new attempt folder below.
+      const inspection = await inspectProjectResume({
+        projectPath: base.projectPath,
+        projectDirectory: base.projectDirectory,
+      });
+      if (inspection.status === "available" && inspection.layout)
+        mode = "resume";
     }
 
     let layout: ProjectLayout;

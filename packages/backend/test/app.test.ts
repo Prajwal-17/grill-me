@@ -2520,6 +2520,60 @@ describe("background generations", () => {
     expect(state.model.generationInputs).toHaveLength(2);
   });
 
+  test("links the generation transcript to the challenge it created", async () => {
+    const state = await setup();
+    const job = await state.enqueue();
+    await state.app.generations.processNext();
+    const completed = await state.detail(job.id);
+    expect(completed.status).toBe("completed");
+    expect(completed.resultId).toBeTruthy();
+    const threadId = job.harnessThreadId!;
+    const threads = (
+      await json<{
+        data: { id: string; kind: string; challengeId: string | null }[];
+      }>(
+        await request(
+          state.app,
+          `/harness?challengeId=${completed.resultId}`,
+          state.owner.id,
+        ),
+      )
+    ).data;
+    const generation = threads.find(
+      (thread) => thread.kind === "challenge_generation",
+    );
+    expect(generation?.id).toBe(threadId);
+    expect(generation?.challengeId).toBe(completed.resultId);
+  });
+
+  test("reattaches generation transcripts created before the challenge link", async () => {
+    const state = await setup();
+    const job = await state.enqueue();
+    await state.app.generations.processNext();
+    const completed = await state.detail(job.id);
+    // Simulate a transcript stored before generation threads carried the
+    // challenge id. The update only fills an unset link.
+    expect(completed.resultId).toBeTruthy();
+    const threadId = job.harnessThreadId!;
+    await fixtureSql(
+      "UPDATE harness_threads SET challenge_id = NULL WHERE id = $1",
+      [threadId],
+    );
+    await state.app.generations.linkLegacyThreads();
+    const threads = (
+      await json<{
+        data: { id: string; challengeId: string | null }[];
+      }>(
+        await request(
+          state.app,
+          `/harness?challengeId=${completed.resultId}`,
+          state.owner.id,
+        ),
+      )
+    ).data;
+    expect(threads.map((thread) => thread.id)).toContain(threadId);
+  });
+
   test("running generation cancellation releases the worker and fences late results", async () => {
     const state = await setup();
     let release!: () => void;
@@ -2723,5 +2777,89 @@ describe("background generations", () => {
       state.owner.id,
       {},
     );
+  });
+});
+
+describe("generation attachment extraction", () => {
+  const fixture = (name: string) =>
+    Bun.file(new URL(`./fixtures/${name}`, import.meta.url));
+
+  async function setup() {
+    const app = createApp({ llm: new FakeModel() });
+    const owner = await startProfile(
+      app,
+      `attach-${crypto.randomUUID()}@test.dev`,
+    );
+    return { app, owner };
+  }
+
+  function upload(app: TestApp, profileId: string, file: File) {
+    const body = new FormData();
+    body.append("file", file);
+    return app.request("/generation-jobs/attachments", {
+      method: "POST",
+      body,
+      headers: { "X-Profile-Id": profileId },
+    });
+  }
+
+  test("extracts PDF documents into bounded attachment text", async () => {
+    const { app, owner } = await setup();
+    const response = await upload(
+      app,
+      owner.id,
+      new File([await fixture("resume.pdf").arrayBuffer()], "spec.pdf", {
+        type: "application/pdf",
+      }),
+    );
+    expect(response.status).toBe(200);
+    const data = (
+      await json<{ data: { filename: string; text: string } }>(response)
+    ).data;
+    expect(data.filename).toBe("spec.pdf");
+    expect(data.text).toContain("Alex Rivera");
+  });
+
+  test("reads plain text inline and rejects binary content", async () => {
+    const { app, owner } = await setup();
+    const text = await upload(
+      app,
+      owner.id,
+      new File(["const answer = 42;\n"], "notes.ts"),
+    );
+    expect(text.status).toBe(200);
+    expect((await json<{ data: { text: string } }>(text)).data.text).toBe(
+      "const answer = 42;",
+    );
+    const binary = await upload(
+      app,
+      owner.id,
+      new File([new Uint8Array([0x00, 0x01, 0x02])], "blob.bin"),
+    );
+    expect(binary.status).toBe(415);
+    expect(await json(binary)).toMatchObject({
+      error: { code: "GENERATION_ATTACHMENT_BINARY" },
+    });
+  });
+
+  test("rejects oversized uploads, multiple files, and missing profiles", async () => {
+    const { app, owner } = await setup();
+    const large = await upload(
+      app,
+      owner.id,
+      new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.bin"),
+    );
+    expect(large.status).toBe(413);
+    const body = new FormData();
+    body.append("file", new File(["a"], "one.txt"));
+    body.append("file", new File(["b"], "two.txt"));
+    const multiple = await app.request("/generation-jobs/attachments", {
+      method: "POST",
+      body,
+      headers: { "X-Profile-Id": owner.id },
+    });
+    expect(multiple.status).toBe(400);
+    const anonymous = await upload(app, "", new File(["a"], "one.txt"));
+    expect(anonymous.status).toBe(401);
   });
 });

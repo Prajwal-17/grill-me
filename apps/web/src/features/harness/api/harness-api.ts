@@ -1,5 +1,6 @@
 import { apiRequest } from "@/shared/lib/api-client";
 import type {
+  HarnessItem,
   HarnessRequestDecision,
   HarnessThread,
   HarnessThreadDetail,
@@ -36,6 +37,19 @@ export function getHarnessThread(
 ) {
   return apiRequest<HarnessThreadDetail>(
     `/harness/${threadId}`,
+    { signal },
+    profileId,
+  );
+}
+
+export function getHarnessItem(
+  profileId: string,
+  threadId: string,
+  itemId: string,
+  signal?: AbortSignal,
+) {
+  return apiRequest<HarnessItem>(
+    `/harness/${threadId}/items/${itemId}`,
     { signal },
     profileId,
   );

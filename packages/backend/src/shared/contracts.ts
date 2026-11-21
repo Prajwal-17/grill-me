@@ -71,10 +71,26 @@ export type ModelCatalog = {
   connections: ModelCatalogConnection[];
   activeConnectionId: string | null;
 };
+/** Call-time tool facts captured with the system prompt for run inspection. */
+export type AgentToolSnapshot = {
+  name: string;
+  label?: string;
+  description?: string;
+  parameters?: unknown;
+};
 export type AgentRunEvent =
   | { type: "run_started"; operation: string }
   | { type: "turn_started"; turn: number }
   | { type: "text_delta"; text: string }
+  | {
+      type: "prompt_captured";
+      at: number;
+      systemPrompt: string;
+      userText: string;
+      context?: string;
+      tools: AgentToolSnapshot[];
+    }
+  | { type: "message_started"; at: number }
   | {
       type: "message_completed";
       message: unknown;
@@ -86,6 +102,8 @@ export type AgentRunEvent =
       toolCallId: string;
       toolName: string;
       args: unknown;
+      /** The stored arguments were larger than the local inspection limit. */
+      argsTruncated?: boolean;
     }
   | {
       type: "tool_finished";
@@ -94,6 +112,8 @@ export type AgentRunEvent =
       isError: boolean;
       durationMs?: number;
       result: unknown;
+      /** The stored result was larger than the local inspection limit. */
+      resultTruncated?: boolean;
     };
 export type ProviderHealth = { ok: boolean; message: string; code?: string };
 export const endpointSchema = z

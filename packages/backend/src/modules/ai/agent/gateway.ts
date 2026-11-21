@@ -148,6 +148,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           harness: input.harness,
         },
         preparationTask(input),
+        { attachments: input.attachments },
       );
       return result.value as Awaited<ReturnType<ModelGateway["prepareBuild"]>>;
     },
@@ -163,6 +164,7 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
           harness: input.harness,
         },
         generationTask(input),
+        { attachments: input.attachments },
       );
       return result.value as Awaited<ReturnType<ModelGateway["generateBuild"]>>;
     },

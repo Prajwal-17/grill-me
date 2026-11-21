@@ -889,7 +889,19 @@ describe("project preparation recovery", () => {
       );
       const original = (await harnessThreads(app, owner.id, challenge.id))[0]!;
       model.handler = async (input) => {
-        await writeProjectFiles(input, projectFiles);
+        // Retry reuses a folder the journal can verify; only a fresh folder
+        // needs the full scaffold written again.
+        for (const file of projectFiles) {
+          try {
+            if (
+              (await stat(join(input.layout.projectRoot, file.path))).isFile()
+            )
+              continue;
+          } catch {
+            // Not written yet in a fresh folder.
+          }
+          await createFile(input, file.path, file.content);
+        }
         return completeFromDisk(input, "Codebase setup is ready.");
       };
       const response = await request(
@@ -905,9 +917,10 @@ describe("project preparation recovery", () => {
       const detail = await harnessThread(app, owner.id, original.id);
       expect(detail.turns).toHaveLength(2);
       expect(detail.turns[1]!.inputText).toBe(
-        action === "retry"
-          ? "Retry the codebase setup."
-          : "Set up the codebase in a new folder.",
+        action === "fresh"
+          ? "Set up the codebase in a new folder."
+          : // Verified folders continue as a resume of the same setup.
+            "Continue setting up the codebase.",
       );
       expect(
         detail.turns.every((turn) => !turn.inputText.startsWith("Attempt ")),
@@ -1070,7 +1083,7 @@ describe("project preparation recovery", () => {
     }
   });
 
-  test("retry preserves the saved frozen specification in a new folder", async () => {
+  test("retry continues a folder the journal can still verify instead of a new folder", async () => {
     const root = await tempRoot();
     const { model, app, owner, challenge, first } = await recoveredChallenge(
       failAfterFiles,
@@ -1079,8 +1092,54 @@ describe("project preparation recovery", () => {
     const saved = first.specification!;
     expect(first.recovery.canRetry).toBe(true);
     model.handler = async (input) => {
-      await writeProjectFiles(input, projectFiles);
+      // The reused folder already holds every journaled file; the resumed run
+      // only needs to report completion.
       return completeFromDisk(input, "Retried the saved specification.");
+    };
+    const retried = await request(
+      app,
+      `/challenges/${challenge.id}/project-preparation/retry`,
+      owner.id,
+      {},
+    );
+    expect(retried.status).toBe(202);
+    const ready = await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+    expect(ready.attempt).toBe(2);
+    expect(ready.projectDirectory).toBe("project");
+    expect(ready.mode).toBe("resume");
+    expect(ready.specification).toEqual(saved);
+    expect(model.inputs[1]?.specification).toEqual(saved);
+    expect(model.inputs[1]?.continuation).toMatchObject({
+      resumedFromAttempt: 1,
+    });
+    expect(model.inputs[1]?.previousAttempt).toMatchObject({
+      attempt: 1,
+      status: "failed",
+    });
+    await expect(
+      stat(join(dirname(first.projectPath!), "project-2")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    expect(
+      (await stat(join(ready.projectPath!, "CHALLENGE.md"))).isFile(),
+    ).toBe(true);
+  });
+
+  test("retry falls back to a new folder when the failed folder cannot be trusted", async () => {
+    const root = await tempRoot();
+    const { model, app, owner, challenge, first } = await recoveredChallenge(
+      failAfterFiles,
+      root,
+    );
+    const saved = first.specification!;
+    // A tracked file changed after the failure, so the journal no longer
+    // vouches for the folder and retry must not build on top of it.
+    await writeFile(
+      join(first.projectPath!, "src", "main.ts"),
+      "export const edited = true;\n",
+    );
+    model.handler = async (input) => {
+      await writeProjectFiles(input, projectFiles);
+      return completeFromDisk(input, "Retried in a new folder.");
     };
     const retried = await request(
       app,
@@ -1095,10 +1154,12 @@ describe("project preparation recovery", () => {
     expect(ready.mode).toBe("retry");
     expect(ready.specification).toEqual(saved);
     expect(model.inputs[1]?.specification).toEqual(saved);
+    expect(model.inputs[1]?.continuation).toBeNull();
     expect(model.inputs[1]?.previousAttempt).toMatchObject({
       attempt: 1,
       status: "failed",
     });
+    // The untrusted folder is preserved untouched.
     expect(
       (await stat(join(first.projectPath!, "src", "main.ts"))).isFile(),
     ).toBe(true);

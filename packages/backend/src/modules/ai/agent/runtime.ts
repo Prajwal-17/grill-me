@@ -148,7 +148,6 @@ async function runAgent(input: {
   tools: AgentTool[];
   completion?: CompletionSpec<unknown>;
   streamText: boolean;
-  requireImageSupport?: boolean;
   onText?: (delta: string) => void | Promise<void>;
 }) {
   const { options } = input;
@@ -173,13 +172,14 @@ async function runAgent(input: {
     ? createCompletionTool(input.completion!, completionState)
     : undefined;
   const tools = completionTool ? [completionTool, ...input.tools] : input.tools;
+  const instructions = systemPrompt({
+    instructions: options.instructions,
+    completionTool: input.completion?.name,
+  });
 
   const agent = new Agent({
     initialState: {
-      systemPrompt: systemPrompt({
-        instructions: options.instructions,
-        completionTool: input.completion?.name,
-      }),
+      systemPrompt: instructions,
       model: resolved.model,
       thinkingLevel: resolved.thinkingLevel,
       tools,
@@ -263,6 +263,20 @@ async function runAgent(input: {
     },
   });
 
+  await options.onEvent?.({
+    type: "prompt_captured",
+    at: Date.now(),
+    systemPrompt: instructions,
+    userText: input.text,
+    ...(input.context ? { context: input.context } : {}),
+    tools: tools.map((tool) => ({
+      name: tool.name,
+      label: tool.label,
+      description: tool.description,
+      parameters: tool.parameters,
+    })),
+  });
+
   const unsubscribe = agent.subscribe(async (event) => {
     if (event.type === "turn_start") {
       turnCount++;
@@ -311,19 +325,16 @@ async function runAgent(input: {
         "The request was cancelled.",
         499,
       );
-    let attachments = input.attachments;
+    const attachments = input.attachments;
     if (
       attachments?.some((attachment) => attachment.data) &&
       !resolved.providerModel.capabilities?.images
-    ) {
-      if (input.requireImageSupport)
-        throw new AppError(
-          "MODEL_IMAGES_UNSUPPORTED",
-          `${resolved.connection.name} is configured without image input support. Choose an image-capable model in Settings → Providers.`,
-          400,
-        );
-      attachments = attachments.filter((attachment) => !attachment.data);
-    }
+    )
+      throw new AppError(
+        "MODEL_IMAGES_UNSUPPORTED",
+        `${resolved.connection.name} is configured without image input support, so it cannot read the attached images. Choose an image-capable model in Settings → Providers.`,
+        400,
+      );
     await agent.prompt(
       userMessage(input.text, {
         context: input.context,
@@ -420,7 +431,6 @@ export async function runStructured<T>(
       ],
       completion: options.completion as CompletionSpec<unknown>,
       streamText: false,
-      requireImageSupport: false,
     });
     return {
       value: result.completion as T,
@@ -455,7 +465,6 @@ export async function runText(
       allowSnapshot: false,
     }),
     streamText: true,
-    requireImageSupport: true,
     onText: options.onText,
   });
   return {

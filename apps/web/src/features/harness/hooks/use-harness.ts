@@ -8,6 +8,7 @@ import {
 import type { HarnessRequestDecision } from "@repo/backend/shared/contracts";
 import {
   decideHarnessRequest,
+  getHarnessItem,
   getHarnessThread,
   listHarnessThreads,
   retryHarnessThread,
@@ -22,20 +23,41 @@ export const harnessKeys = {
     ["harness-threads", profileId, filter] as const,
   detail: (profileId: string, id: string) =>
     ["harness-thread", profileId, id] as const,
+  item: (profileId: string, threadId: string, itemId: string) =>
+    ["harness-item", profileId, threadId, itemId] as const,
 };
 
 export function useHarnessThreads(
   profileId: string | undefined,
   filter: HarnessThreadFilter = {},
+  options: { enabled?: boolean; refetchInterval?: number } = {},
 ) {
   return useQuery({
     queryKey: harnessKeys.list(profileId ?? "", filter),
     queryFn: ({ signal }) => listHarnessThreads(profileId!, filter, signal),
-    enabled: Boolean(profileId),
-    refetchInterval: (query) =>
-      query.state.data?.some((thread) => isActiveThreadStatus(thread.status))
-        ? 1000
-        : false,
+    enabled: Boolean(profileId) && (options.enabled ?? true),
+    refetchInterval:
+      options.refetchInterval ??
+      ((query) =>
+        query.state.data?.some((thread) => isActiveThreadStatus(thread.status))
+          ? 1000
+          : false),
+  });
+}
+
+/** Full item payload; the thread detail trims large fields for transport. */
+export function useHarnessItem(
+  profileId: string | undefined,
+  threadId: string | undefined,
+  itemId: string | undefined,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: harnessKeys.item(profileId ?? "", threadId ?? "", itemId ?? ""),
+    queryFn: ({ signal }) =>
+      getHarnessItem(profileId!, threadId!, itemId!, signal),
+    enabled: Boolean(profileId && threadId && itemId) && enabled,
+    staleTime: 30_000,
   });
 }
 

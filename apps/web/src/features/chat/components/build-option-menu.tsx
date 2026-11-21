@@ -37,18 +37,18 @@ export function BuildOptionMenu<T extends string>({
           disabled={disabled}
           aria-label={`${label}: ${selected?.label ?? value}`}
           data-grill-option={selected?.accent === "grill" || undefined}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-line px-2 text-ui font-normal hover:bg-elevated focus-visible:ring-2 focus-visible:ring-foreground data-[grill-option]:focus-visible:ring-[var(--grill-accent)] data-[state=open]:bg-elevated disabled:opacity-50 sm:px-2.5"
+          className="inline-flex h-7 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 text-ui font-medium text-foreground/80 hover:bg-elevated hover:text-foreground focus-visible:ring-2 focus-visible:ring-foreground data-[grill-option]:focus-visible:ring-[var(--grill-accent)] data-[state=open]:bg-elevated data-[state=open]:text-foreground disabled:opacity-50 sm:px-2.5"
         >
           {SelectedIcon && (
             <SelectedIcon
-              className="size-3.5 shrink-0 opacity-80"
+              className="size-4 shrink-0 text-muted"
               aria-hidden="true"
               focusable="false"
             />
           )}
           {selected?.label}
           <ChevronUp
-            className="size-2.5 shrink-0 text-muted sm:size-3"
+            className="mr-[-3px] size-3 shrink-0 text-muted sm:size-3.5"
             aria-hidden="true"
             focusable="false"
           />

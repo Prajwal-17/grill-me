@@ -1,20 +1,19 @@
 import type { HarnessThreadSummary } from "@repo/backend/shared/contracts";
 
-export const activityCategoryKeys = [
-  "preparation",
-  "reviews",
-  "other",
-] as const;
+export const activityCategoryKeys = ["build", "reviews", "other"] as const;
 
 export type ActivityCategory = (typeof activityCategoryKeys)[number];
+
+export const activityViews = ["transcript", "trajectory"] as const;
+export type ActivityView = (typeof activityViews)[number];
 
 export const activityCategoryMeta: Record<
   ActivityCategory,
   { label: string; empty: string }
 > = {
-  preparation: {
-    label: "Preparation",
-    empty: "No project preparation activity yet.",
+  build: {
+    label: "Build",
+    empty: "No build activity yet.",
   },
   reviews: {
     label: "Reviews",
@@ -27,9 +26,29 @@ export const activityCategoryMeta: Record<
 };
 
 const kindCategories: Record<string, ActivityCategory> = {
-  project_scaffold: "preparation",
+  challenge_generation: "build",
+  quiz_generation: "build",
+  project_scaffold: "build",
   review: "reviews",
 };
+
+// Links saved before generation and preparation shared one flow.
+const legacyCategoryAliases: Record<string, ActivityCategory> = {
+  generation: "build",
+  preparation: "build",
+};
+
+export function parseActivityCategory(
+  value: string | null,
+): ActivityCategory | null {
+  if (!value) return null;
+  return (
+    legacyCategoryAliases[value] ??
+    (activityCategoryKeys.includes(value as ActivityCategory)
+      ? (value as ActivityCategory)
+      : null)
+  );
+}
 
 export function isVisibleActivityKind(kind: string) {
   return !["chat", "hint", "clarify", "discussion"].includes(kind);

@@ -51,6 +51,7 @@ export function generationTitle(job: GenerationJob) {
 export function generationHref(job: GenerationJob) {
   if (job.status === "needs_input")
     return `/?generation=${encodeURIComponent(job.id)}`;
+  if (isGenerating(job)) return `/generations/${encodeURIComponent(job.id)}`;
   if (!job.resultId) return "/";
   if (job.kind === "challenge")
     return `/chat?id=${encodeURIComponent(job.resultId)}`;

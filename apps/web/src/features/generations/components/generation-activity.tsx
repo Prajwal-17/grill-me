@@ -34,12 +34,15 @@ import {
   type GenerationJob,
 } from "../types";
 
-function JobActions({
+export function JobActions({
   job,
   onOpen,
+  linkProgress = true,
 }: {
   job: GenerationJob;
   onOpen?: () => void;
+  /** The progress page itself hides the link back to itself. */
+  linkProgress?: boolean;
 }) {
   const save = useSaveGenerationJob();
   const showError = useToastError();
@@ -57,12 +60,16 @@ function JobActions({
   if (job.status === "cancelled") return null;
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-1">
-      {(job.status === "completed" || job.status === "needs_input") && (
+      {(job.status === "completed" ||
+        job.status === "needs_input" ||
+        (isGenerating(job) && linkProgress)) && (
         <Button asChild size="sm" variant="secondary">
           <Link onClick={onOpen} to={generationHref(job)}>
             {job.status === "needs_input"
               ? "Answer"
-              : `Open ${generationNoun(job)}`}
+              : isGenerating(job)
+                ? "View progress"
+                : `Open ${generationNoun(job)}`}
           </Link>
         </Button>
       )}

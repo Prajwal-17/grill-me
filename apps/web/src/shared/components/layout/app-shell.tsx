@@ -144,7 +144,7 @@ export function AppShell({
             "relative min-h-0 flex-1 outline-none",
             contentScrollable
               ? "overflow-y-auto overscroll-contain"
-              : "overflow-hidden",
+              : "overflow-clip",
           )}
         >
           {children}

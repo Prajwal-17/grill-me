@@ -60,7 +60,7 @@ function safeMessage(message: AgentMessage) {
         if (block.type === "thinking") return [];
         if (block.type === "text")
           return [
-            { type: "text", text: redactString(block.text.slice(0, 8_000)) },
+            { type: "text", text: redactString(block.text.slice(0, 32_000)) },
           ];
         return [
           {
@@ -72,6 +72,7 @@ function safeMessage(message: AgentMessage) {
         ];
       }),
       timestamp: message.timestamp,
+      durationMs: message.durationMs,
     };
   }
   if (message.role === "toolResult") {
@@ -82,7 +83,7 @@ function safeMessage(message: AgentMessage) {
       isError: message.isError,
       content: message.content.map((block) =>
         block.type === "text"
-          ? { type: "text", text: redactString(block.text.slice(0, 8_000)) }
+          ? { type: "text", text: redactString(block.text.slice(0, 32_000)) }
           : { type: "image", mimeType: block.mimeType },
       ),
       timestamp: message.timestamp,
@@ -93,12 +94,12 @@ function safeMessage(message: AgentMessage) {
       role: message.role,
       content:
         typeof message.content === "string"
-          ? redactString(message.content.slice(0, 8_000))
+          ? redactString(message.content.slice(0, 32_000))
           : message.content.map((block) =>
               block.type === "text"
                 ? {
                     type: "text",
-                    text: redactString(block.text.slice(0, 8_000)),
+                    text: redactString(block.text.slice(0, 32_000)),
                   }
                 : { type: "image", mimeType: block.mimeType },
             ),
@@ -106,6 +107,51 @@ function safeMessage(message: AgentMessage) {
     };
   }
   return boundedValue(message);
+}
+
+/**
+ * Larger, explicitly bounded projection used only for the durable harness
+ * ledger. Tool results can be long; the detail endpoint trims them for
+ * transport and the inspector requests the full item on demand.
+ */
+export function boundedHarnessValue(
+  value: unknown,
+  depth = 0,
+): { value: unknown; truncated: boolean } {
+  if (depth > 8) return { value: "[truncated]", truncated: true };
+  if (typeof value === "string") {
+    const redacted = redactString(value);
+    return redacted.length > 128_000
+      ? { value: redacted.slice(0, 128_000), truncated: true }
+      : { value: redacted, truncated: false };
+  }
+  if (typeof value === "number" || typeof value === "boolean" || value === null)
+    return { value, truncated: false };
+  if (value === undefined) return { value: undefined, truncated: false };
+  if (Array.isArray(value)) {
+    const sliced = value.slice(0, 200);
+    let truncated = sliced.length < value.length;
+    const entries = sliced.map((entry) => {
+      const bounded = boundedHarnessValue(entry, depth + 1);
+      truncated ||= bounded.truncated;
+      return bounded.value;
+    });
+    return { value: entries, truncated };
+  }
+  if (typeof value === "object") {
+    const all = Object.entries(value as Record<string, unknown>).filter(
+      ([key]) => !SECRET_KEY.test(key),
+    );
+    const sliced = all.slice(0, 100);
+    let truncated = sliced.length < all.length;
+    const entries = sliced.map(([key, entry]) => {
+      const bounded = boundedHarnessValue(entry, depth + 1);
+      truncated ||= bounded.truncated;
+      return [key, bounded.value];
+    });
+    return { value: Object.fromEntries(entries), truncated };
+  }
+  return { value: String(value), truncated: false };
 }
 
 export type StableAgentEvent = AgentRunEvent;
@@ -117,6 +163,10 @@ export function stableEvent(
   switch (event.type) {
     case "turn_start":
       return { type: "turn_started", turn: 0 };
+    case "message_start":
+      return event.message.role === "assistant"
+        ? { type: "message_started", at: Date.now() }
+        : null;
     case "message_update":
       if (event.assistantMessageEvent.type === "text_delta") {
         const remaining = 32_000 - limits.textChars.value;
@@ -136,22 +186,28 @@ export function stableEvent(
           : {}),
       };
     }
-    case "tool_execution_start":
+    case "tool_execution_start": {
+      const args = boundedHarnessValue(event.args);
       return {
         type: "tool_started",
         toolCallId: event.toolCallId,
         toolName: event.toolName,
-        args: boundedValue(event.args),
+        args: args.value,
+        ...(args.truncated ? { argsTruncated: true } : {}),
       };
-    case "tool_execution_end":
+    }
+    case "tool_execution_end": {
+      const result = boundedHarnessValue(event.result);
       return {
         type: "tool_finished",
         toolCallId: event.toolCallId,
         toolName: event.toolName,
         isError: event.isError,
         durationMs: event.durationMs,
-        result: boundedValue(event.result),
+        result: result.value,
+        ...(result.truncated ? { resultTruncated: true } : {}),
       };
+    }
     default:
       return null;
   }
