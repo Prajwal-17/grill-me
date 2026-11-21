@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## desktop-v0.3.3 - 21 Nov 2026
 
 ### Added
 
