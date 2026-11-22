@@ -2,7 +2,13 @@
 
 ## Unreleased
 
+## desktop-v0.3.4 - 23 Nov 2026
+
 ### Added
+
+- Set the default AI model and reasoning effort in Settings, and enter a custom
+  model ID when it does not appear in the catalog.
+- Expand and collapse JSON output in the Activity trajectory inspector.
 
 - New challenges can pick **Auto** as the build scope. When you are unsure
   whether a request is Focused, Feature, or System, leave it to Auto: the model
