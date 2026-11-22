@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ModelGateway } from "@repo/backend/modules/ai/model-gateway";
@@ -291,7 +291,7 @@ describe("challenge review", () => {
     const app = createApp({
       llm: fakeModel(async () => {
         const read = createReviewTools(root).find(
-          (tool) => tool.name === "read_workspace_file",
+          (tool) => tool.name === "read",
         )!;
         const source = toolText(
           await read.execute("read", { path: "solution.ts" }, undefined),
@@ -473,6 +473,33 @@ describe("review tools", () => {
     expect(toolText(file)).toContain("1 | one");
     expect(toolText(file)).toContain("2 | two");
     expect(toolText(file)).not.toContain("three");
+  });
+
+  test("search is bounded and hides credentials and symlink targets", async () => {
+    const root = await tempRoot();
+    const outside = await tempRoot();
+    await writeFile(join(root, "solution.ts"), "one\nNeedle\nNeedle again\n");
+    await writeFile(join(root, ".env"), "needle credential");
+    await mkdir(join(root, "dist"));
+    await writeFile(join(root, "dist", "cache.js"), "needle output");
+    await writeFile(join(outside, "secret.ts"), "needle outside");
+    await symlink(outside, join(root, "outside"));
+    await symlink(join(root, "dist"), join(root, "alias"));
+    const tools = createReviewTools(root);
+    expect(tools.map((tool) => tool.name)).toEqual(["ls", "read", "grep"]);
+    const [list, read, search] = tools;
+    const result = await search!.execute("1", {
+      query: "needle",
+      maxResults: 1,
+    });
+    expect(toolText(result)).toContain("solution.ts:2: Needle");
+    expect(result.details).toEqual({ matches: 1, truncated: true });
+    const all = toolText(await search!.execute("2", { query: "needle" }));
+    expect(all).not.toMatch(/credential|needle outside|needle output/);
+    await expect(list!.execute("3", { path: "outside" })).rejects.toThrow();
+    await expect(
+      read!.execute("4", { path: "alias/cache.js" }),
+    ).rejects.toThrow();
   });
 
   test("refuses paths outside the workspace and credential files", async () => {

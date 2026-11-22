@@ -14,7 +14,7 @@ import {
   type CompletionState,
 } from "./tools";
 import { stableEvent, type StableAgentEvent } from "./events";
-import { systemPrompt, userMessage } from "./messages";
+import { contextBlock, systemPrompt, userMessage } from "./messages";
 import type { MessageAttachment } from "../../messages/message.schema";
 import type { ResolvedAgentModel } from "./providers";
 
@@ -22,12 +22,14 @@ const AGENT_LIMITS = {
   maxTurns: 12,
   maxToolCalls: 24,
   maxTextChars: 32_000,
+  completionOnlyTurns: 0,
 } as const;
 
 type AgentLimits = {
   maxTurns: number;
   maxToolCalls: number;
   maxTextChars: number;
+  completionOnlyTurns: number;
 };
 
 function agentLimits(overrides?: Partial<AgentLimits>): AgentLimits {
@@ -35,6 +37,8 @@ function agentLimits(overrides?: Partial<AgentLimits>): AgentLimits {
     maxTurns: overrides?.maxTurns ?? AGENT_LIMITS.maxTurns,
     maxToolCalls: overrides?.maxToolCalls ?? AGENT_LIMITS.maxToolCalls,
     maxTextChars: overrides?.maxTextChars ?? AGENT_LIMITS.maxTextChars,
+    completionOnlyTurns:
+      overrides?.completionOnlyTurns ?? AGENT_LIMITS.completionOnlyTurns,
   };
 }
 
@@ -140,6 +144,69 @@ function collectText(messages: AgentMessage[]) {
   return text;
 }
 
+const MAX_RESEARCH_RESULTS = 12;
+const MAX_RESEARCH_RESULT_CHARS = 2_000;
+
+// Keep evidence rather than old examples of how to call now-unavailable tools.
+function finalizationEvidence(messages: AgentMessage[]) {
+  const sources = new Map<string, string>();
+  const evidence = [];
+  let image: MessageAttachment | undefined;
+  for (const message of messages) {
+    if (message.role === "assistant") {
+      for (const block of message.content) {
+        if (block.type !== "toolCall") continue;
+        const source =
+          block.arguments.url ?? block.arguments.path ?? block.arguments.query;
+        if (typeof source === "string")
+          sources.set(block.id, source.slice(0, 500));
+      }
+    } else if (message.role === "toolResult" && !message.isError) {
+      const imageBlock = message.content.find(
+        (block) => block.type === "image",
+      );
+      if (imageBlock)
+        image = {
+          filename: "research-image",
+          text: "",
+          data: imageBlock.data,
+          mimeType: imageBlock.mimeType,
+        };
+      const text = message.content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text)
+        .join("\n");
+      if (text)
+        evidence.push({
+          source: sources.get(message.toolCallId),
+          excerpt: text.slice(0, MAX_RESEARCH_RESULT_CHARS),
+        });
+    }
+  }
+  return evidence.length || image
+    ? userMessage(
+        contextBlock(
+          "research_evidence",
+          evidence.slice(-MAX_RESEARCH_RESULTS),
+        ),
+        {
+          attachments: image ? [image] : [],
+        },
+      )
+    : undefined;
+}
+
+function readJsonResult(message: AssistantMessage): unknown {
+  const output = collectText([message]).trim();
+  const json = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(output)?.[1] ?? output;
+  if (!json.startsWith("{")) return undefined;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+}
+
 async function runAgent(input: {
   options: BaseRunOptions;
   text: string;
@@ -164,6 +231,9 @@ async function runAgent(input: {
   let timedOut = false;
   let textChars = { value: 0 };
   let receivedText = false;
+  let completionRequested = false;
+  let finalizationStart: number | undefined;
+  let finalizationEvidenceMessage: AgentMessage | undefined;
 
   const completionState: CompletionState<unknown> | undefined = input.completion
     ? { failures: 0 }
@@ -192,6 +262,45 @@ async function runAgent(input: {
       }),
     identity: { attribution: null },
     convertToLlm: (messages) => messages as Message[],
+    transformContext: async (messages) => {
+      if (finalizationStart === undefined || !completionTool) return messages;
+      const before = messages.slice(0, finalizationStart);
+      const resultCalls = new Set<string>();
+      const after = messages
+        .slice(finalizationStart)
+        .flatMap((message): AgentMessage[] => {
+          if (message.role === "assistant") {
+            const calls = message.content.filter(
+              (block) =>
+                block.type === "toolCall" && block.name === completionTool.name,
+            );
+            for (const call of calls)
+              if (call.type === "toolCall") resultCalls.add(call.id);
+            if (!calls.length) return [];
+            return [
+              {
+                ...message,
+                content: message.content.filter(
+                  (block) =>
+                    block.type !== "toolCall" || resultCalls.has(block.id),
+                ),
+              },
+            ];
+          }
+          if (message.role === "toolResult")
+            return resultCalls.has(message.toolCallId) ? [message] : [];
+          return message.role === "system" || message.role === "user"
+            ? [message]
+            : [];
+        });
+      return [
+        ...before.filter(
+          (message) => message.role === "system" || message.role === "user",
+        ),
+        ...(finalizationEvidenceMessage ? [finalizationEvidenceMessage] : []),
+        ...after,
+      ];
+    },
     toolExecution: "sequential",
     sessionId: crypto.randomUUID(),
     beforeToolCall: async ({ toolCall }) => {
@@ -229,9 +338,35 @@ async function runAgent(input: {
         });
       return undefined;
     },
-    finishTurn: () => {
+    finishTurn: async ({ message }) => {
       if (completionState?.fatal) return { action: "end" };
       if (completionState?.value !== undefined) return { action: "end" };
+      if (message.stopReason === "error" || message.stopReason === "aborted")
+        return undefined;
+      // Some providers return the object directly even with a completion tool.
+      // Accept it only through the same validator used for tool calls.
+      if (
+        completionTool &&
+        limits.completionOnlyTurns &&
+        message.stopReason === "stop"
+      ) {
+        const value = readJsonResult(message);
+        if (value !== undefined) {
+          try {
+            await completionTool.execute("structured-json", value);
+            return { action: "end" };
+          } catch {
+            recordCompletionFailure(
+              input.completion!,
+              completionState!,
+              (error) => {
+                limitError = error;
+              },
+            );
+            if (completionState?.fatal) return { action: "end" };
+          }
+        }
+      }
       if (completionState && turnCount >= limits.maxTurns) {
         limitError = new AppError(
           "MODEL_LIMIT_EXCEEDED",
@@ -240,6 +375,15 @@ async function runAgent(input: {
           true,
         );
         return { action: "end" };
+      }
+      // A prose answer still needs to be submitted through the result contract.
+      if (
+        completionTool &&
+        limits.completionOnlyTurns &&
+        message.stopReason === "stop"
+      ) {
+        completionRequested = true;
+        return { action: "continue" };
       }
       return undefined;
     },
@@ -260,6 +404,28 @@ async function runAgent(input: {
         throw limitError;
       }
       return undefined;
+    },
+    prepareNextTurnWithContext: ({ context }) => {
+      if (
+        !completionTool ||
+        !limits.completionOnlyTurns ||
+        finalizationStart !== undefined ||
+        (!completionRequested &&
+          turnCount < limits.maxTurns - limits.completionOnlyTurns)
+      )
+        return undefined;
+      finalizationStart = context.messages.length;
+      finalizationEvidenceMessage = finalizationEvidence(context.messages);
+      return {
+        context: { ...context, tools: [completionTool] },
+        messages: [
+          {
+            role: "system",
+            content: `Research is finished. Do not fetch, search, or read more files. Submit the result now using ${completionTool.name} and the evidence already gathered. Follow the task's result contract, including its clarification option when essential information is missing. If you cannot call the tool, return the same result object as JSON alone.`,
+            timestamp: Date.now(),
+          },
+        ],
+      };
     },
   });
 

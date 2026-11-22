@@ -5,6 +5,7 @@ export type {
   TextTask,
 } from "./types";
 export { preparationTask, generationTask } from "./build";
+export { scopeResolutionTask } from "./scope";
 export { quizTask, quizTitleTask } from "./quiz";
 export { enhancementTask } from "./enhancement";
 export { resumeTask } from "./resume";

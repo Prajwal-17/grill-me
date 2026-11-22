@@ -142,20 +142,28 @@ function itemTypeForTool(name: string): HarnessItemType {
   switch (name) {
     case "run_project_command":
     case "run_command":
+    case "shell":
       return "command_execution";
     case "create_project_file":
     case "edit_project_file":
     case "create_project_directory":
+    case "create_file":
+    case "write":
+    case "edit_file":
+    case "edit":
       return "file_change";
     case "read_project_file":
     case "read_file":
+    case "read":
     case "read_submission_file":
     case "read_workspace_file":
       return "file_read";
     case "list_project_files":
     case "search_project_files":
     case "list_files":
+    case "ls":
     case "search_files":
+    case "grep":
     case "list_submission_files":
     case "search_submission":
     case "list_workspace_files":
@@ -402,7 +410,9 @@ class Recorder {
             ? { kind: "completion" }
             : {}),
           ...(event.argsTruncated ? { _truncated: true } : {}),
-          ...(event.toolName === "run_project_command"
+          ...(["run_project_command", "run_command", "shell"].includes(
+            event.toolName,
+          )
             ? {
                 cwd:
                   event.args &&
@@ -848,16 +858,6 @@ export function createHarnessService() {
     await harnessModel.updateTurn(input.turnId, { status: "waiting" });
     return new Promise<{ decision: "allow" | "deny"; answer?: string }>(
       (resolve, reject) => {
-        if (input.signal?.aborted) {
-          reject(
-            new AppError(
-              "REQUEST_CANCELLED",
-              "The request was cancelled.",
-              499,
-            ),
-          );
-          return;
-        }
         const onAbort = () => {
           pendingRequests.delete(requestId);
           void updateItem(item.id, {
@@ -878,6 +878,10 @@ export function createHarnessService() {
             ),
           );
         };
+        if (input.signal?.aborted) {
+          onAbort();
+          return;
+        }
         input.signal?.addEventListener("abort", onAbort, { once: true });
         pendingRequests.set(requestId, {
           threadId: input.threadId,

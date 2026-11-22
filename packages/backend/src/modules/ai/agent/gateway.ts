@@ -1,3 +1,4 @@
+import { createAskUserTool } from "./tools/ask-user";
 import { removedHelpFeature } from "../../messages/removed-help";
 import type {
   BuildModelInput,
@@ -5,6 +6,7 @@ import type {
   ProjectScaffoldModelInput,
   QuizModelInput,
   QuizTitleModelInput,
+  ScopeResolutionInput,
 } from "../model-gateway";
 import { createAgentExecutor } from "./execute";
 import { createLimiter, createResourceLocks } from "./limiter";
@@ -18,6 +20,7 @@ import {
   quizTitleTask,
   resumeTask,
   reviewTask,
+  scopeResolutionTask,
 } from "./tasks";
 import { createProjectTools, projectToolJournalContext } from "./tools/project";
 import { createProjectCommandTool } from "./tools/command";
@@ -169,6 +172,21 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
       return result.value as Awaited<ReturnType<ModelGateway["generateBuild"]>>;
     },
 
+    async resolveBuildScope(input: ScopeResolutionInput) {
+      const result = await executor.structured(
+        {
+          profileId: input.learner.profileId,
+          operation: "scope_resolution",
+          preview: input.prompt.slice(0, 200),
+          selection: input.selection,
+          signal: input.signal,
+          harness: input.harness,
+        },
+        scopeResolutionTask(input),
+      );
+      return result.value;
+    },
+
     async scaffoldProject(input: ProjectScaffoldModelInput) {
       const result = await executor.structured(
         {
@@ -193,11 +211,13 @@ export function createPiGateway(runtime: AgentRuntime): ModelGateway {
               requestPermission: input.requestPermission,
               onActivity: input.onActivity,
             }),
+            ...(input.requestUserInput
+              ? [createAskUserTool(input.requestUserInput)]
+              : []),
             ...(input.runProjectCommand
               ? [
                   createProjectCommandTool(input.runProjectCommand, {
                     permissionMode: input.permissionMode,
-                    requestPermission: input.requestPermission,
                     signal: input.signal,
                   }),
                 ]

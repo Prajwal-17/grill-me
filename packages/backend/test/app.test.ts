@@ -11,6 +11,7 @@ import type {
   GeneratedBuildContent,
   ChallengePreparation,
   BuildGenerationResult,
+  BuildScope,
 } from "@repo/backend/modules/challenges/challenge.schema";
 import type {
   ChatMessage,
@@ -31,6 +32,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { generationPrompt } from "@repo/backend/modules/ai/prompts/index";
+import { preparationPrompt } from "@repo/backend/modules/ai/prompts/index";
+import { requestsImplementation } from "@repo/backend/modules/challenges/clarification-policy";
 import type { GeneratedQuiz } from "@repo/backend/modules/quizzes/quiz.schema";
 import type { QuizService } from "@repo/backend/modules/quizzes/quiz.service";
 import { fixtureSql } from "./fixture-sql";
@@ -125,6 +128,8 @@ class FakeModel implements ModelGateway {
   prepareInputs: Omit<BuildModelInput, "clarificationContext">[] = [];
   generationInputs: BuildModelInput[] = [];
   generationResults: BuildGenerationResult[] = [];
+  scopeResolution: { scope: BuildScope } | Error | null = null;
+  scopeInputs: { prompt: string }[] = [];
   responseInputs: {
     challenge: Challenge;
     messages: ChatMessage[];
@@ -137,6 +142,12 @@ class FakeModel implements ModelGateway {
   async prepareBuild(input: Omit<BuildModelInput, "clarificationContext">) {
     this.prepareInputs.push(input);
     return this.preparation;
+  }
+
+  async resolveBuildScope(input: { prompt: string }) {
+    this.scopeInputs.push(input);
+    if (this.scopeResolution instanceof Error) throw this.scopeResolution;
+    return this.scopeResolution ?? { scope: "focused" as const };
   }
 
   async generateBuild(input: BuildModelInput): Promise<BuildGenerationResult> {
@@ -1333,8 +1344,12 @@ describe("build quality pipeline", () => {
       difficulty: "medium",
     });
     expect(
-      (await json<{ data: ChallengePreparation }>(needsAnswer)).data,
-    ).toEqual(model.preparation);
+      (
+        await json<{ data: ChallengePreparation & { scope: BuildScope } }>(
+          needsAnswer,
+        )
+      ).data,
+    ).toEqual({ ...model.preparation, scope: "feature" });
 
     model.preparation = { question: null, options: [] };
     const ready = await request(app, "/challenges/prepare", profile.id, {
@@ -1706,7 +1721,7 @@ describe("bounded challenge generation", () => {
     expect(challenge.difficulty).toBe("easy");
     expect(challenge.estimatedDifficultyScore).toBeNull();
     expect(generationPrompt(model.generationInputs[0]!).instructions).toContain(
-      "Easy systems use one service",
+      "Add services, storage, deployment, or other infrastructure only when the task requires them.",
     );
   });
   test("a valid long response is saved without regeneration", async () => {
@@ -2198,7 +2213,7 @@ describe("clarification assignment regression", () => {
     const prepared = await request(app, "/challenges/prepare", owner.id, input);
     expect(prepared.status).toBe(200);
     expect(await prepared.json()).toEqual({
-      data: { question: null, options: [] },
+      data: { question: null, options: [], scope: "focused" },
     });
     model.generationResults = [
       { status: "needs_clarification", challenge: null, question, options: [] },
@@ -2776,6 +2791,223 @@ describe("background generations", () => {
       `/generation-jobs/${job.id}/cancel`,
       state.owner.id,
       {},
+    );
+  });
+});
+
+describe("automatic scope selection", () => {
+  test("a direct generate request resolves Auto from the prompt once", async () => {
+    const model = new FakeModel();
+    model.scopeResolution = { scope: "feature" };
+    const app = createApp({ llm: model });
+    const profile = await startProfile(
+      app,
+      `auto-scope-${crypto.randomUUID()}@test.dev`,
+    );
+    const response = await request(app, "/challenges/generate", profile.id, {
+      prompt: "Build a booking feature with endpoints and validation",
+      scope: "auto",
+      difficulty: "medium",
+      clarificationContext: null,
+    });
+    expect(response.status).toBe(201);
+    const created = (await json<{ data: Challenge }>(response)).data;
+    expect(created.scope).toBe("feature");
+    expect(model.scopeInputs).toHaveLength(1);
+    expect(model.scopeInputs[0]?.prompt).toBe(
+      "Build a booking feature with endpoints and validation",
+    );
+    expect(model.generationInputs[0]?.scope).toBe("feature");
+    expect(created.contextSnapshot?.selectedScope).toBe("feature");
+  });
+
+  test("a background job resolves Auto during preparation and reuses it for generation", async () => {
+    const model = new FakeModel();
+    model.scopeResolution = { scope: "system" };
+    const app = createApp({ llm: model });
+    const owner = await startProfile(
+      app,
+      `auto-job-${crypto.randomUUID()}@test.dev`,
+    );
+    const enqueued = await request(app, "/generation-jobs", owner.id, {
+      kind: "challenge",
+      requestId: crypto.randomUUID(),
+      input: {
+        prompt: "Practice coordinating services across a small deployment",
+        scope: "auto",
+        difficulty: "medium",
+        clarificationContext: null,
+        clarificationHistory: [],
+      },
+    });
+    expect(enqueued.status).toBe(202);
+    const job = (await json<{ data: { id: string } }>(enqueued)).data;
+    expect(await app.generations.processNext()).toBe(true);
+    const detail = (
+      await json<{ data: { id: string } }>(
+        await request(app, `/generation-jobs/${job.id}`, owner.id),
+      )
+    ).data;
+    expect(detail).toMatchObject({ status: "completed", phase: "completed" });
+    // One resolver call covers both the clarification and generation passes.
+    expect(model.scopeInputs).toHaveLength(1);
+    expect(model.prepareInputs[0]?.scope).toBe("system");
+    expect(model.generationInputs[0]?.scope).toBe("system");
+    const created = (
+      await json<{ data: Challenge }>(
+        await request(app, `/challenges/${detail.id}`, owner.id),
+      )
+    ).data;
+    expect(created.scope).toBe("system");
+  });
+
+  test("an invalid Auto resolution fails retryable instead of guessing", async () => {
+    const model = new FakeModel();
+    model.scopeResolution = {
+      scope: "galactic",
+    } as unknown as { scope: BuildScope };
+    const app = createApp({ llm: model });
+    const profile = await startProfile(
+      app,
+      `auto-invalid-${crypto.randomUUID()}@test.dev`,
+    );
+    const response = await request(app, "/challenges/generate", profile.id, {
+      prompt: "Build grouping",
+      scope: "auto",
+      difficulty: "medium",
+      clarificationContext: null,
+    });
+    expect(response.status).toBe(502);
+    const body = (
+      await json<{ error: { code: string; retryable: boolean } }>(response)
+    ).error;
+    expect(body.code).toBe("MODEL_OUTPUT_INVALID");
+    expect(body.retryable).toBe(true);
+    expect(model.generationInputs).toHaveLength(0);
+  });
+
+  test("Auto without model scope support is refused clearly", async () => {
+    const model = new FakeModel();
+    (model as Partial<ModelGateway>).resolveBuildScope = undefined;
+    const app = createApp({ llm: model });
+    const profile = await startProfile(
+      app,
+      `auto-unsupported-${crypto.randomUUID()}@test.dev`,
+    );
+    const response = await request(app, "/challenges/generate", profile.id, {
+      prompt: "Build grouping",
+      scope: "auto",
+      difficulty: "medium",
+      clarificationContext: null,
+    });
+    expect(response.status).toBe(503);
+    const body = (
+      await json<{ error: { code: string; message: string } }>(response)
+    ).error;
+    expect(body.code).toBe("MODEL_UNAVAILABLE");
+    expect(body.message).toContain("automatic scope selection");
+    expect(model.generationInputs).toHaveLength(0);
+  });
+});
+
+describe("experience-shape clarification", () => {
+  test("a real-world codebase request may ask one shape question and the answer reaches generation", async () => {
+    const model = new FakeModel();
+    model.preparation = {
+      question: "How established should the prepared codebase feel?",
+      options: [
+        "Compact service: a few files I can read quickly",
+        "Medium: several modules with tests",
+        "Established: modules, data, and history",
+      ],
+    };
+    const app = createApp({ llm: model });
+    const profile = await startProfile(
+      app,
+      `shape-${crypto.randomUUID()}@test.dev`,
+    );
+    const prepared = await request(app, "/challenges/prepare", profile.id, {
+      prompt:
+        "I want a bug fix challenge based on my stack in backend code, so set up a real world application codebase that I could solve",
+      scope: "auto",
+      difficulty: "medium",
+    });
+    expect(prepared.status).toBe(200);
+    const preparation = (await json<{ data: ChallengePreparation }>(prepared))
+      .data;
+    const shapeQuestion = preparation.question;
+    expect(shapeQuestion).toBeTruthy();
+    expect(preparation.options).toHaveLength(3);
+    // A shape question states a missing requirement; it is never an assignment.
+    expect(model.prepareInputs).toHaveLength(1);
+
+    const challenge = await createChallenge(app, profile.id, {
+      prompt:
+        "I want a bug fix challenge based on my stack in backend code, so set up a real world application codebase that I could solve",
+      scope: "auto",
+      difficulty: "medium",
+      clarificationContext: {
+        question: shapeQuestion!,
+        answer: "Established: modules, data, and history",
+      },
+    });
+    expect(challenge.scope).toBe("focused");
+    const history = model.generationInputs.at(-1)?.clarificationHistory ?? [];
+    expect(history).toEqual([
+      {
+        question: shapeQuestion!,
+        answer: "Established: modules, data, and history",
+      },
+    ]);
+  });
+
+  test("the prompts carry the shape rule without weakening assignment rejection", () => {
+    const learner = {
+      profileId: crypto.randomUUID(),
+      preferences: {
+        profileId: crypto.randomUUID(),
+        experienceLevel: "mid-level",
+        languages: ["typescript"],
+        stack: ["bun"],
+        learningGoals: [],
+        currentFocus: "backend",
+        aboutMe: null,
+        topicFamiliarity: [],
+        knownConcepts: [],
+        learningGoal: null,
+        includeRecentChallenges: false,
+        displayName: null,
+        projects: [],
+        updatedAt: new Date().toISOString(),
+        developerContextUpdatedAt: null,
+      } as never,
+      recentChallenges: [],
+    };
+    const preparation = preparationPrompt({
+      prompt: "Set up a real world application codebase to debug",
+      scope: "feature",
+      difficulty: "medium",
+      learner,
+    });
+    expect(preparation.instructions).toContain(
+      "experience-shaping choices the request itself raises",
+    );
+    expect(preparation.instructions).toContain("a compact few-file service");
+    // Assignment rejection stays in force alongside the new exception.
+    expect(requestsImplementation("Build the codebase for me.")).toBe(true);
+    expect(
+      requestsImplementation("How established should the codebase feel?"),
+    ).toBe(false);
+    const generation = generationPrompt({
+      prompt: "Set up a real world application codebase to debug",
+      scope: "feature",
+      difficulty: "medium",
+      clarificationContext: null,
+      learner,
+    });
+    expect(generation.instructions).toContain("established-feeling codebase");
+    expect(generation.instructions).toContain(
+      "Never name the layers, modules, files, or functions that contain the defects",
     );
   });
 });

@@ -568,6 +568,21 @@ export function createProjectPreparationService(dependencies: {
               403,
             );
         },
+        requestUserInput: async (question, signal) => {
+          const result = await harnessService.request({
+            threadId: thread.id,
+            turnId: turn.id,
+            type: "user_input_request",
+            kind: "preparation_question",
+            prompt: question,
+            signal: signal
+              ? AbortSignal.any([controller.signal, signal])
+              : controller.signal,
+          });
+          return result.decision === "allow"
+            ? result.answer?.trim() || null
+            : null;
+        },
         runProjectCommand: commandSession.execute,
         commandResults: commandSession.results,
       });

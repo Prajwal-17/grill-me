@@ -13,6 +13,7 @@ import { db, lockRows } from "../../shared/database/db";
 import { generationJobs, harnessThreads } from "../../shared/database/schema";
 import { AppError } from "../../shared/errors/app-error";
 import type { ChallengeService } from "../challenges/challenge.service";
+import type { BuildScope } from "../challenges/challenge.schema";
 import type { ProfileService } from "../profiles/profile.service";
 import type { QuizService } from "../quizzes/quiz.service";
 import { lockGeneration, completeGeneration } from "./generation.lease";
@@ -202,6 +203,7 @@ export function createGenerationService(dependencies: {
       const execute = async () => {
         const request = job.request;
         if (request.kind === "challenge") {
+          let resolvedScope: BuildScope | undefined;
           if (
             !job.skipPreparation &&
             !request.input.clarificationHistory.length &&
@@ -213,6 +215,9 @@ export function createGenerationService(dependencies: {
               job.profileId,
               lease,
             );
+            // Preparation resolved an Auto scope; reuse it so generation
+            // judges the same scope instead of asking the model twice.
+            resolvedScope = preparation.scope;
             if (preparation.question) {
               await db
                 .update(generationJobs)
@@ -242,6 +247,7 @@ export function createGenerationService(dependencies: {
             request.input,
             job.profileId,
             lease,
+            resolvedScope ? { scope: resolvedScope } : undefined,
           );
           return result;
         }

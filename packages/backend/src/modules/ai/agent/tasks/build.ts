@@ -13,6 +13,7 @@ import type { StructuredTask } from "./types";
 
 /** Attachment text is bounded here so one file cannot flood the prompt. */
 const MAX_ATTACHMENT_PROMPT_CHARS = 120_000;
+const BUILD_TURN_LIMITS = { maxTurns: 11, completionOnlyTurns: 3 };
 
 function attachmentBlocks(
   attachments: BuildModelInput["attachments"],
@@ -57,7 +58,8 @@ export function preparationTask(
         challengePreparationSchema.parse(normalizePreparationOutput(value)),
     },
     allowSnapshot: false,
-    allowResearch: true,
+    allowResearch: false,
+    limits: { maxTurns: 4, completionOnlyTurns: 3 },
   };
 }
 
@@ -102,5 +104,6 @@ export function generationTask(
     },
     allowSnapshot: false,
     allowResearch: true,
+    limits: BUILD_TURN_LIMITS,
   };
 }

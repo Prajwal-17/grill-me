@@ -3,6 +3,7 @@ import type { MessageAttachment } from "../../../messages/message.schema";
 export type AgentOperation =
   | "preparation"
   | "generation"
+  | "scope_resolution"
   | "clarify"
   | "hint"
   | "review"
@@ -30,6 +31,8 @@ export type StructuredTask<T> = {
   /** Task-scoped runtime caps. Higher limits need a narrow, justified task. */
   limits?: {
     maxTurns?: number;
+    /** Reserve the last provider requests for submitting or repairing the result. */
+    completionOnlyTurns?: number;
     maxToolCalls?: number;
     maxTextChars?: number;
   };

@@ -16,6 +16,7 @@ import {
   buildGenerationResultSchema,
   challengePreparationSchema,
   enhanceBuildPromptSchema,
+  scopeResolutionResultSchema,
   type BuildDifficulty,
   type BuildScope,
   type GenerateChallengeInput,
@@ -45,7 +46,11 @@ export function createChallengeService(dependencies: {
   >();
   const questionKey = (
     profileId: string,
-    input: { prompt: string; scope: BuildScope; difficulty: BuildDifficulty },
+    input: {
+      prompt: string;
+      scope: BuildScope | "auto";
+      difficulty: BuildDifficulty;
+    },
   ) => JSON.stringify([profileId, input.prompt, input.scope, input.difficulty]);
   function remember(
     key: string,
@@ -82,6 +87,47 @@ export function createChallengeService(dependencies: {
       preferences,
       recentChallenges: [],
     };
+  }
+
+  /**
+   * Resolves an Auto scope selection from the prompt. The chosen scope must be
+   * stable for the whole run: callers key remembered questions by the raw
+   * requested scope, and every later stage uses the resolved value.
+   */
+  async function resolveScope(
+    input: {
+      prompt: string;
+      scope: BuildScope | "auto";
+      selection?: ModelSelection;
+    },
+    profileId: string,
+    generation?: GenerationRun,
+  ): Promise<BuildScope> {
+    if (input.scope !== "auto") return input.scope;
+    if (!llm.resolveBuildScope)
+      throw new AppError(
+        "MODEL_UNAVAILABLE",
+        "This model does not support automatic scope selection. Pick Focused, Feature, or System instead.",
+        503,
+        true,
+      );
+    const resolved = scopeResolutionResultSchema.safeParse(
+      await llm.resolveBuildScope({
+        prompt: input.prompt,
+        learner: await learnerContext(profileId),
+        selection: input.selection,
+        signal: generation?.signal,
+        harness: generation?.harness,
+      }),
+    );
+    if (!resolved.success)
+      throw new AppError(
+        "MODEL_OUTPUT_INVALID",
+        "The model did not return a valid scope. Try again or pick Focused, Feature, or System yourself.",
+        502,
+        true,
+      );
+    return resolved.data.scope;
   }
 
   return {
@@ -142,7 +188,7 @@ export function createChallengeService(dependencies: {
     async prepare(
       input: {
         prompt: string;
-        scope: BuildScope;
+        scope: BuildScope | "auto";
         difficulty: BuildDifficulty;
         selection?: ModelSelection;
       },
@@ -150,9 +196,13 @@ export function createChallengeService(dependencies: {
       generation?: GenerationRun,
     ) {
       await profiles.assertExists(profileId);
+      // Auto resolves before the clarification pass so its prompt sees the
+      // concrete scope; the caller reuses the result for generation.
+      const scope = await resolveScope(input, profileId, generation);
       const output = challengePreparationSchema.safeParse(
         await llm.prepareBuild({
           ...input,
+          scope,
           signal: generation?.signal,
           harness: generation?.harness,
           learner: await learnerContext(profileId),
@@ -170,13 +220,14 @@ export function createChallengeService(dependencies: {
           question: output.data.question,
           options: output.data.options,
         });
-      return output.data;
+      return { ...output.data, scope };
     },
 
     async generate(
       input: GenerateChallengeInput,
       profileId: string,
       generation?: GenerationRun,
+      resolved?: { scope?: BuildScope },
     ) {
       await profiles.assertExists(profileId);
       const history = [...input.clarificationHistory];
@@ -189,6 +240,8 @@ export function createChallengeService(dependencies: {
         )
       )
         history.push(input.clarificationContext);
+      // Remembered questions are keyed by the raw request, before Auto
+      // resolution, so the clarification check matches the prepare pass.
       const key = questionKey(profileId, input);
       const pending = pendingQuestions.get(key);
       if (
@@ -198,15 +251,18 @@ export function createChallengeService(dependencies: {
         )
       )
         needsClarification(pending);
+      const scope =
+        resolved?.scope ?? (await resolveScope(input, profileId, generation));
       let modelInput: BuildModelInput = {
         ...input,
+        scope,
         signal: generation?.signal,
         harness: generation?.harness,
         clarificationHistory: history,
         learner: await learnerContext(profileId),
       };
       for (let attempt = 0; attempt < 2; attempt++) {
-        const output = buildGenerationResultSchema(input.scope).safeParse(
+        const output = buildGenerationResultSchema(scope).safeParse(
           await llm.generateBuild(modelInput),
         );
         if (!output.success)
@@ -245,10 +301,21 @@ export function createChallengeService(dependencies: {
           };
           continue;
         }
+        // A starting point is an explicit request, not a model-chosen setup.
+        const startingPoint = challenge.startingPoint;
+        const startingPointSource = [
+          input.prompt,
+          ...history.map(({ answer }) => answer),
+        ];
+        const explicitStartingPoint =
+          startingPoint &&
+          startingPointSource.some((source) => source.includes(startingPoint))
+            ? startingPoint
+            : undefined;
         const finalBuild = challengeContentSchema.parse({
           ...challenge,
           estimatedDifficultyScore: null,
-          scope: input.scope,
+          scope,
           difficulty: input.difficulty,
           contextualDifficulty: challenge.estimatedDifficultyBand,
         });
@@ -258,6 +325,9 @@ export function createChallengeService(dependencies: {
           input.prompt,
           {
             ...JSON.parse(requestPromptContext(modelInput)),
+            ...(explicitStartingPoint
+              ? { startingPoint: explicitStartingPoint }
+              : {}),
             promptVersion: PROMPT_VERSION,
             calibrationVersion: CALIBRATION_VERSION,
             contractVersion: CONTRACT_VERSION,

@@ -179,7 +179,7 @@ describe("project workspace layout and journal", () => {
       root: created.layout.projectRoot,
       journal: projectToolJournalContext(created.layout),
     });
-    const create = tools.find((tool) => tool.name === "create_project_file")!;
+    const create = tools.find((tool) => tool.name === "write")!;
     const createdFile = await create.execute(
       "call",
       { path: "src/ready.ts", content: "export const ready = true;\n" },
@@ -191,7 +191,7 @@ describe("project workspace layout and journal", () => {
     });
 
     await writeFile(created.layout.journalPath, "{ not json");
-    const list = tools.find((tool) => tool.name === "list_project_files")!;
+    const list = tools.find((tool) => tool.name === "ls")!;
     await expect(list.execute("call", {}, undefined)).rejects.toMatchObject({
       code: "PROJECT_METADATA_INVALID",
     });
@@ -242,7 +242,7 @@ describe("project workspace layout and journal", () => {
     const { layout, tool } = await fixture();
     const content =
       "export function add(a: number, b: number) { return a + b; }\n";
-    const created = await tool("create_project_file").execute(
+    const created = await tool("write").execute(
       "call",
       { path: "src/add.ts", content },
       undefined,
@@ -262,38 +262,27 @@ describe("project workspace layout and journal", () => {
 describe("project filesystem tools", () => {
   test("creates nested directories and files, reads lines, searches, and edits exactly", async () => {
     const { layout, tool } = await fixture();
-    await tool("create_project_directory").execute(
-      "call",
-      { path: "src/features/nested" },
-      undefined,
-    );
-    expect(
-      (
-        await stat(join(layout.projectRoot, "src/features/nested"))
-      ).isDirectory(),
-    ).toBe(true);
-
     const content = "alpha\nbeta\nalpha\n";
-    await tool("create_project_file").execute(
+    await tool("write").execute(
       "call",
       { path: "src/features/nested/words.ts", content },
       undefined,
     );
     await expect(
-      tool("create_project_file").execute(
+      tool("write").execute(
         "call",
         { path: "src/features/nested/words.ts", content: "replace\n" },
         undefined,
       ),
     ).rejects.toMatchObject({ code: "PROJECT_FILE_EXISTS" });
 
-    const full = await tool("read_project_file").execute(
+    const full = await tool("read").execute(
       "call",
       { path: "src/features/nested/words.ts" },
       undefined,
     );
     expect(text(full)).toBe(content);
-    const lines = await tool("read_project_file").execute(
+    const lines = await tool("read").execute(
       "call",
       { path: "src/features/nested/words.ts", startLine: 2, lineCount: 1 },
       undefined,
@@ -302,7 +291,7 @@ describe("project filesystem tools", () => {
     expect(text(lines)).toContain("lines 2–2 of 4");
 
     await expect(
-      tool("edit_project_file").execute(
+      tool("edit").execute(
         "call",
         {
           path: "src/features/nested/words.ts",
@@ -312,7 +301,7 @@ describe("project filesystem tools", () => {
         undefined,
       ),
     ).rejects.toMatchObject({ code: "PROJECT_EDIT_AMBIGUOUS" });
-    const replaced = await tool("edit_project_file").execute(
+    const replaced = await tool("edit").execute(
       "call",
       {
         path: "src/features/nested/words.ts",
@@ -330,7 +319,7 @@ describe("project filesystem tools", () => {
       ),
     ).toBe("gamma\nbeta\ngamma\n");
     await expect(
-      tool("edit_project_file").execute(
+      tool("edit").execute(
         "call",
         {
           path: "src/features/nested/words.ts",
@@ -347,19 +336,11 @@ describe("project filesystem tools", () => {
       ),
     ).toBe("gamma\nbeta\ngamma\n");
 
-    const list = await tool("list_project_files").execute(
-      "call",
-      {},
-      undefined,
-    );
+    const list = await tool("ls").execute("call", {}, undefined);
     expect(text(list)).toContain("src/features/nested/words.ts");
-    const rootList = await tool("list_project_files").execute(
-      "call",
-      { path: "." },
-      undefined,
-    );
+    const rootList = await tool("ls").execute("call", { path: "." }, undefined);
     expect(text(rootList)).toContain("src/features/nested/words.ts");
-    const search = await tool("search_project_files").execute(
+    const search = await tool("grep").execute(
       "call",
       { query: "BETA" },
       undefined,
@@ -386,10 +367,10 @@ describe("project filesystem tools", () => {
       "src/.env.local",
     ]) {
       await expect(
-        tool("read_project_file").execute("call", { path }, undefined),
+        tool("read").execute("call", { path }, undefined),
       ).rejects.toMatchObject({ code: "PROJECT_PATH_INVALID" });
       await expect(
-        tool("create_project_file").execute(
+        tool("write").execute(
           "call",
           { path, content: "blocked\n" },
           undefined,
@@ -398,21 +379,13 @@ describe("project filesystem tools", () => {
     }
 
     await expect(
-      tool("read_project_file").execute(
-        "call",
-        { path: "linked/secret.ts" },
-        undefined,
-      ),
+      tool("read").execute("call", { path: "linked/secret.ts" }, undefined),
     ).rejects.toMatchObject({ code: "PROJECT_PATH_INVALID" });
     await expect(
-      tool("read_project_file").execute(
-        "call",
-        { path: "linked-file.ts" },
-        undefined,
-      ),
+      tool("read").execute("call", { path: "linked-file.ts" }, undefined),
     ).rejects.toMatchObject({ code: "PROJECT_PATH_INVALID" });
     await expect(
-      tool("create_project_file").execute(
+      tool("write").execute(
         "call",
         { path: "linked/new.ts", content: "escape\n" },
         undefined,
@@ -423,7 +396,7 @@ describe("project filesystem tools", () => {
     await rm(join(layout.projectRoot, "src"), { recursive: true, force: true });
     await symlink(outside, join(layout.projectRoot, "src"));
     await expect(
-      tool("create_project_file").execute(
+      tool("write").execute(
         "call",
         { path: "src/new.ts", content: "escape\n" },
         undefined,
@@ -446,23 +419,42 @@ describe("project filesystem tools", () => {
     });
     await expect(
       tools
-        .find((tool) => tool.name === "create_project_file")!
+        .find((tool) => tool.name === "write")!
         .execute("call", { path: "escape.ts", content: "x\n" }, undefined),
     ).rejects.toMatchObject({ code: "PROJECT_LAYOUT_INVALID" });
+  });
+
+  test("keeps the frozen brief outside the file mutation tools", async () => {
+    const { layout, tool } = await fixture();
+    const path = "CHALLENGE.md";
+    await expect(
+      tool("write").execute("1", { path, content: "replacement" }),
+    ).rejects.toThrow("managed by Grill Me");
+    await writeFile(join(layout.projectRoot, path), "frozen");
+    await expect(
+      tool("edit").execute("2", {
+        path,
+        oldText: "frozen",
+        newText: "replacement",
+      }),
+    ).rejects.toThrow("managed by Grill Me");
+    expect(await readFile(join(layout.projectRoot, path), "utf8")).toBe(
+      "frozen",
+    );
   });
 
   test("never silently overwrites untracked or user-edited files", async () => {
     const { layout, tool } = await fixture();
     await writeFile(join(layout.projectRoot, "notes.md"), "user notes\n");
     await expect(
-      tool("create_project_file").execute(
+      tool("write").execute(
         "call",
         { path: "notes.md", content: "replacement\n" },
         undefined,
       ),
     ).rejects.toMatchObject({ code: "PROJECT_FILE_EXISTS" });
     await expect(
-      tool("edit_project_file").execute(
+      tool("edit").execute(
         "call",
         { path: "notes.md", oldText: "user", newText: "app" },
         undefined,
@@ -472,7 +464,7 @@ describe("project filesystem tools", () => {
       "user notes\n",
     );
 
-    await tool("create_project_file").execute(
+    await tool("write").execute(
       "call",
       { path: "src/generated.ts", content: "export const value = 1;\n" },
       undefined,
@@ -482,7 +474,7 @@ describe("project filesystem tools", () => {
       "export const value = 2;\n",
     );
     await expect(
-      tool("edit_project_file").execute(
+      tool("edit").execute(
         "call",
         {
           path: "src/generated.ts",
@@ -504,14 +496,10 @@ describe("project filesystem tools", () => {
     const { layout, tool } = await fixture();
     const path = "src/stable.ts";
     const content = "export const stable = true;\n";
-    await tool("create_project_file").execute(
-      "call",
-      { path, content },
-      undefined,
-    );
+    await tool("write").execute("call", { path, content }, undefined);
     const before = await readProjectJournal(layout);
     await expect(
-      tool("edit_project_file").execute(
+      tool("edit").execute(
         "call",
         { path, oldText: "not present", newText: "x" },
         undefined,
@@ -542,7 +530,7 @@ describe("project filesystem tools", () => {
       withGeneratedFile(journal, path, projectFileRecord(expected)),
     );
     await expect(
-      tool("edit_project_file").execute(
+      tool("edit").execute(
         "call",
         { path, oldText: "partial", newText: "changed" },
         undefined,
@@ -562,26 +550,26 @@ describe("project filesystem tools", () => {
       },
     });
     await expect(
-      tool("create_project_file").execute(
+      tool("write").execute(
         "call",
         { path: "src/large.ts", content: "greater than eight bytes\n" },
         undefined,
       ),
     ).rejects.toMatchObject({ code: "PROJECT_FILE_TOO_LARGE" });
-    await tool("create_project_file").execute(
+    await tool("write").execute(
       "call",
       { path: "src/one.ts", content: "1234" },
       undefined,
     );
     await expect(
-      tool("create_project_file").execute(
+      tool("write").execute(
         "call",
         { path: "src/two.ts", content: "2" },
         undefined,
       ),
     ).rejects.toMatchObject({ code: "PROJECT_LIMIT_REACHED" });
     await writeFile(join(layout.projectRoot, "src/search.ts"), "hit\nhit\n");
-    const search = await tool("search_project_files").execute(
+    const search = await tool("grep").execute(
       "call",
       { query: "hit", maxResults: 2 },
       undefined,
@@ -590,17 +578,9 @@ describe("project filesystem tools", () => {
     expect(text(search)).toContain("search stopped");
     await writeFile(join(layout.projectRoot, "src/huge.ts"), "0123456789");
     await expect(
-      tool("read_project_file").execute(
-        "call",
-        { path: "src/huge.ts" },
-        undefined,
-      ),
+      tool("read").execute("call", { path: "src/huge.ts" }, undefined),
     ).rejects.toMatchObject({ code: "PROJECT_FILE_TOO_LARGE" });
-    const list = await tool("list_project_files").execute(
-      "call",
-      { path: "src" },
-      undefined,
-    );
+    const list = await tool("ls").execute("call", { path: "src" }, undefined);
     expect(text(list)).toContain("listing truncated");
   });
 
@@ -613,17 +593,12 @@ describe("project filesystem tools", () => {
       },
       signal: controller.signal,
     });
-    await tool("create_project_directory").execute(
-      "call",
-      { path: "src/reporting" },
-      undefined,
-    );
-    await tool("create_project_file").execute(
+    await tool("write").execute(
       "call",
       { path: "src/reporting/notes.ts", content: "report\n" },
       undefined,
     );
-    await tool("edit_project_file").execute(
+    await tool("edit").execute(
       "call",
       {
         path: "src/reporting/notes.ts",
@@ -632,19 +607,14 @@ describe("project filesystem tools", () => {
       },
       undefined,
     );
-    await tool("read_project_file").execute(
+    await tool("read").execute(
       "call",
       { path: "src/reporting/notes.ts" },
       undefined,
     );
-    await tool("search_project_files").execute(
-      "call",
-      { query: "reported" },
-      undefined,
-    );
-    await tool("list_project_files").execute("call", {}, undefined);
+    await tool("grep").execute("call", { query: "reported" }, undefined);
+    await tool("ls").execute("call", {}, undefined);
     expect(activities.map((activity) => activity.type)).toEqual([
-      "created_directory",
       "created_file",
       "edited_file",
       "read",
@@ -654,7 +624,7 @@ describe("project filesystem tools", () => {
 
     controller.abort();
     await expect(
-      tool("create_project_file").execute(
+      tool("write").execute(
         "call",
         { path: "src/cancelled.ts", content: "no\n" },
         undefined,
@@ -687,7 +657,7 @@ describe("project filesystem tools", () => {
       root: layout.projectRoot,
       journal: projectToolJournalContext(layout, seeded),
     });
-    const create = tools.find((tool) => tool.name === "create_project_file")!;
+    const create = tools.find((tool) => tool.name === "write")!;
     await create.execute(
       "call",
       { path: "src/seeded.ts", content: "seed\n" },

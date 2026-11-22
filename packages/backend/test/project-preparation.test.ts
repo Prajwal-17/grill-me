@@ -42,12 +42,19 @@ import {
 } from "@repo/backend/modules/challenges/project-workspace";
 import {
   frozenProjectSpecification,
+  matchesFrozenSpecification,
   projectChallengeMarkdown,
   writeFrozenSpecification,
 } from "@repo/backend/modules/challenges/project-preparation.spec";
 import { resolvedModel } from "./fixtures/agent-fixtures";
-import { setHarnessPermissionModeProvider } from "@repo/backend/modules/harness/harness.service";
+import {
+  harnessService,
+  setHarnessPermissionModeProvider,
+} from "@repo/backend/modules/harness/harness.service";
+import { createAskUserTool } from "@repo/backend/modules/ai/agent/tools/ask-user";
 import { projectScaffoldTask } from "@repo/backend/modules/ai/agent/tasks/project";
+import { generationPrompt } from "@repo/backend/modules/ai/prompts/index";
+import { projectScaffoldInstructions } from "@repo/backend/modules/ai/prompts/scaffold-project";
 
 const roots: string[] = [];
 setHarnessPermissionModeProvider(() => "auto-accept-edits");
@@ -342,7 +349,7 @@ class FakeScaffoldModel implements ModelGateway {
         this.activities.push(activity);
         return input.onActivity?.(activity);
       },
-    }).find((tool) => tool.name === "create_project_file")!;
+    }).find((tool) => tool.name === "write")!;
     for (const file of successfulScaffold().files)
       await create.execute(
         "call",
@@ -390,7 +397,7 @@ class FakeScaffoldModel implements ModelGateway {
       journal: projectToolJournalContext(input.layout),
       signal: input.signal,
       onActivity: input.onActivity,
-    }).find((tool) => tool.name === "create_project_file")!;
+    }).find((tool) => tool.name === "write")!;
     await create.execute(
       "call",
       { path: "src/partial.ts", content: "// partial\n" },
@@ -579,45 +586,149 @@ describe("challenge project preparation", () => {
     } else expect(result.error).toBeNull();
   });
 
-  test("saves preparation with just the brief for a from-scratch challenge", async () => {
-    const model = new (class extends FakeScaffoldModel {
-      override async generateBuild(input: BuildModelInput) {
-        const generated = await super.generateBuild(input);
-        generated.challenge.problemStatement =
-          "Build a URL shortener from scratch, including project setup.";
-        generated.challenge.expectedOutcome = "Your own working URL shortener.";
-        return generated;
+  test.each([
+    ["I will set up the project myself.", "I will set up the project myself."],
+    ["Use a full starter with Drizzle.", undefined],
+  ])(
+    "saves from-scratch preparation with model starting point %s",
+    async (startingPoint, expected) => {
+      const model = new (class extends FakeScaffoldModel {
+        override async generateBuild(input: BuildModelInput) {
+          const generated = await super.generateBuild(input);
+          generated.challenge.problemStatement =
+            "Build a URL shortener from scratch, including project setup.";
+          generated.challenge.expectedOutcome =
+            "Your own working URL shortener.";
+          return {
+            ...generated,
+            challenge: { ...generated.challenge, startingPoint },
+          };
+        }
+        override async scaffoldProject(input: ProjectScaffoldModelInput) {
+          expect(input.specification.request).toContain("from scratch");
+          expect(input.specification.startingPoint).toBe(expected);
+          expect(projectScaffoldTask(input).context).toContain(
+            expected ?? "Not specified.",
+          );
+          return {
+            summary: "Project setup is part of the exercise. No checks ran.",
+            files: [],
+            todos: [],
+            setup: [],
+            run: [],
+            checks: [],
+            results: [],
+            problems: [],
+            blockingProblems: [],
+          };
+        }
+      })();
+      const app = appWith(model, await tempRoot());
+      const owner = await startProfile(
+        app,
+        `project-from-scratch-${crypto.randomUUID()}@test.dev`,
+      );
+      const challenge = await createChallenge(
+        app,
+        owner.id,
+        "Build a URL shortener from scratch. I will set up the project myself.",
+      );
+      const ready = await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+      expect(await readdir(ready.projectPath!)).toEqual(["CHALLENGE.md"]);
+      expect(ready.report?.files).toEqual([]);
+      expect(ready.report?.results).toEqual([]);
+      expect(ready.specification?.startingPoint).toBe(expected);
+    },
+  );
+
+  test.each(["answer", "cancel"])(
+    "handles %s while a preparation question is pending",
+    async (action) => {
+      const model = new (class extends FakeScaffoldModel {
+        override async scaffoldProject(input: ProjectScaffoldModelInput) {
+          if (!input.requestUserInput)
+            throw new Error("No clarification transport");
+          const ask = createAskUserTool(input.requestUserInput);
+          const result = await ask.execute(
+            "question",
+            {
+              question: "What name should the sample room use?",
+            },
+            input.signal,
+          );
+          expect(result.details).toEqual({ answer: "Oak" });
+          return {
+            summary: "Clarified the sample room. No project files needed.",
+            files: [],
+            todos: [],
+            setup: [],
+            run: [],
+            checks: [],
+            results: [],
+            problems: [],
+            blockingProblems: [],
+          };
+        }
+      })();
+      const app = appWith(model, await tempRoot());
+      const owner = await startProfile(
+        app,
+        `question-${crypto.randomUUID()}@test.dev`,
+      );
+      const other = await startProfile(
+        app,
+        `other-${crypto.randomUUID()}@test.dev`,
+      );
+      const challenge = await createChallenge(app, owner.id);
+      async function pendingQuestion() {
+        const thread = await harnessService.findThread({
+          profileId: owner.id,
+          challengeId: challenge.id,
+          kind: "project_scaffold",
+        });
+        if (!thread) return null;
+        const detail = await harnessService.detail(thread.id, owner.id);
+        const question = detail.turns
+          .flatMap((turn) => turn.items)
+          .find(
+            (item) =>
+              item.type === "user_input_request" && item.status === "pending",
+          );
+        return question && detail.thread.status === "waiting"
+          ? `/harness/${thread.id}/requests/${question.payload.requestId}`
+          : null;
       }
-      override async scaffoldProject(input: ProjectScaffoldModelInput) {
-        expect(input.specification.request).toContain("from scratch");
-        return {
-          summary: "Project setup is part of the exercise. No checks ran.",
-          files: [],
-          todos: [],
-          setup: [],
-          run: [],
-          checks: [],
-          results: [],
-          problems: [],
-          blockingProblems: [],
-        };
+      let path = await pendingQuestion();
+      const deadline = Date.now() + 3000;
+      while (!path && Date.now() < deadline) {
+        await Bun.sleep(20);
+        path = await pendingQuestion();
       }
-    })();
-    const app = appWith(model, await tempRoot());
-    const owner = await startProfile(
-      app,
-      `project-from-scratch-${crypto.randomUUID()}@test.dev`,
-    );
-    const challenge = await createChallenge(
-      app,
-      owner.id,
-      "Build a URL shortener from scratch. I will set up the project myself.",
-    );
-    const ready = await waitForStatus(app, owner.id, challenge.id, ["ready"]);
-    expect(await readdir(ready.projectPath!)).toEqual(["CHALLENGE.md"]);
-    expect(ready.report?.files).toEqual([]);
-    expect(ready.report?.results).toEqual([]);
-  });
+      expect(path).toBeTruthy();
+      const answer = { decision: "allow", answer: "Oak" };
+      expect((await request(app, path!, other.id, answer)).status).toBe(404);
+      if (action === "cancel") {
+        const cancelled = await request(
+          app,
+          `/challenges/${challenge.id}/project-preparation/cancel`,
+          owner.id,
+          {},
+        );
+        expect(cancelled.ok).toBe(true);
+        await waitForStatus(app, owner.id, challenge.id, ["cancelled"]);
+        const late = await request(app, path!, owner.id, answer);
+        const body = await json<{
+          data: { status: string; payload: { answer?: string } };
+        }>(late);
+        expect(body.data.status).toBe("cancelled");
+        expect(body.data.payload.answer).toBeUndefined();
+        return;
+      }
+      expect((await request(app, path!, owner.id, answer)).status).toBe(200);
+      const ready = await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+      expect(ready.report?.files).toEqual([]);
+    },
+  );
 
   test("automatically freezes the specification and scaffolds a multi-file URL shortener", async () => {
     const root = await tempRoot();
@@ -859,14 +970,21 @@ describe("exercise-specific preparation reports", () => {
       name: "from scratch",
       request: "Start from scratch. I will create the project and its files.",
       source: null,
-      legacy: false,
+      variant: "current",
+    },
+    {
+      name: "setup as the exercise without an explicit starting point",
+      request:
+        "The exercise is to set up a TypeScript library workspace yourself: create the manifest, layout, and tooling decisions from scratch. Nothing is provided.",
+      source: null,
+      variant: "current",
     },
     {
       name: "implementation with a single starter file",
       request:
         "Provide only a starter file for the booking service. Leave SQLite persistence to me.",
       source: "export type Booking = { active: boolean };",
-      legacy: false,
+      variant: "current",
     },
     {
       name: "debugging without TODOs, using an older frozen brief",
@@ -874,7 +992,15 @@ describe("exercise-specific preparation reports", () => {
         "Provide a booking service where cancelled bookings still block the room.",
       source:
         "export const isBlocked = (bookings: unknown[]) => bookings.length > 0;",
-      legacy: true,
+      variant: "legacy",
+    },
+    {
+      name: "debugging without TODOs, using a brief frozen before the slimmed layout",
+      request:
+        "Provide a booking service where cancelled bookings still block the room.",
+      source:
+        "export const isBlocked = (bookings: unknown[]) => bookings.length > 0;",
+      variant: "previous",
     },
   ])("accepts $name", async (exercise) => {
     const root = await tempRoot();
@@ -890,12 +1016,15 @@ describe("exercise-specific preparation reports", () => {
       difficulty: "medium",
       problemStatement: exercise.request,
       expectedOutcome: "A booking service that meets the challenge criteria.",
-      implementationBoundary: null,
-      objectives: ["Practice booking service behavior."],
+      implementationBoundary: "No generated tests.",
+      objectives: [
+        "A booking service that meets the challenge criteria.",
+        "Practice booking service behavior.",
+      ],
       acceptanceCriteria: ["Only active bookings prevent conflicts."],
       durationEstimate: { minMinutes: 30, maxMinutes: 60 },
       stack: {
-        experienceLevel: null,
+        experienceLevel: "Intermediate",
         languages: ["TypeScript", "SQL"],
         stack: ["Bun", "PostgreSQL", "SQLite", "Prisma", "Drizzle ORM"],
         currentFocus: null,
@@ -904,15 +1033,18 @@ describe("exercise-specific preparation reports", () => {
       frozenAt: new Date().toISOString(),
     };
     const brief = join(layout.projectRoot, "CHALLENGE.md");
-    if (exercise.legacy) {
-      const legacyMarkdown = projectChallengeMarkdown(specification, true);
-      await writeFile(brief, legacyMarkdown);
+    if (exercise.variant !== "current") {
+      const frozenMarkdown = projectChallengeMarkdown(
+        specification,
+        exercise.variant,
+      );
+      await writeFile(brief, frozenMarkdown);
       await writeProjectJournal(
         layout,
         withGeneratedFile(
           journal,
           "CHALLENGE.md",
-          projectFileRecord(legacyMarkdown),
+          projectFileRecord(frozenMarkdown),
         ),
       );
     }
@@ -926,12 +1058,29 @@ describe("exercise-specific preparation reports", () => {
       previousAttempt: null,
       commandResults: async () => [],
     });
+    expect(task.userText).toBe(specification.request);
+    expect(task.context).toContain("No generated tests.");
+    expect(task.context).toContain("Only active bookings prevent conflicts.");
+    expect(task.context).toContain("Practice booking service behavior.");
+    expect(task.context).toContain("Intermediate");
+    expect(
+      task.context.match(
+        /A booking service that meets the challenge criteria/g,
+      ),
+    ).toHaveLength(1);
+    expect(task.context).not.toContain(specification.challengeId);
+    expect(task.context).not.toContain(specification.profileId);
+    expect(task.context).not.toContain(specification.frozenAt);
+    expect(task.context).not.toContain(layout.projectRoot);
+    expect(task.context).not.toMatch(
+      /PostgreSQL|Drizzle ORM|Requested Model|Challenge Number|Guidance/,
+    );
     const files = [];
     if (exercise.source) {
       const create = createProjectTools({
         root: layout.projectRoot,
         journal: projectToolJournalContext(layout),
-      }).find((tool) => tool.name === "create_project_file")!;
+      }).find((tool) => tool.name === "write")!;
       await create.execute(
         "create",
         { path: "starter.ts", content: exercise.source },
@@ -956,9 +1105,18 @@ describe("exercise-specific preparation reports", () => {
     expect((await readdir(layout.projectRoot)).sort()).toEqual(
       exercise.source ? ["CHALLENGE.md", "starter.ts"] : ["CHALLENGE.md"],
     );
-    expect(await readFile(brief, "utf8")).toBe(
-      projectChallengeMarkdown(specification, exercise.legacy),
+    const frozen = await readFile(brief, "utf8");
+    expect(frozen).toBe(
+      projectChallengeMarkdown(specification, exercise.variant),
     );
+    // The visible brief carries the challenge contract, not the profile's
+    // technology dump; only layouts frozen before the slimmed brief include it.
+    if (exercise.variant === "current") {
+      expect(frozen).not.toContain("PostgreSQL");
+      expect(frozen).not.toContain("Not every project uses JavaScript");
+    } else {
+      expect(frozen).toContain("PostgreSQL");
+    }
 
     if (exercise.source) {
       const starter = join(layout.projectRoot, "starter.ts");
@@ -968,6 +1126,515 @@ describe("exercise-specific preparation reports", () => {
       );
       expect(await readFile(starter, "utf8")).toBe("// engineer's changes");
     }
+  });
+
+  test("the current brief is the challenge contract and stays compatible with older layouts", () => {
+    const specification: ProjectFrozenSpecification = {
+      version: 1,
+      challengeId: crypto.randomUUID(),
+      profileId: crypto.randomUUID(),
+      challengeNumber: 51,
+      title: "Offline agent loop",
+      request: "Practice pi-agent-core offline with a fake model.",
+      scope: "focused",
+      difficulty: "medium",
+      problemStatement: "Build an offline agent loop with a scripted model.",
+      expectedOutcome: "A small offline project with a scripted fake model.",
+      implementationBoundary: "No real AI provider calls.",
+      objectives: ["A small offline project with a scripted fake model."],
+      acceptanceCriteria: ["The scripted run finishes offline."],
+      durationEstimate: { minMinutes: 45, maxMinutes: 90 },
+      stack: {
+        experienceLevel: "Intermediate",
+        languages: ["TypeScript"],
+        stack: ["Bun", "PostgreSQL", "SQLite", "Drizzle ORM"],
+        currentFocus: null,
+      },
+      model: { selection: null, label: "fake" },
+      frozenAt: new Date().toISOString(),
+    };
+
+    const current = projectChallengeMarkdown(specification);
+    expect(current).toContain("## Implementation boundary");
+    expect(current).toContain("No real AI provider calls.");
+    // The outcome is already the only objective, so its section is not repeated.
+    expect(current).not.toContain("## Objectives");
+    // No profile technology dump and no agent-facing instructions.
+    expect(current).not.toContain("PostgreSQL");
+    expect(current).not.toContain("Not every project uses JavaScript");
+    expect(current).not.toContain("Follow the original request and task");
+    expect(matchesFrozenSpecification(current, specification)).toBe(true);
+
+    // Briefs frozen before the slimmed layout stay readable and valid.
+    const previous = projectChallengeMarkdown(specification, "previous");
+    expect(previous).toContain("PostgreSQL");
+    expect(previous).toContain("## Objectives");
+    expect(previous).toContain("Not every project uses JavaScript");
+    expect(matchesFrozenSpecification(previous, specification)).toBe(true);
+    expect(
+      matchesFrozenSpecification(
+        projectChallengeMarkdown(specification, "legacy"),
+        specification,
+      ),
+    ).toBe(true);
+    // The layouts are actually distinct, so old files are not misread as new.
+    expect(current).not.toBe(previous);
+  });
+});
+
+describe("starting-point preparation semantics", () => {
+  // Grounded in the request that left challenge #50 empty: it grants the
+  // engineer layout and tooling freedom and adds run-environment constraints,
+  // but never asks for a from-scratch start.
+  const piAgentCoreRequest = [
+    "I just learned to build agents with pi-agent-core.",
+    "Give me a TypeScript library exercise: a small retry-and-logging utility for agent tool calls.",
+    "I want to choose my own file layout and test tooling.",
+    "No API keys: use a fake model.",
+    "It must run offline.",
+  ].join(" ");
+
+  const piAgentCoreBuild: GeneratedBuildContent = {
+    title: "Agent tool retry utility",
+    estimatedDifficultyBand: "medium",
+    difficultyReason: "Direct application of retry and logging patterns.",
+    topic: "TypeScript",
+    implementationBoundary:
+      "A TypeScript library. Choose your own file layout and test tooling. No API keys: use a fake model. It must run offline.",
+    durationEstimate: { minMinutes: 30, maxMinutes: 60 },
+    implementationMilestones: [],
+    problemStatement:
+      "Build a retry-and-logging utility for agent tool calls. Choose your own file layout and test tooling. No API keys: use a fake model. It must run offline.",
+    expectedOutcome: "A small TypeScript library you designed and implemented.",
+    completionCriteria: [
+      "Retries a failing tool call with a bounded attempt count.",
+      "Logs each attempt without calling a real model API.",
+      "Runs offline with a fake model and no API keys.",
+    ],
+  };
+
+  const manifest = JSON.stringify(
+    {
+      name: "agent-tool-retry",
+      private: true,
+      dependencies: { "@earendil-works/pi-agent-core": "1.5.2" },
+    },
+    null,
+    2,
+  );
+
+  const manifestCheck = {
+    id: "manifest",
+    label: "Parse the package manifest",
+    kind: "typecheck" as const,
+    command:
+      "bun -e \"JSON.parse(require('fs').readFileSync('package.json','utf8'))\"",
+    cwd: ".",
+    install: false,
+    network: false,
+    intent: "verify" as const,
+    expected: "pass" as const,
+  };
+
+  async function createFile(
+    input: ProjectScaffoldModelInput,
+    path: string,
+    content: string,
+  ) {
+    const create = createProjectTools({
+      root: input.layout.projectRoot,
+      journal: projectToolJournalContext(input.layout),
+      signal: input.signal,
+      onActivity: input.onActivity,
+    }).find((tool) => tool.name === "write")!;
+    await create.execute("call", { path, content }, undefined);
+  }
+
+  /** Prepares only a minimal starting environment for the library exercise. */
+  function minimalEnvironmentReport(
+    summary: string,
+    results: ProjectScaffoldReport["results"],
+  ): ProjectScaffoldReport {
+    return {
+      summary,
+      files: [
+        { path: "package.json", role: "config", purpose: "Minimal manifest." },
+      ],
+      todos: [],
+      setup: [],
+      run: [],
+      checks: [manifestCheck],
+      results,
+      problems: [],
+      blockingProblems: [],
+    };
+  }
+
+  async function preparationState(
+    app: TestApp,
+    profileId: string,
+    challengeId: string,
+  ) {
+    const response = await request(
+      app,
+      `/challenges/${challengeId}/project-preparation`,
+      profileId,
+    );
+    expect(response.status).toBe(200);
+    return (
+      await json<{
+        data: {
+          status: string;
+          projectPath: string | null;
+          commands: {
+            id: string;
+            status: string;
+            command: string;
+            install: boolean;
+            network: boolean;
+            result: { status: string } | null;
+          }[];
+          specification: ProjectFrozenSpecification | null;
+          report: ProjectScaffoldReport | null;
+          error: { code: string; message: string } | null;
+        };
+      }>(response)
+    ).data;
+  }
+
+  async function waitForPreparationState(
+    app: TestApp,
+    profileId: string,
+    challengeId: string,
+    expected: string[],
+  ) {
+    const end = Date.now() + 8_000;
+    let last = await preparationState(app, profileId, challengeId);
+    while (Date.now() < end) {
+      if (expected.includes(last.status)) return last;
+      await Bun.sleep(20);
+      last = await preparationState(app, profileId, challengeId);
+    }
+    throw new Error(
+      `Preparation did not reach ${expected.join("/")}; last ${last.status}: ${JSON.stringify(last.error)}`,
+    );
+  }
+
+  async function rejectCommand(
+    app: TestApp,
+    profileId: string,
+    challengeId: string,
+    commandId: string,
+  ) {
+    return request(
+      app,
+      `/challenges/${challengeId}/project-preparation/commands/${commandId}/reject`,
+      profileId,
+      {},
+    );
+  }
+
+  test("generation keeps run-environment constraints out of the starting point", () => {
+    const instructions = generationPrompt({
+      prompt: piAgentCoreRequest,
+      scope: "feature",
+      difficulty: "medium",
+      clarificationContext: null,
+      learner: {
+        profileId: crypto.randomUUID(),
+        preferences: {
+          profileId: crypto.randomUUID(),
+          experienceLevel: "mid-level",
+          languages: ["typescript"],
+          stack: ["bun"],
+          learningGoals: [],
+          currentFocus: "backend",
+          aboutMe: null,
+          topicFamiliarity: [],
+          knownConcepts: [],
+          learningGoal: null,
+          includeRecentChallenges: false,
+          displayName: null,
+          projects: [],
+          updatedAt: new Date().toISOString(),
+          developerContextUpdatedAt: null,
+        } as never,
+        recentChallenges: [],
+      },
+    });
+    expect(instructions.instructions).toContain(
+      "keep them in the brief and out of startingPoint",
+    );
+    // The old rule copied qualifiers and exclusions into startingPoint, which
+    // is how tooling freedom reached the saved starting point of challenge #50.
+    expect(instructions.instructions).not.toContain(
+      "including qualifiers and exclusions",
+    );
+  });
+
+  test("preparation instructions separate from-scratch, constraint, and offline cases", () => {
+    const instructions = projectScaffoldInstructions();
+    expect(instructions).toContain(
+      "only when the engineer explicitly asked to build the project from scratch",
+    );
+    expect(instructions).toContain("not a from-scratch request");
+    expect(instructions).toContain("never justify an empty folder");
+    expect(instructions).toContain("makes project setup the exercise");
+    expect(instructions).toContain("minimal useful environment");
+    expect(instructions).toContain("exactly as you will report it");
+    expect(instructions).toContain("never records a check result");
+    expect(instructions).toContain(
+      "Installing dependencies is a network command",
+    );
+    expect(instructions).toContain("never authorizes one");
+    expect(instructions).toContain("report the skip honestly");
+    expect(instructions).toContain("summary must state the reason");
+  });
+
+  test("an unspecified starting point prepares a minimal environment, not an empty folder", async () => {
+    const model = new (class extends FakeScaffoldModel {
+      override async generateBuild(input: BuildModelInput) {
+        return {
+          status: "ready" as const,
+          challenge: {
+            ...piAgentCoreBuild,
+            estimatedDifficultyBand: input.difficulty,
+          },
+          question: null,
+          options: [],
+        };
+      }
+      override async scaffoldProject(input: ProjectScaffoldModelInput) {
+        expect(input.specification.request).toBe(piAgentCoreRequest);
+        expect(input.specification.startingPoint).toBeUndefined();
+        expect(projectScaffoldTask(input).context).toContain("Not specified.");
+        await createFile(input, "package.json", manifest);
+        const run = input.runProjectCommand;
+        if (!run) throw new Error("Command tool was not supplied.");
+        const check = await run(
+          {
+            purpose: "check",
+            checkId: manifestCheck.id,
+            command: manifestCheck.command,
+            cwd: manifestCheck.cwd,
+            install: false,
+            network: false,
+          },
+          { preauthorized: true },
+        );
+        expect(check.status).toBe("succeeded");
+        return minimalEnvironmentReport(
+          "Prepared a minimal starting environment: a package manifest with the declared dependency. No source layout was prescribed and no exercise work was implemented. The manifest parsed.",
+          [{ checkId: manifestCheck.id, status: "passed", detail: null }],
+        );
+      }
+    })();
+    const app = appWith(model, await tempRoot());
+    const owner = await startProfile(
+      app,
+      `starting-unspecified-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id, piAgentCoreRequest);
+    const ready = await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+
+    expect(ready.specification?.startingPoint).toBeUndefined();
+    const brief = await readFile(
+      join(ready.projectPath!, "CHALLENGE.md"),
+      "utf8",
+    );
+    // Constraints stay preserved as requirements, without a starting-point
+    // heading that preparation could mistake for an explicit choice.
+    expect(brief).toContain("Choose your own file layout and test tooling");
+    expect(brief).toContain("run offline");
+    expect(brief).not.toContain("## Requested starting point");
+
+    expect(ready.report?.files).toHaveLength(1);
+    expect(ready.report?.summary).toContain("minimal starting environment");
+    expect(ready.report?.summary).not.toContain("from scratch");
+    const entries = await readdir(ready.projectPath!);
+    expect(entries.sort()).toEqual(["CHALLENGE.md", "package.json"]);
+    const written = await readFile(
+      join(ready.projectPath!, "package.json"),
+      "utf8",
+    );
+    expect(written).toBe(manifest);
+    expect(written).not.toContain("TODO");
+  });
+
+  test("a saved tooling-freedom constraint is never treated as a from-scratch request", async () => {
+    const echoed = "I want to choose my own file layout and test tooling.";
+    const model = new (class extends FakeScaffoldModel {
+      override async generateBuild(input: BuildModelInput) {
+        const generated = await super.generateBuild(input);
+        return {
+          ...generated,
+          challenge: { ...generated.challenge, startingPoint: echoed },
+        };
+      }
+      override async scaffoldProject(input: ProjectScaffoldModelInput) {
+        // The echo is a verbatim quote of the request, so the extraction guard
+        // saves it; preparation must still not treat it as from scratch.
+        expect(input.specification.startingPoint).toBe(echoed);
+        await createFile(input, "package.json", manifest);
+        const run = input.runProjectCommand;
+        if (!run) throw new Error("Command tool was not supplied.");
+        const check = await run(
+          {
+            purpose: "check",
+            checkId: manifestCheck.id,
+            command: manifestCheck.command,
+            cwd: manifestCheck.cwd,
+            install: false,
+            network: false,
+          },
+          { preauthorized: true },
+        );
+        expect(check.status).toBe("succeeded");
+        return minimalEnvironmentReport(
+          "Prepared a minimal starting environment despite the saved tooling-freedom constraint: a package manifest with the declared dependency. The manifest parsed.",
+          [{ checkId: manifestCheck.id, status: "passed", detail: null }],
+        );
+      }
+    })();
+    const app = appWith(model, await tempRoot());
+    const owner = await startProfile(
+      app,
+      `starting-constraint-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id, piAgentCoreRequest);
+    const ready = await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+
+    expect(ready.specification?.startingPoint).toBe(echoed);
+    const brief = await readFile(
+      join(ready.projectPath!, "CHALLENGE.md"),
+      "utf8",
+    );
+    expect(brief).toContain("## Requested starting point");
+    const entries = await readdir(ready.projectPath!);
+    expect(entries.sort()).toEqual(["CHALLENGE.md", "package.json"]);
+    expect(ready.report?.summary).toContain("minimal starting environment");
+  });
+
+  test("an offline exercise never runs an unauthorized network command and reports the skipped install", async () => {
+    const model = new (class extends FakeScaffoldModel {
+      override async generateBuild(input: BuildModelInput) {
+        return {
+          status: "ready" as const,
+          challenge: {
+            ...piAgentCoreBuild,
+            estimatedDifficultyBand: input.difficulty,
+          },
+          question: null,
+          options: [],
+        };
+      }
+      override async scaffoldProject(input: ProjectScaffoldModelInput) {
+        expect(input.specification.startingPoint).toBeUndefined();
+        await createFile(input, "package.json", manifest);
+        const run = input.runProjectCommand;
+        if (!run) throw new Error("Command tool was not supplied.");
+        // Offline requirement: the install is proposed, not executed, and its
+        // outcome is reported honestly after the engineer declines it.
+        const install = await run({
+          purpose: "setup",
+          command: "bun install",
+          cwd: ".",
+          install: true,
+          network: true,
+        });
+        expect(install.status).toBe("rejected");
+        expect(install.result).toBeNull();
+        const check = await run(
+          {
+            purpose: "check",
+            checkId: manifestCheck.id,
+            command: manifestCheck.command,
+            cwd: manifestCheck.cwd,
+            install: false,
+            network: false,
+          },
+          { preauthorized: true },
+        );
+        expect(check.status).toBe("succeeded");
+        return {
+          summary:
+            "Prepared a minimal starting environment: a package manifest with the declared dependency. The manifest parsed. Dependencies were not installed because the network command was not authorized; run the listed setup command before starting.",
+          files: [
+            { path: "package.json", role: "config" as const, purpose: null },
+          ],
+          todos: [],
+          setup: [
+            {
+              id: "install",
+              label: "Install dependencies",
+              command: "bun install",
+              cwd: ".",
+              install: true,
+              network: true,
+            },
+          ],
+          run: [],
+          checks: [manifestCheck],
+          results: [
+            {
+              checkId: manifestCheck.id,
+              status: "passed" as const,
+              detail: null,
+            },
+          ],
+          problems: [
+            "Dependencies were not installed because the network command was not authorized for this attempt.",
+          ],
+          blockingProblems: [],
+        } satisfies ProjectScaffoldReport;
+      }
+    })();
+    const app = appWith(model, await tempRoot());
+    const owner = await startProfile(
+      app,
+      `starting-offline-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id, piAgentCoreRequest);
+
+    // The install request becomes a pending authorization, never a process.
+    const end = Date.now() + 8_000;
+    let pending: Awaited<ReturnType<typeof preparationState>> | null = null;
+    while (Date.now() < end) {
+      const state = await preparationState(app, owner.id, challenge.id);
+      const command = state.commands.find(
+        (entry) => entry.status === "pending" && entry.network,
+      );
+      if (command) {
+        pending = state;
+        expect(
+          (await rejectCommand(app, owner.id, challenge.id, command.id)).status,
+        ).toBe(200);
+        break;
+      }
+      await Bun.sleep(20);
+    }
+    expect(pending).not.toBeNull();
+
+    const ready = await waitForPreparationState(app, owner.id, challenge.id, [
+      "ready",
+    ]);
+    expect(ready.report?.summary).toContain("were not installed");
+    expect(ready.report?.problems).toContain(
+      "Dependencies were not installed because the network command was not authorized for this attempt.",
+    );
+    const install = ready.commands.find(
+      (entry) => entry.command === "bun install",
+    );
+    expect(install?.status).toBe("rejected");
+    expect(install?.result).toBeNull();
+    // No network or install command ever executed; only the offline check ran.
+    for (const command of ready.commands)
+      if (command.status === "succeeded") {
+        expect(command.network).toBe(false);
+        expect(command.install).toBe(false);
+      }
+    const entries = await readdir(ready.projectPath!);
+    expect(entries.sort()).toEqual(["CHALLENGE.md", "package.json"]);
   });
 });
 
@@ -1048,7 +1715,7 @@ describe("Pi project-scaffold gateway", () => {
       fauxAssistantMessage(
         fixture.files.map((file, index) =>
           fauxToolCall(
-            "create_project_file",
+            "write",
             { path: file.path, content: file.content },
             { id: `call-${index}` },
           ),

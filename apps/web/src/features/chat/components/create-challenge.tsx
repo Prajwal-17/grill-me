@@ -5,12 +5,13 @@ import {
   LoaderCircle,
   Network,
   Paperclip,
+  Sparkles,
   Target,
   WandSparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/shared/components/ui/button";
-import type { BuildDifficulty, BuildScope, Profile } from "@/shared/types/api";
+import type { BuildDifficulty, Profile } from "@/shared/types/api";
 import { ClarificationCard } from "@/shared/components/ai/clarification-card";
 import { PromptTextarea } from "@/shared/components/ai/prompt-textarea";
 import { PromptSurface } from "@/shared/components/ai/prompt-surface";
@@ -30,6 +31,11 @@ import { QuizComposer } from "@/features/quizzes/components/quiz-composer";
 import { BookOpen, ListChecks } from "lucide-react";
 import { ModelPicker } from "@/shared/components/ai/model-picker";
 const SCOPES = [
+  {
+    id: "auto",
+    label: "Auto",
+    icon: Sparkles,
+  },
   {
     id: "focused",
     label: "Focused",
@@ -239,7 +245,7 @@ function ChallengeComposer({ profile }: { profile: Profile }) {
                   value={scope}
                   options={SCOPES}
                   disabled={busy}
-                  onChange={(value: BuildScope) => {
+                  onChange={(value) => {
                     setScope(value);
                     reset();
                   }}

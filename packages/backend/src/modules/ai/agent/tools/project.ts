@@ -606,7 +606,7 @@ export function createProjectTools(
   }
 
   const list: AgentTool<any> = {
-    name: "list_project_files",
+    name: "ls",
     label: "List project files",
     description:
       "List folders and files in the challenge project. Paths are relative to the project root. Symbolic links are shown but never followed.",
@@ -726,7 +726,7 @@ export function createProjectTools(
   };
 
   const read: AgentTool<any> = {
-    name: "read_project_file",
+    name: "read",
     label: "Read project file",
     description:
       "Read a text file from the challenge project. Use startLine and lineCount for large files. Symbolic links and credential files are inaccessible.",
@@ -830,7 +830,7 @@ export function createProjectTools(
   };
 
   const search: AgentTool<any> = {
-    name: "search_project_files",
+    name: "grep",
     label: "Search project files",
     description:
       "Search challenge project text files for a literal string. Returns bounded matching lines with paths.",
@@ -963,68 +963,11 @@ export function createProjectTools(
       }),
   };
 
-  const createDirectory: AgentTool<any> = {
-    name: "create_project_directory",
-    label: "Create project directory",
-    description:
-      "Create a directory inside the challenge project. Existing directories are kept, and symbolic links are never followed.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Relative directory path." },
-      },
-      required: ["path"],
-      additionalProperties: false,
-    },
-    execute: async (
-      _toolCallId,
-      params: { path: string },
-      callSignal?: AbortSignal,
-    ) =>
-      serialized(async () => {
-        assertActive(callSignal);
-        const relativePath = projectRelativePath(params.path);
-        const root = await rootContext();
-        await loadJournal();
-        const state = await entryState(root, relativePath);
-        if (state.info) {
-          if (!state.info.isDirectory())
-            throw new AppError(
-              "PROJECT_FILE_EXISTS",
-              "That project path already exists and is not a folder.",
-              409,
-            );
-          await report({
-            type: "created_directory",
-            path: relativePath,
-            created: false,
-          });
-          return {
-            content: [text(`Directory already exists: ${relativePath}`)],
-            details: { path: relativePath, created: false },
-          };
-        }
-        await ensureCapacity(root, 0);
-        await authorizeWrite(relativePath, callSignal);
-        await createMissingDirectories(root, relativePath);
-        assertActive(callSignal);
-        await report({
-          type: "created_directory",
-          path: relativePath,
-          created: true,
-        });
-        return {
-          content: [text(`Created directory ${relativePath}.`)],
-          details: { path: relativePath, created: true },
-        };
-      }),
-  };
-
   const createFile: AgentTool<any> = {
-    name: "create_project_file",
+    name: "write",
     label: "Create project file",
     description:
-      "Create a new text file in the challenge project. The file must not exist; use edit_project_file for generated files. Parent folders are created. Grill Me records the generated file hash before writing.",
+      "Create a new text file in the challenge project. The file must not exist; use edit for generated files. Parent folders are created. Grill Me records the generated file hash before writing.",
     parameters: {
       type: "object",
       properties: {
@@ -1042,6 +985,10 @@ export function createProjectTools(
       serialized(async () => {
         assertActive(callSignal);
         const relativePath = projectRelativePath(params.path);
+        if (relativePath.split("/")[0]?.toLowerCase() === "challenge.md")
+          throw invalidPath(
+            "CHALLENGE.md is managed by Grill Me and cannot be changed by project tools.",
+          );
         const bytes = Buffer.byteLength(params.content);
         if (bytes > limits.maxFileBytes)
           throw new AppError(
@@ -1055,7 +1002,7 @@ export function createProjectTools(
         if (state.info)
           throw new AppError(
             "PROJECT_FILE_EXISTS",
-            "That project file already exists. Read it and use edit_project_file, or create a different file.",
+            "That project file already exists. Read it and use edit, or create a different file.",
             409,
           );
         await ensureCapacity(root, 1);
@@ -1109,7 +1056,7 @@ export function createProjectTools(
   };
 
   const editFile: AgentTool<any> = {
-    name: "edit_project_file",
+    name: "edit",
     label: "Edit project file",
     description:
       "Replace an exact text fragment in a generated challenge project file. The file must match the last hash Grill Me recorded; user-edited or untracked files are never overwritten. Fails unless the fragment is found once, or replaceAll is true.",
@@ -1140,6 +1087,10 @@ export function createProjectTools(
       serialized(async () => {
         assertActive(callSignal);
         const relativePath = projectRelativePath(params.path);
+        if (relativePath.split("/")[0]?.toLowerCase() === "challenge.md")
+          throw invalidPath(
+            "CHALLENGE.md is managed by Grill Me and cannot be changed by project tools.",
+          );
         if (!params.oldText) throw invalidPath("oldText cannot be empty.");
         const root = await rootContext();
         const journal = await loadJournal();
@@ -1248,5 +1199,5 @@ export function createProjectTools(
       }),
   };
 
-  return [list, read, search, createDirectory, createFile, editFile];
+  return [list, read, search, createFile, editFile];
 }

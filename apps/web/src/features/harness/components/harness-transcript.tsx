@@ -241,9 +241,13 @@ function toolLabel(item: HarnessItem) {
         : stringValue(input?.command) || stringValue(payload.command);
     return { prefix: "", text: command || "Command", mono: true };
   }
-  if (title === "list_project_files")
-    return { prefix: "Listed", text: inputPath || "project files" };
-  if (title === "search_project_files")
+  if (
+    ["list_project_files", "list_workspace_files", "list_files", "ls"].includes(
+      title,
+    )
+  )
+    return { prefix: "Listed", text: inputPath || "files" };
+  if (["search_project_files", "search_files", "grep"].includes(title))
     return {
       prefix: "Searched",
       text:
@@ -262,8 +266,8 @@ function toolLabel(item: HarnessItem) {
     };
   if (item.type === "web_search")
     return {
-      prefix: "Web search",
-      text: stringValue(payload.query) || item.title || "",
+      prefix: title === "fetch_url" ? "Fetched" : "Web search",
+      text: stringValue(input?.url) || stringValue(payload.query) || title,
     };
   return {
     prefix: "",

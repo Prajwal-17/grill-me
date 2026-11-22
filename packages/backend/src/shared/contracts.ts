@@ -671,6 +671,8 @@ export const projectPreparationActivitySchema = z.object({
 export type ProjectPreparationActivity = z.infer<
   typeof projectPreparationActivitySchema
 >;
+export const startingPointSchema = z.string().trim().min(1).max(400);
+
 export const projectFrozenSpecificationSchema = z.object({
   version: z.literal(1),
   challengeId: z.string().uuid(),
@@ -678,6 +680,7 @@ export const projectFrozenSpecificationSchema = z.object({
   challengeNumber: z.number().int().positive(),
   title: z.string().min(1).max(120),
   request: z.string().trim().min(1).max(4_000),
+  startingPoint: startingPointSchema.optional(),
   scope: z.enum(["focused", "feature", "system"]),
   difficulty: z.enum(["easy", "medium", "hard", "grill"]),
   problemStatement: z.string().min(1).max(5_000),

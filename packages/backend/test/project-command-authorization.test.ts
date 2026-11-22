@@ -114,6 +114,7 @@ type Behavior =
   | "cancel"
   | "fraud"
   | "fraud-no-run"
+  | "piped"
   | "duplicate";
 
 const todoCommand = "bun test test/shortener.test.ts";
@@ -205,7 +206,7 @@ class FakeCommandScaffoldModel implements ModelGateway {
       root: input.layout.projectRoot,
       journal: projectToolJournalContext(input.layout),
       signal: input.signal,
-    }).find((tool) => tool.name === "create_project_file")!;
+    }).find((tool) => tool.name === "write")!;
     for (const file of projectFiles)
       await create.execute(
         "call",
@@ -270,6 +271,16 @@ class FakeCommandScaffoldModel implements ModelGateway {
       case "fraud": {
         await run(command);
         return report(this.checkCommand, "failed", await this.runTodo(input));
+      }
+      case "piped": {
+        // Real-model failure from challenge #54: the check ran and succeeded,
+        // but through a piped variant of the reported command.
+        const piped = await run({
+          ...command,
+          command: `${command.command} 2>&1 | tail -8`,
+        });
+        expect(piped.status).toBe("succeeded");
+        return report(this.checkCommand, "passed", await this.runTodo(input));
       }
       case "fraud-no-run":
         return report(this.checkCommand, "passed", "not_run");
@@ -731,7 +742,36 @@ describe("authorized scaffold commands", () => {
       "failed",
     ]);
     expect(failed.error?.code).toBe("PROJECT_SCAFFOLD_INVALID");
-    expect(failed.error?.message).toContain("no matching server command");
+    expect(failed.error?.message).toContain(
+      "no execution of the exact reported command",
+    );
+  });
+
+  test("a piped variant of the executed check command never matches the reported check", async () => {
+    const root = await tempRoot();
+    const model = new FakeCommandScaffoldModel();
+    model.behavior = "piped";
+    const app = appWith(model, root);
+    const owner = await startProfile(
+      app,
+      `command-piped-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(app, owner.id);
+    const pending = await waitForCommand(app, owner.id, challenge.id, [
+      "pending",
+    ]);
+    await approve(app, owner.id, challenge.id, pending.command.id);
+    const failed = await waitForPreparation(app, owner.id, challenge.id, [
+      "failed",
+    ]);
+    expect(failed.error?.code).toBe("PROJECT_SCAFFOLD_INVALID");
+    expect(failed.error?.message).toContain("piped");
+    expect(failed.error?.message).toContain(`(${model.checkCommand})`);
+    // The real execution is preserved in the command history.
+    const piped = failed.commands.find((entry) =>
+      entry.command.includes("tail -8"),
+    );
+    expect(piped?.status).toBe("succeeded");
   });
 
   test("double approval claims a command once and never duplicates execution", async () => {
@@ -857,7 +897,7 @@ describe("command tool isolation", () => {
       fauxAssistantMessage(
         projectFiles.map((file, index) =>
           fauxToolCall(
-            "create_project_file",
+            "write",
             { path: file.path, content: file.content },
             { id: `create-${index}` },
           ),
@@ -866,7 +906,7 @@ describe("command tool isolation", () => {
       ),
       fauxAssistantMessage(
         [
-          fauxToolCall("run_project_command", {
+          fauxToolCall("shell", {
             purpose: "check",
             checkId: "verify",
             command: checkCommand,
@@ -874,7 +914,7 @@ describe("command tool isolation", () => {
             install: false,
             network: false,
           }),
-          fauxToolCall("run_project_command", {
+          fauxToolCall("shell", {
             purpose: "check",
             checkId: "todo",
             command: todoCommand,

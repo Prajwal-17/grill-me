@@ -50,17 +50,48 @@ The workspace is created for one run, scrubbed of credentials, and deleted when
 generation finishes; built-in URL fetching only allows public `http` or `https`
 sources.
 
+## Agent tools
+
+Generation can inspect supplied attachments, fetch public HTTP or HTTPS URLs,
+and inspect temporary research files. There is no built-in web search or
+research shell. Reviews can list, read, and search workspace text. They never
+execute submitted code.
+
+Preparation uses `ls`, `read`, `grep`, `write`, and `edit` for project files.
+`grep` searches literal text. `write` requires a new path, and `edit` requires the
+last Grill Me file hash to match.
+When a question blocks preparation, answer or decline it in the Activity
+transcript. The existing generation clarification flow handles missing
+challenge requirements.
+
+Preparation uses `shell` to request commands. The authorization workflow records
+the exact command, project-relative working directory, install and network
+declarations, and outcome. Approved commands run as the local user. A project
+working directory and a reduced environment do not provide process or network
+isolation.
+
 ## Challenge workspaces
 
 Each challenge gets a local workspace folder with a frozen brief. Preparation
-uses your request and the brief to decide what belongs in `project/`. A
-from-scratch exercise can start with just `CHALLENGE.md`. An implementation
-exercise can get starter material, and a debugging exercise can get a usable
-project that exhibits the reported symptoms without clues to the defect.
-Files, tests, and setup commands are included when the exercise needs them.
+uses your request and the brief to decide what belongs in `project/`. The brief
+shows only the challenge contract — your request, the task, criteria, and
+boundaries — without your profile's technology list. An explicit starting point
+is saved with the brief.
+Only an explicit from-scratch request starts with just `CHALLENGE.md`; choosing
+your own layout or tooling, running offline, and exclusions such as no tests
+stay requirements, not a from-scratch signal. When no starting point is given,
+preparation sets up the minimal useful environment, such as a package manifest
+with the brief's dependencies, without prescribing your layout or writing any
+of the exercise. An implementation exercise can get starter material, and a
+debugging exercise can get a usable project that exhibits the reported symptoms
+without clues to the defect. Files, tests, and setup commands are included when
+the exercise needs them, and setup that is itself the exercise is left to you.
 
-Preparation reports list the checks that actually ran and identify verification
-that was skipped or blocked. A project can be ready to start without having
+Preparation never assumes network access: installing dependencies is a network
+command, even when the finished exercise runs offline, and it runs only with
+your authorization. Reports list the checks that actually ran, state what was
+created and verified, and honestly report any skipped dependency installation.
+A project can be ready to start without having
 passed runtime checks. Unresolved preparation failures are reported separately
 from intentional exercise behavior. Existing workspaces and saved reports stay
 readable.

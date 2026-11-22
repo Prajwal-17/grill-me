@@ -16,57 +16,85 @@ const completionReportSchema = projectScaffoldReportSchema.required({
 export function projectScaffoldTask(
   input: ProjectScaffoldModelInput,
 ): StructuredTask<unknown> {
+  const { specification, continuation, previousAttempt } = input;
+  const {
+    problemStatement,
+    expectedOutcome,
+    implementationBoundary,
+    acceptanceCriteria,
+  } = specification;
+  // Only deduplicate whole entries. Older statements may overlap with the
+  // criteria, but removing prose could change the frozen requirements.
+  const normalized = (value: string) => value.trim().replace(/\s+/g, " ");
+  const stated = new Set(
+    [problemStatement, implementationBoundary ?? "", ...acceptanceCriteria].map(
+      normalized,
+    ),
+  );
+  const includeOutcome = !stated.has(normalized(expectedOutcome));
+  stated.add(normalized(expectedOutcome));
+  const objectives = specification.objectives.filter(
+    (objective) => !stated.has(normalized(objective)),
+  );
   return {
     operation: "project_scaffolding",
-    instructions: projectScaffoldInstructions(Boolean(input.continuation)),
+    instructions: projectScaffoldInstructions(Boolean(continuation)),
     context: [
-      contextBlock("frozen_specification", input.specification, {
-        untrusted: false,
+      contextBlock("challenge", {
+        title: specification.title,
+        task: problemStatement,
+        acceptanceCriteria,
+        ...(implementationBoundary ? { implementationBoundary } : {}),
+        ...(includeOutcome ? { expectedOutcome } : {}),
+        ...(objectives.length ? { objectives } : {}),
+        scope: specification.scope,
+        difficulty: specification.difficulty,
+        durationEstimate: specification.durationEstimate,
+      }),
+      ...(specification.stack.experienceLevel
+        ? [
+            contextBlock("developer_context", {
+              experienceLevel: specification.stack.experienceLevel,
+            }),
+          ]
+        : []),
+      contextBlock("preparation", {
+        startingPoint:
+          specification.startingPoint ??
+          "Not specified. Prepare the minimal useful environment for the exercise and leave optional setup decisions open. Leave setup to the engineer only when the request or task explicitly gives it to them.",
       }),
       contextBlock(
-        "stack_and_model",
+        "workspace",
         {
-          stack: input.specification.stack,
-          requestedModel: input.specification.model.label,
-          projectRoot: input.layout.projectRoot,
-          projectDirectory: input.layout.projectDirectory,
+          root: ".",
+          note: "Tool paths are relative to the project root. Read CHALLENGE.md if you need the full saved brief.",
         },
         { untrusted: false },
       ),
-      contextBlock(
-        "project_layout",
-        {
-          note: "Use paths relative to the project root with the project tools. Never use an absolute path or escape the root.",
-          projectRoot: input.layout.projectRoot,
-          projectDirectory: input.layout.projectDirectory,
-          artifactsFolder:
-            "artifacts (challenge-owned, outside the project tools root)",
-        },
-        { untrusted: false },
-      ),
-      ...(input.continuation
+      ...(continuation
         ? [
             contextBlock(
               "resume_continuation",
               {
-                note: "This run continues the same project folder. Inspect the existing journaled files before editing, and report every journaled file when complete.",
-                resumedFromAttempt: input.continuation.resumedFromAttempt,
-                missingJournaledFiles: input.continuation.missingFiles,
-                missingJournaledFileCount: input.continuation.missingFileCount,
+                missingJournaledFiles: continuation.missingFiles,
+                missingJournaledFileCount: continuation.missingFileCount,
               },
               { untrusted: false },
             ),
           ]
         : []),
-      ...(input.previousAttempt
+      ...(previousAttempt
         ? [
-            contextBlock("previous_attempt", input.previousAttempt, {
-              untrusted: true,
+            contextBlock("previous_attempt", {
+              status: previousAttempt.status,
+              summary: previousAttempt.summary,
+              problems: previousAttempt.problems,
+              error: previousAttempt.error?.message,
             }),
           ]
         : []),
     ].join("\n\n"),
-    userText: input.specification.request,
+    userText: specification.request,
     completion: {
       name: "complete_project_scaffold",
       description:

@@ -3,15 +3,12 @@ import type { AgentPermissionMode } from "@repo/backend/shared/contracts";
 import { projectCommandLimits } from "../../../challenges/project-command-runner";
 import type { ProjectCommandExecutor } from "../../../challenges/project-command.types";
 import { AppError } from "../../../../shared/errors/app-error";
-import {
-  permissionDecisionFor,
-  type PermissionAsk,
-} from "../permission-policy";
+import { permissionDecisionFor } from "../permission-policy";
 
 const purposes = ["setup", "check", "run", "inspect"] as const;
 
 /**
- * The only command execution surface available to the scaffold task. It is
+ * The only command execution surface available to project preparation. It is
  * created with a per-run executor that persists an exact request. The central
  * permission policy decides whether the current mode allows, asks, or denies
  * the command scope before the executor records it.
@@ -20,13 +17,12 @@ export function createProjectCommandTool(
   execute: ProjectCommandExecutor,
   options?: {
     permissionMode?: AgentPermissionMode;
-    requestPermission?: PermissionAsk;
     signal?: AbortSignal;
   },
 ): AgentTool<any> {
   const mode = options?.permissionMode ?? "auto";
   return {
-    name: "run_project_command",
+    name: "shell",
     label: "Run authorized project command",
     description:
       "Run one exact command in the prepared project. The command is recorded with its working directory and install/network disclosures. The app-wide permission mode decides whether it runs, asks for approval, or is denied. A rejected or stale command never runs. Commands run as your local user account, not in a sandbox; network access is not isolated. Use purpose setup for dependency installation, check for a final check command with its exact checkId, run for a proposed run command, and inspect for exploratory commands. Report only the structured result returned here. Do not retry a rejected command unchanged.",
@@ -90,6 +86,8 @@ export function createProjectCommandTool(
       },
       callSignal?: AbortSignal,
     ) => {
+      options?.signal?.throwIfAborted();
+      callSignal?.throwIfAborted();
       const actions = [
         "run_command" as const,
         ...(params.install ? (["install"] as const) : []),
@@ -104,7 +102,7 @@ export function createProjectCommandTool(
         );
       // Ask uses the existing durable project command request, which is bound
       // to the preparation attempt and asks before spawning. Allow skips that
-      // pause; outside-workspace access is still denied above.
+      // pause. The executor validates the working directory and records the command.
       const result = await execute(
         {
           purpose: params.purpose as (typeof purposes)[number],

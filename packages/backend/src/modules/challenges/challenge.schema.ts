@@ -1,9 +1,20 @@
 import { z } from "zod";
-import { modelSelectionSchema } from "@repo/backend/shared/contracts";
+import {
+  modelSelectionSchema,
+  startingPointSchema,
+} from "@repo/backend/shared/contracts";
 import { messageAttachmentSchema } from "../messages/message.schema";
 import { requestsImplementation } from "./clarification-policy";
 
 export const buildScopeSchema = z.enum(["focused", "feature", "system"]);
+/** The composer may leave the scope choice to the model. */
+export const requestedScopeSchema = z.union([
+  buildScopeSchema,
+  z.literal("auto"),
+]);
+export const scopeResolutionResultSchema = z.strictObject({
+  scope: buildScopeSchema,
+});
 export const buildDifficultySchema = z.enum([
   "easy",
   "medium",
@@ -57,7 +68,7 @@ export const generatedBuildContentSchema = z.strictObject({
     estimatedDifficultyScore: true,
   }).shape,
   estimatedDifficultyBand: buildDifficultySchema,
-  // Generation saves the brief; the scaffold task materializes all source files.
+  startingPoint: startingPointSchema.optional(),
   implementationMilestones: z.array(milestoneSchema).max(7),
 });
 
@@ -142,7 +153,9 @@ const buildRequestSchema = z.object({
   attachments: z.array(messageAttachmentSchema).max(5).optional(),
 });
 
-export const prepareChallengeRequestSchema = buildRequestSchema;
+export const prepareChallengeRequestSchema = buildRequestSchema.extend({
+  scope: requestedScopeSchema,
+});
 
 export const enhanceBuildPromptSchema = z.object({
   prompt: z.string().trim().min(1).max(4_000),
@@ -159,6 +172,7 @@ export const clarificationContextSchema = z.object({
 export type ClarificationContext = z.infer<typeof clarificationContextSchema>;
 
 export const generateChallengeRequestSchema = buildRequestSchema.extend({
+  scope: requestedScopeSchema,
   clarificationContext: clarificationContextSchema.nullable().default(null),
   clarificationHistory: z.array(clarificationContextSchema).max(20).default([]),
 });
@@ -240,6 +254,7 @@ export type Challenge = z.infer<typeof challengeSchema>;
 export type ChallengeContent = z.infer<typeof challengeContentSchema>;
 export type GeneratedBuildContent = z.infer<typeof generatedBuildContentSchema>;
 export type BuildScope = z.infer<typeof buildScopeSchema>;
+export type RequestedBuildScope = z.infer<typeof requestedScopeSchema>;
 export type BuildDifficulty = z.infer<typeof buildDifficultySchema>;
 export type DurationEstimate = z.infer<typeof durationEstimateSchema>;
 export type ChallengePreparation = z.infer<typeof challengePreparationSchema>;

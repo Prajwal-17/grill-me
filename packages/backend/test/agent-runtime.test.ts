@@ -62,14 +62,10 @@ test("the embedded Pi runtime completes a real multi-turn tool cycle and a valid
   expect(faux.state.callCount).toBe(2);
 });
 
-test("structured generation runs can write and read their temporary research workspace", async () => {
+test("structured generation can inspect its temporary research workspace", async () => {
   const { faux, resolved } = resolvedModel();
   faux.setResponses([
-    fauxAssistantMessage(
-      [fauxToolCall("write_file", { path: "notes.txt", content: "captured" })],
-      { stopReason: "toolUse" },
-    ),
-    fauxAssistantMessage([fauxToolCall("read_file", { path: "notes.txt" })], {
+    fauxAssistantMessage([fauxToolCall("ls", {})], {
       stopReason: "toolUse",
     }),
     fauxAssistantMessage(
@@ -87,12 +83,15 @@ test("structured generation runs can write and read their temporary research wor
     allowResearch: true,
   });
   expect(result.value).toEqual({ value: "verified" });
-  expect(result.toolCallCount).toBe(3);
-  const readResult = result.messages.find(
-    (message) =>
-      message.role === "toolResult" && message.toolName === "read_file",
-  );
-  expect(JSON.stringify(readResult)).toContain("captured");
+  expect(result.toolCallCount).toBe(2);
+  expect(
+    result.messages.some(
+      (message) =>
+        message.role === "toolResult" &&
+        message.toolName === "ls" &&
+        !message.isError,
+    ),
+  ).toBe(true);
 });
 
 test("reports the captured prompt, offered tools, and assistant start to run recorders", async () => {

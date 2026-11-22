@@ -1,4 +1,3 @@
-import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import {
@@ -17,11 +16,7 @@ import { dirname, extname, join, relative, resolve, sep } from "node:path";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 
 const MAX_READ_BYTES = 2 * 1024 * 1024;
-const MAX_WRITE_BYTES = 1024 * 1024;
 const MAX_TEXT_CHARS = 120_000;
-const MAX_COMMAND_OUTPUT = 64 * 1024;
-const MAX_COMMAND_TIMEOUT_MS = 120_000;
-const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 const MAX_FETCH_BYTES = 8 * 1024 * 1024;
 const DEFAULT_FETCH_BYTES = 2 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -113,120 +108,6 @@ function imageExtension(contentType: string) {
     ([, value]) => value === contentType,
   );
   return entry?.[0] ?? ".bin";
-}
-
-function commandEnvironment(root: string): NodeJS.ProcessEnv {
-  const names = [
-    "PATH",
-    "Path",
-    "LANG",
-    "LC_ALL",
-    "LC_CTYPE",
-    "TZ",
-    "TERM",
-    "SHELL",
-    "ComSpec",
-    "SystemRoot",
-    "WINDIR",
-  ];
-  const environment: NodeJS.ProcessEnv = {};
-  for (const name of names) {
-    const value = process.env[name];
-    if (value) environment[name] = value;
-  }
-  environment.HOME = root;
-  environment.TMPDIR = root;
-  environment.TMP = root;
-  environment.TEMP = root;
-  return environment;
-}
-
-function runProcess(
-  command: string,
-  root: string,
-  signal: AbortSignal | undefined,
-  timeoutMs: number,
-): Promise<{ output: string; code: number | null }> {
-  return new Promise((resolvePromise, reject) => {
-    const shell =
-      process.platform === "win32"
-        ? { command: "cmd.exe", args: ["/d", "/s", "/c", command] }
-        : { command: "/bin/sh", args: ["-lc", command] };
-    const child = spawn(shell.command, shell.args, {
-      cwd: root,
-      env: commandEnvironment(root),
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: process.platform !== "win32",
-      windowsHide: true,
-    });
-    const chunks: Buffer[] = [];
-    let bytes = 0;
-    let finished = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const finish = (callback: () => void) => {
-      if (finished) return;
-      finished = true;
-      if (timer) clearTimeout(timer);
-      signal?.removeEventListener("abort", abort);
-      callback();
-    };
-    const kill = () => {
-      if (!child.pid) return;
-      try {
-        if (process.platform === "win32") child.kill("SIGKILL");
-        else process.kill(-child.pid, "SIGKILL");
-      } catch {
-        child.kill("SIGKILL");
-      }
-    };
-    const collect = (chunk: Buffer) => {
-      if (bytes >= MAX_COMMAND_OUTPUT) return;
-      const remaining = MAX_COMMAND_OUTPUT - bytes;
-      const slice = chunk.subarray(0, remaining);
-      chunks.push(slice);
-      bytes += slice.length;
-      if (bytes >= MAX_COMMAND_OUTPUT) kill();
-    };
-    const abort = () =>
-      finish(() => {
-        kill();
-        reject(new Error("The command was cancelled."));
-      });
-    timer = setTimeout(
-      () =>
-        finish(() => {
-          kill();
-          reject(
-            new Error(
-              `The command timed out after ${Math.round(timeoutMs / 1000)} seconds.`,
-            ),
-          );
-        }),
-      timeoutMs,
-    );
-    if (signal) {
-      if (signal.aborted) {
-        finish(() => reject(new Error("The command was cancelled.")));
-        return;
-      }
-      signal.addEventListener("abort", abort, { once: true });
-    }
-    child.stdout?.on("data", collect);
-    child.stderr?.on("data", collect);
-    child.on("error", (error) =>
-      finish(() =>
-        reject(new Error(`Could not run the command: ${error.message}`)),
-      ),
-    );
-    child.on("close", (code) =>
-      finish(() =>
-        resolvePromise({
-          output: Buffer.concat(chunks).toString("utf8"),
-          code,
-        }),
-      ),
-    );
-  });
 }
 
 function isPrivateAddress(address: string) {
@@ -363,7 +244,7 @@ export function createResearchTools(
       >);
 
   const list: AgentTool<any> = {
-    name: "list_files",
+    name: "ls",
     label: "List files",
     description:
       "List files in the temporary research workspace. Use this to see files you saved or downloaded.",
@@ -415,7 +296,7 @@ export function createResearchTools(
   };
 
   const read: AgentTool<any> = {
-    name: "read_file",
+    name: "read",
     label: "Read file",
     description:
       "Read a text file from the temporary research workspace. Use startLine and lineCount for large files. Supported images are returned as images when the selected model can view them.",
@@ -474,7 +355,9 @@ export function createResearchTools(
         };
       }
       if (binary(buffer))
-        throw new Error("That file is binary. Use a command to process it.");
+        throw new Error(
+          "That file is binary. This format is not available as inline text.",
+        );
       const lines = buffer.toString("utf8").split("\n");
       const start = Math.max((params.startLine ?? 1) - 1, 0);
       const count = Math.min(
@@ -503,88 +386,8 @@ export function createResearchTools(
     },
   };
 
-  const write: AgentTool<any> = {
-    name: "write_file",
-    label: "Write file",
-    description:
-      "Create or replace a text file in the temporary research workspace. Parent directories are created.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Relative file path." },
-        content: { type: "string", description: "Complete file contents." },
-      },
-      required: ["path", "content"],
-      additionalProperties: false,
-    },
-    execute: async (_toolCallId, params: { path: string; content: string }) => {
-      const bytes = Buffer.byteLength(params.content);
-      if (bytes > MAX_WRITE_BYTES)
-        throw new Error(
-          `That file exceeds the ${MAX_WRITE_BYTES / 1024 / 1024} MiB write limit.`,
-        );
-      const target = await writablePath(root, params.path);
-      await writeFile(target, params.content, "utf8");
-      return {
-        content: [text(`Wrote ${bytes} bytes to ${params.path}.`)],
-        details: { path: params.path, bytes },
-      };
-    },
-  };
-
-  const edit: AgentTool<any> = {
-    name: "edit_file",
-    label: "Edit file",
-    description:
-      "Replace an exact text fragment in a research workspace file. Fails unless the fragment is found once, or replaceAll is true.",
-    parameters: {
-      type: "object",
-      properties: {
-        path: { type: "string", description: "Relative file path." },
-        oldText: { type: "string", description: "Exact text to replace." },
-        newText: { type: "string", description: "Replacement text." },
-        replaceAll: {
-          type: "boolean",
-          description: "Replace every occurrence. Defaults to false.",
-        },
-      },
-      required: ["path", "oldText", "newText"],
-      additionalProperties: false,
-    },
-    execute: async (
-      _toolCallId,
-      params: {
-        path: string;
-        oldText: string;
-        newText: string;
-        replaceAll?: boolean;
-      },
-    ) => {
-      if (!params.oldText) throw new Error("oldText cannot be empty.");
-      await existingPath(root, params.path);
-      const target = await realpath(safeChild(root, params.path));
-      const original = await readFile(target, "utf8");
-      const matches = original.split(params.oldText).length - 1;
-      if (!matches) throw new Error("oldText was not found in that file.");
-      if (matches > 1 && !params.replaceAll)
-        throw new Error(
-          "oldText occurs more than once. Add surrounding context or set replaceAll.",
-        );
-      const next = params.replaceAll
-        ? original.split(params.oldText).join(params.newText)
-        : original.replace(params.oldText, params.newText);
-      if (Buffer.byteLength(next) > MAX_WRITE_BYTES)
-        throw new Error("The edited file would exceed the 1 MiB write limit.");
-      await writeFile(target, next, "utf8");
-      return {
-        content: [text(`Updated ${params.path}.`)],
-        details: { path: params.path, replacements: matches },
-      };
-    },
-  };
-
   const search: AgentTool<any> = {
-    name: "search_files",
+    name: "grep",
     label: "Search files",
     description:
       "Search research workspace text files for a literal string. Returns bounded matching lines with paths.",
@@ -648,60 +451,6 @@ export function createResearchTools(
           ),
         ],
         details: { matches: matches.length },
-      };
-    },
-  };
-
-  const command: AgentTool<any> = {
-    name: "run_command",
-    label: "Run command",
-    description:
-      "Run a shell command in the temporary research workspace. Use it to inspect downloaded files and data, or to run small local scripts. The working directory and HOME are the workspace; the host environment and credentials are not exposed.",
-    parameters: {
-      type: "object",
-      properties: {
-        command: { type: "string", description: "Shell command to run." },
-        timeoutSeconds: {
-          type: "integer",
-          minimum: 1,
-          maximum: 120,
-          description: "Timeout in seconds. Defaults to 30.",
-        },
-      },
-      required: ["command"],
-      additionalProperties: false,
-    },
-    execute: async (
-      _toolCallId,
-      params: { command: string; timeoutSeconds?: number },
-      callSignal?: AbortSignal,
-    ) => {
-      if (!params.command.trim()) throw new Error("Enter a command.");
-      const timeoutMs = Math.min(
-        Math.max(
-          Math.round(
-            (params.timeoutSeconds ?? DEFAULT_COMMAND_TIMEOUT_MS / 1_000) *
-              1_000,
-          ),
-          1_000,
-        ),
-        MAX_COMMAND_TIMEOUT_MS,
-      );
-      const result = await runProcess(
-        params.command,
-        root,
-        callSignal ?? options.signal,
-        timeoutMs,
-      );
-      const output = result.output.trim();
-      return {
-        content: [
-          text(
-            `Exit code: ${result.code ?? "unknown"}\n\n${output || "(no output)"}`,
-          ),
-        ],
-        details: { code: result.code, bytes: Buffer.byteLength(output) },
-        isError: result.code !== 0,
       };
     },
   };
@@ -841,7 +590,7 @@ export function createResearchTools(
             return {
               content: [
                 text(
-                  `Downloaded ${buffer.length} bytes from ${current.toString()} to ${saved}. Use a command to process it.`,
+                  `Downloaded ${buffer.length} bytes from ${current.toString()} to ${saved}. This format is not available as inline text.`,
                 ),
               ],
               details: {
@@ -885,5 +634,5 @@ export function createResearchTools(
     },
   };
 
-  return [list, read, write, edit, search, command, fetchUrl];
+  return [list, read, search, fetchUrl];
 }

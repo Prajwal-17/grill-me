@@ -364,7 +364,7 @@ export async function validateProjectScaffoldReport(
       );
     if (result.status === "passed" || result.status === "failed")
       throw invalid(
-        `Check ${check.id} reports "${result.status}", but there is no matching server command execution record. Run the exact check command first.`,
+        `Check ${check.id} reports "${result.status}", but no execution of the exact reported command (${check.command ?? "manual"}) is recorded. Submit the check again with this ID and the identical command text: piped, redirected, or decorated variants do not match, and diagnostic or inspect runs are not checks.`,
       );
     if (result.status === "blocked" && !setupDidFail)
       throw invalid(

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Added
+
+- New challenges can pick **Auto** as the build scope. When you are unsure
+  whether a request is Focused, Feature, or System, leave it to Auto: the model
+  judges the cooperating work your request implies and generates with that
+  scope, so you see the choice it made on the challenge.
+
+- Requests that ask for a real-world or production-like codebase can now get one
+  quick question before the challenge is created, offering concrete shapes such
+  as a compact service, a medium module-based codebase, or a larger established
+  codebase with data and history. Generation also treats such a request as a
+  workspace requirement instead of silently building a minimal sample, and
+  debugging briefs no longer name the layers or files where the defects hide.
+
 ### Changed
 
 - Give challenge generation, project preparation, review, and quizzes a shared
@@ -16,6 +30,34 @@
 - Keep enhanced requests close to what you wrote. Quiz generation focuses on
   clear questions at the selected difficulty and preserves the challenge's
   solution for you to work out.
+
+- Preparation can ask for a missing detail in Activity. Reviews can search
+  source text without running the code. Generation researches supplied links
+  and attachments without a shell.
+
+- Keep challenge briefs focused on the requested skill. Preparation uses the
+  saved requirements and any explicit starting point without treating your
+  profile's technologies as project requirements.
+
+- `CHALLENGE.md` now shows only the challenge contract. The profile technology
+  dump and agent-facing boilerplate are gone from new briefs, and the outcome is
+  no longer repeated as its own Objectives section. Briefs frozen by earlier
+  versions keep their exact bytes and stay valid.
+
+### Fixed
+
+- Preparation no longer leaves a project empty unless you explicitly asked to
+  build it from scratch. Choosing your own layout or tooling and requirements
+  such as running offline, using no API keys, or a fake model stay constraints:
+  when you did not specify a starting point, preparation now sets up the
+  minimal useful environment for the exercise, such as a package manifest with
+  its dependencies, without prescribing your layout or writing any of the
+  exercise. Dependency installation is treated as a network command that only
+  runs with your authorization, and a skipped install is reported honestly
+  instead of presenting the project as verified.
+
+- End challenge research with a focused request to submit the brief. Carry
+  source findings into that request and validate the result before saving.
 
 ## desktop-v0.3.3 - 21 Nov 2026
 

@@ -1,9 +1,10 @@
 import { constants } from "node:fs";
 import { access, lstat, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type {
-  ProjectFrozenSpecification,
-  ModelSelection,
+import {
+  startingPointSchema,
+  type ProjectFrozenSpecification,
+  type ModelSelection,
 } from "@repo/backend/shared/contracts";
 import {
   EXPERIENCE,
@@ -38,6 +39,9 @@ export function frozenProjectSpecification(input: {
   at?: Date;
 }): ProjectFrozenSpecification {
   const { challenge, preferences } = input;
+  const startingPoint = startingPointSchema.safeParse(
+    challenge.contextSnapshot?.startingPoint,
+  );
   return {
     version: 1,
     challengeId: challenge.id,
@@ -45,6 +49,7 @@ export function frozenProjectSpecification(input: {
     challengeNumber: challenge.number,
     title: challenge.title,
     request: input.request.trim().slice(0, 4_000),
+    ...(startingPoint.success ? { startingPoint: startingPoint.data } : {}),
     scope: challenge.scope,
     difficulty: challenge.difficulty,
     problemStatement: challenge.problemStatement,
@@ -83,11 +88,27 @@ function list(items: readonly string[], ordered = false) {
     .join("\n");
 }
 
-/** The visible, immutable challenge contract written before preparation runs. */
+/**
+ * Renderings of the frozen brief that have shipped. Existing projects keep
+ * their frozen bytes; only new briefs use the current layout.
+ *
+ * - "current": the challenge contract only — no profile technology dump and no
+ *   agent-facing boilerplate.
+ * - "previous": the layout before the profile technology dump was removed.
+ * - "legacy": the original layout that described TODO-style scaffolding.
+ */
+export type ChallengeMarkdownVariant = "current" | "previous" | "legacy";
+
+function normalizedText(value: string) {
+  return value.trim().replace(/\s+/g, " ");
+}
+
 export function projectChallengeMarkdown(
   specification: ProjectFrozenSpecification,
-  legacy = false,
+  variant: ChallengeMarkdownVariant | boolean = "current",
 ) {
+  const resolved: ChallengeMarkdownVariant =
+    typeof variant === "boolean" ? (variant ? "legacy" : "current") : variant;
   const sections = [
     `# Challenge #${specification.challengeNumber}: ${specification.title}`,
     `> Frozen preparation specification. Project preparation and later reviews use this contract. Do not rewrite its requirements.\n>\n> Frozen ${specification.frozenAt}`,
@@ -98,40 +119,56 @@ export function projectChallengeMarkdown(
       specification.acceptanceCriteria,
       true,
     )}`,
-    `## Objectives\n\n${list(specification.objectives, true)}`,
   ];
+  // Exercises without milestones store the outcome as the single objective;
+  // repeating it as its own section adds nothing to the visible contract.
+  const [firstObjective] = specification.objectives;
+  const duplicateObjectives =
+    specification.objectives.length === 1 &&
+    normalizedText(firstObjective ?? "") ===
+      normalizedText(specification.expectedOutcome);
+  if (resolved !== "current" || !duplicateObjectives)
+    sections.push(`## Objectives\n\n${list(specification.objectives, true)}`);
   if (specification.implementationBoundary)
     sections.push(
       `## Implementation boundary\n\n${specification.implementationBoundary.trim()}`,
     );
-  const stack = [
-    specification.stack.languages.length
-      ? `Languages: ${specification.stack.languages.join(", ")}`
-      : "",
-    specification.stack.stack.length
-      ? `Frameworks and tools: ${specification.stack.stack.join(", ")}`
-      : "",
-    specification.stack.experienceLevel
-      ? `Experience: ${specification.stack.experienceLevel}`
-      : "",
-    specification.stack.currentFocus
-      ? `Current focus: ${specification.stack.currentFocus}`
-      : "",
-  ].filter(Boolean);
-  sections.push(
-    [
-      "## Preparation context",
-      `Scope: ${specification.scope}. Difficulty: ${specification.difficulty}. Estimated duration: ${specification.durationEstimate.minMinutes}–${specification.durationEstimate.maxMinutes} minutes.`,
-      ...(stack.length ? [stack.join("\n")] : []),
-      "Not every project uses JavaScript or Node. Follow the frozen stack and language implied by the request.",
-    ].join("\n\n"),
-  );
+  if (specification.startingPoint)
+    sections.push(
+      `## Requested starting point\n\n${specification.startingPoint}`,
+    );
+  if (resolved === "previous" || resolved === "legacy") {
+    const stack = [
+      specification.stack.languages.length
+        ? `Languages: ${specification.stack.languages.join(", ")}`
+        : "",
+      specification.stack.stack.length
+        ? `Frameworks and tools: ${specification.stack.stack.join(", ")}`
+        : "",
+      specification.stack.experienceLevel
+        ? `Experience: ${specification.stack.experienceLevel}`
+        : "",
+      specification.stack.currentFocus
+        ? `Current focus: ${specification.stack.currentFocus}`
+        : "",
+    ].filter(Boolean);
+    sections.push(
+      [
+        "## Preparation context",
+        `Scope: ${specification.scope}. Difficulty: ${specification.difficulty}. Estimated duration: ${specification.durationEstimate.minMinutes}–${specification.durationEstimate.maxMinutes} minutes.`,
+        ...(stack.length ? [stack.join("\n")] : []),
+        "Not every project uses JavaScript or Node. Follow the frozen stack and language implied by the request.",
+      ].join("\n\n"),
+    );
+  }
   sections.push(
     [
       "## Project boundary",
-      legacy
+      resolved === "legacy"
         ? "This folder is the prepared practice project. Grill Me writes separate implementation, configuration, migration, fixture, documentation, rubric, milestone, and test files here. The exercise's core interfaces and reasoning stay as explicit TODO work for the developer."
-        : "This folder holds the challenge and any starting material it needs. Follow the original request and task to see what is provided and what you are expected to set up or investigate.",
+        : resolved === "previous"
+          ? "This folder holds the challenge and any starting material it needs. Follow the original request and task to see what is provided and what you are expected to set up or investigate."
+          : "Preparation may add starting material next to this brief. It never silently replaces existing files, and a failed, cancelled, or interrupted run leaves every partial file in place.",
       "Existing files are never silently replaced. Failed, cancelled, or interrupted preparation leaves every partial file in place.",
     ].join("\n\n"),
   );
@@ -143,8 +180,9 @@ export function matchesFrozenSpecification(
   specification: ProjectFrozenSpecification,
 ) {
   return (
-    content === projectChallengeMarkdown(specification) ||
-    content === projectChallengeMarkdown(specification, true)
+    content === projectChallengeMarkdown(specification, "current") ||
+    content === projectChallengeMarkdown(specification, "previous") ||
+    content === projectChallengeMarkdown(specification, "legacy")
   );
 }
 

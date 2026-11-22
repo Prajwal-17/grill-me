@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
+import {
+  fauxAssistantMessage,
+  fauxToolCall,
+  getCurrentTools,
+} from "@earendil-works/pi-ai";
 import { createPiGateway } from "@repo/backend/modules/ai/agent/gateway";
 import { db } from "@repo/backend/shared/database/db";
 import { challenges, profiles } from "@repo/backend/shared/database/schema";
@@ -117,7 +121,17 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
       }),
     ]);
 
-  structured("complete_preparation", { question: null, options: [] });
+  faux.setResponses([
+    (context) => {
+      expect(
+        getCurrentTools(context.messages).map((tool) => tool.name),
+      ).toEqual(["complete_preparation"]);
+      return fauxAssistantMessage(
+        [fauxToolCall("complete_preparation", { question: null, options: [] })],
+        { stopReason: "toolUse" },
+      );
+    },
+  ]);
   expect(
     await gateway.prepareBuild({
       prompt: "Practice TypeScript grouping",
@@ -128,12 +142,51 @@ test("the Pi gateway implements every existing ModelGateway method with a fake p
     }),
   ).toEqual({ question: null, options: [] });
 
-  structured("complete_challenge", {
+  // Reproduce the transcript: the model keeps calling research tools even
+  // after they disappear. Those calls must not get echoed into finalization.
+  const result = {
     status: "ready",
     challenge: build,
     question: null,
     options: [],
-  });
+  };
+  const checkFinalContext = (
+    messages: Parameters<typeof getCurrentTools>[0],
+  ) => {
+    expect(getCurrentTools(messages).map((tool) => tool.name)).toEqual([
+      "complete_challenge",
+    ]);
+    expect(messages.some((message) => message.role === "toolResult")).toBe(
+      false,
+    );
+    expect(JSON.stringify(messages)).toContain(
+      "The research workspace is empty.",
+    );
+  };
+  faux.setResponses([
+    ...Array.from({ length: 8 }, () =>
+      fauxAssistantMessage([fauxToolCall("ls", {})], { stopReason: "toolUse" }),
+    ),
+    (context) => {
+      checkFinalContext(context.messages);
+      return fauxAssistantMessage(
+        [fauxToolCall("read", { path: "pi-readme.md" })],
+        {
+          stopReason: "toolUse",
+        },
+      );
+    },
+    (context) => {
+      checkFinalContext(context.messages);
+      return fauxAssistantMessage(
+        JSON.stringify({ ...result, challenge: null }),
+      );
+    },
+    (context) => {
+      checkFinalContext(context.messages);
+      return fauxAssistantMessage(JSON.stringify(result));
+    },
+  ]);
   expect(
     await gateway.generateBuild({
       prompt: "Practice TypeScript grouping",

@@ -140,7 +140,8 @@ export type GenerateBuildRequest = {
   emphasis?: string | null;
 
   prompt: string;
-  scope: BuildScope;
+  /** "auto" asks the model to judge the scope from the request. */
+  scope: BuildScope | "auto";
   difficulty: BuildDifficulty;
   attachments?: MessageAttachment[];
   clarificationContext: ClarificationContext | null;

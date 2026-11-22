@@ -180,9 +180,7 @@ async function createFile(
   path: string,
   content: string,
 ) {
-  const create = toolsFor(input).find(
-    (tool) => tool.name === "create_project_file",
-  )!;
+  const create = toolsFor(input).find((tool) => tool.name === "write")!;
   return create.execute("call", { path, content }, undefined);
 }
 
@@ -680,9 +678,7 @@ describe("project preparation recovery", () => {
       journal: projectToolJournalContext(layout),
       signal: model.inputs[0]!.signal,
     });
-    const create = lateTools.find(
-      (tool) => tool.name === "create_project_file",
-    )!;
+    const create = lateTools.find((tool) => tool.name === "write")!;
     await expect(
       create.execute(
         "late-call",
@@ -707,9 +703,7 @@ describe("project preparation recovery", () => {
       // The new run can inspect existing files and recreate only the tracked
       // missing file explicitly reported by the backend.
       expect(input.continuation?.missingFiles).toContain("README.md");
-      const read = toolsFor(input).find(
-        (tool) => tool.name === "read_project_file",
-      )!;
+      const read = toolsFor(input).find((tool) => tool.name === "read")!;
       const content = await read.execute(
         "read",
         { path: "src/main.ts" },
@@ -1217,9 +1211,7 @@ describe("project preparation recovery", () => {
         await writeProjectFiles(input, projectFiles);
         return waitUntilAborted(input);
       }
-      const edit = toolsFor(input).find(
-        (tool) => tool.name === "edit_project_file",
-      )!;
+      const edit = toolsFor(input).find((tool) => tool.name === "edit")!;
       await edit.execute(
         "edit",
         {

@@ -29,15 +29,7 @@ test("task tools grant nothing unless a saved snapshot or research workspace is 
         allowResearch: true,
         researchWorkspace: root,
       }).map((tool) => tool.name),
-    ).toEqual([
-      "list_files",
-      "read_file",
-      "write_file",
-      "edit_file",
-      "search_files",
-      "run_command",
-      "fetch_url",
-    ]);
+    ).toEqual(["ls", "read", "grep", "fetch_url"]);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -74,35 +66,26 @@ test("snapshot tools only read manifest paths inside the saved submission", asyn
   }
 });
 
-test("research tools read, write, search, and run commands inside the workspace", async () => {
+test("research tools inspect temporary files without exposing a shell", async () => {
   const root = await mkdtemp(join(tmpdir(), "grill-research-tool-"));
   try {
     const tools = createResearchTools({ workspace: root });
-    const write = tools.find((tool) => tool.name === "write_file")!;
-    await write.execute(
-      "call",
-      { path: "notes/answer.txt", content: "Alpha\nBeta answer\n" },
-      undefined,
-    );
-    const read = tools.find((tool) => tool.name === "read_file")!;
+    await writeFile(join(root, "answer.txt"), "Alpha\nBeta answer\n");
+    const read = tools.find((tool) => tool.name === "read")!;
     expect(
-      (await read.execute("call", { path: "notes/answer.txt" }, undefined))
+      (await read.execute("call", { path: "answer.txt" }, undefined))
         .content[0],
     ).toMatchObject({ type: "text", text: "Alpha\nBeta answer\n" });
-    const search = tools.find((tool) => tool.name === "search_files")!;
+    const search = tools.find((tool) => tool.name === "grep")!;
     expect(
       (await search.execute("call", { query: "answer" }, undefined)).content[0],
     ).toMatchObject({
       type: "text",
-      text: "notes/answer.txt:2: Beta answer",
+      text: "answer.txt:2: Beta answer",
     });
-    const list = tools.find((tool) => tool.name === "list_files")!;
+    const list = tools.find((tool) => tool.name === "ls")!;
     expect(
       (await list.execute("call", {}, undefined)).content[0],
-    ).toMatchObject({ type: "text" });
-    const command = tools.find((tool) => tool.name === "run_command")!;
-    expect(
-      (await command.execute("call", { command: "pwd" }, undefined)).content[0],
     ).toMatchObject({ type: "text" });
     await expect(
       read.execute("call", { path: "../outside.txt" }, undefined),

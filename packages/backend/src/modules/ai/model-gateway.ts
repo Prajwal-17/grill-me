@@ -140,6 +140,11 @@ export type ProjectScaffoldModelInput = {
    * this capability; conversational tasks never do.
    */
   runProjectCommand?: ProjectCommandExecutor;
+  /** Ask a blocking question through the current preparation transcript. */
+  requestUserInput?: (
+    question: string,
+    signal?: AbortSignal,
+  ) => Promise<string | null>;
   /** Persisted command executions used to validate honest check results. */
   commandResults?: () => Promise<ProjectCommand[]>;
 };
@@ -149,6 +154,14 @@ export type ReviewModelInput = {
   challengeId: string;
   challenge: Challenge;
   workspacePath: string;
+  selection?: ModelSelection;
+  signal?: AbortSignal;
+  harness?: HarnessRunRequest;
+};
+
+export type ScopeResolutionInput = {
+  prompt: string;
+  learner: LearnerContext;
   selection?: ModelSelection;
   signal?: AbortSignal;
   harness?: HarnessRunRequest;
@@ -182,6 +195,10 @@ export interface ModelGateway {
     input: Omit<BuildModelInput, "clarificationContext">,
   ): Promise<ChallengePreparation>;
   generateBuild(input: BuildModelInput): Promise<BuildGenerationResult>;
+  /** Chooses focused, feature, or system when the engineer selected Auto. */
+  resolveBuildScope?(
+    input: ScopeResolutionInput,
+  ): Promise<{ scope: BuildScope }>;
   scaffoldProject?(
     input: ProjectScaffoldModelInput,
   ): Promise<ProjectScaffoldReport>;

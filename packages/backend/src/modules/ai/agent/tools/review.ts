@@ -1,4 +1,5 @@
-import { lstat, readFile, readdir, realpath, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import { lstat, open, readdir, realpath, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { AppError } from "../../../../shared/errors/app-error";
@@ -10,6 +11,8 @@ import { projectRelativePath } from "../../../challenges/project-workspace";
  */
 export const reviewToolLimits = {
   maxFiles: 400,
+  maxVisitedEntries: 4_000,
+  maxSearchBytes: 8 * 1024 * 1024,
   maxDepth: 8,
   maxReadBytes: 512 * 1024,
   maxTextChars: 120_000,
@@ -74,11 +77,66 @@ async function reviewRoot(path: string) {
   return realpath(root);
 }
 
+function visiblePath(path: string) {
+  const normalized = projectRelativePath(path);
+  if (
+    normalized
+      .split("/")
+      .some((part) => ignoredDirectories.has(part.toLowerCase())) ||
+    ignoredFiles.has(normalized.split("/").at(-1)!)
+  )
+    throw new Error("That path is hidden from workspace inspection.");
+  return normalized;
+}
+
+async function resolveEntry(root: string, path: string) {
+  const relativePath = visiblePath(path);
+  const target = join(root, relativePath);
+  const canonical = await realpath(target);
+  if (canonical !== target || !inside(root, canonical))
+    throw new Error("Symbolic links cannot be inspected.");
+  const info = await lstat(target);
+  if (info.isSymbolicLink())
+    throw new Error("Symbolic links cannot be inspected.");
+  return { target, info, relativePath };
+}
+
+async function readReviewFile(root: string, path: string) {
+  const { target, info, relativePath } = await resolveEntry(root, path);
+  if (!info.isFile()) throw new Error("That path is not a regular file.");
+  const handle = await open(
+    target,
+    constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+  );
+  try {
+    const current = await handle.stat();
+    if (
+      !current.isFile() ||
+      current.dev !== info.dev ||
+      current.ino !== info.ino
+    )
+      throw new Error("That file changed during inspection.");
+    if (current.size > reviewToolLimits.maxReadBytes)
+      throw new Error(
+        `That file exceeds the ${Math.round(reviewToolLimits.maxReadBytes / 1024)} KiB review limit.`,
+      );
+    const buffer = Buffer.alloc(current.size);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    const contents = buffer.subarray(0, bytesRead);
+    if (isBinary(contents))
+      throw new Error("That file is binary and cannot be reviewed.");
+    return { buffer: contents, relativePath };
+  } finally {
+    await handle.close();
+  }
+}
+
 async function walk(
   root: string,
   visit: (entry: { path: string; bytes: number }) => boolean,
 ) {
   let files = 0;
+  let visited = 0;
   let truncated = false;
   const step = async (directory: string, depth: number) => {
     if (files >= reviewToolLimits.maxFiles) {
@@ -93,15 +151,22 @@ async function walk(
     }
     children.sort((a, b) => a.name.localeCompare(b.name));
     for (const child of children) {
-      if (files >= reviewToolLimits.maxFiles) {
+      if (
+        ++visited > reviewToolLimits.maxVisitedEntries ||
+        files >= reviewToolLimits.maxFiles
+      ) {
         truncated = true;
         return;
       }
       if (child.isSymbolicLink()) continue;
       const childPath = join(directory, child.name);
       const display = relative(root, childPath).split(sep).join("/");
+      try {
+        visiblePath(display);
+      } catch {
+        continue;
+      }
       if (child.isDirectory()) {
-        if (ignoredDirectories.has(child.name.toLowerCase())) continue;
         if (depth < reviewToolLimits.maxDepth) await step(childPath, depth + 1);
         else truncated = true;
       } else if (child.isFile()) {
@@ -135,7 +200,7 @@ export async function reviewWorkspaceInventory(
 
 export function createReviewTools(path: string): AgentTool<any>[] {
   const list: AgentTool<any> = {
-    name: "list_workspace_files",
+    name: "ls",
     label: "List workspace files",
     description:
       "List files in the challenge workspace with their sizes. Paths are relative to the workspace root. Dependency output, VCS data, and Grill Me metadata are hidden; symbolic links are never followed.",
@@ -159,11 +224,13 @@ export function createReviewTools(path: string): AgentTool<any>[] {
           409,
         );
       const requested = params.path?.trim();
-      const directory = requested
-        ? join(root, projectRelativePath(requested))
-        : root;
-      const info = await stat(directory).catch(() => null);
-      if (!info?.isDirectory()) throw new Error("That path is not a folder.");
+      const entry =
+        requested && requested !== "."
+          ? await resolveEntry(root, requested)
+          : null;
+      if (entry && !entry.info.isDirectory())
+        throw new Error("That path is not a folder.");
+      const directory = entry?.target ?? root;
       const entries = await walkFiles(
         root,
         directory,
@@ -179,7 +246,7 @@ export function createReviewTools(path: string): AgentTool<any>[] {
   };
 
   const read: AgentTool<any> = {
-    name: "read_workspace_file",
+    name: "read",
     label: "Read workspace file",
     description:
       "Read a text file from the challenge workspace. Lines are prefixed with their 1-based line number. Symbolic links, dependency output, and credential files are inaccessible.",
@@ -207,22 +274,7 @@ export function createReviewTools(path: string): AgentTool<any>[] {
       params: { path: string; startLine?: number; lineCount?: number },
     ) => {
       const root = await reviewRoot(path);
-      const relativePath = projectRelativePath(params.path);
-      const candidate = join(root, relativePath);
-      const info = await lstat(candidate).catch(() => null);
-      if (!info?.isFile()) throw new Error("That file does not exist.");
-      if (info.isSymbolicLink())
-        throw new Error("Symbolic links cannot be reviewed.");
-      const real = await realpath(candidate).catch(() => null);
-      if (!real || !inside(root, real))
-        throw new Error("That file is outside the challenge workspace.");
-      if (info.size > reviewToolLimits.maxReadBytes)
-        throw new Error(
-          `That file exceeds the ${Math.round(reviewToolLimits.maxReadBytes / 1024)} KiB review limit.`,
-        );
-      const buffer = await readFile(real);
-      if (isBinary(buffer))
-        throw new Error("That file is binary and cannot be reviewed.");
+      const { buffer, relativePath } = await readReviewFile(root, params.path);
       const lines = buffer.toString("utf8").split("\n");
       const startLine = Math.max(params.startLine ?? 1, 1);
       const lineCount = Math.min(
@@ -248,7 +300,86 @@ export function createReviewTools(path: string): AgentTool<any>[] {
     },
   };
 
-  return [list, read];
+  const search: AgentTool<any> = {
+    name: "grep",
+    label: "Search workspace files",
+    description:
+      "Search visible workspace text files for literal text. Returns paths and line numbers.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", minLength: 1, maxLength: 500 },
+        maxResults: { type: "integer", minimum: 1, maximum: 100 },
+      },
+      required: ["query"],
+      additionalProperties: false,
+    },
+    execute: async (
+      _id,
+      params: { query: string; maxResults?: number },
+      signal?: AbortSignal,
+    ) => {
+      const query = params.query.trim().toLowerCase();
+      if (!query || query.length > 500)
+        throw new Error("Enter 1–500 characters to search.");
+      const limit = Math.min(Math.max(params.maxResults ?? 30, 1), 100);
+      const inventory = await reviewWorkspaceInventory(path);
+      const matches: string[] = [];
+      let scannedBytes = 0;
+      let truncated = inventory.truncated;
+      for (const file of inventory.files) {
+        signal?.throwIfAborted();
+        if (file.bytes > reviewToolLimits.maxReadBytes) {
+          truncated = true;
+          continue;
+        }
+        if (
+          matches.length >= limit ||
+          scannedBytes + file.bytes > reviewToolLimits.maxSearchBytes
+        ) {
+          truncated = true;
+          break;
+        }
+        const entry = await readReviewFile(inventory.root, file.path).catch(
+          () => null,
+        );
+        if (!entry) {
+          truncated = true;
+          continue;
+        }
+        scannedBytes += entry.buffer.length;
+        for (const [index, line] of entry.buffer
+          .toString("utf8")
+          .split("\n")
+          .entries()) {
+          const start = line.toLowerCase().indexOf(query);
+          if (start < 0) continue;
+          if (matches.length >= limit) {
+            truncated = true;
+            break;
+          }
+          matches.push(
+            `${file.path}:${index + 1}: ${line.slice(Math.max(0, start - 60), start + 240)}`,
+          );
+        }
+      }
+      return {
+        content: [
+          text(
+            [
+              matches.join("\n") || "No matches in inspected files.",
+              ...(truncated
+                ? ["[search incomplete: some files or results were skipped]"]
+                : []),
+            ].join("\n"),
+          ),
+        ],
+        details: { matches: matches.length, truncated },
+      };
+    },
+  };
+
+  return [list, read, search];
 }
 
 async function walkFiles(root: string, directory: string, limit: number) {
@@ -264,8 +395,12 @@ async function walkFiles(root: string, directory: string, limit: number) {
       if (entries.length >= limit) return;
       if (child.isSymbolicLink()) continue;
       const childPath = join(current, child.name);
+      try {
+        visiblePath(display(childPath));
+      } catch {
+        continue;
+      }
       if (child.isDirectory()) {
-        if (ignoredDirectories.has(child.name.toLowerCase())) continue;
         entries.push(`${display(childPath)}/`);
         if (depth < reviewToolLimits.maxDepth) await step(childPath, depth + 1);
       } else if (child.isFile()) {
