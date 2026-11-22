@@ -132,7 +132,7 @@ export type ProjectPreparationView = {
 const statusLabels: Record<ProjectPreparationStatus, string> = {
   not_started: "Not started",
   running: "Preparing",
-  ready: "Files prepared",
+  ready: "Preparation complete",
   failed: "Preparation failed",
   cancelled: "Cancelled",
   interrupted: "Interrupted",
@@ -169,11 +169,18 @@ function statusSummary(
 ) {
   switch (preparation.status) {
     case "not_started":
-      return "Generate project files, TODOs, and checks for this challenge.";
+      return "Prepare the starting environment this challenge needs.";
     case "running":
-      return "Preparing project files in the background.";
-    case "ready":
-      return reportSummary ?? "Project files and checks are ready.";
+      return "Preparing the challenge in the background.";
+    case "ready": {
+      const summary = reportSummary ?? "Preparation complete.";
+      const verification = checkGroups(preparation.report).find(
+        (group) => group.id === "setup",
+      );
+      return verification
+        ? `${summary} Setup checks: ${verification.summary}.`
+        : `${summary} No setup checks recorded.`;
+    }
     default:
       return null;
   }

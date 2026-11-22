@@ -1,5 +1,12 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { readFile, mkdtemp, rm, stat } from "node:fs/promises";
+import {
+  readFile,
+  mkdtemp,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fauxAssistantMessage, fauxToolCall } from "@earendil-works/pi-ai";
@@ -29,14 +36,17 @@ import type {
 import {
   createProjectWorkspace,
   projectLayout,
+  projectFileRecord,
+  withGeneratedFile,
+  writeProjectJournal,
 } from "@repo/backend/modules/challenges/project-workspace";
 import {
   frozenProjectSpecification,
+  projectChallengeMarkdown,
   writeFrozenSpecification,
 } from "@repo/backend/modules/challenges/project-preparation.spec";
 import { resolvedModel } from "./fixtures/agent-fixtures";
 import { setHarnessPermissionModeProvider } from "@repo/backend/modules/harness/harness.service";
-import { validateProjectScaffoldReport } from "@repo/backend/modules/challenges/project-preparation.validation";
 import { projectScaffoldTask } from "@repo/backend/modules/ai/agent/tasks/project";
 
 const roots: string[] = [];
@@ -444,10 +454,13 @@ function request(
   });
 }
 
-async function createChallenge(app: TestApp, profileId: string) {
+async function createChallenge(
+  app: TestApp,
+  profileId: string,
+  prompt = "Build a URL shortener with separate HTTP, storage, migration, and test files",
+) {
   const response = await request(app, "/challenges/generate", profileId, {
-    prompt:
-      "Build a URL shortener with separate HTTP, storage, migration, and test files",
+    prompt,
     scope: "feature",
     difficulty: "medium",
     clarificationContext: null,
@@ -564,6 +577,46 @@ describe("challenge project preparation", () => {
         details: { problems: [...(blockingProblems ?? problems)] },
       });
     } else expect(result.error).toBeNull();
+  });
+
+  test("saves preparation with just the brief for a from-scratch challenge", async () => {
+    const model = new (class extends FakeScaffoldModel {
+      override async generateBuild(input: BuildModelInput) {
+        const generated = await super.generateBuild(input);
+        generated.challenge.problemStatement =
+          "Build a URL shortener from scratch, including project setup.";
+        generated.challenge.expectedOutcome = "Your own working URL shortener.";
+        return generated;
+      }
+      override async scaffoldProject(input: ProjectScaffoldModelInput) {
+        expect(input.specification.request).toContain("from scratch");
+        return {
+          summary: "Project setup is part of the exercise. No checks ran.",
+          files: [],
+          todos: [],
+          setup: [],
+          run: [],
+          checks: [],
+          results: [],
+          problems: [],
+          blockingProblems: [],
+        };
+      }
+    })();
+    const app = appWith(model, await tempRoot());
+    const owner = await startProfile(
+      app,
+      `project-from-scratch-${crypto.randomUUID()}@test.dev`,
+    );
+    const challenge = await createChallenge(
+      app,
+      owner.id,
+      "Build a URL shortener from scratch. I will set up the project myself.",
+    );
+    const ready = await waitForStatus(app, owner.id, challenge.id, ["ready"]);
+    expect(await readdir(ready.projectPath!)).toEqual(["CHALLENGE.md"]);
+    expect(ready.report?.files).toEqual([]);
+    expect(ready.report?.results).toEqual([]);
   });
 
   test("automatically freezes the specification and scaffolds a multi-file URL shortener", async () => {
@@ -800,67 +853,122 @@ describe("challenge project preparation", () => {
   });
 });
 
-describe("project-specific storage requirements", () => {
-  test.each([false, true])(
-    "requires migrations only for a challenge that requests persistence (%s)",
-    async (persistent) => {
-      const root = await tempRoot();
-      const { layout } = await createProjectWorkspace({ root });
-      const specification: ProjectFrozenSpecification = {
-        version: 1,
-        challengeId: crypto.randomUUID(),
-        profileId: crypto.randomUUID(),
-        challengeNumber: 40,
-        title: "Token-bucket rate limiter middleware for Bun.serve",
-        request: "Create a Bun + TypeScript token-bucket middleware exercise.",
-        scope: "feature",
-        difficulty: "medium",
-        problemStatement: persistent
-          ? "Persist token buckets in a SQLite database."
-          : "In-memory only, no external dependencies. Keep the core as TODO.",
-        expectedOutcome: "A practice scaffold with unfinished core behavior.",
-        implementationBoundary: persistent
-          ? "Implement persistent token buckets."
-          : "Out of scope: persistence, distributed/Redis limiting, extra routes.",
-        objectives: ["Practice token-bucket middleware."],
-        acceptanceCriteria: ["Return 429 when the bucket is empty."],
-        durationEstimate: { minMinutes: 30, maxMinutes: 60 },
-        stack: {
-          experienceLevel: null,
-          languages: ["TypeScript", "SQL"],
-          stack: ["Bun", "PostgreSQL", "SQLite", "Prisma", "Drizzle ORM"],
-          currentFocus: null,
-        },
-        model: { selection: null, label: "fake" },
-        frozenAt: new Date().toISOString(),
-      };
-      await writeFrozenSpecification(layout, specification);
-      const fixture = successfulScaffold();
-      const files = fixture.files.filter((file) => file.role !== "migration");
+describe("exercise-specific preparation reports", () => {
+  test.each([
+    {
+      name: "from scratch",
+      request: "Start from scratch. I will create the project and its files.",
+      source: null,
+      legacy: false,
+    },
+    {
+      name: "implementation with a single starter file",
+      request:
+        "Provide only a starter file for the booking service. Leave SQLite persistence to me.",
+      source: "export type Booking = { active: boolean };",
+      legacy: false,
+    },
+    {
+      name: "debugging without TODOs, using an older frozen brief",
+      request:
+        "Provide a booking service where cancelled bookings still block the room.",
+      source:
+        "export const isBlocked = (bookings: unknown[]) => bookings.length > 0;",
+      legacy: true,
+    },
+  ])("accepts $name", async (exercise) => {
+    const root = await tempRoot();
+    const { layout, journal } = await createProjectWorkspace({ root });
+    const specification: ProjectFrozenSpecification = {
+      version: 1,
+      challengeId: crypto.randomUUID(),
+      profileId: crypto.randomUUID(),
+      challengeNumber: 40,
+      title: "Booking service",
+      request: exercise.request,
+      scope: "feature",
+      difficulty: "medium",
+      problemStatement: exercise.request,
+      expectedOutcome: "A booking service that meets the challenge criteria.",
+      implementationBoundary: null,
+      objectives: ["Practice booking service behavior."],
+      acceptanceCriteria: ["Only active bookings prevent conflicts."],
+      durationEstimate: { minMinutes: 30, maxMinutes: 60 },
+      stack: {
+        experienceLevel: null,
+        languages: ["TypeScript", "SQL"],
+        stack: ["Bun", "PostgreSQL", "SQLite", "Prisma", "Drizzle ORM"],
+        currentFocus: null,
+      },
+      model: { selection: null, label: "fake" },
+      frozenAt: new Date().toISOString(),
+    };
+    const brief = join(layout.projectRoot, "CHALLENGE.md");
+    if (exercise.legacy) {
+      const legacyMarkdown = projectChallengeMarkdown(specification, true);
+      await writeFile(brief, legacyMarkdown);
+      await writeProjectJournal(
+        layout,
+        withGeneratedFile(
+          journal,
+          "CHALLENGE.md",
+          projectFileRecord(legacyMarkdown),
+        ),
+      );
+    }
+    await writeFrozenSpecification(layout, specification);
+
+    const task = projectScaffoldTask({
+      profileId: specification.profileId,
+      challengeId: specification.challengeId,
+      specification,
+      layout,
+      previousAttempt: null,
+      commandResults: async () => [],
+    });
+    const files = [];
+    if (exercise.source) {
       const create = createProjectTools({
         root: layout.projectRoot,
         journal: projectToolJournalContext(layout),
       }).find((tool) => tool.name === "create_project_file")!;
-      for (const file of files)
-        await create.execute(
-          "create",
-          { path: file.path, content: file.content },
-          undefined,
-        );
-      const validation = validateProjectScaffoldReport(
-        {
-          ...fixture.report,
-          files: fixture.report.files.filter(
-            (file) => file.role !== "migration",
-          ),
-        },
-        { layout, specification },
+      await create.execute(
+        "create",
+        { path: "starter.ts", content: exercise.source },
+        undefined,
       );
-      if (persistent)
-        await expect(validation).rejects.toThrow("requires persistent storage");
-      else expect((await validation).blockingProblems).toEqual([]);
-    },
-  );
+      files.push({ path: "starter.ts", role: "source", purpose: null });
+    }
+    const report = {
+      summary: exercise.source
+        ? "Prepared the starting file."
+        : "Setup is part of the exercise.",
+      files,
+      todos: [],
+      setup: [],
+      run: [],
+      checks: [],
+      results: [],
+      problems: [],
+      blockingProblems: [],
+    };
+    expect(await task.completion.validate(report)).toEqual(report);
+    expect((await readdir(layout.projectRoot)).sort()).toEqual(
+      exercise.source ? ["CHALLENGE.md", "starter.ts"] : ["CHALLENGE.md"],
+    );
+    expect(await readFile(brief, "utf8")).toBe(
+      projectChallengeMarkdown(specification, exercise.legacy),
+    );
+
+    if (exercise.source) {
+      const starter = join(layout.projectRoot, "starter.ts");
+      await writeFile(starter, "// engineer's changes");
+      await expect(task.completion.validate(report)).rejects.toThrow(
+        "no longer matches the generated-file journal",
+      );
+      expect(await readFile(starter, "utf8")).toBe("// engineer's changes");
+    }
+  });
 });
 
 describe("Pi project-scaffold gateway", () => {

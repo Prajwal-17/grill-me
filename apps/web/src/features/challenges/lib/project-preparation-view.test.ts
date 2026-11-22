@@ -218,7 +218,7 @@ test("keeps expected exercise failures muted and never green", () => {
   assert.equal(exercise?.tone, "muted");
   assert.equal(exercise?.checks[0]?.statusLabel, "Failing as expected");
   assert.equal(exercise?.checks[0]?.tone, "muted");
-  assert.equal(view.statusLabel, "Files prepared");
+  assert.equal(view.statusLabel, "Preparation complete");
   assert.equal(view.statusTone, "neutral");
   assert.equal(view.canStart, false);
 });
@@ -276,7 +276,7 @@ test("uses the published status labels", () => {
   const labels = {
     not_started: "Not started",
     running: "Preparing",
-    ready: "Files prepared",
+    ready: "Preparation complete",
     failed: "Preparation failed",
     cancelled: "Cancelled",
     interrupted: "Interrupted",

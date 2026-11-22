@@ -28,7 +28,6 @@ export const projectMetadataDirectory = ".grill-me";
 export const projectArtifactsDirectory = "artifacts";
 export const projectJournalDirectory = "projects";
 export const projectDefaultDirectory = "project";
-export const projectSourceDirectories = ["src", "migrations", "test"] as const;
 export const projectDocumentFiles = [
   "package.json",
   "README.md",
@@ -516,11 +515,6 @@ export async function ensureProjectWorkspaceDirectories(layout: ProjectLayout) {
   }
   if (info.isSymbolicLink() || !info.isDirectory())
     throw invalidLayout("The challenge project folder is invalid.");
-  for (const directory of projectSourceDirectories)
-    await ensureDirectory(
-      join(layout.projectRoot, directory),
-      `Project ${directory}`,
-    );
   await ensureDirectory(layout.artifactsRoot, "Project artifacts");
   await ensureMetadataDirectory(layout);
 }

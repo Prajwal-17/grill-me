@@ -130,19 +130,15 @@ describe("project workspace layout and journal", () => {
     const first = await createProjectWorkspace({ root });
     expect(first.layout.projectDirectory).toBe("project");
     expect(first.journal.files).toEqual({});
-    for (const directory of ["src", "migrations", "test"]) {
-      expect(
-        (await stat(join(first.layout.projectRoot, directory))).isDirectory(),
-      ).toBe(true);
-    }
+    expect(await readdir(first.layout.projectRoot)).toEqual([]);
     expect((await stat(first.layout.artifactsRoot)).isDirectory()).toBe(true);
     expect((await stat(first.layout.metadataRoot)).isDirectory()).toBe(true);
-    await writeFile(join(first.layout.projectRoot, "src", "keep.ts"), "keep\n");
+    await writeFile(join(first.layout.projectRoot, "keep.ts"), "keep\n");
 
     const second = await createProjectWorkspace({ root });
     expect(second.layout.projectDirectory).toBe("project-2");
     expect(
-      await readFile(join(first.layout.projectRoot, "src", "keep.ts"), "utf8"),
+      await readFile(join(first.layout.projectRoot, "keep.ts"), "utf8"),
     ).toBe("keep\n");
     expect(second.layout.journalPath).not.toBe(first.layout.journalPath);
     expect(await readProjectJournal(second.layout)).toMatchObject({
@@ -164,7 +160,7 @@ describe("project workspace layout and journal", () => {
     const root = join(parent, "profiles", "profile", "challenge");
     const created = await createProjectWorkspace({ root });
     expect(created.layout.workspaceRoot).toBe(root);
-    expect((await stat(join(root, "project", "src"))).isDirectory()).toBe(true);
+    expect((await stat(join(root, "project"))).isDirectory()).toBe(true);
     expect((await stat(join(root, "artifacts"))).isDirectory()).toBe(true);
     expect(
       (
@@ -532,6 +528,7 @@ describe("project filesystem tools", () => {
     const path = "src/crash.ts";
     const expected = "expected content\n";
     const actual = "partial content\n";
+    await mkdir(join(layout.projectRoot, "src"));
     await writeFile(join(layout.projectRoot, path), actual);
     const journal = {
       version: 1 as const,

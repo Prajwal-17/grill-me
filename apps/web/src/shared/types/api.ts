@@ -74,7 +74,8 @@ export type Challenge = {
   completedAt: string | null;
 };
 
-export type ReviewCriterionStatus = "pass" | "partial" | "fail";
+export type ReviewCriterionStatus =
+  "pass" | "partial" | "fail" | "unable_to_assess";
 
 export type ReviewCriterion = {
   criterion: string;

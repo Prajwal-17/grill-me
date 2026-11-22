@@ -623,7 +623,7 @@ describe("authorized scaffold commands", () => {
     expect(ready.report?.results[0]?.status).toBe("passed");
   });
 
-  test("records an actual failing check separately while the prepared files still become ready", async () => {
+  test("records a failed preparation check and retains the prepared files", async () => {
     const root = await tempRoot();
     const model = new FakeCommandScaffoldModel();
     model.behavior = "fail";
@@ -640,14 +640,17 @@ describe("authorized scaffold commands", () => {
     expect(
       (await approve(app, owner.id, challenge.id, pending.command.id)).status,
     ).toBe(200);
-    const ready = await waitForPreparation(app, owner.id, challenge.id, [
-      "ready",
+    const failed = await waitForPreparation(app, owner.id, challenge.id, [
+      "failed",
     ]);
-    const executed = ready.commands[0]!;
+    const executed = failed.commands[0]!;
     expect(executed.status).toBe("failed");
     expect(executed.result?.status).toBe("failed");
     expect(executed.result?.exitCode).toBe(7);
-    expect(ready.report?.results[0]?.status).toBe("failed");
+    expect(failed.report?.results[0]?.status).toBe("failed");
+    expect(failed.report?.blockingProblems).toEqual([
+      "Preparation check failed: Verify the supporting wiring",
+    ]);
   });
 
   test("cancellation stops the active command and a stale approval cannot run it", async () => {

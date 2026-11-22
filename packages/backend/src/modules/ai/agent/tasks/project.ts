@@ -70,14 +70,14 @@ export function projectScaffoldTask(
     completion: {
       name: "complete_project_scaffold",
       description:
-        "Return the complete, validated scaffold report after creating the project files. List every generated file, TODO location, proposed setup/run/check command, check result, and remaining problem. This call ends project preparation.",
+        "Report the starting environment, if any, and its verification. List journaled files, applicable TODOs, commands, check results, and blockers. Lists may be empty. This call ends project preparation.",
       schema: z.toJSONSchema(completionReportSchema),
       validate: async (value) => {
         const parsed = completionReportSchema.safeParse(value);
         if (!parsed.success)
           throw new AppError(
             "PROJECT_SCAFFOLD_INVALID",
-            "Return a complete scaffold report with blockingProblems: [] when only intentional exercise TODOs remain, or list the actual preparation blockers there.",
+            "Return a preparation report with blockingProblems: [] if there are no blockers, or list any unresolved preparation failures there.",
             502,
             true,
             { issues: z.prettifyError(parsed.error).split("\n").slice(0, 40) },

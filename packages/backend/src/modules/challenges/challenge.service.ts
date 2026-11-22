@@ -275,7 +275,7 @@ export function createChallengeService(dependencies: {
           const saved = toChallenge(
             updated ?? { ...row, workspacePath: workspace.path },
           );
-          // Kick off the frozen specification and background scaffold only
+          // Kick off the frozen specification and background preparation only
           // after the challenge row and workspace are saved. Preparation
           // failures never remove or roll back the challenge.
           if (preparations?.available())

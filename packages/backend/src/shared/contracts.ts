@@ -704,7 +704,12 @@ export const projectFrozenSpecificationSchema = z.object({
 export type ProjectFrozenSpecification = z.infer<
   typeof projectFrozenSpecificationSchema
 >;
-export const reviewCriterionStatusSchema = z.enum(["pass", "partial", "fail"]);
+export const reviewCriterionStatusSchema = z.enum([
+  "pass",
+  "partial",
+  "fail",
+  "unable_to_assess",
+]);
 export type ReviewCriterionStatus = z.infer<typeof reviewCriterionStatusSchema>;
 export const reviewCriterionSchema = z.object({
   criterion: z.string().trim().min(1).max(320),
@@ -804,7 +809,6 @@ export const projectScaffoldReportSchema = z.strictObject({
         purpose: z.string().trim().max(300).nullable().default(null),
       }),
     )
-    .min(1)
     .max(200),
   todos: z
     .array(
@@ -817,14 +821,14 @@ export const projectScaffoldReportSchema = z.strictObject({
     .max(200),
   setup: z.array(projectCommandProposalSchema).max(20),
   run: z.array(projectCommandProposalSchema).max(20),
-  checks: z.array(projectCheckProposalSchema).min(1).max(40),
-  results: z.array(projectCheckResultSchema).min(1).max(40),
+  checks: z.array(projectCheckProposalSchema).max(40),
+  results: z.array(projectCheckResultSchema).max(40),
   problems: z.array(z.string().trim().min(1).max(500)).max(20),
   blockingProblems: z
     .array(z.string().trim().min(1).max(500))
     .max(20)
     .describe(
-      "Actual defects preventing the surrounding scaffold from being ready. Exclude intentional exercise TODOs, expected todo_exercise failures, proposed servers that were not started, and informational limitations. Return [] when preparation is ready for the learner.",
+      "Unresolved problems that prevent the intended exercise from starting. Exclude intentional exercise gaps and verification limits that do not prevent starting. Return [] when there are no blockers.",
     )
     .optional(),
 });

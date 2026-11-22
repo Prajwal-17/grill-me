@@ -512,7 +512,7 @@ export function createProjectPreparationService(dependencies: {
       if (!llm.scaffoldProject)
         throw new AppError(
           "MODEL_UNAVAILABLE",
-          "This model does not support project scaffolding.",
+          "This model does not support project preparation.",
           503,
         );
       // Preparation attempts are durable rows, but their conversation is one
@@ -585,7 +585,7 @@ export function createProjectPreparationService(dependencies: {
       });
       validatedReport = validated;
       // Older reports used problems for blockers. New reports distinguish
-      // scaffold defects from expected exercise gaps and informational notes.
+      // preparation failures from expected exercise gaps and informational notes.
       const blockers = validated.blockingProblems ?? validated.problems;
       if (blockers.length) {
         await projectPreparationModel.finish({
@@ -735,7 +735,7 @@ export function createProjectPreparationService(dependencies: {
     if (!llm.scaffoldProject)
       throw new AppError(
         "MODEL_UNAVAILABLE",
-        "This model does not support project scaffolding.",
+        "This model does not support project preparation.",
         503,
       );
 
@@ -990,7 +990,7 @@ export function createProjectPreparationService(dependencies: {
         type: "failed",
         at: nowIso(now()),
         message:
-          "The frozen specification could not be saved. No scaffolding started.",
+          "The frozen specification could not be saved. Preparation did not start.",
       });
       const failed = await projectPreparationModel.failPending(
         row.id,

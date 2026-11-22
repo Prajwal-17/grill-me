@@ -36,6 +36,7 @@ async function fixture() {
   const root = await tempRoot();
   const created = await createProjectWorkspace({ root });
   const project = created.layout.projectRoot;
+  await mkdir(join(project, "src"));
   await writeFile(join(project, "README.md"), "# Project\n");
   await writeFile(
     join(project, "src", "app.ts"),

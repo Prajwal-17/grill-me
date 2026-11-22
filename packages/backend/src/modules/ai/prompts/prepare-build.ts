@@ -13,7 +13,7 @@ export function preparationPrompt(
   return {
     instructions:
       SHARED_INSTRUCTIONS +
-      "\n\nYour only action is checking whether essential requirements are missing. Do not generate or assign a challenge in this stage.\n" +
+      "\n\n# Request clarification\n\nYour only action is checking whether essential requirements are missing. Do not generate or assign a challenge in this stage. Any environment preparation follows the saved challenge.\n" +
       RESEARCH_TOOL_POLICY +
       "\n" +
       ESSENTIAL_CLARIFICATION_POLICY +

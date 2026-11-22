@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CircleDot,
   ClipboardCheck,
+  CircleHelp,
   LoaderCircle,
   XCircle,
 } from "lucide-react";
@@ -37,9 +38,18 @@ const statuses: Record<
   ReviewCriterionStatus,
   { label: string; className: string; Icon: typeof CheckCircle2 }
 > = {
-  pass: { label: "Pass", className: "text-success", Icon: CheckCircle2 },
-  partial: { label: "Partial", className: "text-warning", Icon: CircleDot },
-  fail: { label: "Fail", className: "text-destructive", Icon: XCircle },
+  pass: { label: "Met", className: "text-success", Icon: CheckCircle2 },
+  partial: {
+    label: "Partially met",
+    className: "text-warning",
+    Icon: CircleDot,
+  },
+  fail: { label: "Not met", className: "text-destructive", Icon: XCircle },
+  unable_to_assess: {
+    label: "Unable to assess",
+    className: "text-muted",
+    Icon: CircleHelp,
+  },
 };
 
 function Verdict({ review }: { review: ChallengeReview }) {

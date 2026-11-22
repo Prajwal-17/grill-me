@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Give challenge generation, project preparation, review, and quizzes a shared
+  practice foundation with focused instructions for each operation. Reviews can
+  mark a criterion unable to assess when evidence is insufficient.
+
+- Prepare the starting environment each challenge needs. From-scratch exercises
+  can start with just the brief, and debugging projects can reproduce the
+  symptoms without TODOs that point to the defect. Reports show which checks ran
+  and whether anything prevents starting.
+
+- Keep enhanced requests close to what you wrote. Quiz generation focuses on
+  clear questions at the selected difficulty and preserves the challenge's
+  solution for you to work out.
+
 ## desktop-v0.3.3 - 21 Nov 2026
 
 ### Added

@@ -2,7 +2,6 @@ import { z } from "zod";
 import { enhanceBuildPromptSchema } from "../../../challenges/challenge.schema";
 import { enhancedQuizPromptSchema } from "../../../quizzes/quiz.schema";
 import { enhancementPrompt } from "../../prompts/enhance-prompt";
-import { enhanceQuizPromptPrompt } from "../../prompts/enhance-quiz-prompt";
 import { contextBlock } from "../messages";
 import type { StructuredTask } from "./types";
 
@@ -11,10 +10,7 @@ export function enhancementTask(input: {
   target: "build" | "quiz";
   profileId: string;
 }): StructuredTask<{ prompt: string }> {
-  const prompt =
-    input.target === "build"
-      ? enhancementPrompt(input.prompt, "build")
-      : enhanceQuizPromptPrompt(input.prompt);
+  const prompt = enhancementPrompt(input.prompt, input.target);
   return {
     operation: "prompt_enhancement",
     instructions: prompt.instructions,

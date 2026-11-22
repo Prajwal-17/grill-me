@@ -52,15 +52,18 @@ sources.
 
 ## Challenge workspaces
 
-Each challenge gets a local workspace folder. New challenges save a specification,
-then preparation creates separate source, configuration, migration, fixture, test,
-and documentation files in `project/`, leaving the exercise's core logic as TODOs.
-Preparation follows the challenge's file and dependency restrictions; database
-technologies in your profile do not require migrations for an in-memory exercise.
-Rubrics and milestones go in the README when the challenge restricts extra files.
-Expected failing exercise tests and core TODOs do not block preparation readiness.
-Completion reports distinguish informational caveats from actual scaffold blockers;
-older reports retain their original interpretation and saved status.
+Each challenge gets a local workspace folder with a frozen brief. Preparation
+uses your request and the brief to decide what belongs in `project/`. A
+from-scratch exercise can start with just `CHALLENGE.md`. An implementation
+exercise can get starter material, and a debugging exercise can get a usable
+project that exhibits the reported symptoms without clues to the defect.
+Files, tests, and setup commands are included when the exercise needs them.
+
+Preparation reports list the checks that actually ran and identify verification
+that was skipped or blocked. A project can be ready to start without having
+passed runtime checks. Unresolved preparation failures are reported separately
+from intentional exercise behavior. Existing workspaces and saved reports stay
+readable.
 Reviews reassess the current workspace on each request and preserve earlier
 scorecards. Select a numbered review to reopen its full evidence and feedback;
 Activity labels review runs by number and records the actual model used.

@@ -1,13 +1,12 @@
 import { createHash } from "node:crypto";
 import { lstat, readFile } from "node:fs/promises";
-import { basename, isAbsolute, join, relative, sep } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { z } from "zod";
 import {
   projectScaffoldReportSchema,
   type ProjectCheckProposal,
   type ProjectCommand,
   type ProjectCommandProposal,
-  type ProjectFileRole,
   type ProjectFrozenSpecification,
   type ProjectScaffoldReport,
 } from "@repo/backend/shared/contracts";
@@ -21,7 +20,7 @@ import {
 } from "./project-workspace";
 import {
   frozenSpecificationPath,
-  projectChallengeMarkdown,
+  matchesFrozenSpecification,
 } from "./project-preparation.spec";
 
 export type ProjectScaffoldValidationContext = {
@@ -74,45 +73,6 @@ function commandSignature(
   return `${proposal.command.trim()}\0${normalizedCwd(proposal.cwd)}`;
 }
 
-function specificationText(specification: ProjectFrozenSpecification) {
-  return [
-    specification.request,
-    specification.problemStatement,
-    specification.expectedOutcome,
-    specification.implementationBoundary ?? "",
-    ...specification.objectives,
-    ...specification.acceptanceCriteria,
-  ].join("\n");
-}
-
-function requestsMultipleFiles(specification: ProjectFrozenSpecification) {
-  const text = specificationText(specification);
-  return [
-    /\bmulti[- ]file\b/i,
-    /\bmultiple\b[^.\n]{0,80}\bfiles\b/i,
-    /\bseparate\b[^.\n]{0,120}\bfiles\b/i,
-    /\b(?:split|divided|organi[sz]ed)\b[^.\n]{0,80}\b(?:into|across|in)\b[^.\n]{0,40}\b(?:files|modules)\b/i,
-    /\b(?:several|multiple|distinct|individual)\s+(?:source|code|module|implementation)\s+files\b/i,
-    /\b(?:separate|multiple|several)\s+modules\b/i,
-    /\bmodular\b/i,
-  ].some((pattern) => pattern.test(text));
-}
-
-function requiresMigration(specification: ProjectFrozenSpecification) {
-  // Profile technologies describe the learner, not this project's requirements.
-  // In particular, an in-memory exercise must not inherit SQLite/SQL/Prisma
-  // requirements from a broad profile. Excluded features are not requirements.
-  const text = specificationText(specification)
-    .replace(/\b(?:out of scope|not in scope|non-goals?)\s*:[^\n]*/gi, "")
-    .replace(
-      /\b(?:no|not|never|without|avoid)\b[^.\n]{0,100}\b(?:migrations?|database|databases|sql|sqlite|postgres(?:ql)?|mysql|mariadb|mongo(?:db)?|dynamodb|persist(?:ence|ent|ed|ing)?|persistent storage|data store)\b/gi,
-      "",
-    );
-  const dataSignal =
-    /\b(?:migrations?|database|databases|sql|sqlite|postgres(?:ql)?|mysql|mariadb|mongo(?:db)?|dynamodb|prisma|drizzle|sequelize|typeorm|knex|persist(?:ence|ent|ed|ing)?|data store|storage (?:layer|boundary)|url shortener|short link|link shortener)\b/i;
-  return dataSignal.test(text);
-}
-
 function triviallyFailing(command: string) {
   const value = command.trim().replace(/\s+/g, " ");
   if (!value) return true;
@@ -152,6 +112,8 @@ function executedCheck(
         command.purpose === "check" &&
         command.checkId === check.id &&
         command.result !== null &&
+        command.install === check.install &&
+        command.network === check.network &&
         `${command.command.trim()}\0${normalizedCwd(command.cwd)}` ===
           signature,
     );
@@ -193,12 +155,6 @@ export async function validateProjectScaffoldReport(
       z.prettifyError(parsed.error).split("\n").filter(Boolean).slice(0, 40),
     );
   const report = parsed.data;
-  // Keep blockers visible to existing report readers and resume context, which
-  // already display problems, without using informational notes as status gates.
-  if (report.blockingProblems)
-    report.problems = [
-      ...new Set([...report.blockingProblems, ...report.problems]),
-    ].slice(0, 20);
   const { layout, specification } = context;
 
   const root = await canonicalPath(layout.projectRoot).catch(() => {
@@ -290,27 +246,19 @@ export async function validateProjectScaffoldReport(
   }
 
   const specContent = await trackedFile(frozenSpecificationPath);
-  if (specContent !== projectChallengeMarkdown(specification))
+  if (!matchesFrozenSpecification(specContent, specification))
     throw invalid(
       "CHALLENGE.md no longer matches the frozen specification. The frozen contract must stay unchanged.",
     );
 
   const filePaths = new Set<string>();
-  const sourceFiles: { path: string; content: string }[] = [];
   for (const file of report.files) {
-    if (filePaths.has(file.path))
-      throw invalid(`The completion report lists ${file.path} more than once.`);
-    filePaths.add(file.path);
-    const content = await trackedFile(file.path);
-    if (file.path !== frozenSpecificationPath && file.role === "source")
-      sourceFiles.push({ path: file.path, content });
+    const path = file.path;
+    if (filePaths.has(path))
+      throw invalid(`The completion report lists ${path} more than once.`);
+    filePaths.add(path);
+    await trackedFile(path);
   }
-  const rolePaths = (role: ProjectFileRole) =>
-    report.files
-      .filter(
-        (file) => file.path !== frozenSpecificationPath && file.role === role,
-      )
-      .map((file) => file.path);
   const unreported = Object.keys(journal.files).filter(
     (path) => path !== frozenSpecificationPath && !filePaths.has(path),
   );
@@ -319,53 +267,6 @@ export async function validateProjectScaffoldReport(
       "The completion report must list every generated project file. Unreported: " +
         unreported.slice(0, 10).join(", "),
     );
-  if (!sourceFiles.length)
-    throw invalid(
-      "The completion report needs at least one source file that Grill Me generated.",
-    );
-  if (
-    sourceFiles.length === 1 &&
-    /^starter\.[a-z0-9]+$/i.test(basename(sourceFiles[0]!.path))
-  )
-    throw invalid(
-      "A single starter file is not a prepared multi-file project. Create the real source files separately.",
-    );
-  if (sourceFiles.length === 1) {
-    const markers =
-      sourceFiles[0]!.content.match(
-        /^\s*(?:\/\/|#|--|;)\s*(?:file|filename)\s*[:=]\s*\S+/gim,
-      )?.length ?? 0;
-    if (markers >= 2)
-      throw invalid(
-        "The only source file contains concatenated file boundaries. Split each file into a separate journaled project file.",
-      );
-  }
-  if (requestsMultipleFiles(specification) && sourceFiles.length < 2)
-    throw invalid(
-      "The frozen specification asks for a multi-file project. Create separate source files for the surrounding modules instead of one source file.",
-    );
-  if (!rolePaths("config").length)
-    throw invalid(
-      "The completion report needs stack-appropriate configuration generated as real files. Any ecosystem's configuration is acceptable; a package.json is not required.",
-    );
-  if (!rolePaths("test").length)
-    throw invalid(
-      "The completion report needs at least one generated test file for the exercise.",
-    );
-  if (
-    !report.files.some(
-      (file) =>
-        file.role === "documentation" && file.path !== frozenSpecificationPath,
-    )
-  )
-    throw invalid(
-      "The completion report needs generated documentation, such as a README, rubric, or milestones file, separate from the frozen CHALLENGE.md.",
-    );
-  if (requiresMigration(specification) && !rolePaths("migration").length)
-    throw invalid(
-      "The frozen challenge requires persistent storage, so the completion report needs a generated migration or schema file.",
-    );
-
   const todoKeys = new Set<string>();
   for (const todo of report.todos) {
     const content = await trackedFile(todo.path);
@@ -383,20 +284,8 @@ export async function validateProjectScaffoldReport(
         `TODO location ${key} does not point at a line containing an explicit TODO marker.`,
       );
   }
-  if (!report.todos.length)
-    throw invalid(
-      "The completion report needs at least one explicit TODO location for the exercise's unfinished interface or core behavior.",
-    );
-  if (!report.todos.some((todo) => rolePaths("source").includes(todo.path)))
-    throw invalid(
-      "At least one reported TODO must point into a generated source file. Documentation or test TODOs alone do not leave the exercise unfinished.",
-    );
-
   const checkIds = new Set<string>();
   const checkCommands = new Set<string>();
-  const todoChecks = report.checks.filter(
-    (check) => check.intent === "todo_exercise",
-  );
   for (const check of report.checks) {
     if (checkIds.has(check.id))
       throw invalid(`Check IDs must be distinct; ${check.id} repeats.`);
@@ -429,32 +318,16 @@ export async function validateProjectScaffoldReport(
     }
     if (check.intent === "verify" && check.expected !== "pass")
       throw invalid(
-        `Check ${check.id} verifies the scaffold, so its expected result must be "pass".`,
+        `Check ${check.id} verifies the starting environment, so its expected result must be "pass".`,
       );
     await directoryCwd(check.cwd);
   }
-  if (!todoChecks.length)
-    throw invalid(
-      'The report needs an intentionally failing todo_exercise test check with expected result "fail".',
-    );
-  if (
-    !report.checks.some(
-      (check) =>
-        check.intent === "verify" && check.kind !== "manual" && check.command,
-    )
-  )
-    throw invalid(
-      "The report needs at least one verify check for the scaffold's supporting wiring.",
-    );
-
   const results = new Map<string, (typeof report.results)[number]>();
   const commands = context.commands ?? [];
   const executionResultsAllowed =
     context.allowExecutionResults === true || context.commands !== undefined;
   const setupDidFail = setupFailed(commands);
-  // An executable scaffold must request authorization, not just print commands.
-  // Legacy/report-only validators can still inspect files without a command session.
-  const requiresExecution = context.commands !== undefined;
+  const failedChecks: string[] = [];
   for (const result of report.results) {
     if (results.has(result.checkId))
       throw invalid(
@@ -477,6 +350,8 @@ export async function validateProjectScaffoldReport(
         throw invalid(
           `Check ${check.id} reports "${result.status}", but its latest actual execution was ${actual}. Reports cannot change command results.`,
         );
+      if (check.intent === "verify" && actual === "failed")
+        failedChecks.push(`Preparation check failed: ${check.label}`);
       if (check.intent === "todo_exercise" && result.status === "passed")
         throw invalid(
           `TODO exercise check ${check.id} unexpectedly passed. The unfinished core logic must leave it failing.`,
@@ -491,21 +366,6 @@ export async function validateProjectScaffoldReport(
       throw invalid(
         `Check ${check.id} reports "${result.status}", but there is no matching server command execution record. Run the exact check command first.`,
       );
-    if (
-      requiresExecution &&
-      check.kind !== "manual" &&
-      !setupDidFail &&
-      !commands.some(
-        (command) =>
-          command.purpose === "check" &&
-          command.checkId === check.id &&
-          commandSignature(command) === checkSignature(check) &&
-          command.status === "rejected",
-      )
-    )
-      throw invalid(
-        `Check ${check.id} has not been requested through run_project_command. Request authorization and run it before completing, or report the setup failure that blocked it.`,
-      );
     if (result.status === "blocked" && !setupDidFail)
       throw invalid(
         `Check ${check.id} is reported "blocked", but no setup or dependency command failed. Use "not_run" when the check was not attempted.`,
@@ -516,48 +376,12 @@ export async function validateProjectScaffoldReport(
       throw invalid(`Check ${check.id} is missing a result.`);
 
   const setupCommands = new Set<string>();
-  if (requiresExecution && journal.files["package.json"]) {
-    let manifest: { dependencies?: unknown; devDependencies?: unknown };
-    try {
-      manifest = JSON.parse(await trackedFile("package.json"));
-      if (!manifest || typeof manifest !== "object") throw new Error();
-    } catch {
-      throw invalid(
-        "The generated package.json must be a valid package manifest.",
-      );
-    }
-    const dependencies = [manifest.dependencies, manifest.devDependencies];
-    if (
-      dependencies.some(
-        (value) =>
-          value && typeof value === "object" && Object.keys(value).length > 0,
-      ) &&
-      !report.setup.some((command) => command.install)
-    )
-      throw invalid(
-        "The package manifest declares dependencies. Include the package manager's installation command in setup and request it through run_project_command before completing.",
-      );
-  }
   for (const command of report.setup) {
     const signature = commandSignature(command);
     if (setupCommands.has(signature))
       throw invalid("Setup commands must be distinct.");
     setupCommands.add(signature);
     await directoryCwd(command.cwd);
-    if (
-      requiresExecution &&
-      !commands.some(
-        (actual) =>
-          actual.purpose === "setup" &&
-          commandSignature(actual) === signature &&
-          actual.install === command.install &&
-          actual.network === command.network &&
-          (actual.result !== null || actual.status === "rejected"),
-      )
-    )
-      throw invalid(
-        `Setup command ${command.command} has only been documented. Request it through run_project_command and wait for authorization and its result before completing.`,
-      );
   }
   const runCommands = new Set<string>();
   for (const command of report.run) {
@@ -567,6 +391,19 @@ export async function validateProjectScaffoldReport(
     runCommands.add(signature);
     await directoryCwd(command.cwd);
   }
+
+  if (failedChecks.length)
+    report.blockingProblems = [
+      ...new Set([
+        ...(report.blockingProblems ?? report.problems),
+        ...failedChecks,
+      ]),
+    ].slice(0, 20);
+  // Keep blockers visible to readers of the original report format.
+  if (report.blockingProblems)
+    report.problems = [
+      ...new Set([...report.blockingProblems, ...report.problems]),
+    ].slice(0, 20);
 
   return report;
 }

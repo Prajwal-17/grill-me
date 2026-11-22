@@ -83,9 +83,10 @@ function list(items: readonly string[], ordered = false) {
     .join("\n");
 }
 
-/** The visible, immutable challenge contract written before scaffolding runs. */
+/** The visible, immutable challenge contract written before preparation runs. */
 export function projectChallengeMarkdown(
   specification: ProjectFrozenSpecification,
+  legacy = false,
 ) {
   const sections = [
     `# Challenge #${specification.challengeNumber}: ${specification.title}`,
@@ -128,11 +129,23 @@ export function projectChallengeMarkdown(
   sections.push(
     [
       "## Project boundary",
-      "This folder is the prepared practice project. Grill Me writes separate implementation, configuration, migration, fixture, documentation, rubric, milestone, and test files here. The exercise's core interfaces and reasoning stay as explicit TODO work for the developer.",
+      legacy
+        ? "This folder is the prepared practice project. Grill Me writes separate implementation, configuration, migration, fixture, documentation, rubric, milestone, and test files here. The exercise's core interfaces and reasoning stay as explicit TODO work for the developer."
+        : "This folder holds the challenge and any starting material it needs. Follow the original request and task to see what is provided and what you are expected to set up or investigate.",
       "Existing files are never silently replaced. Failed, cancelled, or interrupted preparation leaves every partial file in place.",
     ].join("\n\n"),
   );
   return sections.join("\n\n") + "\n";
+}
+
+export function matchesFrozenSpecification(
+  content: string,
+  specification: ProjectFrozenSpecification,
+) {
+  return (
+    content === projectChallengeMarkdown(specification) ||
+    content === projectChallengeMarkdown(specification, true)
+  );
 }
 
 function fsCode(error: unknown) {
@@ -195,20 +208,23 @@ export async function writeFrozenSpecification(
         true,
       );
     }
-    if (existing !== content)
+    if (!matchesFrozenSpecification(existing, specification))
       throw specificationConflict(
         "The frozen specification already exists with different content. Start a fresh project attempt instead of rewriting it.",
       );
+    const existingRecord = projectFileRecord(existing, now());
     const journal = await readProjectJournal(layout);
     if (!journal) {
       const recovered = {
         ...emptyProjectJournal(layout.projectDirectory, now()),
-        files: { [frozenSpecificationPath]: record },
+        files: { [frozenSpecificationPath]: existingRecord },
       };
       await writeProjectJournal(layout, recovered);
       return recovered;
     }
-    if (journal.files[frozenSpecificationPath]?.sha256 !== record.sha256)
+    if (
+      journal.files[frozenSpecificationPath]?.sha256 !== existingRecord.sha256
+    )
       throw specificationConflict(
         "The frozen specification journal no longer matches CHALLENGE.md. Inspect the project folder before retrying.",
       );
