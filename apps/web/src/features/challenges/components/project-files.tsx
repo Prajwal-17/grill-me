@@ -19,6 +19,7 @@ import type { ProjectFileContent, ProjectFilesView } from "@/shared/types/api";
 import { Button } from "@/shared/components/ui/button";
 import { CopyButton } from "@/shared/components/ui/copy-button";
 import { Input } from "@/shared/components/ui/input";
+import { CodeSkeleton } from "@/shared/components/ui/loading-layouts";
 import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
 import { useAppStore } from "@/shared/stores/app-store";
 import { cn } from "@/shared/lib/cn";
@@ -245,18 +246,7 @@ function ProjectFilesBrowser({
               <p className="mt-2 text-metadata">Select a file to preview</p>
             </div>
           ) : file.isPending ? (
-            <LoadingRegion
-              label="Loading project file"
-              layout="code"
-              className="min-h-56 space-y-3 p-4"
-            >
-              {[80, 60, 90, 45, 70, 55, 85, 35].map((width, index) => (
-                <div key={index} className="flex gap-4">
-                  <Skeleton className="h-3 w-4 shrink-0" />
-                  <Skeleton className="h-3" style={{ width: `${width}%` }} />
-                </div>
-              ))}
-            </LoadingRegion>
+            <CodeSkeleton />
           ) : file.error ? (
             <div
               role="alert"
@@ -469,11 +459,39 @@ export function ProjectFilesPanel({
       {files.isPending ? (
         <LoadingRegion
           label="Loading project files"
-          className="flex min-h-0 flex-1 flex-col gap-3 p-4"
+          layout="project-files"
+          className="relative flex min-h-0 flex-1 overflow-hidden"
         >
-          <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-3 w-56" />
-          <Skeleton className="h-3 w-48" />
+          <div className="min-w-0 flex-1 bg-canvas/35">
+            <div className="flex h-10 items-center justify-between border-b border-line px-3">
+              <Skeleton className="h-3.5 w-32 max-w-full" />
+              <Skeleton className="h-3 w-10" />
+            </div>
+            <div className="space-y-2 p-4">
+              <Skeleton className="h-3.5 w-3/5" />
+              <Skeleton className="h-3.5 w-2/5" />
+            </div>
+          </div>
+          {treeOpen && (
+            <div
+              className={cn(
+                "absolute inset-0 shrink-0 border-l border-line bg-surface sm:static",
+                expanded ? "sm:w-[260px]" : "sm:w-[220px]",
+              )}
+            >
+              <div className="border-b border-line p-2">
+                <Skeleton className="h-8 w-full" />
+              </div>
+              <div className="space-y-2 px-3 py-2">
+                {[0, 1, 2, 3].map((row) => (
+                  <div key={row} className="flex items-center gap-2">
+                    <Skeleton className="size-3.5 shrink-0" />
+                    <Skeleton className={row % 2 ? "h-3 w-3/4" : "h-3 w-3/5"} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </LoadingRegion>
       ) : files.error ? (
         <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">

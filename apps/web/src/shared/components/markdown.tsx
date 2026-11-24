@@ -4,7 +4,6 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { remarkHeadingIds } from "@/shared/lib/markdown-outline";
-import { rehypeStreaming } from "@/shared/lib/rehype-streaming";
 import { cn } from "@/shared/lib/cn";
 import {
   markdownComponents,
@@ -13,12 +12,10 @@ import {
 export const Markdown = memo(function Markdown({
   children,
   headingPrefix,
-  streaming = false,
   variant = "default",
 }: {
   children: string;
   headingPrefix?: string;
-  streaming?: boolean;
   variant?: "default" | "reading";
 }) {
   const id = useId();
@@ -37,10 +34,7 @@ export const Markdown = memo(function Markdown({
           remarkMath,
           [remarkHeadingIds, { prefix: headingPrefix ?? id + "-" }],
         ]}
-        rehypePlugins={[
-          [rehypeKatex, { strict: false, throwOnError: false }],
-          [rehypeStreaming, { enabled: streaming }],
-        ]}
+        rehypePlugins={[[rehypeKatex, { strict: false, throwOnError: false }]]}
         components={
           variant === "reading" ? readingMarkdownComponents : markdownComponents
         }

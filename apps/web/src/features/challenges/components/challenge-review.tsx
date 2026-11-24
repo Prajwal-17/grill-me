@@ -1,10 +1,10 @@
+import { ReviewSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useState } from "react";
 import { HistoryPicker } from "@/shared/components/history/history-picker";
 import {
   Activity,
   CheckCircle2,
   CircleDot,
-  ClipboardCheck,
   CircleHelp,
   LoaderCircle,
   XCircle,
@@ -18,12 +18,9 @@ import type {
 import { Button } from "@/shared/components/ui/button";
 import { useChallengeReviews } from "@/features/challenges/hooks/use-challenge-reviews";
 import { formatDate } from "@/features/challenges/lib/challenge-formatters";
-import {
-  HarnessTrajectory,
-  isActiveThreadStatus,
-  useHarnessThreads,
-} from "@/features/harness";
+import { isActiveThreadStatus, useHarnessThreads } from "@/features/harness";
 import { cn } from "@/shared/lib/cn";
+import { Markdown } from "@/shared/components/markdown";
 
 const verdicts: Record<
   ChallengeReviewVerdict,
@@ -104,48 +101,39 @@ function Evidence({ review }: { review: ChallengeReview }) {
 }
 
 function Findings({ review }: { review: ChallengeReview }) {
-  const { strengths, improvements, nextStep } = review.result;
-  if (!strengths.length && !improvements.length && !nextStep) return null;
+  const { strengths, improvements } = review.result;
+  if (!strengths.length && !improvements.length) return null;
   return (
-    <div className="mt-4 grid gap-4 border-t border-line pt-4 md:grid-cols-2">
-      <div>
-        <p className="text-metadata font-medium text-muted">Done right</p>
-        {strengths.length ? (
-          <ul className="mt-1.5 space-y-1 text-supporting">
-            {strengths.map((strength) => (
-              <li key={strength}>{strength}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-1.5 text-metadata text-muted">None recorded.</p>
+    <details className="text-supporting">
+      <summary className="w-fit cursor-pointer py-1.5 font-medium text-muted hover:text-foreground focus-visible:outline-offset-4">
+        Strengths and improvements
+      </summary>
+      <div className="mt-2 grid gap-4 sm:grid-cols-2">
+        {strengths.length > 0 && (
+          <div>
+            <h3 className="font-medium">Strengths</h3>
+            <ul className="mt-1 space-y-1 text-muted">
+              {strengths.map((strength) => (
+                <li key={strength}>{strength}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {improvements.length > 0 && (
+          <div>
+            <h3 className="font-medium">Improvements</h3>
+            <ul className="mt-1 space-y-2">
+              {improvements.map(({ problem, fix }) => (
+                <li key={problem}>
+                  <p>{problem}</p>
+                  <p className="text-muted">{fix}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
-      <div>
-        <p className="text-metadata font-medium text-muted">Fix first</p>
-        {improvements.length ? (
-          <ul className="mt-1.5 space-y-2 text-supporting">
-            {improvements.map((finding) => (
-              <li key={finding.problem}>
-                <span className="block">{finding.problem}</span>
-                <span className="block text-metadata text-muted">
-                  {finding.fix}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="mt-1.5 text-metadata text-muted">Nothing blocking.</p>
-        )}
-      </div>
-      {nextStep && (
-        <p className="text-supporting md:col-span-2">
-          <span className="text-metadata font-medium text-muted">
-            Next step:{" "}
-          </span>
-          {nextStep}
-        </p>
-      )}
-    </div>
+    </details>
   );
 }
 
@@ -153,16 +141,17 @@ export function ChallengeReviewSection({
   profileId,
   challenge,
   enabled = true,
+  onOpenRun,
 }: {
   profileId: string;
   challenge: Challenge;
   enabled?: boolean;
+  onOpenRun: (threadId: string) => void;
 }) {
   const { reviews, create } = useChallengeReviews(profileId, challenge.id, {
     enabled,
   });
   const [selectedId, setSelectedId] = useState<string>();
-  const [view, setView] = useState<"scorecard" | "trajectory">("scorecard");
   const history = reviews.data ?? [];
   const latest =
     history.find((review) => review.id === selectedId) ?? history[0];
@@ -178,176 +167,156 @@ export function ChallengeReviewSection({
   const liveThread = (liveRuns.data ?? []).find((thread) =>
     isActiveThreadStatus(thread.status),
   );
-  const trajectoryThreadId = pending ? liveThread?.id : latest?.threadId;
-  const showViews = Boolean(latest || pending);
+  const savedThreadId = latest?.threadId;
   return (
     <section
       aria-label="Challenge review"
-      className="mx-auto flex min-h-0 w-full max-w-[1240px] flex-1 flex-col overflow-hidden rounded-lg border border-line bg-surface"
+      className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto overscroll-contain"
     >
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-3 py-2 md:px-4">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {history.length > 1 && latest ? (
-            <HistoryPicker
-              label="Review history"
-              value={latest.id}
-              onSelect={setSelectedId}
-              entries={history.map((review, index) => ({
-                id: review.id,
-                label: `Review ${review.reviewNumber ?? history.length - index}`,
-                detail: (
-                  <>
-                    <span>
-                      {review.criteriaMet}/{review.criteriaTotal} criteria met
-                    </span>
-                    <span>{formatDate(review.createdAt)}</span>
-                  </>
-                ),
-              }))}
-            />
-          ) : (
-            <h2 className="flex items-center gap-2 text-ui font-medium">
-              <ClipboardCheck
-                size={15}
-                className="text-muted"
-                aria-hidden="true"
+      <div className="mx-auto w-full max-w-[1152px] space-y-4 px-4 pb-6 sm:px-6">
+        <header className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-ui font-semibold">
+            {latest ? "Review" : "Completion criteria"}
+          </h2>
+          <div className="flex flex-wrap items-center gap-2">
+            {history.length > 1 && latest && (
+              <HistoryPicker
+                label="Review history"
+                value={latest.id}
+                onSelect={setSelectedId}
+                entries={history.map((review, index) => ({
+                  id: review.id,
+                  label: `Review ${review.reviewNumber ?? history.length - index}`,
+                  detail: (
+                    <>
+                      <span>
+                        {review.criteriaMet}/{review.criteriaTotal} criteria met
+                      </span>
+                      <span>{formatDate(review.createdAt)}</span>
+                    </>
+                  ),
+                }))}
               />
-              {reviewNumber ? `Review ${reviewNumber}` : "Review"}
-            </h2>
-          )}
-          {latest && (
-            <span className="text-metadata text-muted">
-              {latest.criteriaMet}/{latest.criteriaTotal} criteria met
-            </span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {showViews && (
-            <div
-              role="group"
-              aria-label="Review view"
-              className="flex items-center rounded-md border border-line bg-surface p-0.5"
+            )}
+            <Button
+              size="sm"
+              variant={latest ? "secondary" : "default"}
+              disabled={pending || !enabled || reviews.isLoading}
+              onClick={() =>
+                create.mutate(undefined, {
+                  onSuccess: (review) => setSelectedId(review.id),
+                })
+              }
             >
-              <Button
-                size="sm"
-                variant={view === "scorecard" ? "secondary" : "ghost"}
-                aria-pressed={view === "scorecard"}
-                onClick={() => setView("scorecard")}
-              >
-                <ClipboardCheck size={12} aria-hidden="true" />
-                Scorecard
-              </Button>
-              <Button
-                size="sm"
-                variant={view === "trajectory" ? "secondary" : "ghost"}
-                aria-pressed={view === "trajectory"}
-                disabled={!trajectoryThreadId && !pending}
-                onClick={() => setView("trajectory")}
-              >
-                <Activity size={12} aria-hidden="true" />
-                Trajectory
-                {pending && (
-                  <span className="text-metadata text-muted">live</span>
-                )}
-              </Button>
-            </div>
-          )}
-          <Button
-            size="sm"
-            variant={latest ? "secondary" : "default"}
-            disabled={pending || !enabled}
-            onClick={() =>
-              create.mutate(undefined, {
-                onSuccess: (review) => setSelectedId(review.id),
-                onError: () => setView("scorecard"),
-              })
-            }
-          >
-            {pending && <LoaderCircle size={14} className="animate-spin" />}
-            {latest ? "Review again" : "Review attempt"}
-          </Button>
-        </div>
-      </div>
-
-      {view === "trajectory" && showViews ? (
-        trajectoryThreadId ? (
-          <HarnessTrajectory
-            profileId={profileId}
-            threadId={trajectoryThreadId}
-            className="min-h-0 flex-1"
-          />
-        ) : (
-          <div className="flex min-h-[240px] flex-1 flex-col items-center justify-center px-6 text-center">
-            <LoaderCircle
-              size={18}
-              className="animate-spin text-muted motion-reduce:animate-none"
-              aria-hidden="true"
-            />
-            <p role="status" className="mt-2 text-ui font-medium">
-              Starting the review run…
-            </p>
-            <p className="mt-1 max-w-sm text-supporting text-muted">
-              The trajectory appears as soon as the harness records the first
-              event.
-            </p>
+              {pending && (
+                <LoaderCircle
+                  size={14}
+                  aria-hidden="true"
+                  className="animate-spin motion-reduce:animate-none"
+                />
+              )}
+              {pending
+                ? "Reviewing…"
+                : latest
+                  ? "Review again"
+                  : "Review attempt"}
+            </Button>
           </div>
-        )
-      ) : (
-        <div className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[880px] space-y-3 px-4 py-4 md:px-6 md:py-5">
-            {reviews.isLoading && (
-              <p role="status" className="text-supporting text-muted">
-                Loading reviews…
-              </p>
-            )}
-            {reviews.error && (
-              <p role="alert" className="text-supporting text-destructive">
-                {reviews.error.message}
-              </p>
-            )}
-
-            {!latest && !pending && !reviews.isLoading && !reviews.error && (
-              <p className="text-supporting text-muted">
-                Score this attempt against the challenge's completion criteria.
-                The review reads your workspace and never runs the code.
-              </p>
-            )}
-
-            {pending && (
-              <p role="status" className="text-supporting text-muted">
-                Reading the workspace and judging each criterion…
-              </p>
-            )}
-
-            {create.error && (
-              <p role="alert" className="text-supporting text-destructive">
-                {create.error.message}
-              </p>
-            )}
-
-            {latest && (
-              <article
-                aria-label={`Review ${reviewNumber} scorecard`}
-                className="space-y-3"
+        </header>
+        {reviews.isLoading && <ReviewSkeleton />}
+        {reviews.error && (
+          <p role="alert" className="text-supporting text-destructive">
+            {reviews.error.message}
+          </p>
+        )}
+        {pending && (
+          <div className="flex flex-wrap items-center gap-x-2">
+            <p role="status" className="text-supporting text-muted">
+              Reading the workspace and checking each criterion…
+            </p>
+            {liveThread && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onOpenRun(liveThread.id)}
               >
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="flex items-baseline gap-2">
-                    <Verdict review={latest} />
-                    <span className="text-metadata text-muted">
-                      {formatDate(latest.createdAt)}
-                    </span>
-                  </div>
+                View live run
+              </Button>
+            )}
+          </div>
+        )}
+        {create.error && (
+          <p role="alert" className="text-supporting text-destructive">
+            {create.error.message}
+          </p>
+        )}
+        {!latest && !reviews.isLoading && !reviews.error && (
+          <div className="max-w-[76ch] space-y-2">
+            {!pending && (
+              <p className="text-supporting text-muted">
+                The review reads your workspace and checks these criteria
+                without running your code.
+              </p>
+            )}
+            <ul className="list-disc space-y-1 pl-5 text-supporting marker:text-muted">
+              {challenge.completionCriteria.map((criterion, index) => (
+                <li key={index}>
+                  <Markdown>{criterion}</Markdown>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {latest && (
+          <article
+            aria-label={`Review ${reviewNumber} scorecard`}
+            className="max-w-[76ch] space-y-5"
+          >
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-l-2 border-line-strong pl-3">
+              <div className="shrink-0">
+                <p className="font-mono text-section leading-none tabular-nums">
+                  {latest.criteriaMet}
+                  <span className="text-supporting text-muted">
+                    /{latest.criteriaTotal}
+                  </span>
+                </p>
+                <p className="mt-1 text-metadata text-muted">Criteria met</p>
+              </div>
+              <div className="min-w-0 flex-1 basis-48">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <Verdict review={latest} />
                   <span className="text-metadata text-muted">
+                    {formatDate(latest.createdAt)}
+                  </span>
+                  <span className="font-mono text-metadata break-all text-muted">
                     {latest.model}
                   </span>
                 </div>
-                <Evidence review={latest} />
-                <Findings review={latest} />
-              </article>
+                {latest.result.nextStep && (
+                  <p className="mt-1 text-supporting">
+                    {latest.result.nextStep}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-ui font-semibold">Completion criteria</h3>
+              <Evidence review={latest} />
+            </div>
+            <Findings review={latest} />
+            {savedThreadId && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onOpenRun(savedThreadId)}
+              >
+                <Activity size={14} aria-hidden="true" />
+                View run in Activity
+              </Button>
             )}
-          </div>
-        </div>
-      )}
+          </article>
+        )}
+      </div>
     </section>
   );
 }

@@ -34,7 +34,7 @@ export function WorkspaceSettingsPanel({ data }: { data: LocalSettings }) {
     root === "" ||
     (draft === null && data.workspace.root === data.workspace.defaultRoot);
   return (
-    <div className="mt-10">
+    <div className="mt-6">
       <SettingsHeading
         title="Challenge workspace"
         description="New challenge folders are created here. Existing folders stay in place."
@@ -106,7 +106,7 @@ export function WorkspaceSettingsPanel({ data }: { data: LocalSettings }) {
             save.isSuccess && !dirty ? "Workspace folder saved." : undefined
           }
         />
-        <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
           {dirty && (
             <span className="mr-auto text-supporting text-muted">
               Unsaved changes

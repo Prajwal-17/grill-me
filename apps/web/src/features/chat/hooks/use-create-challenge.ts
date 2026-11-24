@@ -71,7 +71,7 @@ export function useCreateBuild(profile: Profile) {
     if (useAppStore.getState().profile?.id !== profile.id) return;
     show({
       message: "Challenge queued",
-      description: "It opens on its activity as soon as it is ready.",
+      description: "Follow the brief and project setup on the build page.",
       scope: `generation:${profile.id}`,
     });
     if (mounted.current) {
@@ -83,8 +83,8 @@ export function useCreateBuild(profile: Profile) {
       setAttachmentError(null);
       requestRef.current = null;
       // Submitting leaves the composer immediately: the generation progress
-      // page shows the live run and continues into the challenge when it
-      // completes. Navigate last — the composer's own parameter cleanup runs
+      // page follows the brief and setup through to the challenge. Navigate
+      // last — the composer's own parameter cleanup runs
       // through navigate too and would otherwise replace this navigation.
       if (job.kind === "challenge")
         navigate(`/generations/${encodeURIComponent(job.id)}`);

@@ -11,7 +11,9 @@ import {
   formatTrajectoryValue,
   parseTrajectoryJson,
   projectTrajectory,
+  requestRow,
   trajectoryToolOutput,
+  trajectoryContextSections,
 } from "./trajectory";
 
 const at = (seconds: number) =>
@@ -219,6 +221,49 @@ describe("trajectory projection", () => {
     expect(model.stats.tokens).toMatchObject({ input: 100, output: 25 });
   });
 
+  test("reconstructs model request boundaries with usage and failures", () => {
+    const model = projectTrajectory(detail(items));
+    expect(model.requests.length).toBe(2);
+    const first = model.requests[0]!;
+    const second = model.requests[1]!;
+    expect(first.status).toBe("completed");
+    expect(first.ordinal).toBe(1);
+    expect(first.model).toBe("fixture-model");
+    expect(first.tokens).toMatchObject({ input: 100, output: 25, total: 125 });
+    expect(first.cumulativeTokens?.total).toBe(125);
+    expect(first.inputRows.map((row) => row.kind)).toEqual([
+      "user",
+      "reasoning",
+    ]);
+    expect(first.assistantRow?.id).toBe("item-5");
+    expect(model.requestsByAssistantRow.get("item-5")?.id).toBe(first.id);
+    expect(model.pendingByAttempt.size).toBe(0);
+    expect(second.status).toBe("failed");
+    expect(second.error).toBe("Provider exited.");
+    expect(second.tokens).toBeNull();
+    expect(second.assistantRow).toBeNull();
+    expect(second.inputRows.map((row) => row.kind)).toEqual(["tool", "result"]);
+    expect(model.requestsByErrorRow.get("item-8")?.id).toBe(second.id);
+    const row = requestRow(first);
+    expect(row.kind).toBe("model_request");
+    expect(row.tag).toBe("REQUEST");
+    expect(row.tokens).toMatchObject({ total: 125 });
+  });
+
+  test("exposes the in-flight request while a run is active", () => {
+    const fixture = detail(items.filter((entry) => entry.ordinal <= 6));
+    fixture.thread.status = "running";
+    fixture.turns[0]!.status = "running";
+    const model = projectTrajectory(fixture);
+    expect(model.requests.length).toBe(2);
+    const pending = model.requests[1]!;
+    expect(pending.status).toBe("running");
+    expect(pending.assistantRow).toBeNull();
+    expect(pending.inputRows.map((row) => row.kind)).toEqual(["tool"]);
+    expect(model.pendingByAttempt.get("attempt-1")?.id).toBe(pending.id);
+    expect(model.requestsByAssistantRow.size).toBe(1);
+  });
+
   test("captures the run setup: prompt, tools, and context", () => {
     const model = projectTrajectory(detail(items));
     expect(model.setup).toMatchObject({
@@ -312,5 +357,27 @@ describe("trajectory projection", () => {
     expect(formatTrajectoryDuration(65_000)).toBe("1m 5s");
     expect(formatTrajectorySize(900)).toBe("900 B");
     expect(formatTrajectorySize(2_048)).toBe("2.0 KB");
+  });
+});
+
+describe("trajectory context reader", () => {
+  test("keeps named blocks in source order and preserves their text", () => {
+    const context = [
+      '<untrusted_context name="challenge">\nTitle: A queue\n\n## Task\nUse a clock.\n</untrusted_context>',
+      '<context name="build_options">\r\nScope: focused\r\n</context>',
+    ].join("\n\n");
+    expect(trajectoryContextSections(context)).toEqual([
+      { name: "challenge", text: "Title: A queue\n\n## Task\nUse a clock." },
+      { name: "build_options", text: "Scope: focused" },
+    ]);
+  });
+
+  test("falls back to the original view when a capture cannot be split without losing text", () => {
+    expect(trajectoryContextSections("Legacy context")).toEqual([]);
+    expect(
+      trajectoryContextSections(
+        '<context name="challenge">\nA queue\n</context>\nTruncated…',
+      ),
+    ).toEqual([]);
   });
 });

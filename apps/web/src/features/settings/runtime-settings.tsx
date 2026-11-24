@@ -122,7 +122,7 @@ export function RuntimeSettingsPanel({ data }: { data: LocalSettings }) {
           error={save.error ?? openDataFolder.error}
           message={save.isSuccess && !dirty ? "Settings saved." : undefined}
         />
-        <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
+        <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
           {dirty && (
             <span className="mr-auto text-supporting text-muted">
               Unsaved changes

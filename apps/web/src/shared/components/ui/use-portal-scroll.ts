@@ -5,7 +5,6 @@ const scrollablePopupSelector = [
   '[data-slot="dropdown-menu-content"]',
   '[data-slot="dropdown-menu-sub-content"]',
   '[data-slot="select-content"]',
-  '[data-slot="context-menu-content"]',
 ].join(",");
 
 /**

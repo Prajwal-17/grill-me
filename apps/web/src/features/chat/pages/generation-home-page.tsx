@@ -1,4 +1,4 @@
-import { AppShell } from "@/shared/components/layout/app-shell";
+import { CompactShell } from "@/shared/components/layout/compact-shell";
 import { LoadingScreen } from "@/shared/components/ui/feedback";
 import { ProfileGatePage } from "@/features/profile/pages/profile-gate-page";
 import { useProfile } from "@/features/profile/hooks/use-profile";
@@ -9,8 +9,8 @@ export function GenerationHomePage() {
   if (profile === undefined) return <LoadingScreen />;
   if (!profile) return <ProfileGatePage />;
   return (
-    <AppShell profile={profile} title="Home" contentScrollable={false}>
+    <CompactShell profile={profile}>
       <GenerationHome profile={profile} />
-    </AppShell>
+    </CompactShell>
   );
 }

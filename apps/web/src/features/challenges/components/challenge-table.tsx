@@ -1,150 +1,175 @@
 import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
-import { ArrowUpRight, Blocks, Network, Target } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/shared/components/ui/table";
+import { dateGroup } from "@/shared/lib/date-groups";
+import { BookOpen } from "lucide-react";
+import { Fragment } from "react";
 import { Link } from "react-router";
-import { cn } from "@/shared/lib/cn";
 import type { Challenge } from "@/shared/types/api";
-import { formatDate } from "@/features/challenges/lib/challenge-formatters";
-import { ChallengeMetadata } from "./challenge-metadata";
-import styles from "./challenge-table.module.css";
+import {
+  formatBuildDifficulty,
+  formatBuildScope,
+  formatDate,
+  formatDurationEstimate,
+} from "@/features/challenges/lib/challenge-formatters";
 
-export function ChallengeTable({ challenges }: { challenges: Challenge[] }) {
+export function ChallengeTable({
+  challenges,
+  chronological = true,
+}: {
+  challenges: Challenge[];
+  chronological?: boolean;
+}) {
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-lg border border-line bg-surface",
-        styles.table,
-      )}
-    >
-      <div
-        className={cn(
-          "border-b border-line bg-panel px-4 py-2 text-metadata text-muted",
-          styles.header,
-        )}
-        aria-hidden="true"
-      >
-        <span>Challenge</span>
-        <span>Type</span>
-        <span>Difficulty</span>
-        <span>Est. time</span>
-        <span />
-      </div>
-      <ul>
-        {challenges.map((challenge) => {
-          const completed = challenge.status === "completed";
-          const Icon =
-            challenge.scope === "system"
-              ? Network
-              : challenge.scope === "feature"
-                ? Blocks
-                : Target;
-          return (
-            <li
-              key={challenge.id}
-              className="border-b border-line last:border-b-0"
-            >
-              <Link
-                to={"/chat?id=" + challenge.id}
-                className={cn(
-                  "group px-4 py-3 outline-offset-[-3px] transition-colors hover:bg-panel",
-                  styles.row,
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex min-w-0 items-center gap-2",
-                    styles.title,
+    <div className="overflow-hidden rounded-lg border border-line">
+      <Table aria-label="Challenges">
+        <ChallengeTableHeader />
+        <TableBody>
+          {challenges.map((challenge, index) => {
+            const group = dateGroup(challenge.createdAt);
+            const scope = formatBuildScope(challenge.scope);
+            const difficulty = formatBuildDifficulty(challenge.difficulty);
+            const duration = formatDurationEstimate(challenge.durationEstimate);
+            const status =
+              challenge.status === "completed" && challenge.completedAt
+                ? `Completed ${formatDate(challenge.completedAt)}`
+                : challenge.status === "paused"
+                  ? "Paused"
+                  : challenge.status === "stopped"
+                    ? "Stopped"
+                    : null;
+
+            return (
+              <Fragment key={challenge.id}>
+                {chronological &&
+                  (index === 0 ||
+                    group !== dateGroup(challenges[index - 1]!.createdAt)) && (
+                    <TableRow className="border-line bg-canvas hover:bg-canvas">
+                      <TableCell
+                        colSpan={4}
+                        className="py-2 text-metadata font-medium text-muted sm:px-4"
+                      >
+                        {group}
+                      </TableCell>
+                    </TableRow>
                   )}
-                >
-                  <Icon
-                    size={16}
-                    strokeWidth={1.5}
-                    className="shrink-0 text-brand"
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 [overflow-wrap:anywhere]">
-                    <h3 className="text-ui font-medium leading-5">
-                      <span className="mr-2 font-normal text-muted">
-                        #{challenge.number}
+                <TableRow className="border-line">
+                  <TableCell className="p-0 whitespace-normal">
+                    <Link
+                      to={`/chat?id=${encodeURIComponent(challenge.id)}`}
+                      className="flex items-center gap-3 px-3 py-2.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-foreground sm:px-4"
+                    >
+                      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-[var(--ember-surface)] text-[var(--ember)]">
+                        <BookOpen size={15} aria-hidden="true" />
                       </span>
-                      {challenge.title}
-                      {(challenge.status === "paused" ||
-                        challenge.status === "stopped") && (
-                        <span className="ml-2 inline-block rounded-md bg-canvas px-1.5 text-metadata font-normal text-muted">
-                          {challenge.status === "paused" ? "Paused" : "Stopped"}
+                      <span className="min-w-0 [overflow-wrap:anywhere]">
+                        <span className="font-medium">
+                          <span className="mr-2 font-normal tabular-nums text-muted">
+                            #{challenge.number}
+                          </span>
+                          {challenge.title}
                         </span>
-                      )}
-                    </h3>
-                    {completed && challenge.completedAt && (
-                      <p className="text-metadata text-muted">
-                        Completed {formatDate(challenge.completedAt)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <ChallengeMetadata
-                  challenge={challenge}
-                  compact
-                  variant="columns"
-                  className={styles.metadata}
-                />
-                <ArrowUpRight
-                  size={15}
-                  className={cn(
-                    "text-muted group-hover:text-foreground",
-                    styles.arrow,
-                  )}
-                  aria-hidden="true"
-                />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                        <span className="mt-0.5 block text-metadata text-muted sm:hidden">
+                          {scope} · {difficulty} · {duration}
+                        </span>
+                        {status && (
+                          <span className="mt-0.5 block text-metadata text-muted">
+                            {status}
+                          </span>
+                        )}
+                      </span>
+                    </Link>
+                  </TableCell>
+                  <TableCell className="hidden text-metadata text-muted sm:table-cell">
+                    {scope}
+                  </TableCell>
+                  <TableCell
+                    className="hidden text-metadata sm:table-cell"
+                    data-difficulty={challenge.difficulty}
+                  >
+                    {difficulty}
+                  </TableCell>
+                  <TableCell className="hidden text-metadata tabular-nums text-muted sm:table-cell sm:pr-4">
+                    {duration}
+                  </TableCell>
+                </TableRow>
+              </Fragment>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }
 
-export function ChallengeTableSkeleton() {
+function ChallengeTableHeader() {
+  return (
+    <TableHeader className="bg-panel">
+      <TableRow className="border-line">
+        <TableHead scope="col" className="w-full sm:px-4">
+          Challenge
+        </TableHead>
+        <TableHead scope="col" className="hidden sm:table-cell">
+          Scope
+        </TableHead>
+        <TableHead scope="col" className="hidden sm:table-cell">
+          Difficulty
+        </TableHead>
+        <TableHead scope="col" className="hidden sm:table-cell sm:pr-4">
+          Est. time
+        </TableHead>
+      </TableRow>
+    </TableHeader>
+  );
+}
+
+export function ChallengeTableSkeleton({
+  chronological = true,
+}: {
+  chronological?: boolean;
+}) {
   return (
     <LoadingRegion
-      label="Loading challenges…"
+      label="Loading challenges"
       layout="challenges"
-      className={cn(
-        "overflow-hidden rounded-lg border border-line bg-surface",
-        styles.table,
-      )}
+      className="overflow-hidden rounded-lg border border-line"
     >
-      <div
-        className={cn(
-          "border-b border-line bg-panel px-4 py-2 text-metadata text-muted",
-          styles.header,
-        )}
-        aria-hidden="true"
-      >
-        <span>Challenge</span>
-        <span>Type</span>
-        <span>Difficulty</span>
-        <span>Est. time</span>
-        <span />
-      </div>
-      <div className="divide-y divide-line">
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className={cn("px-4 py-3", styles.row)}>
-            <div
-              className={cn("flex min-w-0 items-center gap-2", styles.title)}
-            >
-              <Skeleton className="size-4 shrink-0" />
-              <Skeleton className={i % 2 ? "h-5 w-3/5" : "h-5 w-4/5"} />
-            </div>
-            <div className={cn("grid items-center gap-x-4", styles.metadata)}>
-              <Skeleton className="h-6 w-14" />
-              <Skeleton className="h-4 w-14" />
-              <Skeleton className="h-4 w-20" />
-            </div>
-            <Skeleton className={cn("size-3", styles.arrow)} />
-          </div>
-        ))}
-      </div>
+      <Table aria-hidden="true">
+        <ChallengeTableHeader />
+        <TableBody>
+          {chronological && (
+            <TableRow className="border-line bg-canvas">
+              <TableCell colSpan={4} className="py-2 sm:px-4">
+                <Skeleton className="h-3 w-16" />
+              </TableCell>
+            </TableRow>
+          )}
+          {[0, 1, 2, 3].map((row) => (
+            <TableRow key={row} className="border-line">
+              <TableCell className="w-full p-0">
+                <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
+                  <Skeleton className="size-8 shrink-0" />
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Skeleton className={row % 2 ? "h-4 w-3/5" : "h-4 w-4/5"} />
+                    <Skeleton className="h-3 w-1/3 sm:hidden" />
+                  </div>
+                </div>
+              </TableCell>
+              {[0, 1, 2].map((column) => (
+                <TableCell key={column} className="hidden sm:table-cell">
+                  <Skeleton className="h-3.5 w-16" />
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </LoadingRegion>
   );
 }

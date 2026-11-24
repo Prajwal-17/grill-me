@@ -1,15 +1,16 @@
 import { Fragment, type ReactNode } from "react";
 import { HistoryPicker } from "@/shared/components/history/history-picker";
-import {
-  Activity,
-  ArrowDown,
-  History,
-  LoaderCircle,
-  MessageSquare,
-} from "lucide-react";
+import { ArrowDown, LoaderCircle } from "lucide-react";
 import type { HarnessThreadSummary } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
-import { Skeleton } from "@/shared/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select";
+import { ActivitySkeleton } from "@/shared/components/ui/loading-layouts";
 import {
   Tabs,
   TabsContent,
@@ -72,15 +73,9 @@ function SessionSwitcher({
 
 function EmptyActivity({ category }: { category: ActivityCategory }) {
   return (
-    <div className="flex min-h-[220px] flex-col items-center justify-center px-6 text-center">
-      <History size={18} className="text-muted" aria-hidden="true" />
-      <p className="mt-2 text-ui font-medium">
-        {activityCategoryMeta[category].label}
-      </p>
-      <p className="mt-1 max-w-xs text-supporting text-muted">
-        {activityCategoryMeta[category].empty}
-      </p>
-    </div>
+    <p className="py-3 text-supporting text-muted">
+      {activityCategoryMeta[category].empty}
+    </p>
   );
 }
 
@@ -88,6 +83,9 @@ export function HarnessActivity({
   profileId,
   challengeId,
   prelude,
+  projectFilesOpen,
+  inspectorContainer,
+  onInspectorModalChange,
   selectedRunId,
   category,
   view,
@@ -98,6 +96,9 @@ export function HarnessActivity({
   profileId: string;
   challengeId: string;
   prelude?: ReactNode;
+  projectFilesOpen?: boolean;
+  inspectorContainer?: HTMLElement | null;
+  onInspectorModalChange?: (modal: boolean) => void;
   selectedRunId?: string;
   category: ActivityCategory;
   view: ActivityView;
@@ -178,15 +179,8 @@ export function HarnessActivity({
   if (threads.isPending) {
     return (
       <section aria-label="Activity" className="min-h-0 flex-1 overflow-hidden">
-        <div
-          role="status"
-          aria-label="Loading activity"
-          className="mx-auto w-full max-w-[980px] space-y-3 px-4 py-4 md:px-6 md:py-5"
-        >
-          <Skeleton className="h-4 w-2/5" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-20 w-full" />
+        <div className="mx-auto w-full max-w-[1152px] px-4 sm:px-6">
+          <ActivitySkeleton trajectory={view === "trajectory"} />
         </div>
       </section>
     );
@@ -195,7 +189,7 @@ export function HarnessActivity({
     return (
       <section
         aria-label="Activity"
-        className="mx-auto w-full max-w-[980px] px-4 py-4 md:px-6 md:py-5"
+        className="mx-auto w-full max-w-[1152px] px-4 pt-2 pb-3 sm:px-6"
       >
         <p role="alert" className="text-supporting text-destructive">
           {threads.error.message}
@@ -225,18 +219,17 @@ export function HarnessActivity({
         onValueChange={(value) => onSelectCategory(value as ActivityCategory)}
         className="min-h-0 flex-1 gap-0"
       >
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line px-2 md:px-5">
+        <div className="mx-auto flex w-full max-w-[1152px] shrink-0 flex-wrap items-center justify-between gap-2 px-4 pb-2 sm:px-6">
           <div className="scrollbar-quiet min-w-0 overflow-x-auto">
             <TabsList
-              variant="line"
-              className="h-10 min-w-max justify-start"
+              className="h-8 min-w-max justify-start gap-0.5 bg-transparent p-0"
               aria-label="Activity categories"
             >
               {groups.map((entry) => (
                 <TabsTrigger
                   key={entry.key}
                   value={entry.key}
-                  className="flex-none px-2.5 text-metadata"
+                  className="flex-none px-2.5 text-supporting data-[state=active]:bg-elevated data-[state=active]:shadow-none"
                 >
                   {entry.label}
                 </TabsTrigger>
@@ -254,30 +247,22 @@ export function HarnessActivity({
                 onSelect={onSelectRun}
               />
             )}
-            <div
-              role="group"
-              aria-label="Activity view"
-              className="flex items-center rounded-md border border-line bg-surface p-0.5"
+            <Select
+              value={view}
+              onValueChange={(value) => onSelectView(value as ActivityView)}
             >
-              <Button
+              <SelectTrigger
                 size="sm"
-                variant={view === "transcript" ? "secondary" : "ghost"}
-                aria-pressed={view === "transcript"}
-                onClick={() => onSelectView("transcript")}
+                aria-label="Activity view"
+                className="shadow-none"
               >
-                <MessageSquare size={12} aria-hidden="true" />
-                Transcript
-              </Button>
-              <Button
-                size="sm"
-                variant={view === "trajectory" ? "secondary" : "ghost"}
-                aria-pressed={view === "trajectory"}
-                onClick={() => onSelectView("trajectory")}
-              >
-                <Activity size={12} aria-hidden="true" />
-                Trajectory
-              </Button>
-            </div>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="transcript">Transcript</SelectItem>
+                <SelectItem value="trajectory">Trajectory</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <TabsContent
@@ -287,14 +272,8 @@ export function HarnessActivity({
           {view === "trajectory" ? (
             activeThread ? (
               activeTranscript?.isPending ? (
-                <div
-                  role="status"
-                  aria-label="Loading activity trajectory"
-                  className="space-y-3 p-4"
-                >
-                  <Skeleton className="h-4 w-2/5" />
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-20 w-full" />
+                <div className="mx-auto w-full max-w-[1152px] px-4 sm:px-6">
+                  <ActivitySkeleton header={false} trajectory />
                 </div>
               ) : activeTranscript?.error ? (
                 <div className="space-y-2 p-4">
@@ -310,17 +289,26 @@ export function HarnessActivity({
                   </Button>
                 </div>
               ) : activeTranscript?.data ? (
-                <HarnessTrajectoryContent
-                  key={activeTranscript.data.thread.id}
-                  profileId={profileId}
-                  detail={activeTranscript.data}
-                  className="min-h-0 flex-1"
-                />
+                <div className="mx-auto flex min-h-0 min-w-0 w-full max-w-[1152px] flex-1 px-4 sm:px-6">
+                  <HarnessTrajectoryContent
+                    key={activeTranscript.data.thread.id}
+                    profileId={profileId}
+                    detail={activeTranscript.data}
+                    projectFilesOpen={projectFilesOpen}
+                    inspectorContainer={inspectorContainer}
+                    onInspectorModalChange={onInspectorModalChange}
+                    className="min-h-0 flex-1"
+                  />
+                </div>
               ) : (
-                <EmptyActivity category={activeCategory} />
+                <div className="mx-auto w-full max-w-[1152px] px-4 sm:px-6">
+                  <EmptyActivity category={activeCategory} />
+                </div>
               )
             ) : (
-              <EmptyActivity category={activeCategory} />
+              <div className="mx-auto w-full max-w-[1152px] px-4 sm:px-6">
+                <EmptyActivity category={activeCategory} />
+              </div>
             )
           ) : (
             <div
@@ -336,21 +324,17 @@ export function HarnessActivity({
             >
               <div
                 ref={contentRef}
-                className="mx-auto w-full max-w-[980px] px-4 py-4 md:px-6 md:py-5"
+                className="mx-auto w-full max-w-[1152px] px-4 pt-2 pb-3 sm:px-6"
               >
                 {visibleThreads.length ? (
                   <div className="space-y-3">
                     {transcripts.map((query, index) => (
                       <Fragment key={visibleThreads[index]!.id}>
                         {index === preludeIndex && prelude && (
-                          <div className="mb-4">{prelude}</div>
+                          <div className="mb-3">{prelude}</div>
                         )}
                         {query.isPending ? (
-                          <Skeleton
-                            role="status"
-                            aria-label="Loading activity messages"
-                            className="h-20 w-full"
-                          />
+                          <ActivitySkeleton header={false} />
                         ) : query.error ? (
                           <div className="space-y-2">
                             <p
@@ -383,7 +367,7 @@ export function HarnessActivity({
                 ) : (
                   <>
                     {preludeIndex === 0 && prelude && (
-                      <div className="mb-4">{prelude}</div>
+                      <div className="mb-3">{prelude}</div>
                     )}
                     <EmptyActivity category={activeCategory} />
                   </>

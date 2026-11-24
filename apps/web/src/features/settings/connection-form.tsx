@@ -128,7 +128,7 @@ export function ConnectionForm({
   return (
     <section
       aria-label={provider ? `Edit ${provider.name}` : "Add API connection"}
-      className="mt-6 min-w-0 border-t border-line pt-6"
+      className="mt-4 min-w-0 border-t border-line pt-4"
     >
       <h3 className="text-reading font-semibold">
         {provider ? provider.name : "New API connection"}

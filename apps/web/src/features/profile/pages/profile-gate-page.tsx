@@ -39,21 +39,19 @@ export function ProfileGatePage() {
     if (email.trim()) start.mutate();
   }
   return (
-    <main className="flex min-h-dvh flex-col gap-12 bg-chrome px-5 pb-16">
+    <main className="flex min-h-dvh flex-col gap-6 bg-chrome px-5 pb-8">
       <div className="-mx-5">
         <header className="desktop-app-header flex min-h-[var(--workspace-header-height)] items-center justify-between gap-4 border-b border-line px-5 py-2 md:py-0">
           <BrandLockup markClassName="size-7" wordmarkClassName="text-ui" />
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-1">
             <DesktopVersionLink />
             <Link
               to="/settings"
-              className="text-ui text-muted hover:text-foreground"
+              className="inline-flex h-9 items-center rounded-md px-3 text-ui text-muted transition-colors hover:bg-elevated hover:text-foreground"
             >
               Settings
             </Link>
-            <div className="w-40">
-              <ThemeSelect />
-            </div>
+            <ThemeSelect />
           </div>
         </header>
         <ProviderHealthNotice />
@@ -65,7 +63,7 @@ export function ProfileGatePage() {
         <p className="mt-2 text-ui leading-6 text-muted">
           Open your local practice workspace.
         </p>
-        <form onSubmit={submit} className="mt-6 grid gap-5">
+        <form onSubmit={submit} className="mt-5 grid gap-4">
           <label className="grid gap-2 text-ui font-medium" htmlFor="email">
             Profile email
             <Input

@@ -1,5 +1,5 @@
 import { useProfile } from "@/features/profile/hooks/use-profile";
-import { AppShell } from "@/shared/components/layout/app-shell";
+import { CompactShell } from "@/shared/components/layout/compact-shell";
 import { LoadingScreen } from "@/shared/components/ui/feedback";
 import { QuizWorkspace } from "../components/quiz-workspace";
 
@@ -9,10 +9,10 @@ export function QuizzesPage() {
   if (!profile) return null;
 
   return (
-    <AppShell profile={profile} title="Quizzes" contentScrollable={false}>
-      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1440px] flex-col p-4 md:p-5">
+    <CompactShell profile={profile}>
+      <main className="mx-auto flex h-full min-h-0 w-full max-w-[1200px] flex-col px-4 py-4 sm:px-8 md:py-6">
         <QuizWorkspace key={profile.id} profileId={profile.id} />
       </main>
-    </AppShell>
+    </CompactShell>
   );
 }

@@ -25,12 +25,12 @@ function MarkdownCodeBlock({ children }: { children?: ReactNode }) {
 function createMarkdownComponents(reading: boolean): Components {
   const type = reading
     ? {
-        h1: "mt-10 mb-4 text-title font-semibold first:mt-0",
-        h2: "mt-9 mb-3 text-section font-semibold first:mt-0",
-        h3: "mt-7 mb-2.5 text-question font-semibold first:mt-0",
-        h4: "mt-6 mb-2 text-prose font-semibold first:mt-0",
-        h5: "mt-5 mb-1.5 text-ui font-semibold",
-        h6: "mt-5 mb-1.5 text-ui font-medium text-muted",
+        h1: "mt-8 mb-3 text-title font-semibold first:mt-0",
+        h2: "mt-6 mb-2 text-section font-semibold first:mt-0",
+        h3: "mt-5 mb-2 text-question font-semibold first:mt-0",
+        h4: "mt-4 mb-2 text-prose font-semibold first:mt-0",
+        h5: "mt-4 mb-1.5 text-ui font-semibold",
+        h6: "mt-4 mb-1.5 text-ui font-medium text-muted",
         p: "mb-4 last:mb-0",
         list: "mb-5 list-disc space-y-2 pl-5 marker:text-muted last:mb-0",
         tasks: "mb-5 grid list-none gap-2 pl-0 last:mb-0",

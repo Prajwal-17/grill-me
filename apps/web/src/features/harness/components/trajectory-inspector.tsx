@@ -1,7 +1,17 @@
-import { useState, type ReactNode } from "react";
-import { CircleAlert, LoaderCircle, X } from "lucide-react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  ChevronRight,
+  CircleAlert,
+  LoaderCircle,
+  Maximize2,
+  Minimize2,
+  X,
+} from "lucide-react";
 import type { HarnessItem } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
+import { Markdown } from "@/shared/components/markdown";
+import { CopyButton } from "@/shared/components/ui/copy-button";
+import { InfoHint } from "@/shared/components/ui/info-hint";
 import {
   Tabs,
   TabsContent,
@@ -20,12 +30,22 @@ import {
   formatTrajectoryDuration,
   formatTrajectoryValue,
   trajectoryToolOutput,
+  trajectoryContextSections,
   type TrajectoryPromptSnapshot,
+  type TrajectoryRequest,
   type TrajectoryRow,
 } from "../lib/trajectory";
 
 type TabId =
-  "summary" | "prompt" | "input" | "output" | "tools" | "context" | "raw";
+  | "summary"
+  | "prompt"
+  | "input"
+  | "reply"
+  | "output"
+  | "tools"
+  | "context"
+  | "usage"
+  | "raw";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -40,38 +60,46 @@ function formatTime(value: number | null) {
 }
 
 function tabsFor(row: TrajectoryRow): { id: TabId; label: string }[] {
+  if (row.kind === "model_request")
+    return [
+      { id: "summary", label: "Summary" },
+      { id: "input", label: "Input" },
+      { id: "reply", label: "Reply" },
+      { id: "usage", label: "Usage" },
+      { id: "raw", label: "Stored" },
+    ];
   if (row.kind === "system")
     return [
       { id: "summary", label: "Summary" },
       { id: "prompt", label: "System Prompt" },
       { id: "tools", label: "Tools" },
       { id: "context", label: "Context" },
-      { id: "raw", label: "Raw" },
+      { id: "raw", label: "Stored" },
     ];
   if (row.kind === "context")
     return [
       { id: "summary", label: "Summary" },
       { id: "context", label: "Context" },
-      { id: "raw", label: "Raw" },
+      { id: "raw", label: "Stored" },
     ];
   if (row.kind === "tool" || row.kind === "result")
     return [
       { id: "summary", label: "Summary" },
       { id: "input", label: row.isCompletion ? "Result" : "Input" },
       { id: "output", label: "Output" },
-      { id: "raw", label: "Raw" },
+      { id: "raw", label: "Stored" },
     ];
   if (row.kind === "request")
     return [
       { id: "summary", label: "Summary" },
       { id: "prompt", label: "Prompt" },
       { id: "output", label: "Response" },
-      { id: "raw", label: "Raw" },
+      { id: "raw", label: "Stored" },
     ];
   return [
     { id: "summary", label: "Summary" },
-    { id: "input", label: row.kind === "assistant" ? "Content" : "Text" },
-    { id: "raw", label: "Raw" },
+    { id: "input", label: row.kind === "assistant" ? "Reply" : "Message" },
+    { id: "raw", label: "Stored" },
   ];
 }
 
@@ -79,6 +107,14 @@ function defaultTab(row: TrajectoryRow): TabId {
   if (row.kind === "system") return "prompt";
   if (row.kind === "context") return "context";
   if (row.kind === "result") return "input";
+  if (row.kind === "tool" && row.preview) return "output";
+  if (row.kind === "request") return "prompt";
+  if (
+    row.kind === "user" ||
+    row.kind === "assistant" ||
+    row.kind === "reasoning"
+  )
+    return "input";
   return "summary";
 }
 
@@ -104,6 +140,36 @@ function promptFrom(item: HarnessItem | undefined): TrajectoryPromptSnapshot {
   };
 }
 
+/** Raw JSON for a model request: its metadata plus the stored reply. */
+function requestRawText(request: TrajectoryRequest) {
+  const iso = (value: number | null) =>
+    value === null ? null : new Date(value).toISOString();
+  const meta = {
+    kind: "model_request",
+    request: request.ordinal,
+    status: request.status,
+    model: request.model,
+    provider: request.provider,
+    stopReason: request.stopReason,
+    sentAt: iso(request.sentAt),
+    completedAt: iso(request.completedAt),
+    durationMs: request.durationMs,
+    usage: request.tokens,
+    runUsageSoFar: request.cumulativeTokens,
+    inputs: request.inputRows.map((row) => ({
+      id: row.id,
+      type: row.tag,
+      summary: row.summary,
+    })),
+  };
+  const response = request.assistantRow?.item;
+  return JSON.stringify(
+    response ? { request: meta, response } : { request: meta },
+    null,
+    2,
+  );
+}
+
 type Fact = {
   label: string;
   value?: string;
@@ -116,7 +182,7 @@ function FactList({ facts, className }: { facts: Fact[]; className?: string }) {
   return (
     <dl
       className={cn(
-        "grid grid-cols-[84px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2 text-metadata tabular-nums",
+        "grid grid-cols-[100px_minmax(0,1fr)] items-baseline gap-x-4 gap-y-3 text-supporting tabular-nums",
         className,
       )}
     >
@@ -147,9 +213,7 @@ function Facts({
 }) {
   const payload = item?.payload ?? {};
   const usage = row.tokens;
-  const identity: Fact[] = [
-    { label: "Status", node: <HarnessStatus status={row.status} label /> },
-  ];
+  const identity: Fact[] = [];
   if (row.attemptOrdinal !== null)
     identity.push({ label: "Attempt", value: String(row.attemptOrdinal) });
   const details: Fact[] = [];
@@ -163,17 +227,23 @@ function Facts({
       mono: true,
       destructive: row.tool.isError,
     });
+  if (row.request)
+    details.push({
+      label: "Inputs",
+      value: `${row.request.inputRows.length} record${row.request.inputRows.length === 1 ? "" : "s"} fed into this request`,
+    });
   details.push(
-    { label: "Started", value: formatTime(row.startedAt) },
-    { label: "Finished", value: formatTime(row.completedAt) },
     {
-      label: "Duration",
-      value:
-        row.durationMs === null
-          ? "—"
-          : formatTrajectoryDuration(row.durationMs),
+      label: row.request ? "Sent" : "Started",
+      value: formatTime(row.startedAt),
     },
+    { label: "Finished", value: formatTime(row.completedAt) },
   );
+  if (row.durationMs !== null)
+    details.push({
+      label: "Duration",
+      value: formatTrajectoryDuration(row.durationMs),
+    });
   if (usage)
     details.push({
       label: "Tokens",
@@ -187,6 +257,9 @@ function Facts({
   const model = item?.payload.model;
   if (typeof model === "string")
     details.push({ label: "Model", value: model, mono: true });
+  const provider = item?.payload.provider;
+  if (typeof provider === "string")
+    details.push({ label: "Provider", value: provider, mono: true });
   const stopReason = item?.payload.stopReason;
   if (typeof stopReason === "string")
     details.push({ label: "Stop reason", value: stopReason });
@@ -203,11 +276,66 @@ function Facts({
       value: "The stored record was truncated at the local limit.",
     });
   return (
-    <div className="space-y-2.5">
-      <FactList facts={identity} />
+    <div className="max-w-2xl space-y-4">
+      {identity.length > 0 && <FactList facts={identity} />}
       {details.length > 0 && (
-        <FactList facts={details} className="border-t border-line/60 pt-2.5" />
+        <FactList
+          facts={details}
+          className={
+            identity.length > 0 ? "border-t border-line/60 pt-4" : undefined
+          }
+        />
       )}
+    </div>
+  );
+}
+
+function RunContext({ text }: { text: string }) {
+  const sections = trajectoryContextSections(text);
+  if (!sections.length)
+    return (
+      <CodeSection
+        label="Run context"
+        text={text}
+        empty="No context was recorded for this run."
+      />
+    );
+  return (
+    <div className="max-w-[75ch] space-y-5">
+      {sections.map((section, index) => (
+        <section
+          key={index}
+          className="space-y-2 border-b border-line pb-5 last:border-b-0"
+        >
+          <div className="flex min-h-8 items-center justify-between gap-2">
+            <h3 className="text-ui font-semibold capitalize">
+              {section.name.replace(/[_-]/g, " ")}
+            </h3>
+            {index === 0 && (
+              <CopyButton
+                text={text}
+                label="Copy context"
+                ariaLabel="Copy run context"
+                iconOnly
+              />
+            )}
+          </div>
+          <div className="text-ui leading-relaxed [&_.markdown_:is(h1,h2,h3,h4,h5,h6)]:mt-4 [&_.markdown_:is(h1,h2,h3,h4,h5,h6)]:text-ui [&_.markdown_:is(h1,h2,h3,h4,h5,h6):first-child]:mt-0">
+            <Markdown>
+              {section.text
+                .replace(
+                  /\r?\n(?=(?:Title|Task|Implementation boundary|Expected outcome|Acceptance Criteria):)/g,
+                  "\n\n",
+                )
+                .replace(/^Task: (#{1,6} )/gm, "\n$1")
+                .replace(
+                  /^(Task|Implementation boundary|Expected outcome): (#{1,6} |[-*] |\d+\. )/gm,
+                  "\n**$1**\n\n$2",
+                )}
+            </Markdown>
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -216,14 +344,20 @@ export function TrajectoryInspector({
   profileId,
   threadId,
   row,
-  onClose,
-  className,
+  onBack,
+  onOpenRecord,
+  focusOnOpen,
+  expanded,
+  onToggleExpanded,
 }: {
   profileId: string;
   threadId: string;
   row: TrajectoryRow;
-  onClose: () => void;
-  className?: string;
+  onBack: () => void;
+  onOpenRecord: (id: string) => void;
+  focusOnOpen: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
 }) {
   const itemId = row.item?.id;
   const full = useHarnessItem(profileId, threadId, itemId, Boolean(itemId));
@@ -231,12 +365,16 @@ export function TrajectoryInspector({
   const payload = item?.payload ?? {};
   const prompt = promptFrom(item);
   const [tab, setTab] = useState<TabId>(() => defaultTab(row));
+  const back = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    if (focusOnOpen) back.current?.focus({ preventScroll: true });
+  }, [focusOnOpen]);
   const tabs = tabsFor(row);
   const input =
     row.kind === "tool" || row.kind === "result"
       ? formatTrajectoryValue(payload.input)
       : row.kind === "assistant"
-        ? formatTrajectoryValue(payload.content)
+        ? item?.text?.trim() || formatTrajectoryValue(payload.content)
         : row.kind === "request"
           ? typeof payload.prompt === "string"
             ? payload.prompt
@@ -257,56 +395,66 @@ export function TrajectoryInspector({
               .filter(Boolean)
               .join("\n\n")
           : (row.item?.text ?? "");
-  // Tool summaries store a compact teaser; the extracted output reads better
-  // on the summary tab and copies in full.
-  const preview =
-    (row.kind === "tool" || row.kind === "result") && output
-      ? { label: "Output preview", text: output }
-      : row.preview
-        ? { label: "Preview", text: row.preview }
-        : null;
+  const replyRow = row.request?.assistantRow;
+  const replyText = replyRow
+    ? replyRow.item?.text?.trim() ||
+      formatTrajectoryValue(replyRow.item?.payload.content)
+    : "";
   return (
-    <div
-      className={cn(
-        "flex h-full min-h-0 flex-col overflow-hidden bg-panel",
-        className,
-      )}
-      aria-label="Record inspector"
+    <section
+      aria-label="Record detail"
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-panel"
+      onKeyDown={(event) => {
+        if (
+          event.key !== "Escape" ||
+          event.defaultPrevented ||
+          !(event.target instanceof Node) ||
+          !event.currentTarget.contains(event.target)
+        )
+          return;
+        event.stopPropagation();
+        if (expanded) onToggleExpanded();
+        else onBack();
+      }}
     >
-      <header className="shrink-0 border-b border-line px-3 py-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
-              <span className="font-mono tabular-nums">#{row.ordinal}</span>
-              <span
-                className={cn(
-                  "inline-flex h-5 items-center rounded-sm px-1.5 text-metadata font-medium",
-                  trajectoryTagClass[row.kind],
-                )}
-              >
-                {row.tag}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>Turn {row.turnOrdinal}</span>
-              {row.tool?.isError === true && (
-                <HarnessStatus status="failed" label />
-              )}
-            </p>
-            <p
-              className="mt-1 truncate text-supporting font-medium text-foreground"
-              title={row.summary}
-            >
-              {row.summary || "Record"}
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            aria-label="Close record inspector"
-            onClick={onClose}
-          >
-            <X size={14} />
-          </Button>
+      <header className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-4 pb-2">
+        <h2 className="min-w-0 flex-1 text-ui font-semibold [overflow-wrap:anywhere]">
+          {row.kind === "user"
+            ? "User message"
+            : row.kind === "assistant"
+              ? "Model reply"
+              : row.kind === "reasoning"
+                ? "Reasoning"
+                : row.summary || "Record"}
+        </h2>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          aria-label={expanded ? "Restore inspector" : "Expand inspector"}
+          title={expanded ? "Restore inspector" : "Expand inspector"}
+          onClick={onToggleExpanded}
+        >
+          {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+        </Button>
+        <Button
+          ref={back}
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Close record detail"
+          title="Close record detail"
+          onClick={onBack}
+        >
+          <X size={15} aria-hidden="true" />
+        </Button>
+        <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 pb-1 text-metadata text-muted">
+          <span className="capitalize">{row.tag.toLowerCase()}</span>
+          <span>
+            Turn {row.turnOrdinal} · Record {row.ordinal}
+          </span>
+          <HarnessStatus
+            status={row.tool?.isError ? "failed" : row.status}
+            label
+          />
         </div>
         {Boolean(itemId) && full.isPending && (
           <p
@@ -337,7 +485,7 @@ export function TrajectoryInspector({
         onValueChange={(value) => setTab(value as TabId)}
         className="min-h-0 flex-1 gap-0"
       >
-        <div className="scrollbar-quiet shrink-0 overflow-x-auto border-b border-line px-1.5">
+        <div className="scrollbar-quiet shrink-0 overflow-x-auto border-b border-line px-3">
           <TabsList
             variant="line"
             aria-label="Record detail"
@@ -354,7 +502,7 @@ export function TrajectoryInspector({
             ))}
           </TabsList>
         </div>
-        <div className="scrollbar-visible min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="scrollbar-quiet min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-5 pt-5 pb-6 sm:px-6">
           <TabsContent value="summary" className="mt-0 space-y-3">
             <Facts row={row} item={item} />
             {row.error && (
@@ -365,12 +513,10 @@ export function TrajectoryInspector({
                 {row.error}
               </p>
             )}
-            {preview && (
-              <CodeSection
-                label={preview.label}
-                text={preview.text}
-                maxHeight="max-h-52"
-              />
+            {row.request?.status === "running" && (
+              <p className="rounded-md border border-line bg-canvas/40 px-2.5 py-2 text-metadata text-muted">
+                The request is in flight; the reply has not been recorded yet.
+              </p>
             )}
           </TabsContent>
           <TabsContent value="prompt" className="mt-0">
@@ -381,16 +527,132 @@ export function TrajectoryInspector({
             />
           </TabsContent>
           <TabsContent value="input" className="mt-0">
+            {row.request ? (
+              row.request.inputRows.length ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <InfoHint text="The records whose content was sent to the model in this request." />
+                    <span className="text-metadata text-muted">
+                      What went to the model
+                    </span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {row.request.inputRows.map((entry) => (
+                      <li key={entry.id}>
+                        <button
+                          type="button"
+                          onClick={() => onOpenRecord(entry.id)}
+                          className="flex min-h-10 w-full min-w-0 items-center gap-3 rounded-md p-2 text-left hover:bg-elevated focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                        >
+                          <span
+                            className={cn(
+                              "shrink-0 rounded px-1.5 py-0.5 text-metadata",
+                              trajectoryTagClass[entry.kind],
+                            )}
+                          >
+                            {entry.tag}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-supporting">
+                            {entry.summary}
+                          </span>
+                          <ChevronRight
+                            size={14}
+                            className="shrink-0 text-muted"
+                            aria-hidden="true"
+                          />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <p className="text-supporting text-muted">
+                  No input records were captured for this request.
+                </p>
+              )
+            ) : (
+              <div
+                className={cn(
+                  (row.kind === "tool" || row.kind === "result") && "space-y-2",
+                )}
+              >
+                {(row.kind === "tool" || row.kind === "result") && (
+                  <div className="flex items-center gap-1.5">
+                    <InfoHint text="The arguments the model sent to the tool." />
+                    <span className="text-metadata text-muted">
+                      Tool arguments
+                    </span>
+                  </div>
+                )}
+                <CodeSection
+                  label={
+                    row.kind === "result"
+                      ? "Final result"
+                      : row.kind === "assistant"
+                        ? "Model reply"
+                        : "Input"
+                  }
+                  text={input}
+                />
+              </div>
+            )}
+          </TabsContent>
+          <TabsContent value="reply" className="mt-0">
             <CodeSection
-              label={
-                row.kind === "result"
-                  ? "Final result"
-                  : row.kind === "assistant"
-                    ? "Message content"
-                    : "Input"
+              label="Model reply"
+              text={replyText}
+              empty={
+                row.request?.status === "running"
+                  ? "The reply has not been recorded yet; the request is in flight."
+                  : "No reply was recorded for this request."
               }
-              text={input}
             />
+          </TabsContent>
+          <TabsContent value="usage" className="mt-0 space-y-3">
+            <div className="flex items-center gap-1.5">
+              <InfoHint text="Token counts the provider reported for this request's reply." />
+              <span className="text-metadata text-muted">
+                Provider-reported
+              </span>
+            </div>
+            {row.tokens ? (
+              <FactList
+                facts={[
+                  {
+                    label: "Input",
+                    value: `${row.tokens.input.toLocaleString()} tok`,
+                  },
+                  {
+                    label: "Output",
+                    value: `${row.tokens.output.toLocaleString()} tok`,
+                  },
+                  {
+                    label: "Total",
+                    value: row.tokens.total.toLocaleString(),
+                  },
+                  ...(row.tokens.cacheRead || row.tokens.cacheWrite
+                    ? [
+                        {
+                          label: "Cache",
+                          value: `${row.tokens.cacheRead.toLocaleString()} read · ${row.tokens.cacheWrite.toLocaleString()} written`,
+                        },
+                      ]
+                    : []),
+                  ...(row.request?.cumulativeTokens
+                    ? [
+                        {
+                          label: "Run so far",
+                          value: `${row.request.cumulativeTokens.total.toLocaleString()} tok across ${row.request.ordinal} request${row.request.ordinal === 1 ? "" : "s"}`,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
+            ) : (
+              <p className="text-supporting text-muted">
+                No token usage was recorded for this request.
+              </p>
+            )}
           </TabsContent>
           <TabsContent value="output" className="mt-0">
             <CodeSection
@@ -402,20 +664,30 @@ export function TrajectoryInspector({
             <ToolCatalog tools={prompt.tools ?? []} />
           </TabsContent>
           <TabsContent value="context" className="mt-0">
-            <CodeSection
-              label="Run context"
-              text={prompt.context ?? ""}
-              empty="No context was recorded for this run."
-            />
+            <RunContext text={prompt.context ?? ""} />
           </TabsContent>
-          <TabsContent value="raw" className="mt-0">
+          <TabsContent value="raw" className="mt-0 space-y-2">
+            <div className="flex items-center gap-1.5">
+              <InfoHint
+                text={
+                  row.request
+                    ? "This request's metadata plus the stored reply record — not the HTTP request body sent to the provider."
+                    : "The record exactly as stored in the local database — not the HTTP request body sent to the provider."
+                }
+              />
+              <span className="text-metadata text-muted">Stored record</span>
+            </div>
             <CodeSection
-              label="Raw record"
-              text={JSON.stringify(item ?? row, null, 2)}
+              label="Stored record"
+              text={
+                row.request
+                  ? requestRawText(row.request)
+                  : JSON.stringify(item ?? row, null, 2)
+              }
             />
           </TabsContent>
         </div>
       </Tabs>
-    </div>
+    </section>
   );
 }

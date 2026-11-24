@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import { useProfile } from "@/features/profile/hooks/use-profile";
-import { AppShell } from "@/shared/components/layout/app-shell";
+import { CompactShell } from "@/shared/components/layout/compact-shell";
 import { Button, buttonStyles } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import {
@@ -123,8 +123,8 @@ export function ChallengesPage() {
   const query = search.trim().toLowerCase();
   const hasFilters = Boolean(query || difficulty !== "all" || scope !== "all");
   return (
-    <AppShell profile={profile} title="Challenges" contentScrollable={false}>
-      <main className="h-full min-h-0 overflow-y-auto overscroll-contain p-4 md:p-5">
+    <CompactShell profile={profile}>
+      <main className="h-full min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-8 md:py-6">
         <Tabs
           value={status}
           onValueChange={(value) =>
@@ -133,14 +133,20 @@ export function ChallengesPage() {
               return current;
             })
           }
-          className="mx-auto w-full max-w-[1440px] gap-3"
+          className="mx-auto w-full max-w-[1200px] gap-3"
         >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h1 className="text-xl font-semibold tracking-tight">Challenges</h1>
+            <Link className={buttonStyles("primary")} to="/">
+              <Plus size={15} /> New challenge
+            </Link>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <div className="min-w-0 flex-1 overflow-x-auto">
               <TabsList
                 variant="line"
                 aria-label="Challenge status"
-                className="w-full justify-start gap-5 border-b border-line p-0 group-data-[orientation=horizontal]/tabs:h-auto"
+                className="w-full justify-start gap-5 border-b border-line p-0 data-[orientation=horizontal]:h-auto"
               >
                 {collections.map(({ value, label, data, loading }) => (
                   <TabsTrigger
@@ -156,10 +162,6 @@ export function ChallengesPage() {
                 ))}
               </TabsList>
             </div>
-            <Link className={buttonStyles("primary")} to="/">
-              <Plus size={15} />
-              New challenge
-            </Link>
           </div>
           <div
             role="search"
@@ -255,7 +257,9 @@ export function ChallengesPage() {
             return (
               <TabsContent key={value} value={value} className="space-y-3">
                 {loading ? (
-                  <ChallengeTableSkeleton />
+                  <ChallengeTableSkeleton
+                    chronological={sort === "newest" || sort === "oldest"}
+                  />
                 ) : error ? (
                   <ErrorState
                     title="Could not load challenges"
@@ -263,9 +267,12 @@ export function ChallengesPage() {
                     onRetry={retry}
                   />
                 ) : filtered.length ? (
-                  <ChallengeTable challenges={filtered} />
+                  <ChallengeTable
+                    challenges={filtered}
+                    chronological={sort === "newest" || sort === "oldest"}
+                  />
                 ) : (
-                  <div className="rounded-lg border border-line px-4 py-12 text-center">
+                  <div className="rounded-lg border border-line px-4 py-8 text-center">
                     <h2 className="text-ui font-medium">
                       {hasFilters ? "No challenges found" : empty}
                     </h2>
@@ -310,6 +317,6 @@ export function ChallengesPage() {
           })}
         </Tabs>
       </main>
-    </AppShell>
+    </CompactShell>
   );
 }

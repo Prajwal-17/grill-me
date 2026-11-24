@@ -1,6 +1,9 @@
+import { PracticeRowsSkeleton } from "@/shared/components/ui/loading-layouts";
 import {
   AlertCircle,
+  ArrowRight,
   ArrowUp,
+  ChevronDown,
   Component as ComponentIcon,
   LoaderCircle,
   Network,
@@ -10,14 +13,29 @@ import {
   WandSparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
+import { motion, useReducedMotion } from "motion/react";
+import {
+  challengeKeys,
+  getActiveChallenges,
+  getChallengeHistory,
+} from "@/features/challenges/api/challenge-api";
+import { formatBuildDifficulty } from "@/features/challenges/lib/challenge-formatters";
+import { getQuizzes, quizKeys } from "@/features/quizzes/api/quiz-api";
 import { Button } from "@/shared/components/ui/button";
-import type { BuildDifficulty, Profile } from "@/shared/types/api";
+import type {
+  BuildDifficulty,
+  ChallengeStatus,
+  Profile,
+} from "@/shared/types/api";
 import { ClarificationCard } from "@/shared/components/ai/clarification-card";
 import { PromptTextarea } from "@/shared/components/ai/prompt-textarea";
 import { PromptSurface } from "@/shared/components/ai/prompt-surface";
 import { AttachmentChips } from "@/features/chat/components/attachment-chips";
 import { ATTACHMENT_ACCEPT } from "@/features/chat/lib/attachment-utils";
 import { DIFFICULTIES } from "./creation-options";
+import { groupPracticeByDay } from "@/features/chat/lib/practice-groups";
 import { shouldSubmitOnEnter } from "@/features/chat/lib/composer-keyboard";
 import { useCreateBuild } from "@/features/chat/hooks/use-create-challenge";
 import { BuildOptionMenu } from "@/features/chat/components/build-option-menu";
@@ -53,33 +71,217 @@ const SCOPES = [
   },
 ] as const;
 
+const PRACTICE_BATCH_SIZE = 15;
+const PRACTICE_PREVIEW_LIMIT = PRACTICE_BATCH_SIZE * 3;
+
+const PRACTICE_STATUS = {
+  active: { label: "In progress", className: "text-warning" },
+  completed: { label: "Completed", className: "text-success" },
+  paused: { label: "Paused", className: "text-muted" },
+  stopped: { label: "Stopped", className: "text-muted" },
+  saved: { label: "Archived", className: "text-muted" },
+  new: { label: "Not started", className: "text-muted" },
+} satisfies Record<
+  ChallengeStatus | "new",
+  { label: string; className: string }
+>;
+
 export function GenerationHome({ profile }: { profile: Profile }) {
   const [mode, setMode] = useState("challenge");
+  const [visibleCount, setVisibleCount] = useState(PRACTICE_BATCH_SIZE);
+  const firstAddedRow = useRef<HTMLAnchorElement>(null);
+  const reducedMotion = useReducedMotion();
+  const active = useQuery({
+    queryKey: challengeKeys.active(profile.id),
+    queryFn: () => getActiveChallenges(profile.id),
+  });
+  const history = useQuery({
+    queryKey: challengeKeys.history(profile.id),
+    queryFn: () => getChallengeHistory(profile.id),
+  });
+  const quizzes = useQuery({
+    queryKey: quizKeys.list(profile.id, null),
+    queryFn: () => getQuizzes(profile.id, null, true),
+  });
+  const items = [
+    ...[...(active.data ?? []), ...(history.data ?? [])].map((item) => ({
+      id: item.id,
+      title: `#${item.number} ${item.title}`,
+      date: item.createdAt,
+      meta: `Challenge · ${formatBuildDifficulty(item.difficulty)}`,
+      status: PRACTICE_STATUS[item.status],
+      progress: null,
+      href: `/chat?id=${encodeURIComponent(item.id)}`,
+      kind: "challenge",
+    })),
+    ...(quizzes.data ?? [])
+      .filter((item) => !item.deletedAt)
+      .map((item) => {
+        const attempt = item.latestAttempt;
+        const status =
+          attempt?.status === "submitted"
+            ? "completed"
+            : attempt
+              ? "active"
+              : "new";
+        return {
+          id: item.id,
+          title: item.title,
+          date: item.createdAt,
+          meta: "Quiz",
+          status: PRACTICE_STATUS[status],
+          progress:
+            attempt?.status === "draft"
+              ? `${attempt.answered}/${item.questionCount} answered`
+              : null,
+          href: `/quizzes?quiz=${encodeURIComponent(item.id)}`,
+          kind: "quiz",
+        };
+      }),
+  ].sort((a, b) => b.date.localeCompare(a.date));
+  const groups = groupPracticeByDay(items.slice(0, visibleCount));
+  const firstAddedItem = items[visibleCount - PRACTICE_BATCH_SIZE];
+  const canLoadMore =
+    visibleCount < PRACTICE_PREVIEW_LIMIT && visibleCount < items.length;
+  const loading = active.isLoading || history.isLoading || quizzes.isLoading;
+  const error = active.error || history.error || quizzes.error;
+  useEffect(() => {
+    if (visibleCount > PRACTICE_BATCH_SIZE) firstAddedRow.current?.focus();
+  }, [visibleCount]);
+
   return (
     <main className="h-full min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-8">
-      <div className="mx-auto flex min-h-full w-full max-w-[760px] flex-col justify-center py-12 md:pb-24">
-        <Tabs value={mode} onValueChange={setMode} className="gap-4">
-          <TabsList aria-label="Create practice" className="h-9 self-start">
-            <TabsTrigger value="challenge" className="px-3">
-              <BookOpen size={15} />
-              Challenge
-            </TabsTrigger>
-            <TabsTrigger value="quiz" className="px-3">
-              <ListChecks size={15} />
-              Quiz
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent
-            value="challenge"
-            forceMount
-            hidden={mode !== "challenge"}
-          >
-            <ChallengeComposer profile={profile} />
-          </TabsContent>
-          <TabsContent value="quiz" forceMount hidden={mode !== "quiz"}>
-            <QuizComposer profileId={profile.id} />
-          </TabsContent>
-        </Tabs>
+      <div className="mx-auto w-full max-w-[1200px]">
+        <div className="mx-auto w-full max-w-[760px] pt-8 pb-7 md:pt-12 md:pb-9">
+          <h1 className="mb-4 text-center text-xl font-semibold tracking-tight">
+            What would you like to practice?
+          </h1>
+          <Tabs value={mode} onValueChange={setMode} className="gap-3">
+            <TabsContent
+              value="challenge"
+              forceMount
+              hidden={mode !== "challenge"}
+            >
+              <ChallengeComposer profile={profile} />
+            </TabsContent>
+            <TabsContent value="quiz" forceMount hidden={mode !== "quiz"}>
+              <QuizComposer profileId={profile.id} />
+            </TabsContent>
+            <TabsList aria-label="Create practice" className="h-9 self-center">
+              <TabsTrigger value="challenge" className="px-3">
+                <BookOpen size={15} />
+                Challenge
+              </TabsTrigger>
+              <TabsTrigger value="quiz" className="px-3">
+                <ListChecks size={15} />
+                Quiz
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+        <section aria-labelledby="recent-practice" className="pb-8">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+            <h2 id="recent-practice" className="text-ui font-semibold">
+              Your practice
+            </h2>
+            <Link
+              className="text-metadata text-muted hover:text-foreground"
+              to="/quizzes"
+            >
+              All quizzes{" "}
+              <ArrowRight size={12} className="inline" aria-hidden="true" />
+            </Link>
+          </div>
+          {loading && items.length === 0 && (
+            <PracticeRowsSkeleton label="Loading recent practice" dated />
+          )}
+          {error && (
+            <p role="alert" className="py-4 text-ui text-destructive">
+              Some practice could not be loaded.{" "}
+              <button
+                className="underline"
+                onClick={() => {
+                  void active.refetch();
+                  void history.refetch();
+                  void quizzes.refetch();
+                }}
+              >
+                Try again
+              </button>
+            </p>
+          )}
+          {!loading && !error && items.length === 0 && (
+            <p className="border-t border-line py-6 text-ui text-muted">
+              Your challenges and quizzes will appear here.
+            </p>
+          )}
+          {groups.map((group) => (
+            <div key={group.key}>
+              <h3 className="sticky top-0 z-10 border-b border-line bg-canvas py-2 text-metadata font-medium text-muted">
+                {group.label}
+              </h3>
+              {group.items.map((item) => (
+                <motion.div
+                  key={`${item.kind}-${item.id}`}
+                  whileTap={reducedMotion ? undefined : { scale: 0.995 }}
+                >
+                  <Link
+                    ref={item === firstAddedItem ? firstAddedRow : undefined}
+                    to={item.href}
+                    className="group flex scroll-mt-12 items-center gap-3 rounded-lg px-3 py-2.5 transition-colors duration-150 hover:bg-elevated focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground sm:px-4"
+                  >
+                    <span
+                      className={
+                        item.kind === "challenge"
+                          ? "grid size-10 shrink-0 place-items-center rounded-lg border border-[color-mix(in_srgb,var(--ember)_35%,var(--line))] bg-[var(--ember-surface)] text-[var(--ember)]"
+                          : "grid size-10 shrink-0 place-items-center rounded-lg border border-line bg-surface text-muted"
+                      }
+                    >
+                      {item.kind === "challenge" ? (
+                        <BookOpen size={16} />
+                      ) : (
+                        <ListChecks size={16} />
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-ui font-medium">
+                        {item.title}
+                      </span>
+                      <span className="mt-1 block text-metadata text-muted">
+                        {item.meta} ·{" "}
+                        <span className={item.status.className}>
+                          {item.status.label}
+                        </span>
+                        {item.progress && ` · ${item.progress}`}
+                      </span>
+                    </span>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          ))}
+          {!loading && (
+            <div className="mt-3 flex justify-center border-t border-line pt-4">
+              {canLoadMore ? (
+                <Button
+                  type="button"
+                  onClick={() =>
+                    setVisibleCount(visibleCount + PRACTICE_BATCH_SIZE)
+                  }
+                >
+                  Load more <ChevronDown size={14} aria-hidden="true" />
+                </Button>
+              ) : (
+                <Button asChild>
+                  <Link to="/challenges">
+                    View all challenges{" "}
+                    <ArrowRight size={14} aria-hidden="true" />
+                  </Link>
+                </Button>
+              )}
+            </div>
+          )}
+        </section>
       </div>
     </main>
   );

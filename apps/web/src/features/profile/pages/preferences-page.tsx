@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router";
-import { PreferencesSkeleton } from "@/shared/components/ui/loading-layouts";
+import { SettingsFormSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Check, LoaderCircle } from "lucide-react";
 import { useState, type FormEvent } from "react";
@@ -108,10 +108,15 @@ export function PreferencesPage() {
     save.mutate();
   }
   return (
-    <AppShell profile={profile} title="Preferences" contentScrollable={false}>
+    <AppShell
+      profile={profile}
+      title="Preferences"
+      contentScrollable={false}
+      centeredHeader
+    >
       <SettingsLayout activeSection={section} kind="preferences">
         {preferences.isLoading ? (
-          <PreferencesSkeleton />
+          <SettingsFormSkeleton label="Loading preferences" />
         ) : preferences.error && !preferences.data ? (
           <ErrorState
             title="Could not load preferences"
@@ -147,7 +152,7 @@ export function PreferencesPage() {
                 disabled={save.isPending}
               />
             </fieldset>
-            <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-4">
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-line pt-3">
               <Button
                 type="button"
                 variant="ghost"

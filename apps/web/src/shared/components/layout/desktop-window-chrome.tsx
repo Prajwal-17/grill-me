@@ -2,6 +2,11 @@ import { createPortal } from "react-dom";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Minus, Square, Copy, X } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 import { useToast } from "@/shared/components/ui/toast";
 
 /** Caption controls stay available during profile selection, loading and errors. */
@@ -60,33 +65,51 @@ export function DesktopWindowChrome() {
         aria-label="Window controls"
         data-focused={state.data?.focused ?? true}
       >
-        <button
-          type="button"
-          className="desktop-caption-button"
-          aria-label="Minimize window"
-          title="Minimize"
-          onClick={() => perform(bridge.minimizeWindow())}
-        >
-          <Minus size={11} strokeWidth={1.6} />
-        </button>
-        <button
-          type="button"
-          className="desktop-caption-button"
-          aria-label={maximized ? "Restore window" : "Maximize window"}
-          title={maximized ? "Restore" : "Maximize"}
-          onClick={() => perform(bridge.toggleMaximize())}
-        >
-          <MaximizeIcon size={maximized ? 11 : 10} strokeWidth={1.6} />
-        </button>
-        <button
-          type="button"
-          className="desktop-caption-button desktop-caption-close"
-          aria-label="Close window"
-          title="Close"
-          onClick={() => perform(bridge.closeWindow())}
-        >
-          <X size={11} strokeWidth={1.6} />
-        </button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="desktop-caption-button"
+              aria-label="Minimize window"
+              onClick={() => perform(bridge.minimizeWindow())}
+            >
+              <Minus size={11} strokeWidth={1.6} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            Minimize
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="desktop-caption-button"
+              aria-label={maximized ? "Restore window" : "Maximize window"}
+              onClick={() => perform(bridge.toggleMaximize())}
+            >
+              <MaximizeIcon size={maximized ? 11 : 10} strokeWidth={1.6} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            {maximized ? "Restore" : "Maximize"}
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="desktop-caption-button desktop-caption-close"
+              aria-label="Close window"
+              onClick={() => perform(bridge.closeWindow())}
+            >
+              <X size={11} strokeWidth={1.6} />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" sideOffset={6}>
+            Close
+          </TooltipContent>
+        </Tooltip>
       </div>
     </>,
     document.body,

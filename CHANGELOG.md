@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+## desktop-v0.3.5 - 24 Nov 2026
+
+### Fixed
+
+- Match loading placeholders to their screens so navigation, tables, forms, and file panes keep their layout while data loads.
+
+- Move the Settings and Preferences scrollbars to the window edge and keep section navigation visible while scrolling.
+
+### Changed
+
+- Collapse the original prompt in challenge Overview and give it a separate copy action from the generated brief.
+
+- Inspect trajectory records in a resizable, full-height side panel with clearer context and preserved event-list position.
+
+- Follow challenge brief generation and project setup on one progress page. Answer clarification and setup requests there, and open the challenge when ready.
+
+- Give challenge details one title row with Files and show editor and lifecycle actions directly in the Overview facts rail. Reviews lead with criteria and actionable evidence, and challenge quiz filters stay collapsed until needed.
+
+- Align the trajectory with the rest of Activity and use the same background. Keep search visible and group display options and run statistics.
+
+- Tighten spacing around the Home composer, collections, settings, and practice workspaces so more content fits on screen.
+
+- Show 15 practice items at a time on Home, with up to two loads before linking to the full Challenges table.
+
+- Group Home practice under relative day headings such as Today, Yesterday, and 3 days ago. Use consistent status colors for challenges and quizzes.
+
+- Added consistent tooltips to the top-bar and window controls.
+
+- Redesigned generation notifications so active work and recent results are easier to scan and open.
+
+- Replaced the application sidebar with compact navigation across practice, settings, and preferences. Quizzes and challenges now group chronological lists by date.
+
+- Updated the challenges collection to use compact navigation and a table with scope, difficulty, and estimated time.
+
+- Redesigned Home with a centered practice composer, compact navigation, and a scrollable list of recent challenges and quizzes.
+
 ## desktop-v0.3.4 - 23 Nov 2026
 
 ### Added

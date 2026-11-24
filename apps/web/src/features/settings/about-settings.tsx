@@ -21,11 +21,11 @@ export function AboutSettings({ active = true }: { active?: boolean }) {
     <div>
       <SettingsHeading title="About" />
       <DesktopUpdatesSettings versionLabel={versionLabel} />
-      <section aria-labelledby="release-history-heading" className="mt-6">
+      <section aria-labelledby="release-history-heading" className="mt-4">
         <h3 id="release-history-heading" className="sr-only">
           Release history
         </h3>
-        <div className="grid min-w-0 gap-6 @min-[600px]:grid-cols-[minmax(0,1fr)_7rem] @min-[600px]:gap-8">
+        <div className="grid min-w-0 gap-3 @min-[600px]:grid-cols-[minmax(0,1fr)_8rem] @min-[600px]:gap-6">
           <div className="min-w-0">
             <div className="@min-[600px]:hidden">
               <details>
@@ -45,7 +45,7 @@ export function AboutSettings({ active = true }: { active?: boolean }) {
                 <article
                   key={release.version}
                   id={releaseAnchor(release.version)}
-                  className="scroll-mt-6 py-6 first:pt-2"
+                  className="scroll-mt-6 py-4 first:pt-1.5"
                 >
                   <header className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                     <h4 className="text-ui font-semibold tabular-nums">
@@ -87,7 +87,7 @@ export function AboutSettings({ active = true }: { active?: boolean }) {
               ))}
             </div>
           </div>
-          <aside className="sticky top-0 hidden max-h-[calc(100dvh-9rem)] self-start overflow-y-auto @min-[600px]:block">
+          <aside className="scrollbar-quiet sticky top-6 hidden max-h-[calc(100dvh-12rem)] self-start overflow-y-auto @min-[600px]:block">
             <ReleaseToc releases={releases} active={activeRelease} />
           </aside>
         </div>

@@ -1,3 +1,4 @@
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { QuizDetailSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router";
@@ -517,7 +518,7 @@ export function QuizWorkspace({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {!showLibrary && !detail.data && (
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 border-b border-line pb-2">
             {selectedQuizId && (
               <div className="flex items-center gap-1.5">
                 <Tooltip>
@@ -539,7 +540,13 @@ export function QuizWorkspace({
                 </Tooltip>
               </div>
             )}
-            {generateButton}
+            {!detail.isError && !list.isError && (
+              <div className="loading-placeholder min-w-0 flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-3/5" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            )}
+            <div className="ml-auto">{generateButton}</div>
           </div>
         )}
         {list.error && !list.data ? (
@@ -561,6 +568,7 @@ export function QuizWorkspace({
               profileId={profileId}
               quizzes={list.data ?? []}
               loading={list.isLoading}
+              compact={challengeId !== null}
               actions={generateButton}
               disabled={busy}
               onDelete={(quiz) => {
@@ -858,7 +866,7 @@ export function QuizWorkspace({
                 </p>
               ) : (
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                  <section className="max-w-3xl space-y-5 py-2">
+                  <section className="max-w-3xl">
                     <Button
                       ref={startButtonRef}
                       size="default"
@@ -896,7 +904,7 @@ export function QuizWorkspace({
           showCloseButton={false}
           className="flex max-h-[min(88vh,760px)] flex-col gap-0 overflow-hidden rounded-xl bg-popover p-0 sm:max-w-[600px]"
         >
-          <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-3.5">
+          <div className="flex items-start justify-between gap-4 border-b border-line px-5 py-3">
             <DialogTitle className="text-section font-semibold tracking-[-0.02em]">
               Generate quiz
             </DialogTitle>
@@ -920,7 +928,7 @@ export function QuizWorkspace({
               if (!dialogBusy) generation.mutate();
             }}
           >
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3">
               <div className="space-y-4">
                 {challengeId === null ? (
                   <div className="space-y-1.5">

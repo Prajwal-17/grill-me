@@ -1,12 +1,12 @@
 import {
+  Fragment,
   useDeferredValue,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowDown,
   Brain,
@@ -22,6 +22,8 @@ import {
   MessageCircleQuestion,
   MessageSquare,
   Search,
+  Send,
+  SlidersHorizontal,
   ShieldAlert,
   Terminal,
   User,
@@ -31,26 +33,37 @@ import type { HarnessThreadDetail } from "@repo/backend/shared/contracts";
 import { AgentActivityStatus } from "@/shared/components/ai/agent-activity-status";
 import { Button } from "@/shared/components/ui/button";
 import { SearchField } from "@/shared/components/ui/search-field";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/components/ui/sheet";
-import { Skeleton } from "@/shared/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/shared/components/ui/popover";
+import { ActivitySkeleton } from "@/shared/components/ui/loading-layouts";
 import { cn } from "@/shared/lib/cn";
 import { useHarnessThread } from "../hooks/use-harness";
 import { useFollowActivity } from "../hooks/use-follow-activity";
-import { useInlineInspector } from "../hooks/use-inline-inspector";
 import { activityWorkingLabel, isActiveThreadStatus } from "../lib/status";
 import {
   filterTrajectoryTurns,
   formatTrajectoryDuration,
   projectTrajectory,
+  requestRow,
   type TrajectoryDetailModel,
   type TrajectoryKind,
+  type TrajectoryRequest,
   type TrajectoryRow,
   type TrajectoryTurnModel,
 } from "../lib/trajectory";
 import { formatRunDate, HarnessStatus } from "./harness-transcript";
 import { TrajectoryInspector } from "./trajectory-inspector";
-import { trajectoryTagClass } from "./trajectory-parts";
-import { env } from "@/shared/config/env";
 
 const kindIcons: Record<TrajectoryKind, typeof Terminal> = {
   system: Info,
@@ -61,6 +74,7 @@ const kindIcons: Record<TrajectoryKind, typeof Terminal> = {
   tool: Wrench,
   result: CheckCircle2,
   request: ShieldAlert,
+  model_request: Send,
   notice: Info,
   error: CircleAlert,
 };
@@ -72,32 +86,6 @@ const toolIcons: Record<string, typeof Terminal> = {
   file_search: FileSearch,
   web_search: Globe,
 };
-
-const inspectorWidthKey = `grill-me.harness.inspector-width.${env.appEnv}`;
-
-function clampInspectorWidth(width: number) {
-  if (!Number.isFinite(width)) return 480;
-  const max = Math.min(920, Math.max(480, window.innerWidth * 0.55));
-  return Math.round(Math.min(Math.max(width, 320), max));
-}
-
-function readInspectorWidth() {
-  try {
-    const saved = JSON.parse(
-      localStorage.getItem(inspectorWidthKey) ?? "null",
-    ) as { version?: unknown; width?: unknown } | null;
-    if (
-      saved &&
-      saved.version === 1 &&
-      typeof saved.width === "number" &&
-      Number.isFinite(saved.width)
-    )
-      return clampInspectorWidth(saved.width);
-  } catch {
-    /* Corrupt settings fall back to the default width. */
-  }
-  return 480;
-}
 
 function Highlight({ text, query }: { text: string; query: string }) {
   const needle = query.trim();
@@ -143,45 +131,51 @@ function RunSummary({
     now,
   );
   return (
-    <header className="shrink-0 border-b border-line px-3 py-2">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
-        <h3 className="min-w-0 max-w-full truncate text-supporting font-medium text-foreground">
-          {thread.title}
-        </h3>
+    <header className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <HarnessStatus status={thread.status} label />
-        <span aria-hidden="true">·</span>
-        <span className="font-mono">{thread.model}</span>
-        <span aria-hidden="true" className="hidden sm:inline">
-          ·
-        </span>
-        <span className="hidden sm:inline">{thread.runtimeMode}</span>
-        <span aria-hidden="true">·</span>
-        <span>{formatRunDate(thread.createdAt)}</span>
-      </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
+        <span className="min-w-0 break-all font-mono">{thread.model}</span>
         {duration !== null && (
           <span className="tabular-nums">
             {active ? "Working for" : "Worked for"}{" "}
             {formatTrajectoryDuration(duration)}
           </span>
         )}
-        <span aria-hidden="true">·</span>
-        <span className="tabular-nums">
-          {model.stats.turns} turn{model.stats.turns === 1 ? "" : "s"}
-        </span>
-        <span aria-hidden="true">·</span>
-        <span className="tabular-nums">
-          {model.stats.toolCalls} call{model.stats.toolCalls === 1 ? "" : "s"}
-        </span>
-        {model.stats.tokens && (
-          <>
-            <span aria-hidden="true">·</span>
-            <span className="tabular-nums">
-              {model.stats.tokens.total.toLocaleString()} tokens
-            </span>
-          </>
-        )}
       </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="ghost">
+            Run details
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          aria-label="Run details"
+          className="w-64 p-3 text-metadata text-muted"
+        >
+          <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+            {" "}
+            <dt>Run</dt>
+            <dd className="break-words text-foreground">{thread.title}</dd>
+            <dt>Created</dt>
+            <dd>{formatRunDate(thread.createdAt)}</dd>
+            <dt>Runtime</dt>
+            <dd>{thread.runtimeMode}</dd>
+            <dt>Turns</dt>
+            <dd>{model.stats.turns}</dd>
+            <dt>Model requests</dt>
+            <dd>{model.requests.length}</dd>
+            <dt>Tool calls</dt>
+            <dd>{model.stats.toolCalls}</dd>
+            {model.stats.tokens && (
+              <>
+                <dt>Tokens</dt>
+                <dd>{model.stats.tokens.total.toLocaleString()}</dd>
+              </>
+            )}
+          </dl>
+        </PopoverContent>
+      </Popover>
     </header>
   );
 }
@@ -196,7 +190,7 @@ function Toolbar({
   query,
   onQueryChange,
   records,
-  calls,
+  hasFilters,
 }: {
   allFolded: boolean;
   onToggleAllFolded: () => void;
@@ -207,66 +201,53 @@ function Toolbar({
   query: string;
   onQueryChange: (query: string) => void;
   records: number;
-  calls: number;
+  hasFilters: boolean;
 }) {
   return (
     <div
-      role="toolbar"
+      role="group"
       aria-label="Trajectory controls"
-      className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line px-2 py-1.5"
+      className="flex min-w-0 flex-wrap items-center gap-2"
     >
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-pressed={allFolded}
-        title={allFolded ? "Expand every turn" : "Fold every turn"}
-        onClick={onToggleAllFolded}
-      >
-        <ChevronRight
-          size={13}
-          aria-hidden="true"
-          className={cn("transition-transform", allFolded && "rotate-90")}
-        />
-        Turns
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-pressed={showReasoning}
-        title={showReasoning ? "Hide reasoning rows" : "Show reasoning rows"}
-        onClick={onToggleReasoning}
-      >
-        <Brain size={13} aria-hidden="true" />
-        Reasoning
-      </Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        aria-pressed={showContext}
-        title={
-          showContext
-            ? "Hide prompt and context rows"
-            : "Show prompt and context rows"
-        }
-        onClick={onToggleContext}
-      >
-        <Info size={13} aria-hidden="true" />
-        Context
-      </Button>
-      <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
-        <span className="text-metadata text-muted tabular-nums">
-          {records} record{records === 1 ? "" : "s"} · {calls} call
-          {calls === 1 ? "" : "s"}
+      <SearchField
+        aria-label="Search records"
+        placeholder="Search records"
+        value={query}
+        onChange={(event) => onQueryChange(event.target.value)}
+        onClear={() => onQueryChange("")}
+        className="w-48 min-w-32 max-w-72 flex-1 sm:w-56"
+      />
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost">
+            <SlidersHorizontal size={14} aria-hidden="true" />
+            Display
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuCheckboxItem
+            checked={showReasoning}
+            onCheckedChange={onToggleReasoning}
+          >
+            Reasoning
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={showContext}
+            onCheckedChange={onToggleContext}
+          >
+            Prompt and context
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={onToggleAllFolded}>
+            {allFolded ? "Expand all turns" : "Collapse all turns"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {hasFilters && (
+        <span role="status" className="text-metadata text-muted tabular-nums">
+          {records} matching {records === 1 ? "record" : "records"}
         </span>
-        <SearchField
-          aria-label="Search records"
-          placeholder="Search calls, files, output"
-          value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
-          onClear={() => onQueryChange("")}
-          className="w-40 sm:w-56"
-        />
-      </div>
+      )}
     </div>
   );
 }
@@ -277,7 +258,7 @@ function AttemptHeader({
   attempt: TrajectoryTurnModel["attempts"][number];
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line/60 bg-canvas/40 px-3 py-1 text-metadata text-muted">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line/60 px-3 py-1 text-metadata text-muted">
       <span className="font-medium text-foreground">
         Attempt {attempt.ordinal ?? "—"}
       </span>
@@ -296,16 +277,16 @@ function AttemptHeader({
 
 function RowButton({
   row,
-  selected,
   query,
   onSelect,
   register,
+  selected,
 }: {
   row: TrajectoryRow;
-  selected: boolean;
   query: string;
-  onSelect: (row: TrajectoryRow) => void;
+  onSelect: (id: string) => void;
   register: (id: string, element: HTMLButtonElement | null) => void;
+  selected: boolean;
 }) {
   const Icon =
     row.kind === "tool"
@@ -314,63 +295,66 @@ function RowButton({
         ? MessageCircleQuestion
         : kindIcons[row.kind];
   const failed = row.status === "failed" || row.tool?.isError === true;
+  const kind = row.tag.charAt(0) + row.tag.slice(1).toLowerCase();
+  const preview =
+    (row.kind === "context" || row.kind === "system") && !query.trim()
+      ? ""
+      : row.preview;
   return (
     <button
       type="button"
       ref={(element) => register(row.id, element)}
+      aria-label={`${kind}: ${row.summary}`}
       aria-pressed={selected}
-      aria-label={`${row.tag}: ${row.summary}${row.preview ? `. ${row.preview}` : ""}`}
-      onClick={() => onSelect(row)}
+      onClick={() => onSelect(row.id)}
       className={cn(
-        "group flex w-full min-w-0 items-start gap-2 border-b border-line/50 px-3 py-1.5 text-left transition-colors outline-none",
-        "hover:bg-elevated/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-        selected && "bg-brand-soft/60",
+        "group flex min-h-10 w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left outline-none transition-colors hover:bg-elevated focus-visible:bg-elevated focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:gap-3",
+        selected && "bg-elevated",
       )}
     >
-      <span
-        className={cn(
-          "mt-0.5 inline-flex h-5 w-[82px] shrink-0 items-center justify-center rounded-sm px-1 text-metadata font-medium",
-          trajectoryTagClass[row.kind],
-        )}
-      >
-        {row.tag}
-      </span>
       <Icon
-        size={13}
+        size={15}
         aria-hidden="true"
-        className={cn(
-          "mt-1 shrink-0",
-          failed ? "text-destructive" : "text-muted",
-        )}
+        className={cn("shrink-0", failed ? "text-destructive" : "text-muted")}
       />
+      <span className="hidden w-16 shrink-0 text-metadata text-muted @min-[480px]/records:block">
+        {kind}
+      </span>
       <span className="min-w-0 flex-1">
         <span
           className={cn(
             "block truncate text-supporting",
-            row.kind === "reasoning" ? "text-muted" : "text-foreground",
+            row.kind === "reasoning" && "text-muted",
             row.tool && "font-mono",
           )}
         >
           <Highlight text={row.summary} query={query} />
         </span>
-        {row.preview && (
-          <span className="mt-0.5 flex min-w-0 items-center gap-1 text-metadata text-muted">
-            {(row.kind === "tool" || row.kind === "result") && (
-              <span aria-hidden="true">→</span>
-            )}
-            <span className="truncate">
-              <Highlight text={row.preview} query={query} />
-            </span>
+        {preview && (
+          <span className="mt-0.5 block truncate text-metadata text-muted">
+            <Highlight text={preview} query={query} />
           </span>
         )}
       </span>
-      <span className="mt-0.5 flex shrink-0 items-center gap-2 text-metadata text-muted tabular-nums">
+      <span className="flex shrink-0 items-center gap-2 text-metadata tabular-nums text-muted">
+        {row.tokens && (
+          <span className="hidden @min-[480px]/records:inline">
+            {row.tokens.total.toLocaleString()} tok
+          </span>
+        )}
         {row.durationMs !== null && row.kind !== "user" && (
           <span>{formatTrajectoryDuration(row.durationMs)}</span>
         )}
-        {row.tokens && <span>{row.tokens.total.toLocaleString()} tok</span>}
         {row.status !== "completed" && <HarnessStatus status={row.status} />}
       </span>
+      <ChevronRight
+        size={13}
+        aria-hidden="true"
+        className={cn(
+          "shrink-0 text-muted opacity-60 transition-transform group-hover:opacity-100 group-focus-visible:opacity-100",
+          selected && "text-foreground opacity-100",
+        )}
+      />
     </button>
   );
 }
@@ -379,34 +363,48 @@ function TurnSection({
   turn,
   folded,
   onToggle,
-  selectedId,
   onSelectRow,
+  requestsByRow,
+  requestsByErrorRow,
+  pendingByAttempt,
   query,
   active,
   now,
   register,
+  selectedId,
 }: {
   turn: TrajectoryTurnModel;
   folded: boolean;
   onToggle: () => void;
-  selectedId: string | null;
-  onSelectRow: (row: TrajectoryRow) => void;
+  onSelectRow: (id: string) => void;
+  requestsByRow: Map<string, TrajectoryRequest>;
+  requestsByErrorRow: Map<string, TrajectoryRequest>;
+  pendingByAttempt: Map<string, TrajectoryRequest>;
   query: string;
   active: boolean;
   now: number;
   register: (id: string, element: HTMLButtonElement | null) => void;
+  selectedId: string | null;
 }) {
   const duration = durationFor(turn.startedAt, turn.completedAt, active, now);
+  const record = (row: TrajectoryRow) => (
+    <>
+      <RowButton
+        row={row}
+        query={query}
+        onSelect={onSelectRow}
+        register={register}
+        selected={selectedId === row.id}
+      />
+    </>
+  );
   return (
-    <section
-      aria-label={`Turn ${turn.ordinal}`}
-      className="border-b border-line last:border-b-0"
-    >
+    <section aria-label={`Turn ${turn.ordinal}`}>
       <button
         type="button"
         aria-expanded={!folded}
         onClick={onToggle}
-        className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-line bg-surface px-3 py-1.5 text-left transition-colors hover:bg-elevated/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+        className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-line bg-canvas px-2.5 py-2 text-left transition-colors hover:bg-elevated/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
       >
         <ChevronRight
           size={13}
@@ -420,7 +418,7 @@ function TurnSection({
           Turn {turn.ordinal}
         </span>
         <HarnessStatus status={turn.status} label />
-        <span className="hidden font-mono text-metadata text-muted sm:inline">
+        <span className="hidden min-w-0 truncate font-mono text-metadata text-muted @min-[480px]/records:inline">
           {turn.model}
         </span>
         <span className="ml-auto flex flex-wrap items-center gap-2 text-metadata text-muted tabular-nums">
@@ -441,21 +439,29 @@ function TurnSection({
         </p>
       ) : (
         <div>
-          {turn.attempts.map((attempt) => (
-            <div key={attempt.id}>
-              {turn.attempts.length > 1 && <AttemptHeader attempt={attempt} />}
-              {attempt.rows.map((row) => (
-                <RowButton
-                  key={row.id}
-                  row={row}
-                  selected={selectedId === row.id}
-                  query={query}
-                  onSelect={onSelectRow}
-                  register={register}
-                />
-              ))}
-            </div>
-          ))}
+          {turn.attempts.map((attempt) => {
+            const pending = pendingByAttempt.get(attempt.id) ?? null;
+            return (
+              <div key={attempt.id} className="py-1">
+                {turn.attempts.length > 1 && (
+                  <AttemptHeader attempt={attempt} />
+                )}
+                {attempt.rows.map((row) => {
+                  const request =
+                    requestsByRow.get(row.id) ??
+                    requestsByErrorRow.get(row.id) ??
+                    null;
+                  return (
+                    <Fragment key={row.id}>
+                      {request && record(requestRow(request))}
+                      {record(row)}
+                    </Fragment>
+                  );
+                })}
+                {pending && record(requestRow(pending))}
+              </div>
+            );
+          })}
           {!turn.attempts.length && (
             <p className="px-3 py-2 text-metadata text-muted">
               No records were captured in this turn.
@@ -500,22 +506,6 @@ function EmptyLedger({
   );
 }
 
-function TrajectorySkeleton() {
-  return (
-    <div
-      role="status"
-      aria-label="Loading run trajectory"
-      className="space-y-3 p-4"
-    >
-      <Skeleton className="h-4 w-2/5" />
-      <Skeleton className="h-8 w-full" />
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-4 w-3/5" />
-      <Skeleton className="h-20 w-full" />
-    </div>
-  );
-}
-
 export function HarnessTrajectory({
   profileId,
   threadId,
@@ -529,7 +519,7 @@ export function HarnessTrajectory({
   if (query.isPending)
     return (
       <div className={className}>
-        <TrajectorySkeleton />
+        <ActivitySkeleton header={false} trajectory />
       </div>
     );
   if (query.error)
@@ -567,10 +557,16 @@ export function HarnessTrajectoryContent({
   profileId,
   detail,
   className,
+  projectFilesOpen = false,
+  inspectorContainer,
+  onInspectorModalChange,
 }: {
   profileId: string;
   detail: HarnessThreadDetail;
   className?: string;
+  projectFilesOpen?: boolean;
+  inspectorContainer?: HTMLElement | null;
+  onInspectorModalChange?: (modal: boolean) => void;
 }) {
   const model = useMemo(() => projectTrajectory(detail), [detail]);
   const active = isActiveThreadStatus(detail.thread.status);
@@ -580,65 +576,29 @@ export function HarnessTrajectoryContent({
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set());
   const [showReasoning, setShowReasoning] = useState(true);
   const [showContext, setShowContext] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const inlineInspector = useInlineInspector();
+  const [selection, setSelection] = useState<{
+    id: string | null;
+    projectFilesOpen: boolean;
+  }>({
+    id: null,
+    projectFilesOpen,
+  });
+  if (selection.projectFilesOpen !== projectFilesOpen) {
+    setSelection({ id: null, projectFilesOpen });
+  }
+  const selectedId = selection.id;
+  const setSelectedId = (id: string | null) =>
+    setSelection({ id, projectFilesOpen });
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
-  const [inspectorWidth, setInspectorWidth] = useState(readInspectorWidth);
-  const inspectorDrag = useRef<{
-    startX: number;
-    startWidth: number;
-    width?: number;
-  } | null>(null);
-
-  const persistInspectorWidth = (width: number) => {
-    try {
-      localStorage.setItem(
-        inspectorWidthKey,
-        JSON.stringify({ version: 1, width }),
-      );
-    } catch {
-      /* Storage failures keep the session width. */
-    }
-  };
-  const onInspectorResizeStart = (event: ReactPointerEvent<HTMLDivElement>) => {
-    inspectorDrag.current = {
-      startX: event.clientX,
-      startWidth: inspectorWidth,
-    };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const onInspectorResizeMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = inspectorDrag.current;
-    if (!drag) return;
-    const width = clampInspectorWidth(
-      drag.startWidth + (drag.startX - event.clientX),
-    );
-    drag.width = width;
-    setInspectorWidth(width);
-  };
-  const endInspectorResize = () => {
-    const drag = inspectorDrag.current;
-    if (!drag) return;
-    inspectorDrag.current = null;
-    if (drag.width !== undefined) persistInspectorWidth(drag.width);
-  };
-  const onInspectorResizeKey = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const step = event.shiftKey ? 64 : 24;
-    const next =
-      event.key === "ArrowLeft"
-        ? clampInspectorWidth(inspectorWidth - step)
-        : event.key === "ArrowRight"
-          ? clampInspectorWidth(inspectorWidth + step)
-          : event.key === "Home"
-            ? 320
-            : event.key === "End"
-              ? clampInspectorWidth(920)
-              : null;
-    if (next === null) return;
-    event.preventDefault();
-    setInspectorWidth(next);
-    persistInspectorWidth(next);
-  };
+  const [layoutElement, setLayoutElement] = useState<HTMLDivElement | null>(
+    null,
+  );
+  const portalContainer = inspectorContainer ?? layoutElement;
+  const [inspectorExpanded, setInspectorExpanded] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
+  const [inspectorWidth, setInspectorWidth] = useState(50);
+  const resizing = useRef(false);
+  const originId = useRef<string | null>(null);
   const registerRow = (id: string, element: HTMLButtonElement | null) => {
     if (element) rowRefs.current.set(id, element);
     else rowRefs.current.delete(id);
@@ -659,17 +619,37 @@ export function HarnessTrajectoryContent({
       }),
     [model.turns, deferredQuery, showReasoning, showContext],
   );
-  const selectedRow = model.rows.find((row) => row.id === selectedId) ?? null;
+  const selectedRequest = model.requests.find(
+    (request) => request.id === selectedId,
+  );
+  const selectedRow = selectedRequest
+    ? requestRow(selectedRequest)
+    : (model.rows.find((row) => row.id === selectedId) ?? null);
+  const inspectorOpen = Boolean(selectedRow);
+  useEffect(() => {
+    if (!portalContainer) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setContainerWidth(entry.contentRect.width);
+    });
+    observer.observe(portalContainer);
+    return () => observer.disconnect();
+  }, [portalContainer]);
+  const compact = containerWidth < 900;
+  const minWidth = containerWidth ? (380 / containerWidth) * 100 : 30;
+  const maxWidth = containerWidth
+    ? Math.min(75, ((containerWidth - 300) / containerWidth) * 100)
+    : 75;
+  const panelWidth = Math.min(maxWidth, Math.max(minWidth, inspectorWidth));
+  useEffect(() => {
+    if (!onInspectorModalChange) return;
+    onInspectorModalChange(inspectorOpen && (inspectorExpanded || compact));
+    return () => {
+      onInspectorModalChange(false);
+    };
+  }, [inspectorOpen, inspectorExpanded, compact, onInspectorModalChange]);
   const allFolded =
     filtered.turns.length > 0 &&
     filtered.turns.every((turn) => folded.has(turn.id));
-  const callCount = filtered.turns.reduce(
-    (total, turn) =>
-      total +
-      turn.rows.filter((row) => row.kind === "tool" || row.kind === "result")
-        .length,
-    0,
-  );
   const clearFilters = () => {
     setQuery("");
     setShowReasoning(true);
@@ -692,36 +672,21 @@ export function HarnessTrajectoryContent({
     resetKey: detail.thread.id,
   });
 
-  const scrollRowIntoLedgerView = (rowId: string) => {
-    const pane = paneRef.current;
-    const element = rowRefs.current.get(rowId);
-    if (!pane || !element) return;
-    // Never use scrollIntoView here: it scrolls every ancestor scroll
-    // container, including overflow-clipped shells the user cannot scroll
-    // back, which left the trajectory header clipped and unrecoverable.
-    const paneRect = pane.getBoundingClientRect();
-    const rect = element.getBoundingClientRect();
-    if (rect.top >= paneRect.top && rect.bottom <= paneRect.bottom) return;
-    const max = Math.max(0, pane.scrollHeight - pane.clientHeight);
-    const target =
-      pane.scrollTop +
-      rect.top -
-      paneRect.top -
-      (pane.clientHeight - rect.height) / 2;
-    pane.scrollTop = Math.min(Math.max(target, 0), max);
-  };
-
-  const selectRow = (row: TrajectoryRow) => {
+  const openRecord = (id: string) => {
     pause();
-    setSelectedId(row.id);
-    if (folded.has(row.turnId)) {
-      setFolded((current) => {
-        const next = new Set(current);
-        next.delete(row.turnId);
-        return next;
-      });
-    }
-    window.requestAnimationFrame(() => scrollRowIntoLedgerView(row.id));
+    originId.current = id;
+    if (selectedId === id) setInspectorExpanded(false);
+    setSelectedId(selectedId === id ? null : id);
+  };
+  const openLinkedRecord = (id: string) => {
+    pause();
+    clearFilters();
+    setFolded(new Set());
+    originId.current = id;
+    setSelectedId(id);
+    requestAnimationFrame(() => {
+      rowRefs.current.get(id)?.scrollIntoView({ block: "nearest" });
+    });
   };
   const toggleTurn = (turnId: string) => {
     pause();
@@ -748,27 +713,26 @@ export function HarnessTrajectoryContent({
   const hasFilters =
     Boolean(deferredQuery.trim()) || !showReasoning || !showContext;
 
-  const inspector = selectedRow ? (
-    <TrajectoryInspector
-      key={selectedRow.id}
-      profileId={profileId}
-      threadId={detail.thread.id}
-      row={selectedRow}
-      onClose={() => setSelectedId(null)}
-      className="h-full"
-    />
-  ) : null;
+  const backToTrajectory = () => {
+    setSelectedId(null);
+    setInspectorExpanded(false);
+    requestAnimationFrame(() => {
+      (rowRefs.current.get(originId.current ?? "") ?? paneRef.current)?.focus({
+        preventScroll: true,
+      });
+    });
+  };
 
   return (
     <section
       aria-label="Run trajectory"
       className={cn(
-        "relative flex min-h-0 overflow-clip bg-surface",
+        "relative flex min-h-0 min-w-0 max-w-full flex-col overflow-clip",
         className,
       )}
     >
-      <div className="flex min-h-0 min-w-0 flex-1">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-line px-3 py-2">
           <RunSummary model={model} active={active} now={now} />
           <Toolbar
             allFolded={allFolded}
@@ -780,8 +744,13 @@ export function HarnessTrajectoryContent({
             query={query}
             onQueryChange={setQuery}
             records={filtered.matchCount}
-            calls={callCount}
+            hasFilters={hasFilters}
           />
+        </div>
+        <div
+          ref={setLayoutElement}
+          className="@container flex min-h-0 min-w-0 flex-1"
+        >
           <div
             ref={paneRef}
             onScroll={onScroll}
@@ -791,14 +760,14 @@ export function HarnessTrajectoryContent({
             onTouchStart={onTouchStart}
             tabIndex={0}
             aria-label="Run trajectory records"
-            className="scrollbar-visible min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+            className={cn(
+              "@container/records scrollbar-visible min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [overflow-anchor:none] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none",
+            )}
           >
-            <div ref={contentRef}>
+            <div ref={contentRef} className="min-w-0 max-w-full">
               {!model.setup && filtered.turns.length > 0 && (
-                <p className="border-b border-line bg-canvas/40 px-3 py-2 text-metadata text-muted">
-                  The run setup was not recorded. Runs created before trajectory
-                  capture started do not store the system prompt, tools, or
-                  context.
+                <p className="px-3 py-2 text-metadata text-muted">
+                  No setup was recorded for this run.
                 </p>
               )}
               {filtered.turns.length ? (
@@ -808,12 +777,15 @@ export function HarnessTrajectoryContent({
                     turn={turn}
                     folded={folded.has(turn.id)}
                     onToggle={() => toggleTurn(turn.id)}
-                    selectedId={selectedId}
-                    onSelectRow={selectRow}
+                    onSelectRow={openRecord}
+                    requestsByRow={model.requestsByAssistantRow}
+                    requestsByErrorRow={model.requestsByErrorRow}
+                    pendingByAttempt={model.pendingByAttempt}
                     query={deferredQuery}
                     active={active}
                     now={now}
                     register={registerRow}
+                    selectedId={selectedId}
                   />
                 ))
               ) : (
@@ -845,35 +817,110 @@ export function HarnessTrajectoryContent({
               )}
             </div>
           </div>
+          {selectedRow &&
+            portalContainer &&
+            createPortal(
+              <aside
+                id="trajectory-record-inspector"
+                aria-label="Trajectory record inspector"
+                className={cn(
+                  "absolute inset-y-0 right-0 z-30 flex min-h-0 min-w-0 flex-col border-l border-line bg-panel shadow-xl",
+                )}
+                style={{
+                  width:
+                    inspectorExpanded || compact ? "100%" : `${panelWidth}%`,
+                }}
+              >
+                {!compact && !inspectorExpanded && (
+                  <div
+                    role="separator"
+                    aria-label="Resize record inspector"
+                    aria-orientation="vertical"
+                    aria-controls="trajectory-record-inspector"
+                    aria-valuemin={Math.round(minWidth)}
+                    aria-valuemax={Math.round(maxWidth)}
+                    aria-valuenow={Math.round(panelWidth)}
+                    aria-valuetext={`${Math.round(panelWidth)} percent of workspace`}
+                    tabIndex={0}
+                    className="group absolute inset-y-0 -left-1.5 z-10 w-3 cursor-col-resize touch-none outline-none focus-visible:bg-foreground/10"
+                    onPointerDown={(event) => {
+                      if (event.button !== 0) return;
+                      resizing.current = true;
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      event.preventDefault();
+                    }}
+                    onPointerMove={(event) => {
+                      if (!resizing.current || !portalContainer) return;
+                      const bounds = portalContainer.getBoundingClientRect();
+                      setInspectorWidth(
+                        Math.min(
+                          maxWidth,
+                          Math.max(
+                            minWidth,
+                            ((bounds.right - event.clientX) / bounds.width) *
+                              100,
+                          ),
+                        ),
+                      );
+                    }}
+                    onPointerUp={(event) => {
+                      resizing.current = false;
+                      event.currentTarget.releasePointerCapture(
+                        event.pointerId,
+                      );
+                    }}
+                    onPointerCancel={() => {
+                      resizing.current = false;
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.key === "ArrowLeft" ||
+                        event.key === "ArrowRight"
+                      ) {
+                        event.preventDefault();
+                        setInspectorWidth(
+                          Math.min(
+                            maxWidth,
+                            Math.max(
+                              minWidth,
+                              panelWidth + (event.key === "ArrowLeft" ? 2 : -2),
+                            ),
+                          ),
+                        );
+                      } else if (event.key === "Home" || event.key === "End") {
+                        event.preventDefault();
+                        setInspectorWidth(
+                          event.key === "Home" ? minWidth : maxWidth,
+                        );
+                      }
+                    }}
+                  >
+                    <span className="absolute inset-y-0 left-1/2 w-px bg-transparent transition-colors group-hover:bg-foreground/40 group-focus-visible:bg-foreground/60" />
+                    <span
+                      aria-hidden="true"
+                      className="absolute top-1/2 left-1/2 h-8 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-line-strong transition-colors group-hover:bg-muted group-focus-visible:bg-foreground"
+                    />
+                  </div>
+                )}
+                <TrajectoryInspector
+                  key={selectedRow.id}
+                  profileId={profileId}
+                  threadId={detail.thread.id}
+                  row={selectedRow}
+                  onBack={backToTrajectory}
+                  onOpenRecord={openLinkedRecord}
+                  focusOnOpen
+                  expanded={inspectorExpanded}
+                  onToggleExpanded={() =>
+                    setInspectorExpanded((value) => !value)
+                  }
+                />
+              </aside>,
+              portalContainer,
+            )}
         </div>
-        {inlineInspector && inspector && (
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize record inspector"
-            tabIndex={0}
-            title="Drag to resize the record inspector"
-            onPointerDown={onInspectorResizeStart}
-            onPointerMove={onInspectorResizeMove}
-            onPointerUp={endInspectorResize}
-            onPointerCancel={endInspectorResize}
-            onKeyDown={onInspectorResizeKey}
-            className="group flex w-1.5 shrink-0 cursor-col-resize items-stretch justify-center bg-transparent transition-colors hover:bg-brand/25 focus-visible:bg-brand/40 focus-visible:outline-none"
-          >
-            <div className="w-px bg-line group-hover:bg-brand/60" />
-          </div>
-        )}
-        {inlineInspector && inspector && (
-          <aside
-            aria-label="Record inspector"
-            style={{ width: inspectorWidth }}
-            className="flex h-full min-w-[320px] shrink-0 flex-col"
-          >
-            {inspector}
-          </aside>
-        )}
       </div>
-      {active && !following && (
+      {!selectedId && active && !following && (
         <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-4">
           <Button
             size="sm"
@@ -885,24 +932,6 @@ export function HarnessTrajectoryContent({
             Jump to latest
           </Button>
         </div>
-      )}
-      {!inlineInspector && (
-        <Sheet
-          open={Boolean(selectedRow)}
-          onOpenChange={(open) => {
-            if (!open) setSelectedId(null);
-          }}
-        >
-          <SheetContent
-            side="right"
-            showCloseButton={false}
-            aria-describedby={undefined}
-            className="w-[min(100%,560px)] gap-0 p-0 sm:max-w-[560px]"
-          >
-            <SheetTitle className="sr-only">Record inspector</SheetTitle>
-            {inspector}
-          </SheetContent>
-        </Sheet>
       )}
     </section>
   );

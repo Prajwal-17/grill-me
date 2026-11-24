@@ -4,6 +4,8 @@
 # Local runtime and review artifacts
 .data/
 **/.impeccable/hook.cache.json
+**/.impeccable/questions/
+docs/mockups/
 
 **/dist/
 **/playwright-report/

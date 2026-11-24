@@ -1,4 +1,6 @@
 import { BuildSkeleton } from "@/shared/components/ui/loading-layouts";
+import { useSearchParams } from "react-router";
+import { CompactShell } from "@/shared/components/layout/compact-shell";
 import { AppShell } from "@/shared/components/layout/app-shell";
 import { ErrorState, LoadingScreen } from "@/shared/components/ui/feedback";
 import { useProfile } from "@/features/profile/hooks/use-profile";
@@ -7,6 +9,7 @@ import { useSelectedChallenge } from "@/features/chat/hooks/use-selected-challen
 
 export function ChatPage({ challengeId }: { challengeId: string }) {
   const profile = useProfile();
+  const [params] = useSearchParams();
   const state = useSelectedChallenge({
     profile,
     challengeId,
@@ -23,6 +26,15 @@ export function ChatPage({ challengeId }: { challengeId: string }) {
       />
     );
   }
+  if (state.loading) {
+    return (
+      <CompactShell profile={profile}>
+        <BuildSkeleton
+          tab={params.has("activity") ? "activity" : params.get("tab")}
+        />
+      </CompactShell>
+    );
+  }
   return (
     <AppShell
       profile={profile}
@@ -30,9 +42,7 @@ export function ChatPage({ challengeId }: { challengeId: string }) {
       breadcrumbs={[{ label: "Challenges", href: "/challenges" }]}
       contentScrollable={false}
     >
-      {state.loading ? (
-        <BuildSkeleton />
-      ) : state.error ? (
+      {state.error ? (
         <ErrorState
           title="Could not load this build"
           message={state.error.message}

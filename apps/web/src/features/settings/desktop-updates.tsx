@@ -86,9 +86,10 @@ export function DesktopUpdatesSettings({
     action.isPending ||
     data?.phase === "checking" ||
     data?.phase === "installing";
-  const statusText = data?.phase === "error" ? undefined : data?.message;
+  const statusText =
+    data?.phase === "error" || !data?.enabled ? undefined : data.message;
   return (
-    <section aria-label="Updates" className="py-4">
+    <section aria-label="Updates" className="py-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="min-w-0 text-supporting text-muted">
           {versionLabel && (

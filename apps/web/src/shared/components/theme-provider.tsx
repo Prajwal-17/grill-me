@@ -1,5 +1,10 @@
 import { Moon, Sun } from "lucide-react";
 import { useAppStore, type Theme } from "@/shared/stores/app-store";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 import { Button } from "@/shared/components/ui/button";
 import {
   DropdownMenu,
@@ -9,31 +14,30 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 
-export function ThemeSelect({ compact = false }: { compact?: boolean }) {
+export function ThemeSelect() {
   const theme = useAppStore((state) => state.theme);
   const setTheme = useAppStore((state) => state.setTheme);
   const Icon = theme === "dark" ? Moon : Sun;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          aria-label="Appearance"
-          title="Appearance"
-          className={compact ? "w-full px-0" : "w-full justify-start px-3"}
-        >
-          <Icon size={16} />
-          {!compact && (
-            <>
-              <span>Appearance</span>
-              <span className="ml-auto text-metadata capitalize text-muted">
-                {theme}
-              </span>
-            </>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent side={compact ? "right" : "top"} align="start">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Appearance: ${theme} theme`}
+              className="size-9 text-muted"
+            >
+              <Icon size={16} />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" sideOffset={6}>
+          Appearance · {theme === "dark" ? "Dark" : "Light"}
+        </TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent side="bottom" align="end">
         <DropdownMenuRadioGroup
           value={theme}
           onValueChange={(value) => setTheme(value as Theme)}

@@ -74,12 +74,12 @@ export function ChallengeWorkspaceMenu({
     <div
       role="group"
       aria-label="Open workspace"
-      className="inline-flex shrink-0 items-center"
+      className="inline-flex min-w-0 items-stretch"
     >
       <Button
         size="sm"
         variant="secondary"
-        className="rounded-r-none"
+        className="h-auto min-h-8 min-w-0 shrink rounded-r-none py-1.5 text-left whitespace-normal"
         disabled={
           launchBusy ||
           Boolean(workspace.error) ||
@@ -104,7 +104,7 @@ export function ChallengeWorkspaceMenu({
           <Button
             size="sm"
             variant="secondary"
-            className="rounded-l-none border-l-0 px-2"
+            className="h-auto min-h-8 rounded-l-none border-l-0 px-2"
             aria-label="Workspace actions"
             disabled={loading}
           >

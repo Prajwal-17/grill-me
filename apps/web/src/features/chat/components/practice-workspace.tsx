@@ -1,29 +1,22 @@
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Activity,
   LoaderCircle,
+  ArrowLeft,
   Pause,
   Play,
   Check,
   Archive,
   ArchiveRestore,
-  BookOpen,
-  ClipboardCheck,
   FolderTree,
-  ListChecks,
   CircleAlert,
 } from "lucide-react";
 import type { Challenge, Profile } from "@/shared/types/api";
-import { AppShell } from "@/shared/components/layout/app-shell";
+import { CompactShell } from "@/shared/components/layout/compact-shell";
 import { Button } from "@/shared/components/ui/button";
-import { ChallengeCard } from "@/features/challenges/components/challenge-card";
-import { ChallengePrompt } from "@/features/challenges/components/challenge-prompt";
 import { ChallengeWorkspaceMenu } from "@/features/challenges/components/challenge-workspace";
 import { ChallengeReviewSection } from "@/features/challenges/components/challenge-review";
-import { CopyButton } from "@/shared/components/ui/copy-button";
-import { statementMarkdown } from "@/features/challenges/lib/challenge-statement";
 import {
   completeChallenge,
   setChallengeArchived,
@@ -49,6 +42,15 @@ import { useProjectPreparation } from "@/features/challenges/hooks/use-project-p
 import { projectPreparationView } from "@/features/challenges/lib/project-preparation-view";
 import { ProjectPreparationActions } from "@/features/challenges/components/project-preparation";
 import { ProjectFilesPanel } from "@/features/challenges/components/project-files";
+import { cn } from "@/shared/lib/cn";
+import { ChallengeOverview } from "./challenge-overview";
+
+const SECTIONS = [
+  { id: "overview", label: "Overview" },
+  { id: "review", label: "Review" },
+  { id: "activity", label: "Activity" },
+  { id: "quizzes", label: "Quizzes" },
+] as const;
 
 export function PracticeWorkspace({
   profile,
@@ -106,11 +108,16 @@ export function PracticeWorkspace({
   };
   const [filesOpen, setFilesOpen] = useState(false);
   const [filesExpanded, setFilesExpanded] = useState(false);
+  const [inspectorModal, setInspectorModal] = useState(false);
   const wide = useWideWorkspace();
   const filesToggle = useRef<HTMLButtonElement>(null);
+  const [workspaceElement, setWorkspaceElement] = useState<HTMLElement | null>(
+    null,
+  );
   const filesExpandToggle = useRef<HTMLButtonElement>(null);
   const filesShown = filesOpen;
   const filesOverlay = filesShown && filesExpanded && wide;
+  const sideNavigation = wide && !filesShown;
   const closeFiles = () => {
     setFilesOpen(false);
     setFilesExpanded(false);
@@ -123,6 +130,7 @@ export function PracticeWorkspace({
     updateParams((params) => {
       params.set("tab", "activity");
       if (category) params.set("activity", category);
+      params.delete("view");
       params.delete("run");
     });
   };
@@ -207,17 +215,15 @@ export function PracticeWorkspace({
   };
   const error = lifecycle.error;
   return (
-    <AppShell
-      profile={profile}
-      title={`#${challenge.number} ${challenge.title}`}
-      breadcrumbs={[backTo]}
-      contentScrollable={false}
-    >
-      <main className="relative flex h-full min-h-0 overflow-clip">
+    <CompactShell profile={profile}>
+      <main
+        ref={setWorkspaceElement}
+        className="relative flex h-full min-h-0 overflow-clip"
+      >
         <div
           className="flex min-w-0 flex-1 flex-col"
-          inert={filesOverlay}
-          aria-hidden={filesOverlay || undefined}
+          inert={filesOverlay || inspectorModal}
+          aria-hidden={filesOverlay || inspectorModal || undefined}
         >
           {error && (
             <p
@@ -249,182 +255,201 @@ export function PracticeWorkspace({
           <Tabs
             value={tab}
             onValueChange={setTab}
+            orientation={sideNavigation ? "vertical" : "horizontal"}
             className="min-h-0 flex-1 gap-0 overflow-clip"
           >
-            <div className="practice-workspace-navigation flex shrink-0 flex-wrap items-center justify-between gap-x-3 border-b border-line bg-panel/60 px-2 md:px-5">
-              <div className="scrollbar-quiet min-w-0 overflow-x-auto">
-                <TabsList
-                  variant="line"
-                  className="h-11 min-w-max justify-start"
-                  aria-label="Challenge workspace"
-                >
-                  <TabsTrigger
-                    value="overview"
-                    className="flex-none gap-2 px-3"
-                  >
-                    <BookOpen size={14} className="hidden sm:block" />
-                    Overview
-                  </TabsTrigger>
-                  <TabsTrigger value="review" className="flex-none gap-2 px-3">
-                    <ClipboardCheck size={14} className="hidden sm:block" />
-                    Review
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="activity"
-                    className="flex-none gap-2 px-3"
-                  >
-                    <Activity size={14} className="hidden sm:block" />
-                    Activity
-                  </TabsTrigger>
-                  <TabsTrigger value="quizzes" className="flex-none gap-2 px-3">
-                    <ListChecks size={14} className="hidden sm:block" />
-                    Quizzes
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-              <div
-                role="group"
-                aria-label="Build actions"
-                className="ml-auto flex flex-wrap items-center gap-1 py-1.5"
+            <div
+              className={cn(
+                "shrink-0",
+                sideNavigation
+                  ? "w-44 overflow-y-auto px-5 pt-5"
+                  : "scrollbar-quiet overflow-x-auto px-3",
+              )}
+            >
+              <TabsList
+                variant="line"
+                aria-label="Challenge sections"
+                className={cn(
+                  "gap-0.5 p-0",
+                  sideNavigation ? "w-full" : "min-w-max",
+                )}
               >
-                {challenge.status === "completed" && (
-                  <span className="text-metadata text-success">Completed</span>
-                )}
-                {archived && (
-                  <span className="text-metadata text-muted">Archived</span>
-                )}
-                {!archived && (
+                {SECTIONS.map(({ id, label }) => (
+                  <TabsTrigger
+                    key={id}
+                    value={id}
+                    className={cn(
+                      "min-h-9 flex-none px-3 data-[state=active]:text-foreground dark:data-[state=active]:text-foreground after:bg-foreground",
+                      sideNavigation &&
+                        "after:left-0 after:rounded-full data-[orientation=vertical]:after:inset-y-2.5 data-[orientation=vertical]:after:right-auto",
+                    )}
+                  >
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <header className="mx-auto flex w-full max-w-[1152px] shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 pt-4 pb-3 sm:px-6 md:pt-5">
+                <div className="relative flex min-w-0 flex-[1_1_22rem] items-start gap-2">
                   <Button
-                    size="sm"
+                    asChild
+                    size="icon-sm"
                     variant="ghost"
-                    disabled={busy}
-                    onClick={() => lifecycle.mutate("archived")}
+                    className={cn(
+                      "shrink-0 text-muted",
+                      sideNavigation ? "absolute top-0 -left-8" : "-ml-2",
+                    )}
                   >
-                    <Archive size={14} /> Archive
+                    <Link
+                      to={backTo.href}
+                      aria-label={`Back to ${backTo.label}`}
+                      title={`Back to ${backTo.label}`}
+                    >
+                      <ArrowLeft size={16} aria-hidden="true" />
+                    </Link>
                   </Button>
-                )}
-                {archived ? (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={() => lifecycle.mutate("restored")}
-                  >
-                    <ArchiveRestore size={14} /> Restore
-                  </Button>
-                ) : active ? (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => lifecycle.mutate("paused")}
-                  >
-                    <Pause size={14} />
-                    Pause
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() => lifecycle.mutate("active")}
-                  >
-                    <Play size={14} />
-                    Resume
-                  </Button>
-                )}
-                {!archived && challenge.status !== "completed" && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={busy}
-                    onClick={() => lifecycle.mutate("completed")}
-                  >
-                    <Check size={15} />
-                    Mark completed
-                  </Button>
-                )}
-                <ChallengeWorkspaceMenu
-                  profileId={profile.id}
-                  challengeId={challenge.id}
-                />
+                  <h1 className="flex min-h-8 min-w-0 items-start gap-2 py-1 text-section leading-tight font-semibold tracking-tight">
+                    <span className="shrink-0 font-mono text-supporting leading-6 font-medium text-muted">
+                      #{challenge.number}
+                    </span>
+                    <span className="min-w-0 [overflow-wrap:anywhere]">
+                      {challenge.title}
+                    </span>
+                  </h1>
+                </div>
                 <Button
                   ref={filesToggle}
                   size="sm"
                   variant={filesShown ? "secondary" : "ghost"}
                   aria-expanded={filesShown}
                   aria-controls={filesShown ? "project-files" : undefined}
-                  title="Browse the prepared project's files"
                   onClick={() => (filesShown ? closeFiles() : openFiles())}
                 >
-                  <FolderTree size={14} />
+                  <FolderTree size={14} aria-hidden="true" />
                   {filesShown ? "Hide files" : "Files"}
                 </Button>
-              </div>
-            </div>
-            <TabsContent
-              value="overview"
-              className="scrollbar-quiet min-h-0 flex-1 overflow-y-auto"
-            >
-              <div className="px-4 py-6 md:px-8">
-                <div className="mx-auto max-w-[880px] space-y-6">
-                  <ChallengePrompt challenge={challenge} />
-                  <ChallengeCard
-                    challenge={challenge}
-                    className="max-w-none"
-                    showTitle={false}
-                    reading
-                    headerAction={
-                      <CopyButton
-                        text={statementMarkdown(challenge)}
-                        label="Copy challenge"
+              </header>
+              <TabsContent
+                value="overview"
+                className="scrollbar-quiet min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
+              >
+                <ChallengeOverview
+                  challenge={challenge}
+                  archived={archived}
+                  actions={
+                    <>
+                      <ChallengeWorkspaceMenu
+                        profileId={profile.id}
+                        challengeId={challenge.id}
                       />
-                    }
-                  />
-                </div>
-              </div>
-            </TabsContent>
-            <TabsContent
-              value="review"
-              className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-4 md:px-8 md:py-6"
-            >
-              <ChallengeReviewSection
-                profileId={profile.id}
-                challenge={challenge}
-                enabled={!archived}
-              />
-            </TabsContent>
-            <TabsContent
-              value="activity"
-              className="min-h-0 flex-1 overflow-clip"
-            >
-              <HarnessActivity
-                profileId={profile.id}
-                challengeId={challenge.id}
-                category={selectedActivityCategory}
-                selectedRunId={selectedRunId}
-                view={activityView}
-                onSelectCategory={selectActivityCategory}
-                onSelectRun={selectActivityRun}
-                onSelectView={selectActivityView}
-                prelude={
-                  <ProjectPreparationActions
-                    profileId={profile.id}
-                    challengeId={challenge.id}
-                    active={active}
-                  />
-                }
-              />
-            </TabsContent>
-            <TabsContent
-              value="quizzes"
-              className="flex min-h-0 flex-1 flex-col overflow-hidden p-4 md:p-5"
-            >
-              <QuizWorkspace
-                profileId={profile.id}
-                challengeId={challenge.id}
-              />
-            </TabsContent>
+                      {archived ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={busy}
+                          onClick={() => lifecycle.mutate("restored")}
+                        >
+                          <ArchiveRestore size={14} aria-hidden="true" />{" "}
+                          Restore
+                        </Button>
+                      ) : (
+                        <>
+                          {challenge.status !== "completed" && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={busy}
+                              onClick={() => lifecycle.mutate("completed")}
+                            >
+                              <Check size={14} aria-hidden="true" /> Mark
+                              completed
+                            </Button>
+                          )}
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={busy}
+                              onClick={() =>
+                                lifecycle.mutate(active ? "paused" : "active")
+                              }
+                            >
+                              {active ? (
+                                <Pause size={14} aria-hidden="true" />
+                              ) : (
+                                <Play size={14} aria-hidden="true" />
+                              )}
+                              {active ? "Pause" : "Resume"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={busy}
+                              onClick={() => lifecycle.mutate("archived")}
+                            >
+                              <Archive size={14} aria-hidden="true" /> Archive
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  }
+                />
+              </TabsContent>
+              <TabsContent
+                value="review"
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <ChallengeReviewSection
+                  profileId={profile.id}
+                  challenge={challenge}
+                  enabled={!archived}
+                  onOpenRun={(threadId) =>
+                    updateParams((params) => {
+                      params.set("tab", "activity");
+                      params.set("activity", "reviews");
+                      params.set("run", threadId);
+                      params.set("view", "trajectory");
+                    })
+                  }
+                />
+              </TabsContent>
+              <TabsContent
+                value="activity"
+                className="min-h-0 flex-1 overflow-clip"
+              >
+                <HarnessActivity
+                  profileId={profile.id}
+                  challengeId={challenge.id}
+                  category={selectedActivityCategory}
+                  selectedRunId={selectedRunId}
+                  projectFilesOpen={filesShown}
+                  inspectorContainer={workspaceElement}
+                  onInspectorModalChange={setInspectorModal}
+                  view={activityView}
+                  onSelectCategory={selectActivityCategory}
+                  onSelectRun={selectActivityRun}
+                  onSelectView={selectActivityView}
+                  prelude={
+                    <ProjectPreparationActions
+                      profileId={profile.id}
+                      challengeId={challenge.id}
+                      active={active}
+                    />
+                  }
+                />
+              </TabsContent>
+              <TabsContent
+                value="quizzes"
+                className="mx-auto flex min-h-0 w-full max-w-[1152px] flex-1 flex-col overflow-hidden px-4 pb-3 sm:px-6"
+              >
+                <QuizWorkspace
+                  profileId={profile.id}
+                  challengeId={challenge.id}
+                />
+              </TabsContent>
+            </div>
           </Tabs>
         </div>
         {filesShown && wide && (
@@ -493,6 +518,6 @@ export function PracticeWorkspace({
           </SheetContent>
         </Sheet>
       </main>
-    </AppShell>
+    </CompactShell>
   );
 }

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Check, CircleAlert } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { LoadingRegion, Skeleton } from "@/shared/components/ui/skeleton";
+import { SettingsFormSkeleton } from "@/shared/components/ui/loading-layouts";
 
 export function SettingsHeading({
   title,
@@ -13,7 +13,7 @@ export function SettingsHeading({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
       <div className="min-w-0">
         <h2 className="text-section font-semibold tracking-[-0.02em]">
           {title}
@@ -36,7 +36,7 @@ export function SettingsRow({
   children: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-2 py-4 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6">
+    <div className="grid min-w-0 gap-2 py-3 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6">
       {htmlFor ? (
         <label htmlFor={htmlFor} className="pt-1.5 text-ui font-medium">
           {label}
@@ -84,13 +84,5 @@ export function SettingsFeedback({
   );
 }
 export function SettingsLoading() {
-  return (
-    <LoadingRegion label="Loading settings" className="space-y-6">
-      <div className="space-y-2">
-        <Skeleton className="h-7 w-36" />
-        <Skeleton className="h-4 w-64 max-w-full" />
-      </div>
-      <Skeleton className="h-64 w-full" />
-    </LoadingRegion>
-  );
+  return <SettingsFormSkeleton label="Loading settings" />;
 }

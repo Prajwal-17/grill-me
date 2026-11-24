@@ -15,6 +15,7 @@ export type ApprovalCardProps = {
   onCustom: (value: string) => void;
   onAnswer: (value: string) => void;
   onEdit: () => void;
+  editLabel?: string;
 };
 
 export function ApprovalCard({
@@ -27,6 +28,7 @@ export function ApprovalCard({
   onCustom,
   onAnswer,
   onEdit,
+  editLabel = "Edit request",
 }: ApprovalCardProps) {
   const id = useId();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -58,7 +60,7 @@ export function ApprovalCard({
       <fieldset disabled={busy} className="contents">
         <div className="shrink-0 border-b border-line px-4 py-3">
           <Button type="button" variant="ghost" size="sm" onClick={onEdit}>
-            <ArrowLeft size={14} /> Edit request
+            <ArrowLeft size={14} aria-hidden="true" /> {editLabel}
           </Button>
           <h2
             id={id}

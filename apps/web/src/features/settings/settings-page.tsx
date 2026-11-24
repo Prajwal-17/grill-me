@@ -30,7 +30,12 @@ export function SettingsPage() {
   );
   if (profile)
     return (
-      <AppShell profile={profile} title="Settings" contentScrollable={false}>
+      <AppShell
+        profile={profile}
+        title="Settings"
+        contentScrollable={false}
+        centeredHeader
+      >
         {content}
       </AppShell>
     );

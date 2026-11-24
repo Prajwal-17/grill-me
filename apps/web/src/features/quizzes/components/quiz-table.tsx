@@ -1,4 +1,4 @@
-import { CollectionSkeleton } from "@/shared/components/ui/loading-layouts";
+import { PracticeRowsSkeleton } from "@/shared/components/ui/loading-layouts";
 import { useEffect, useRef, type ReactNode } from "react";
 import {
   Check,
@@ -7,21 +7,13 @@ import {
   Circle,
   Clock3,
   Search,
+  ListChecks,
   RotateCcw,
   Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/shared/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -35,6 +27,7 @@ import {
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/cn";
+import { dateGroup } from "@/shared/lib/date-groups";
 import { useQuizListState } from "../hooks/use-quiz-list-state";
 import type { QuizSummary } from "../types";
 
@@ -169,6 +162,7 @@ export function QuizTable({
   profileId,
   quizzes,
   loading = false,
+  compact = false,
   disabled,
   actions,
   onOpen,
@@ -178,6 +172,7 @@ export function QuizTable({
   profileId: string;
   quizzes: QuizSummary[];
   loading?: boolean;
+  compact?: boolean;
   disabled: boolean;
   actions?: ReactNode;
   onOpen: (id: string) => void;
@@ -186,6 +181,7 @@ export function QuizTable({
 }) {
   const [settings, update] = useQuizListState(profileId);
   const searchRef = useRef<HTMLInputElement>(null);
+  const filtersRef = useRef<HTMLDetailsElement>(null);
   const query = settings.search.trim().toLowerCase();
   const matching = quizzes.filter(
     (quiz) =>
@@ -240,8 +236,10 @@ export function QuizTable({
         )
       )
         return;
+      if (!searchRef.current) return;
       event.preventDefault();
-      searchRef.current?.focus();
+      if (filtersRef.current) filtersRef.current.open = true;
+      searchRef.current.focus();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -313,114 +311,148 @@ export function QuizTable({
     );
   }
 
-  return (
-    <div className="shrink-0 space-y-4 @container/quiz-list">
-      {actions && <div className="flex justify-end">{actions}</div>}
-      <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_140px_148px_160px]">
-        <div
-          role="search"
-          className="relative col-span-2 min-w-0 @[900px]/quiz-list:col-span-1"
-        >
-          <Search
-            size={16}
-            aria-hidden="true"
-            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
-          />
-          <Input
-            ref={searchRef}
-            type="search"
-            aria-label="Search quizzes"
-            aria-controls="quiz-list-results"
-            placeholder="Search quizzes…"
-            value={settings.search}
-            maxLength={200}
-            disabled={disabled}
-            onChange={(event) =>
-              update({ search: event.target.value, page: 1 })
-            }
-            onKeyDown={(event) => {
-              if (event.key === "Escape" && settings.search) {
-                event.preventDefault();
-                update({ search: "", page: 1 });
-              }
-            }}
-            className="h-9 bg-surface pr-10 pl-9 text-ui shadow-none [&::-webkit-search-cancel-button]:appearance-none"
-          />
-          {settings.search && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  aria-label="Clear search"
-                  disabled={disabled}
-                  onClick={() => {
-                    update({ search: "", page: 1 });
-                    searchRef.current?.focus();
-                  }}
-                  className="absolute top-1/2 right-1 size-7 -translate-y-1/2 rounded-md text-muted hover:text-foreground"
-                >
-                  <X size={14} aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top" sideOffset={6}>
-                Clear search
-              </TooltipContent>
-            </Tooltip>
-          )}
+  if (compact && !loading && quizzes.length === 0) {
+    return (
+      <section aria-label="Challenge quizzes" className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-ui font-semibold">Quizzes</h2>
+          {actions}
         </div>
-        <div className="min-w-0">
-          <ListSelect
-            label="Quiz status"
-            value={settings.status}
-            disabled={disabled}
-            onChange={(value) =>
-              update({ status: value as typeof settings.status, page: 1 })
+        <p className="text-supporting text-muted">
+          No quizzes yet. Generate one from this challenge or related concepts.
+        </p>
+      </section>
+    );
+  }
+
+  const filters = (
+    <div className="grid grid-cols-2 items-center gap-2 @[640px]/quiz-list:grid-cols-4 @[900px]/quiz-list:grid-cols-[minmax(0,1fr)_140px_148px_160px]">
+      <div
+        role="search"
+        className="relative col-span-2 min-w-0 @[900px]/quiz-list:col-span-1"
+      >
+        <Search
+          size={16}
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
+        />
+        <Input
+          ref={searchRef}
+          type="search"
+          aria-label="Search quizzes"
+          aria-controls="quiz-list-results"
+          placeholder="Search quizzes…"
+          value={settings.search}
+          maxLength={200}
+          disabled={disabled}
+          onChange={(event) => update({ search: event.target.value, page: 1 })}
+          onKeyDown={(event) => {
+            if (event.key === "Escape" && settings.search) {
+              event.preventDefault();
+              update({ search: "", page: 1 });
             }
-            options={statuses}
-          />
-        </div>
-        <div className="min-w-0">
-          <ListSelect
-            label="Filter by difficulty"
-            value={settings.difficulty}
-            disabled={disabled}
-            onChange={(value) =>
-              update({
-                difficulty: value as typeof settings.difficulty,
-                page: 1,
-              })
-            }
-            options={[
-              ["all", "Any difficulty"],
-              ["easy", "Easy"],
-              ["medium", "Medium"],
-              ["hard", "Hard"],
-              ["grill", "Grill"],
-            ]}
-          />
-        </div>
-        <div className="min-w-0 @[640px]/quiz-list:col-span-2 @[900px]/quiz-list:col-span-1">
-          <ListSelect
-            label="Sort quizzes"
-            value={settings.sort}
-            disabled={disabled}
-            onChange={(value) =>
-              update({ sort: value as typeof settings.sort, page: 1 })
-            }
-            options={[
-              ["newest", "Newest first"],
-              ["oldest", "Oldest first"],
-              ["name", "Name A–Z"],
-              ["score", "Highest score"],
-            ]}
-          />
-        </div>
+          }}
+          className="h-9 bg-surface pr-10 pl-9 text-ui shadow-none [&::-webkit-search-cancel-button]:appearance-none"
+        />
+        {settings.search && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Clear search"
+                disabled={disabled}
+                onClick={() => {
+                  update({ search: "", page: 1 });
+                  searchRef.current?.focus();
+                }}
+                className="absolute top-1/2 right-1 size-7 -translate-y-1/2 rounded-md text-muted hover:text-foreground"
+              >
+                <X size={14} aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={6}>
+              Clear search
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
+      <div className="min-w-0">
+        <ListSelect
+          label="Quiz status"
+          value={settings.status}
+          disabled={disabled}
+          onChange={(value) =>
+            update({ status: value as typeof settings.status, page: 1 })
+          }
+          options={statuses}
+        />
+      </div>
+      <div className="min-w-0">
+        <ListSelect
+          label="Filter by difficulty"
+          value={settings.difficulty}
+          disabled={disabled}
+          onChange={(value) =>
+            update({
+              difficulty: value as typeof settings.difficulty,
+              page: 1,
+            })
+          }
+          options={[
+            ["all", "Any difficulty"],
+            ["easy", "Easy"],
+            ["medium", "Medium"],
+            ["hard", "Hard"],
+            ["grill", "Grill"],
+          ]}
+        />
+      </div>
+      <div className="min-w-0 @[640px]/quiz-list:col-span-2 @[900px]/quiz-list:col-span-1">
+        <ListSelect
+          label="Sort quizzes"
+          value={settings.sort}
+          disabled={disabled}
+          onChange={(value) =>
+            update({ sort: value as typeof settings.sort, page: 1 })
+          }
+          options={[
+            ["newest", "Newest first"],
+            ["oldest", "Oldest first"],
+            ["name", "Name A–Z"],
+            ["score", "Highest score"],
+          ]}
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="shrink-0 space-y-3 @container/quiz-list">
+      {actions && (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {compact ? (
+            <h2 className="text-ui font-semibold">Quizzes</h2>
+          ) : (
+            <h1 className="text-xl font-semibold tracking-tight">Quizzes</h1>
+          )}
+          {actions}
+        </div>
+      )}
+      {compact ? (
+        <details ref={filtersRef}>
+          <summary className="w-fit cursor-pointer rounded-sm py-1 text-supporting text-muted hover:text-foreground focus-visible:outline-offset-4">
+            Find or filter quizzes{hasFilters ? " · Filters active" : ""}
+          </summary>
+          <div className="mt-2">{filters}</div>
+        </details>
+      ) : (
+        filters
+      )}
       <div
         id="quiz-list-results"
-        className="overflow-hidden rounded-lg border border-line"
+        className={cn(!compact && "border-t border-line")}
         onKeyDown={(event) => {
           if (
             event.altKey ||
@@ -450,146 +482,66 @@ export function QuizTable({
         }}
       >
         {loading ? (
-          <CollectionSkeleton />
+          <PracticeRowsSkeleton
+            label="Loading quizzes"
+            dated={
+              !compact &&
+              (settings.sort === "newest" || settings.sort === "oldest")
+            }
+            rowActions
+          />
         ) : visible.length ? (
-          <>
-            <Table className="hidden w-full table-fixed text-left text-ui @[640px]/quiz-list:table">
-              <TableCaption className="sr-only">
-                Saved quizzes. Use up and down arrows to browse, then Enter to
-                open.
-              </TableCaption>
-              <colgroup>
-                <col />
-                <col className="w-20" />
-                <col className="w-32" />
-                <col className="w-16" />
-                <col className="hidden w-20 @[850px]/quiz-list:table-column" />
-                <col
-                  className={settings.status === "deleted" ? "w-28" : "w-14"}
-                />
-              </colgroup>
-              <TableHeader className="border-b border-line bg-panel text-muted">
-                <TableRow>
-                  <TableHead scope="col" className="h-8 px-4 py-2 font-normal">
-                    Quiz
-                  </TableHead>
-                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
-                    Difficulty
-                  </TableHead>
-                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
-                    Progress
-                  </TableHead>
-                  <TableHead scope="col" className="h-8 px-2 py-2 font-normal">
-                    Score
-                  </TableHead>
-                  <TableHead
-                    scope="col"
-                    className="hidden h-8 px-2 py-2 font-normal @[850px]/quiz-list:table-cell"
-                  >
-                    Created
-                  </TableHead>
-                  <TableHead scope="col" className="h-8">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((quiz) => (
-                  <TableRow
-                    key={quiz.id}
-                    className="border-b border-line last:border-b-0 bg-surface hover:bg-panel focus-within:bg-panel"
-                  >
-                    <TableHead
-                      scope="row"
-                      className="px-4 py-2 font-normal whitespace-normal"
-                    >
-                      {openButton(quiz)}
-                      <p className="mt-1 text-metadata text-muted">
-                        #{quiz.number} · {quiz.questionCount} questions
-                      </p>
-                    </TableHead>
-                    <TableCell
-                      className={cn(
-                        "px-2 py-2 capitalize",
-                        quiz.difficulty === "grill"
-                          ? "text-warning"
-                          : "text-muted",
+          <ul>
+            {visible.map((quiz, index) => (
+              <li key={quiz.id} className="border-b border-line/60">
+                {!compact &&
+                  (settings.sort === "newest" || settings.sort === "oldest") &&
+                  (index === 0 ||
+                    dateGroup(quiz.createdAt) !==
+                      dateGroup(visible[index - 1]!.createdAt)) && (
+                    <h2 className="bg-canvas px-3 py-2 text-metadata font-medium text-muted sm:px-4">
+                      {dateGroup(quiz.createdAt)}
+                    </h2>
+                  )}
+                <div className="group flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-elevated focus-within:bg-elevated sm:px-4">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-lg border border-line bg-surface text-muted">
+                    <ListChecks size={16} aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    {openButton(quiz)}
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-metadata text-muted">
+                      <span>
+                        Quiz · {quiz.questionCount} questions
+                        {quiz.difficulty ? ` · ${quiz.difficulty}` : ""}
+                      </span>
+                      <Progress quiz={quiz} compact />
+                      {quiz.latestAttempt?.score != null && (
+                        <span>
+                          Score <Score quiz={quiz} />
+                        </span>
                       )}
+                    </div>
+                  </div>
+                  {!compact && (
+                    <time
+                      dateTime={quiz.createdAt}
+                      className="hidden shrink-0 text-metadata text-muted sm:block"
                     >
-                      <span data-difficulty={quiz.difficulty}>
-                        {quiz.difficulty ?? "—"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="px-2 py-2">
-                      <Progress quiz={quiz} />
-                    </TableCell>
-                    <TableCell className="px-2 py-2">
-                      <Score quiz={quiz} />
-                    </TableCell>
-                    <TableCell className="hidden px-2 py-2 text-muted @[850px]/quiz-list:table-cell">
-                      <time
-                        dateTime={quiz.createdAt}
-                        title={new Date(quiz.createdAt).toLocaleDateString()}
-                      >
-                        {new Intl.DateTimeFormat("en", {
-                          month: "short",
-                          day: "numeric",
-                        }).format(new Date(quiz.createdAt))}
-                      </time>
-                    </TableCell>
-                    <TableCell className="pr-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {quiz.deletedAt
-                          ? restoreButton(quiz)
-                          : deleteButton(quiz)}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <div className="divide-y divide-line @[640px]/quiz-list:hidden">
-              {visible.map((quiz) => (
-                <article key={quiz.id} className="px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      {openButton(quiz)}
-                      <p className="mt-1 text-metadata text-muted">
-                        #{quiz.number} · {quiz.questionCount} questions
-                        {quiz.difficulty && (
-                          <>
-                            {" "}
-                            ·{" "}
-                            <span
-                              className="capitalize"
-                              data-difficulty={quiz.difficulty}
-                            >
-                              {quiz.difficulty}
-                            </span>
-                          </>
-                        )}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {quiz.deletedAt
-                        ? restoreButton(quiz)
-                        : deleteButton(quiz)}
-                    </div>
+                      {new Intl.DateTimeFormat(undefined, {
+                        month: "short",
+                        day: "numeric",
+                      }).format(new Date(quiz.createdAt))}
+                    </time>
+                  )}
+                  <div className="shrink-0">
+                    {quiz.deletedAt ? restoreButton(quiz) : deleteButton(quiz)}
                   </div>
-                  <div className="mt-2 flex items-center justify-between gap-3">
-                    <Progress quiz={quiz} compact />
-                    {quiz.latestAttempt?.score != null && (
-                      <span className="text-metadata">
-                        <Score quiz={quiz} />
-                      </span>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </>
+                </div>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <div className="space-y-3 px-4 py-12 text-center text-ui text-muted">
+          <div className="space-y-2 px-4 py-8 text-center text-ui text-muted">
             <p>{quizzes.length ? "No quizzes found." : "No quizzes yet."}</p>
             {hasFilters && (
               <Button size="sm" disabled={disabled} onClick={clearFilters}>
@@ -602,7 +554,7 @@ export function QuizTable({
       <div className="flex min-h-8 items-center justify-between gap-3 text-metadata text-muted">
         <p role="status" aria-live="polite">
           {loading
-            ? "Loading quizzes…"
+            ? null
             : filtered.length
               ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, filtered.length)} of ${filtered.length}`
               : "0 quizzes"}

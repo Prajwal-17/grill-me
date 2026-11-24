@@ -234,7 +234,7 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
           codebases, and review your work. CLI integrations are inactive.
         </p>
       )}
-      <div className="mt-6 overflow-hidden rounded-lg bg-surface">
+      <div className="mt-4 overflow-hidden rounded-lg bg-surface">
         <div className="divide-y divide-line">
           {api.map((provider) => (
             <ConnectionRow
@@ -279,7 +279,7 @@ export function ProviderSettings({ data }: { data: LocalSettings }) {
         />
       )}
       {legacy.length > 0 && (
-        <p className="mt-8 border-t border-line pt-4 text-supporting text-muted">
+        <p className="mt-5 border-t border-line pt-3 text-supporting text-muted">
           {legacy.length} legacy CLI{" "}
           {legacy.length === 1 ? "connection is" : "connections are"} preserved
           but inactive. Their settings and credentials are not changed.

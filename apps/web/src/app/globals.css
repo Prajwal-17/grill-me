@@ -455,26 +455,6 @@
   }
 }
 
-@keyframes stream-word-enter {
-  from {
-    opacity: 0.35;
-    filter: blur(2px);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-@keyframes stream-cursor-pulse {
-  0%,
-  100% {
-    opacity: 0.35;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 /* Difficulty remains labeled and icon-coded; hue reinforces the level. */
 @layer utilities {
   /* Hide scrollbar chrome inside dense workspace panes while keeping wheel,
@@ -569,6 +549,9 @@
    final geometry immediately and never delay real content or pulse separately. */
 .loading-placeholder {
   animation: loading-placeholder-reveal 120ms ease-out 180ms backwards;
+}
+.loading-placeholder .loading-placeholder {
+  animation: none;
 }
 @keyframes loading-placeholder-reveal {
   from {
@@ -734,12 +717,6 @@ html[data-desktop="true"] #app-content[data-scrollable] {
   html[data-desktop="true"] [data-slot="page-header"] h1 {
     font-size: 1rem;
     font-weight: 600;
-  }
-  html[data-desktop="true"] .practice-workspace-navigation {
-    padding-inline: 24px;
-    padding-bottom: 8px;
-    border: 0;
-    background: transparent;
   }
   html[data-desktop="true"] .desktop-app-header {
     border-bottom: 0;

@@ -22,6 +22,7 @@ export function LoadingScreen({ label = "Loading…" }: { label?: string }) {
     >
       <LoaderCircle
         size={20}
+        aria-hidden="true"
         className="animate-spin text-muted motion-reduce:animate-none"
       />
     </LoadingRegion>

@@ -12,6 +12,7 @@ export {
   useHarnessDecision,
   useHarnessItem,
   useHarnessThread,
+  useHarnessTranscripts,
   useHarnessThreads,
   useRetryHarnessThread,
   useStopHarnessThread,
@@ -32,3 +33,4 @@ export {
   type ActivityView,
 } from "./lib/activity";
 export { isActiveThreadStatus } from "./lib/status";
+export { useFollowActivity } from "./hooks/use-follow-activity";

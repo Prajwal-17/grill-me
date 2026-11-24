@@ -1,8 +1,6 @@
 /* Original Grill accent, scoped to maximum difficulty with restrained fills. */
 :root {
   --grill-accent: var(--ember);
-  --grill-ember: #e75b37;
-  --grill-hot: #ffcb86;
   --grill-action: #c94320;
   --grill-action-ink: #ffffff;
 }
@@ -18,8 +16,7 @@
   color: var(--grill-action-ink);
 }
 
-[data-grill-option],
-[data-grill-badge] {
+[data-grill-option] {
   color: var(--ember);
   border-color: color-mix(in srgb, var(--ember) 35%, var(--line));
   background-color: var(--ember-surface);

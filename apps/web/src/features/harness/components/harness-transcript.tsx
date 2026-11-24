@@ -27,7 +27,7 @@ import type {
   HarnessThreadDetail,
 } from "@repo/backend/shared/contracts";
 import { Button } from "@/shared/components/ui/button";
-import { Skeleton } from "@/shared/components/ui/skeleton";
+import { ActivitySkeleton } from "@/shared/components/ui/loading-layouts";
 import { Markdown } from "@/shared/components/markdown";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { cn } from "@/shared/lib/cn";
@@ -671,21 +671,6 @@ function Turn({
   );
 }
 
-function TranscriptSkeleton() {
-  return (
-    <div
-      role="status"
-      aria-label="Loading run transcript"
-      className="space-y-3"
-    >
-      <Skeleton className="h-4 w-2/5" />
-      <Skeleton className="h-16 w-full" />
-      <Skeleton className="h-4 w-3/5" />
-      <Skeleton className="h-10 w-full" />
-    </div>
-  );
-}
-
 export function HarnessTranscript({
   profileId,
   threadId,
@@ -696,7 +681,7 @@ export function HarnessTranscript({
   className?: string;
 }) {
   const query = useHarnessThread(profileId, threadId);
-  if (query.isPending) return <TranscriptSkeleton />;
+  if (query.isPending) return <ActivitySkeleton header={false} />;
   if (query.error)
     return (
       <div className="flex flex-wrap items-center gap-2">
@@ -723,12 +708,14 @@ export function HarnessTranscriptContent({
   detail,
   className,
   joined,
+  showRunControls = true,
 }: {
   profileId: string;
   detail: HarnessThreadDetail;
   className?: string;
   /** Render without the run header as part of a single continuous flow. */
   joined?: boolean;
+  showRunControls?: boolean;
 }) {
   const stop = useStopHarnessThread(profileId);
   const retry = useRetryHarnessThread(profileId);
@@ -743,7 +730,7 @@ export function HarnessTranscriptContent({
     detail.thread.status,
   );
   const runControls =
-    active || retryable ? (
+    showRunControls && (active || retryable) ? (
       <div className="flex items-center gap-1">
         {active && (
           <Button

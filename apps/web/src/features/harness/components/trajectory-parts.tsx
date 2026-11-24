@@ -26,6 +26,7 @@ export const trajectoryTagClass: Record<TrajectoryKind, string> = {
   tool: "bg-warning/10 text-warning",
   result: "bg-success/10 text-success",
   request: "bg-warning/10 text-warning",
+  model_request: "bg-brand-soft text-foreground",
   notice: "bg-panel text-muted",
   error: "bg-destructive/10 text-destructive",
 };
@@ -252,46 +253,24 @@ export function CodeSection({
   label,
   text,
   empty = "Nothing was recorded for this record.",
-  maxHeight,
 }: {
   label: string;
   text: string;
   empty?: string;
-  maxHeight?: string;
 }) {
-  const [enlarged, setEnlarged] = useState(false);
   if (!text) return <p className="text-supporting text-muted">{empty}</p>;
   return (
     <section className="space-y-2" aria-label={label}>
       <div className="flex items-center justify-between gap-2">
-        <h4 className="text-metadata font-medium tracking-wide text-muted uppercase">
-          {label}
-        </h4>
-        <div className="flex items-center gap-0.5">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            title="Enlarge"
-            aria-label={`Enlarge ${label.toLowerCase()}`}
-            onClick={() => setEnlarged(true)}
-          >
-            <Maximize2 size={13} aria-hidden="true" />
-          </Button>
-          <CopyButton
-            text={text}
-            label="Copy"
-            ariaLabel={`Copy ${label.toLowerCase()}`}
-            iconOnly
-          />
-        </div>
+        <h3 className="text-ui font-medium">{label}</h3>
+        <CopyButton
+          text={text}
+          label="Copy"
+          ariaLabel={`Copy ${label.toLowerCase()}`}
+          iconOnly
+        />
       </div>
-      <CodeBlock text={text} maxHeight={maxHeight} />
-      <EnlargedCodeDialog
-        label={label}
-        text={text}
-        open={enlarged}
-        onOpenChange={setEnlarged}
-      />
+      <CodeBlock text={text} maxHeight="max-h-none" />
     </section>
   );
 }

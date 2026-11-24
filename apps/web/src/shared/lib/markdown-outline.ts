@@ -1,13 +1,9 @@
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
 import { visit } from "unist-util-visit";
 import { toString } from "mdast-util-to-string";
 import GithubSlugger from "github-slugger";
 import type { Root } from "mdast";
 
-export type OutlineItem = { id: string; title: string; depth: number };
+type OutlineItem = { id: string; title: string; depth: number };
 
 function headings(tree: Root, prefix: string) {
   const slugger = new GithubSlugger();
@@ -22,12 +18,6 @@ function headings(tree: Root, prefix: string) {
     outline.push({ id, title, depth: node.depth });
   });
   return outline;
-}
-export function markdownOutline(markdown: string, prefix: string) {
-  return headings(
-    unified().use(remarkParse).use(remarkGfm).use(remarkMath).parse(markdown),
-    prefix,
-  );
 }
 export function remarkHeadingIds(options: { prefix: string }) {
   return (tree: Root) => {

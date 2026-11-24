@@ -2,6 +2,7 @@
 
 .agents/
 apps/web/.impeccable/mocks/
+docs/mockups/
 
 # Dependencies
 node_modules

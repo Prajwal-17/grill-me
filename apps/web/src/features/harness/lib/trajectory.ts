@@ -7,6 +7,7 @@ import type {
   HarnessTurnAttempt,
 } from "@repo/backend/shared/contracts";
 import { setupMessageText } from "./activity";
+import { isActiveThreadStatus } from "./status";
 
 /** Dense audit rows derived from the durable harness ledger. */
 export type TrajectoryKind =
@@ -18,6 +19,7 @@ export type TrajectoryKind =
   | "tool"
   | "result"
   | "request"
+  | "model_request"
   | "notice"
   | "error";
 
@@ -55,6 +57,35 @@ export type TrajectoryTool = {
   truncated: boolean;
 };
 
+/** One model request: the records fed to the model plus its reply. */
+export type TrajectoryRequest = {
+  id: string;
+  /** Run-wide request number, in the order requests were issued. */
+  ordinal: number;
+  turnId: string;
+  turnOrdinal: number;
+  attemptId: string;
+  attemptOrdinal: number | null;
+  status: "completed" | "running" | "failed" | "cancelled";
+  model: string | null;
+  provider: string | null;
+  stopReason: string | null;
+  /** Best available timestamp for when the request went out. */
+  sentAt: number | null;
+  completedAt: number | null;
+  /** Reply generation time from the assistant record. */
+  durationMs: number | null;
+  tokens: TrajectoryTokenUsage | null;
+  /** Tokens consumed by the run up to and including this request. */
+  cumulativeTokens: TrajectoryTokenUsage | null;
+  toolCallCount: number;
+  /** Records whose content fed this request (inputs, not the reply). */
+  inputRows: TrajectoryRow[];
+  /** The assistant reply that concluded the request, when one was recorded. */
+  assistantRow: TrajectoryRow | null;
+  error?: string;
+};
+
 export type TrajectoryRow = {
   id: string;
   ordinal: number;
@@ -66,6 +97,8 @@ export type TrajectoryRow = {
   preview: string;
   search: string;
   tool?: TrajectoryTool;
+  /** Present on the synthetic row that represents a model request. */
+  request?: TrajectoryRequest;
   item?: HarnessItem;
   prompt?: TrajectoryPromptSnapshot;
   tokens?: TrajectoryTokenUsage;
@@ -136,6 +169,14 @@ export type TrajectoryDetailModel = {
   thread: HarnessThread;
   turns: TrajectoryTurnModel[];
   rows: TrajectoryRow[];
+  /** Model requests in issue order, numbered run-wide. */
+  requests: TrajectoryRequest[];
+  /** Closed requests keyed by the assistant reply that concluded them. */
+  requestsByAssistantRow: Map<string, TrajectoryRequest>;
+  /** Failed requests keyed by the error record that ended them. */
+  requestsByErrorRow: Map<string, TrajectoryRequest>;
+  /** In-flight requests keyed by the attempt that is awaiting their reply. */
+  pendingByAttempt: Map<string, TrajectoryRequest>;
   stats: TrajectoryStats;
   setup: TrajectoryRunSetup | null;
 };
@@ -402,6 +443,8 @@ function tagFor(kind: TrajectoryKind) {
     case "result":
       return "RESULT";
     case "request":
+      return "REQUEST";
+    case "model_request":
       return "REQUEST";
     case "notice":
       return "NOTICE";
@@ -800,6 +843,155 @@ function runSetup(rows: TrajectoryRow[]): TrajectoryRunSetup | null {
   };
 }
 
+/** Latest timestamp available on the rows fed into a request. */
+function lastSpanTime(span: TrajectoryRow[]): number | null {
+  for (let index = span.length - 1; index >= 0; index -= 1) {
+    const row = span.at(index);
+    if (!row) continue;
+    if (row.completedAt !== null) return row.completedAt;
+    if (row.startedAt !== null) return row.startedAt;
+  }
+  return null;
+}
+
+/**
+ * Reconstructs model request boundaries from the ledger: every assistant
+ * reply closes one request that consumed the records since the previous
+ * reply. An attempt still awaiting its reply exposes a running request.
+ */
+function projectRequests(
+  turns: TrajectoryTurnModel[],
+  active: boolean,
+): {
+  list: TrajectoryRequest[];
+  byAssistantRow: Map<string, TrajectoryRequest>;
+  byErrorRow: Map<string, TrajectoryRequest>;
+  byAttempt: Map<string, TrajectoryRequest>;
+} {
+  const list: TrajectoryRequest[] = [];
+  const byAssistantRow = new Map<string, TrajectoryRequest>();
+  const byErrorRow = new Map<string, TrajectoryRequest>();
+  const byAttempt = new Map<string, TrajectoryRequest>();
+  const cumulative = emptyTokenUsage();
+  let cumulativeStarted = false;
+  let ordinal = 0;
+  for (const turn of turns) {
+    for (const attempt of turn.attempts) {
+      const span: TrajectoryRow[] = [];
+      const close = (
+        assistant: TrajectoryRow | null,
+        status: TrajectoryRequest["status"],
+        completedAt: number | null,
+        options: { error?: string; attachId?: string } = {},
+      ) => {
+        ordinal += 1;
+        const payload = (assistant?.item?.payload ?? {}) as Record<
+          string,
+          unknown
+        >;
+        const tokens = assistant?.tokens ?? null;
+        if (tokens) {
+          addTokenUsage(cumulative, tokens);
+          cumulativeStarted = true;
+        }
+        const request: TrajectoryRequest = {
+          id: assistant
+            ? `request:${assistant.id}`
+            : `request:open:${attempt.id}`,
+          ordinal,
+          turnId: turn.id,
+          turnOrdinal: turn.ordinal,
+          attemptId: attempt.id,
+          attemptOrdinal: attempt.ordinal,
+          status,
+          model: stringValue(payload.model) || turn.model,
+          provider:
+            typeof payload.provider === "string" ? payload.provider : null,
+          stopReason:
+            typeof payload.stopReason === "string" ? payload.stopReason : null,
+          sentAt: assistant ? assistant.startedAt : lastSpanTime(span),
+          completedAt,
+          durationMs: assistant?.durationMs ?? null,
+          tokens,
+          cumulativeTokens: cumulativeStarted ? { ...cumulative } : null,
+          toolCallCount: assistant
+            ? assistantToolCallNames(assistant.item?.payload.content).length
+            : 0,
+          inputRows: [...span],
+          assistantRow: assistant,
+          error: options.error,
+        };
+        list.push(request);
+        if (assistant) byAssistantRow.set(assistant.id, request);
+        else if (options.attachId) byErrorRow.set(options.attachId, request);
+        else byAttempt.set(attempt.id, request);
+      };
+      // System prompt and run context describe the run envelope, not one
+      // request; they stay outside the request spans.
+      for (const row of attempt.rows) {
+        if (row.kind === "system" || row.kind === "context") continue;
+        if (row.kind === "assistant") {
+          close(
+            row,
+            row.status === "failed" ? "failed" : "completed",
+            row.completedAt,
+          );
+          span.length = 0;
+          continue;
+        }
+        if (row.kind === "error" && span.length) {
+          close(null, "failed", row.completedAt, {
+            error: row.error,
+            attachId: row.id,
+          });
+          span.length = 0;
+          continue;
+        }
+        span.push(row);
+      }
+      if (span.length) {
+        close(
+          null,
+          active
+            ? "running"
+            : turn.status === "failed"
+              ? "failed"
+              : "cancelled",
+          null,
+        );
+      }
+    }
+  }
+  return { list, byAssistantRow, byErrorRow, byAttempt };
+}
+
+/** Synthetic inspector row for a model request band. */
+export function requestRow(request: TrajectoryRequest): TrajectoryRow {
+  return {
+    id: request.id,
+    ordinal: request.ordinal,
+    kind: "model_request",
+    tag: tagFor("model_request"),
+    status: request.status,
+    title: null,
+    summary: `Request ${request.ordinal}`,
+    preview: "",
+    search: `request ${request.ordinal} ${request.model ?? ""}`
+      .trim()
+      .toLowerCase(),
+    request,
+    item: request.assistantRow?.item,
+    tokens: request.tokens ?? undefined,
+    startedAt: request.sentAt,
+    completedAt: request.completedAt,
+    durationMs: request.durationMs,
+    error: request.error,
+    turnId: request.turnId,
+    turnOrdinal: request.turnOrdinal,
+    attemptOrdinal: request.attemptOrdinal,
+  };
+}
+
 export function projectTrajectory(
   detail: HarnessThreadDetail,
 ): TrajectoryDetailModel {
@@ -807,6 +999,12 @@ export function projectTrajectory(
     projectTurn(turn, detail.thread.kind),
   );
   const rows = turns.flatMap((turn) => turn.rows);
+  const {
+    list: requests,
+    byAssistantRow,
+    byErrorRow,
+    byAttempt,
+  } = projectRequests(turns, isActiveThreadStatus(detail.thread.status));
   const usage = emptyTokenUsage();
   let hasUsage = false;
   for (const turn of turns) {
@@ -830,6 +1028,10 @@ export function projectTrajectory(
     thread: detail.thread,
     turns,
     rows,
+    requests,
+    requestsByAssistantRow: byAssistantRow,
+    requestsByErrorRow: byErrorRow,
+    pendingByAttempt: byAttempt,
     setup: runSetup(rows),
     stats: {
       turns: turns.length,
@@ -889,4 +1091,20 @@ export function filterTrajectoryTurns(
     return rows.length ? [{ ...turn, attempts, rows }] : [];
   });
   return { turns: filtered, matchCount };
+}
+
+/** Present captured context blocks as readable sections while keeping the raw record intact. */
+export function trajectoryContextSections(text: string) {
+  const sections: { name: string; text: string }[] = [];
+  let end = 0;
+  for (const match of text.matchAll(
+    /^<(context|untrusted_context) name="([\w-]+)">\r?\n([\s\S]*?)\r?\n<\/\1>[ \t]*(?=\r?$)/gm,
+  )) {
+    const [block, , name, body] = match;
+    if (text.slice(end, match.index).trim() || !name || body === undefined)
+      return [];
+    sections.push({ name, text: body });
+    end = match.index + block.length;
+  }
+  return text.slice(end).trim() ? [] : sections;
 }

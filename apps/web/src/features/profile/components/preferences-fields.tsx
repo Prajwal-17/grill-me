@@ -46,7 +46,7 @@ export function PreferenceRow({
   children: ReactNode;
 }) {
   return (
-    <div className="grid min-w-0 gap-2 border-b border-line py-4 last:border-b-0 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6">
+    <div className="grid min-w-0 gap-2 border-b border-line py-3 last:border-b-0 @min-[600px]:grid-cols-[150px_minmax(0,1fr)] @min-[600px]:gap-6">
       {htmlFor ? (
         <label htmlFor={htmlFor} className="pt-1.5 text-ui font-medium">
           {label}
@@ -86,7 +86,7 @@ export function PreferencesFields({
         hidden={section !== "profile"}
         aria-labelledby="profile-section-title"
       >
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
           <h2
             id="profile-section-title"
             className="text-section font-semibold tracking-[-0.02em]"
@@ -318,7 +318,7 @@ export function PreferencesFields({
       >
         <h2
           id="projects-section-title"
-          className="mb-4 border-b border-line pb-4 text-section font-semibold tracking-[-0.02em]"
+          className="mb-3 border-b border-line pb-3 text-section font-semibold tracking-[-0.02em]"
         >
           Projects{" "}
           <span className="ml-1 text-ui font-normal text-muted">
